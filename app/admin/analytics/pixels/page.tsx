@@ -8,12 +8,6 @@ interface PixelSetting {
   enabled: boolean;
 }
 
-interface Member {
-  id: number;
-  status: "active" | "dormant" | "withdrawn";
-  created_at: string;
-}
-
 function getMonthLabel(offset: number) {
   const d = new Date();
   d.setMonth(d.getMonth() - offset);
@@ -104,30 +98,23 @@ export default function PixelSettingsPage() {
   const [msg, setMsg]           = useState("");
   const [tableError, setTableError] = useState(false);
 
-  // 회원가입 현황 (구 마케팅/분석 대시보드에서 이동)
-  const [members, setMembers] = useState<Member[]>([]);
+  // 회원가입 현황
+  interface MemberStats { total: number; active: number; thisMonth: number; byMonth: { month: string; count: number }[] }
+  const [memberStats, setMemberStats] = useState<MemberStats>({ total: 0, active: 0, thisMonth: 0, byMonth: [] });
   const [loadingM, setLoadingM] = useState(true);
   useEffect(() => {
-    fetch("/api/admin/members")
+    fetch("/api/admin/members/stats")
       .then((r) => r.json())
-      .then((d) => setMembers(Array.isArray(d) ? d : []))
+      .then((d) => { if (d && !d.error) setMemberStats(d); })
       .finally(() => setLoadingM(false));
   }, []);
-  const memberStats = useMemo(() => {
-    const now = new Date();
+  const memberChartData = useMemo(() => {
     const months = Array.from({ length: 6 }, (_, i) => getMonthLabel(i)).reverse();
-    const byMonth = months.map((m) => ({
-      month: m,
-      count: members.filter((x) => x.status !== "withdrawn" && x.created_at.slice(0, 7) === m).length,
-    }));
+    const byMonthMap = new Map(memberStats.byMonth.map((b) => [b.month, b.count]));
+    const byMonth = months.map((m) => ({ month: m, count: byMonthMap.get(m) ?? 0 }));
     const max = Math.max(...byMonth.map((b) => b.count), 1);
-    return {
-      byMonth, max,
-      total: members.filter((m) => m.status !== "withdrawn").length,
-      thisMonth: members.filter((m) => m.status !== "withdrawn" && m.created_at.slice(0, 7) === now.toISOString().slice(0, 7)).length,
-      active: members.filter((m) => m.status === "active").length,
-    };
-  }, [members]);
+    return { byMonth, max };
+  }, [memberStats]);
 
   const showMsg = (t: string) => { setMsg(t); setTimeout(() => setMsg(""), 3000); };
 
@@ -227,19 +214,19 @@ export default function PixelSettingsPage() {
         </div>
         {loadingM ? (
           <div className="h-40 flex items-center justify-center text-gray-400">불러오는 중...</div>
-        ) : memberStats.byMonth.every((b) => b.count === 0) ? (
+        ) : memberChartData.byMonth.every((b) => b.count === 0) ? (
           <div className="h-40 flex items-center justify-center text-gray-400 text-base">
             가입 회원이 없어 데이터가 없습니다.
           </div>
         ) : (
           <div className="flex items-end gap-4 h-44">
-            {memberStats.byMonth.map(({ month, count }) => (
+            {memberChartData.byMonth.map(({ month, count }) => (
               <div key={month} className="flex-1 flex flex-col items-center gap-2">
                 <span className="text-[13px] font-bold text-[#303236]">{count > 0 ? count : ""}</span>
                 <div className="w-full relative">
                   <div
                     className="w-full bg-[#303236] rounded-t-md transition-all"
-                    style={{ height: `${Math.max(4, (count / memberStats.max) * 120)}px` }}
+                    style={{ height: `${Math.max(4, (count / memberChartData.max) * 120)}px` }}
                   />
                 </div>
                 <span className="text-[12px] text-gray-400">{month.slice(5)}월</span>

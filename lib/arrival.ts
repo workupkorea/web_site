@@ -17,6 +17,16 @@ export interface ArrivalProduct {
   productType?: string;
   newArrivalType?: string;
   color: string;
+  /** 사이즈런 (예: "00S~4XL"). 시트 "사이즈런" 열에서 가져옴 */
+  size?: string;
+  /** 총주문 수량 (시트 "총주문 수량" 열). 주문율 = orderQuantity / quantity */
+  orderQuantity?: number;
+  /** 총판매 수량 (시트 "총판매 수량" 열) */
+  salesQuantity?: number;
+  /** 총재고 수량 (시트 "총재고 수량" 열) */
+  stockQuantity?: number;
+  /** 이 행이 구글 시트에서 마지막으로 동기화된 시각 (ISO) */
+  syncedAt?: string;
   supplyPrice?: number;
   price: number;
   quantity?: number;
@@ -28,6 +38,8 @@ export interface ArrivalProduct {
   detailUrl: string | null;
   changeHistory?: ChangeHistoryEntry[];
   marketingUsage?: string;
+  /** 구글 시트에서 이 상품의 행이 마지막으로 수정된 시각 (ISO). 시트에 "행최종수정일시" 열이 있을 때만 채워짐 */
+  sheetEditedAt?: string;
 }
 
 export interface ArrivalOverride {
@@ -50,6 +62,11 @@ function rowToProduct(row: any): ArrivalProduct {
     productType:    row.product_type ?? undefined,
     newArrivalType: row.new_arrival_type ?? undefined,
     color:          row.color,
+    size:           row.size ?? undefined,
+    orderQuantity:  row.order_quantity ?? undefined,
+    salesQuantity:  row.sales_quantity ?? undefined,
+    stockQuantity:  row.stock_quantity ?? undefined,
+    syncedAt:       row.synced_at ?? undefined,
     supplyPrice:    row.supply_price ?? undefined,
     price:          row.price,
     quantity:       row.quantity ?? undefined,
@@ -61,6 +78,7 @@ function rowToProduct(row: any): ArrivalProduct {
     image:          row.image ?? null,
     detailUrl:      row.detail_url ?? null,
     changeHistory:  (row.change_history as ChangeHistoryEntry[]) ?? [],
+    sheetEditedAt:  row.sheet_edited_at ?? undefined,
   };
 }
 
@@ -374,6 +392,10 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
     product_type:     p.productType ?? null,
     new_arrival_type: p.newArrivalType ?? null,
     color:            p.color,
+    size:             p.size ?? null,
+    order_quantity:   p.orderQuantity ?? null,
+    sales_quantity:   p.salesQuantity ?? null,
+    stock_quantity:   p.stockQuantity ?? null,
     supply_price:     p.supplyPrice ?? 0,
     price:            p.price,
     quantity:         p.quantity ?? 0,
@@ -385,6 +407,7 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
     image:            p.image ?? null,
     detail_url:       p.detailUrl ?? null,
     change_history:   p.changeHistory ?? [],
+    sheet_edited_at:  p.sheetEditedAt ?? null,
     synced_at:        new Date().toISOString(),
   }));
 

@@ -18,6 +18,25 @@ type StoreStat = {
 type Totals = { view: number; list_click: number; directions: number; call: number; kakao_chat: number; conversions: number };
 type VisitRange = { type: "preset"; days: number } | { type: "custom"; from: string; to: string };
 
+// 증감률 계산
+function calcChange(curr: number, prev: number): number | null {
+  if (prev === 0) return curr > 0 ? null : 0;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
+function ChangeBadge({ curr, prev }: { curr: number; prev: number | undefined }) {
+  if (prev === undefined) return null;
+  const pct = calcChange(curr, prev);
+  if (pct === null) return <span className="text-[11px] text-blue-500 font-bold">NEW</span>;
+  if (pct === 0) return <span className="text-[11px] text-gray-400">–</span>;
+  const up = pct > 0;
+  return (
+    <span className={`text-[11px] font-bold ${up ? "text-emerald-600" : "text-red-500"}`}>
+      {up ? "▲" : "▼"}{Math.abs(pct)}%
+    </span>
+  );
+}
+
 // ── 패스 매트릭스 타입 ────────────────────────────────────────────
 type MatrixStore = { id: number; name: string };
 type MatrixEntry = { status: string; updated_at: string | null } | null;
@@ -61,13 +80,20 @@ const monthLastDay = (ym: string) => {
 };
 
 // ── 방문 분석 탭 ─────────────────────────────────────────────────
+type SortKey = "view" | "conv_rate" | "directions_kakao" | "directions_naver" | "call" | "kakao_chat" | "conversions" | "vs_prev";
+type SortDir = "desc" | "asc";
+
 function VisitAnalyticsTab() {
   const [range, setRange] = useState<VisitRange>({ type: "preset", days: 30 });
   const [from, setFrom] = useState(() => isoDate(new Date(Date.now() - 29 * 86400000)));
   const [to, setTo] = useState(() => isoDate(new Date()));
   const [stores, setStores] = useState<StoreStat[]>([]);
   const [totals, setTotals] = useState<Totals | null>(null);
+  const [prevTotals, setPrevTotals] = useState<Totals | null>(null);
+  const [prevStores, setPrevStores] = useState<StoreStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const rangeLabel = useMemo(
     () => range.type === "preset" ? VISIT_PRESETS.find((p) => p.days === range.days)?.label ?? `${range.days}일` : `${range.from} ~ ${range.to}`,
@@ -78,27 +104,85 @@ function VisitAnalyticsTab() {
     const qs = range.type === "preset" ? `days=${range.days}` : `from=${range.from}&to=${range.to}`;
     setLoading(true);
     fetch(`/api/admin/stores/analytics?${qs}`)
-      .then((r) => (r.ok ? r.json() : { stores: [], totals: null }))
-      .then((d) => { setStores(d.stores ?? []); setTotals(d.totals ?? null); })
+      .then((r) => (r.ok ? r.json() : { stores: [], totals: null, prevTotals: null, prevStores: [] }))
+      .then((d) => {
+        setStores(d.stores ?? []);
+        setTotals(d.totals ?? null);
+        setPrevTotals(d.prevTotals ?? null);
+        setPrevStores(d.prevStores ?? []);
+      })
       .finally(() => setLoading(false));
   }, [range]);
 
   const summary = [
-    { label: "지점 조회", value: totals?.view ?? 0, color: "text-gray-900" },
-    { label: "길찾기", value: totals?.directions ?? 0, color: "text-[#303236]" },
-    { label: "전화 문의", value: totals?.call ?? 0, color: "text-emerald-600" },
-    { label: "카카오톡 상담", value: totals?.kakao_chat ?? 0, color: "text-yellow-600" },
-    { label: "전환 합계", value: totals?.conversions ?? 0, color: "text-[#E5541B]" },
+    { label: "지점 조회", value: totals?.view ?? 0, prev: prevTotals?.view, color: "text-gray-900" },
+    { label: "길찾기", value: totals?.directions ?? 0, prev: prevTotals?.directions, color: "text-[#303236]" },
+    { label: "전화 문의", value: totals?.call ?? 0, prev: prevTotals?.call, color: "text-emerald-600" },
+    { label: "카카오톡 상담", value: totals?.kakao_chat ?? 0, prev: prevTotals?.kakao_chat, color: "text-yellow-600" },
+    { label: "전환 합계", value: totals?.conversions ?? 0, prev: prevTotals?.conversions, color: "text-[#E5541B]" },
   ];
+
+  // 이전 기간 매장 Map
+  const prevStoreMap = useMemo(() => {
+    const m = new Map<string, StoreStat>();
+    for (const s of prevStores) m.set(String(s.store_id ?? `name:${s.store_name}`), s);
+    return m;
+  }, [prevStores]);
+
+  // 정렬된 rows
+  const sortedStores = useMemo(() => {
+    if (!sortKey) return stores;
+    return [...stores].sort((a, b) => {
+      const pa = prevStoreMap.get(String(a.store_id ?? `name:${a.store_name}`));
+      const pb = prevStoreMap.get(String(b.store_id ?? `name:${b.store_name}`));
+      let va = 0, vb = 0;
+      if (sortKey === "conv_rate") {
+        va = a.view > 0 ? (a.conversions / a.view) * 100 : 0;
+        vb = b.view > 0 ? (b.conversions / b.view) * 100 : 0;
+      } else if (sortKey === "vs_prev") {
+        va = pa ? calcChange(a.conversions, pa.conversions) ?? 0 : -Infinity;
+        vb = pb ? calcChange(b.conversions, pb.conversions) ?? 0 : -Infinity;
+      } else {
+        va = a[sortKey as keyof StoreStat] as number;
+        vb = b[sortKey as keyof StoreStat] as number;
+      }
+      return sortDir === "desc" ? vb - va : va - vb;
+    });
+  }, [stores, sortKey, sortDir, prevStoreMap]);
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    else { setSortKey(key); setSortDir("desc"); }
+  };
+
+  const SortTh = ({ k, label, left }: { k: SortKey; label: string; left?: boolean }) => {
+    const active = sortKey === k;
+    return (
+      <th
+        onClick={() => handleSort(k)}
+        className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase whitespace-nowrap cursor-pointer select-none hover:text-gray-900 hover:bg-gray-100 transition-colors ${left ? "text-left" : "text-right"}`}
+      >
+        <span className="inline-flex items-center gap-1 justify-end w-full">
+          {!left && <span className={`text-[10px] ${active ? "text-[#303236]" : "text-gray-300"}`}>{active && sortDir === "asc" ? "▲" : "▼"}</span>}
+          <span className={active ? "text-[#303236]" : ""}>{label}</span>
+          {left && <span className={`text-[10px] ${active ? "text-[#303236]" : "text-gray-300"}`}>{active && sortDir === "asc" ? "▲" : "▼"}</span>}
+        </span>
+      </th>
+    );
+  };
 
   const downloadExcel = () => {
     if (stores.length === 0) return;
-    const header = ["순위", "지점", "조회", "길찾기(카카오)", "길찾기(네이버)", "전화", "카카오톡", "리스트클릭", "전환합계"];
-    const rows = stores.map((s, i) => [i + 1, s.store_name, s.view, s.directions_kakao, s.directions_naver, s.call, s.kakao_chat, s.list_click, s.conversions]);
-    const totalRow = totals ? ["", "합계", totals.view, "", "", totals.call, totals.kakao_chat, totals.list_click, totals.conversions] : null;
+    const header = ["순위", "지점", "조회", "전환율(%)", "길찾기(카카오)", "길찾기(네이버)", "전화", "카카오톡", "리스트클릭", "전환합계"];
+    const rows = stores.map((s, i) => [
+      i + 1, s.store_name, s.view,
+      s.view > 0 ? ((s.conversions / s.view) * 100).toFixed(1) : "0.0",
+      s.directions_kakao, s.directions_naver, s.call, s.kakao_chat, s.list_click, s.conversions,
+    ]);
+    const totalRow = totals ? ["", "합계", totals.view, totals.view > 0 ? ((totals.conversions / totals.view) * 100).toFixed(1) : "0.0", "", "", totals.call, totals.kakao_chat, totals.list_click, totals.conversions] : null;
     const aoa = [[`워크업 지점 방문 분석 — 기간: ${rangeLabel}`], [], header, ...rows, ...(totalRow ? [totalRow] : [])];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
-    ws["!cols"] = header.map((_, i) => ({ wch: i === 1 ? 26 : 13 }));
+    ws["!cols"] = header.map((_, i) => ({ wch: i === 1 ? 26 : 12 }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "방문분석");
     XLSX.writeFile(wb, `workup_방문분析_${range.type === "preset" ? rangeLabel.replace(/\s/g, "") : `${range.from}_${range.to}`}.xlsx`);
@@ -144,8 +228,14 @@ function VisitAnalyticsTab() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
         {summary.map((s) => (
           <div key={s.label} className="bg-white border border-gray-200 rounded-xl px-5 py-4">
-            <p className="text-xs text-gray-500">{s.label}</p>
-            <p className={`text-2xl font-bold mt-1 ${s.color}`}>{s.value.toLocaleString()}</p>
+            <p className="text-xs text-gray-500 mb-1">{s.label}</p>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value.toLocaleString()}</p>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <ChangeBadge curr={s.value} prev={s.prev} />
+              {s.prev !== undefined && (
+                <span className="text-[11px] text-gray-300">이전 {s.prev.toLocaleString()}</span>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -153,54 +243,73 @@ function VisitAnalyticsTab() {
       {/* 지점별 순위 */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">지점별 순위 (전환 많은 순)</h2>
+          <h2 className="text-lg font-bold text-gray-900">지점별 순위 <span className="text-sm font-normal text-gray-400 ml-1">전환 많은 순</span></h2>
           <p className="text-sm text-gray-400">{stores.length}개 지점</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                {["순위", "지점", "조회", "길찾기(카)", "길찾기(네)", "전화", "카톡", "리스트", "전환합계"].map((h, i) => (
-                  <th key={h} className={`px-4 py-3 text-xs font-semibold text-gray-500 uppercase whitespace-nowrap ${i <= 1 ? "text-left" : "text-right"}`}>{h}</th>
-                ))}
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-left whitespace-nowrap">순위</th>
+                <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase text-left whitespace-nowrap">지점</th>
+                <SortTh k="view" label="조회" />
+                <SortTh k="conv_rate" label="전환율" />
+                <SortTh k="directions_kakao" label="길찾기(카)" />
+                <SortTh k="directions_naver" label="길찾기(네)" />
+                <SortTh k="call" label="전화" />
+                <SortTh k="kakao_chat" label="카톡" />
+                <SortTh k="conversions" label="전환합계" />
+                <SortTh k="vs_prev" label="vs 이전" />
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={9} className="px-5 py-16 text-center text-gray-400">
+                <tr><td colSpan={10} className="px-5 py-16 text-center text-gray-400">
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
                     불러오는 중...
                   </div>
                 </td></tr>
               ) : stores.length === 0 ? (
-                <tr><td colSpan={9} className="px-5 py-16 text-center text-gray-400">
+                <tr><td colSpan={10} className="px-5 py-16 text-center text-gray-400">
                   <p className="text-base font-medium mb-1">이 기간에 수집된 데이터가 없습니다.</p>
                   <p className="text-sm">고객이 매장 페이지를 조회하거나 길찾기·전화를 누르면 여기에 집계됩니다.</p>
                 </td></tr>
-              ) : stores.map((s, i) => (
-                <tr key={s.store_id ?? s.store_name} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3.5">
-                    <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full ${RANK_BADGE[i] ?? "bg-gray-100 text-gray-500"}`}>{i + 1}</span>
-                  </td>
-                  <td className="px-4 py-3.5 font-medium text-gray-900">
-                    {s.store_id ? <Link href={`/store/${s.store_id}`} target="_blank" className="hover:text-[#E5541B] hover:underline">{s.store_name}</Link> : s.store_name}
-                  </td>
-                  <td className="px-4 py-3.5 text-right text-gray-600">{s.view.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-right text-gray-600">{s.directions_kakao.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-right text-gray-600">{s.directions_naver.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-right text-emerald-600">{s.call.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-right text-yellow-600">{s.kakao_chat.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-right text-gray-400">{s.list_click.toLocaleString()}</td>
-                  <td className="px-4 py-3.5 text-right font-bold text-[#E5541B]">{s.conversions.toLocaleString()}</td>
-                </tr>
-              ))}
+              ) : sortedStores.map((s, i) => {
+                const convRate = s.view > 0 ? ((s.conversions / s.view) * 100).toFixed(1) : "0.0";
+                const prevS = prevStoreMap.get(String(s.store_id ?? `name:${s.store_name}`));
+                const originalRank = stores.indexOf(s);
+                return (
+                  <tr key={s.store_id ?? s.store_name} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3.5">
+                      <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full ${RANK_BADGE[originalRank] ?? "bg-gray-100 text-gray-500"}`}>{originalRank + 1}</span>
+                    </td>
+                    <td className="px-4 py-3.5 font-medium text-gray-900">
+                      {s.store_id ? <Link href={`/store/${s.store_id}`} target="_blank" className="hover:text-[#E5541B] hover:underline">{s.store_name}</Link> : s.store_name}
+                    </td>
+                    <td className="px-4 py-3.5 text-right text-gray-600">{s.view.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right">
+                      <span className={`font-semibold ${parseFloat(convRate) >= 10 ? "text-emerald-600" : parseFloat(convRate) >= 5 ? "text-blue-500" : "text-gray-400"}`}>
+                        {convRate}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right text-gray-600">{s.directions_kakao.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right text-gray-600">{s.directions_naver.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right text-emerald-600">{s.call.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right text-yellow-600">{s.kakao_chat.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right font-bold text-[#E5541B]">{s.conversions.toLocaleString()}</td>
+                    <td className="px-4 py-3.5 text-right">
+                      <ChangeBadge curr={s.conversions} prev={prevS?.conversions} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
       <p className="mt-4 text-xs text-gray-400">
-        · 전환합계 = 길찾기(카카오+네이버) + 전화 + 카카오톡 상담. 실제 방문·문의로 이어지는 행동입니다.
+        · 전환율 = 전환합계 ÷ 조회수 · 전환합계 = 길찾기 + 전화 + 카카오톡 · vs 이전 = 동일 기간 길이의 직전 기간 대비
       </p>
     </>
   );

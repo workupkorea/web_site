@@ -15,14 +15,25 @@ function toRows(m: Map<number, StoreAgg>): StoreStat[] {
 // 전체 누적 지점별 패스 현황을 한 번에 계산한다 — 원본 행을 그대로 가져와 이 라우트에서 집계
 // (이 저장소는 별도 통계 테이블/RPC 없이 관리자 목록 페이지들도 전부 클라이언트/서버에서
 //  직접 reduce하는 방식이라 동일한 관례를 따른다).
-export async function GET() {
+export async function GET(req: Request) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const sb = createAdminClient();
 
-  const { data: notices, error: noticeErr } = await sb
+  // 기본 90일, days=0이면 전체
+  const { searchParams } = new URL(req.url);
+  const days = Number(searchParams.get("days") ?? "90");
+  const sinceDate = days > 0
+    ? new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    : null;
+
+  let noticeQ = sb
     .from("notices")
     .select("id, notice_date, product_id, temp_name, products(id, name)")
-    .order("notice_date", { ascending: false });
+    .order("notice_date", { ascending: false })
+    .limit(500);
+  if (sinceDate) noticeQ = noticeQ.gte("notice_date", sinceDate);
+
+  const { data: notices, error: noticeErr } = await noticeQ;
   if (noticeErr) return NextResponse.json({ error: noticeErr.message }, { status: 500 });
 
   const noticeDateById = new Map<string, string>();
@@ -43,9 +54,11 @@ export async function GET() {
     .eq("is_active", true);
   const storeNameById = new Map<number, string>((allStores ?? []).map((s) => [s.id, s.name]));
 
-  const { data: entries, error: entryErr } = await sb
-    .from("pass_entries")
-    .select("notice_id, store_id, status");
+  // 조회된 notices 범위의 ID만 필터링
+  const noticeIds = (notices ?? []).map((n) => n.id);
+  const { data: entries, error: entryErr } = noticeIds.length > 0
+    ? await sb.from("pass_entries").select("notice_id, store_id, status").in("notice_id", noticeIds)
+    : { data: [], error: null };
   if (entryErr) return NextResponse.json({ error: entryErr.message }, { status: 500 });
 
   // notice_id → Set<store_id> (응답한 지점)

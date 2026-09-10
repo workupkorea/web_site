@@ -249,7 +249,7 @@ function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: 
   }
 
   return (
-    <div className="fixed inset-0 z-[70] overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
       <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
       <div
         className="bg-white w-full max-w-[1025px] flex flex-col rounded-2xl overflow-hidden shadow-2xl"
@@ -323,6 +323,12 @@ function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: 
                     <td className="py-2.5 pr-4 text-[11px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">컬러</td>
                     <td className="py-2.5 text-[13px] text-[#1a1a1a] align-middle">{product.color || "—"}</td>
                   </tr>
+                  {product.size && (
+                    <tr className="border-b border-gray-100">
+                      <td className="py-2.5 pr-4 text-[11px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">사이즈</td>
+                      <td className="py-2.5 text-[13px] text-[#1a1a1a] align-middle">{product.size}</td>
+                    </tr>
+                  )}
                   <tr className="border-b border-gray-100">
                     <td className="py-2.5 pr-4 text-[11px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">공급가</td>
                     <td className="py-2.5 text-[13px] text-[#1a1a1a] align-middle">{product.supplyPrice && product.supplyPrice > 0 ? fmtPrice(product.supplyPrice) : "—"}</td>
@@ -381,6 +387,12 @@ function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: 
                     <td className="py-1 pr-3 text-[10px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">컬러</td>
                     <td className="py-1 text-[11px] text-[#1a1a1a] align-middle">{product.color || "—"}</td>
                   </tr>
+                  {product.size && (
+                    <tr className="border-b border-gray-100">
+                      <td className="py-1 pr-3 text-[10px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">사이즈</td>
+                      <td className="py-1 text-[11px] text-[#1a1a1a] align-middle">{product.size}</td>
+                    </tr>
+                  )}
                   <tr className="border-b border-gray-100">
                     <td className="py-1 pr-3 text-[10px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">공급/판매가</td>
                     <td className="py-1 text-[11px] text-[#1a1a1a] align-middle">
@@ -457,8 +469,16 @@ function ProductCard({ product, onSelect, showDate, showMarketing }: { product: 
   return (
     <button onClick={onSelect}
       className="text-left transition-opacity hover:opacity-80 flex flex-col">
-      <div className={`w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
+      <div className={`relative w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
         <ProductImage product={product} size="sm" />
+        {product.newArrivalType === "재진행" && (
+          <span
+            className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[10px] font-bold flex items-center justify-center leading-none shadow"
+            title="재진행 상품"
+          >
+            R
+          </span>
+        )}
       </div>
       <div className="pt-2 flex flex-col gap-1 flex-1">
         <div className="flex items-center justify-between gap-1">
@@ -1179,6 +1199,9 @@ function CalendarView({ products, onSelect, showMarketing }: {
                                         className="w-full text-left transition-opacity hover:opacity-75 py-2 first:pt-0 last:pb-0">
                                         <div className={`relative w-full aspect-[3/4] overflow-hidden rounded-sm bg-[#f0efed] ${showMarketing && p.marketingUsage ? "ring-2 ring-orange-400" : ""}`}>
                                           <MiniThumb product={p} />
+                                          {p.newArrivalType === "재진행" && (
+                                            <span className="absolute top-1 left-1 z-10 w-4 h-4 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[8px] font-bold flex items-center justify-center leading-none shadow" title="재진행 상품">R</span>
+                                          )}
                                         </div>
                                         <div className="flex items-center gap-1 mt-1">
                                           <span className={`text-[9px] font-bold px-1 py-0.5 rounded-sm leading-none shrink-0 ${meta.cls}`}>{meta.label}</span>
@@ -1187,12 +1210,20 @@ function CalendarView({ products, onSelect, showMarketing }: {
                                         <p className="text-[11px] font-semibold text-[#1a1a1a] leading-tight mt-0.5 line-clamp-2">{stripBrand(p.productName, p.brand)}</p>
                                         <div className="mt-0.5 space-y-0">
                                           {p.quantity != null && p.quantity > 0 && (
-                                            <p className="text-[9px] text-gray-500">수량 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></p>
+                                            <p className="text-[9px] text-gray-500">입고 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></p>
+                                          )}
+                                          {p.orderQuantity != null && p.orderQuantity > 0 && (
+                                            <p className="text-[9px] text-gray-500">
+                                              주문 <span className="font-semibold text-[#1a1a1a]">{p.orderQuantity.toLocaleString("ko-KR")}</span>
+                                              {p.quantity != null && p.quantity > 0 && (
+                                                <span className="ml-1 font-bold text-blue-600">{Math.round((p.orderQuantity / p.quantity) * 100)}%</span>
+                                              )}
+                                            </p>
                                           )}
                                           {(p.supplyPrice != null && p.supplyPrice > 0) || p.price > 0 ? (
                                             <p className="text-[9px] text-gray-500 flex gap-1.5">
-                                              {p.supplyPrice != null && p.supplyPrice > 0 && <span>공급 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
-                                              {p.price > 0 && <span>판매 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
+                                              {p.supplyPrice != null && p.supplyPrice > 0 && <span>공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
+                                              {p.price > 0 && <span>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
                                             </p>
                                           ) : null}
                                         </div>
@@ -1469,14 +1500,17 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                 <button
                                   key={`${p.productCode}_${p.arrivalDate || "none"}`}
                                   onClick={() => onSelect(p)}
-                                  className="shrink-0 w-[96px] sm:w-[108px] text-left hover:opacity-75 transition-opacity"
+                                  className="shrink-0 w-[96px] sm:w-[150px] text-left hover:opacity-75 transition-opacity"
                                 >
-                                  <div className={`w-full aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
+                                  <div className={`w-[96px] sm:w-[108px] aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
                                     <div className="relative w-full h-full overflow-hidden bg-white">
                                       <MiniThumb product={p} />
                                       <span className={`absolute top-1 left-1 text-[7px] font-bold px-1 py-0.5 rounded leading-none ${meta.cls}`}>
                                         {meta.label}
                                       </span>
+                                      {p.newArrivalType === "재진행" && (
+                                        <span className="absolute top-1 right-1 z-10 w-4 h-4 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[8px] font-bold flex items-center justify-center leading-none shadow" title="재진행 상품">R</span>
+                                      )}
                                     </div>
                                   </div>
                                   <div className="mt-1.5 space-y-0.5">
@@ -1486,8 +1520,22 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                     <p className="text-[10px] font-semibold text-[#1a1a1a] leading-tight line-clamp-2">
                                       {stripBrand(p.productName, p.brand)}
                                     </p>
-                                    {p.price > 0 && (
-                                      <p className="text-[9px] text-gray-500">{fmtPrice(p.price)}</p>
+                                    {p.quantity != null && p.quantity > 0 && (
+                                      <p className="text-[9px] text-gray-500">입고 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></p>
+                                    )}
+                                    {p.orderQuantity != null && p.orderQuantity > 0 && (
+                                      <p className="text-[9px] text-gray-500">
+                                        주문 <span className="font-semibold text-[#1a1a1a]">{p.orderQuantity.toLocaleString("ko-KR")}</span>
+                                        {p.quantity != null && p.quantity > 0 && (
+                                          <span className="ml-1 font-bold text-blue-600">{Math.round((p.orderQuantity / p.quantity) * 100)}%</span>
+                                        )}
+                                      </p>
+                                    )}
+                                    {((p.supplyPrice != null && p.supplyPrice > 0) || p.price > 0) && (
+                                      <p className="text-[9px] text-gray-500 flex gap-1.5">
+                                        {p.supplyPrice != null && p.supplyPrice > 0 && <span>공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
+                                        {p.price > 0 && <span>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
+                                      </p>
                                     )}
                                   </div>
                                 </button>
@@ -1508,11 +1556,150 @@ function TimelineView({ products, onSelect, showMarketing }: {
   );
 }
 
+// ─── 주문 현황 순위표 모달 ───────────────────────────────────────────────────
+type RankSortKey = "orderRate" | "orderQty" | "stockQty" | "salesQty" | "inQty" | "salesRate";
+
+function pct(n?: number, d?: number) {
+  if (n == null || !d) return null;
+  return Math.round((n / d) * 100);
+}
+
+function OrderRankModal({ products, onClose, onSelect }: {
+  products: ArrivalProduct[]; onClose: () => void; onSelect: (p: ArrivalProduct) => void;
+}) {
+  const [sortKey, setSortKey] = useState<RankSortKey>("orderRate");
+
+  // 주문이 있는 상품만
+  const ordered = useMemo(() => products.filter(p => (p.orderQuantity ?? 0) > 0), [products]);
+
+  const rows = useMemo(() => {
+    const val = (p: ArrivalProduct): number => {
+      switch (sortKey) {
+        case "orderRate": return pct(p.orderQuantity, p.quantity) ?? -1;
+        case "salesRate": return pct(p.salesQuantity, p.quantity) ?? -1;
+        case "orderQty":  return p.orderQuantity ?? -1;
+        case "stockQty":  return p.stockQuantity ?? -1;
+        case "salesQty":  return p.salesQuantity ?? -1;
+        case "inQty":     return p.quantity ?? -1;
+      }
+    };
+    return [...ordered].sort((a, b) => val(b) - val(a));
+  }, [ordered, sortKey]);
+
+  const totals = useMemo(() => ordered.reduce((t, p) => ({
+    inQty:    t.inQty + (p.quantity ?? 0),
+    orderQty: t.orderQty + (p.orderQuantity ?? 0),
+    stockQty: t.stockQty + (p.stockQuantity ?? 0),
+    salesQty: t.salesQty + (p.salesQuantity ?? 0),
+  }), { inQty: 0, orderQty: 0, stockQty: 0, salesQty: 0 }), [ordered]);
+
+  const num = (n?: number) => (n != null && n > 0 ? n.toLocaleString("ko-KR") : "—");
+  const sortBtn = (key: RankSortKey, label: string, cls = "") => (
+    <button
+      onClick={() => setSortKey(key)}
+      className={`px-1.5 py-0.5 rounded whitespace-nowrap transition-colors ${sortKey === key ? "bg-[#1a1a1a] text-white" : "text-gray-500 hover:text-[#1a1a1a]"} ${cls}`}
+    >
+      {label}{sortKey === key ? " ▼" : ""}
+    </button>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-start justify-center overflow-y-auto" onClick={onClose}>
+      <div className="bg-white w-full max-w-[1100px] my-4 mx-2 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]" onClick={e => e.stopPropagation()}>
+        {/* 헤더 */}
+        <div className="px-4 sm:px-6 py-3 border-b border-gray-100 flex items-center justify-between shrink-0">
+          <div>
+            <h2 className="text-[15px] font-black text-[#1a1a1a]">주문 순위</h2>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              주문 {rows.length}개 · 입고 {totals.inQty.toLocaleString("ko-KR")} / 주문 {totals.orderQty.toLocaleString("ko-KR")}
+              {totals.inQty > 0 && <span className="text-blue-600 font-bold"> ({Math.round(totals.orderQty / totals.inQty * 100)}%)</span>}
+              {" "}/ 재고 {totals.stockQty.toLocaleString("ko-KR")} / 판매 {totals.salesQty.toLocaleString("ko-KR")}
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 text-xl leading-none w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 shrink-0">×</button>
+        </div>
+
+        {/* 정렬 */}
+        <div className="px-4 sm:px-6 py-2 border-b border-gray-100 flex items-center gap-1 text-[11px] font-semibold overflow-x-auto shrink-0">
+          <span className="text-gray-400 mr-1 shrink-0">정렬</span>
+          {sortBtn("orderRate", "주문율")}
+          {sortBtn("orderQty", "주문량")}
+          {sortBtn("inQty", "입고량")}
+          {sortBtn("stockQty", "재고량")}
+          {sortBtn("salesQty", "판매량")}
+          {sortBtn("salesRate", "판매율")}
+        </div>
+
+        {/* 표 */}
+        <div className="overflow-auto">
+          <table className="w-full text-[12px] border-collapse">
+            <thead className="sticky top-0 bg-gray-50 z-10">
+              <tr className="text-[10px] uppercase tracking-wider text-gray-400 border-b border-gray-200">
+                <th className="px-2 py-2 text-right w-8">#</th>
+                <th className="px-2 py-2 text-left">상품</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">입고일</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">입고</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">주문</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">주문율</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">재고</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">판매</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">판매율</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">공급가</th>
+                <th className="px-2 py-2 text-right whitespace-nowrap">판매가</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {rows.map((p, i) => {
+                const oRate = pct(p.orderQuantity, p.quantity);
+                const sRate = pct(p.salesQuantity, p.quantity);
+                return (
+                  <tr key={`${p.productCode}_${p.arrivalDate || "none"}`}
+                    onClick={() => onSelect(p)}
+                    className="hover:bg-gray-50 cursor-pointer">
+                    <td className="px-2 py-1.5 text-right text-gray-400 tabular-nums">{i + 1}</td>
+                    <td className="px-2 py-1.5">
+                      <div className="flex items-center gap-2 min-w-[180px]">
+                        <div className="w-7 h-9 shrink-0 relative overflow-hidden rounded bg-[#f0efed]">
+                          <MiniThumb product={p} />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="inline-flex items-center gap-1">
+                            <span className={`inline-block text-[8px] font-bold px-1 py-0.5 rounded-sm leading-none ${brandBg(p.brand)} ${brandTextCls(p.brand)}`}>{p.brand}</span>
+                            {p.newArrivalType === "재진행" && (
+                              <span className="inline-block text-[8px] font-bold px-1 py-0.5 rounded-sm leading-none bg-[#ffd700] text-[#1a1a1a]" title="재진행 상품">재진행</span>
+                            )}
+                          </span>
+                          <p className="text-[12px] font-semibold text-[#1a1a1a] leading-tight truncate">{stripBrand(p.productName, p.brand)}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-gray-500 tabular-nums whitespace-nowrap">{parseDate(p.arrivalDate) ? fmtDate(p.arrivalDate).full : "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{num(p.quantity)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums font-semibold">{num(p.orderQuantity)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums font-bold text-blue-600">{oRate != null ? `${oRate}%` : "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{num(p.stockQuantity)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums">{num(p.salesQuantity)}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums font-bold text-green-600">{sRate != null ? `${sRate}%` : "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-500">{p.supplyPrice && p.supplyPrice > 0 ? p.supplyPrice.toLocaleString("ko-KR") : "—"}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-gray-700">{p.price > 0 ? p.price.toLocaleString("ko-KR") : "—"}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {rows.length === 0 && <div className="py-16 text-center text-gray-400 text-[13px]">표시할 상품이 없습니다.</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 export default function ArrivalTimeline() {
   const [products,    setProducts]   = useState<ArrivalProduct[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<ArrivalProduct | null>(null);
+  const [showRank, setShowRank] = useState(false);
 
   const [viewMode,  setViewMode]  = useState<ViewMode>("grid");
   const [groupMode, setGroupMode] = useState<GroupMode>("month");
@@ -1520,6 +1707,7 @@ export default function ArrivalTimeline() {
   const [filterBrand,     setFilterBrand]     = useState("all");
   const [filterCategory,  setFilterCategory]  = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
+  const [filterNewArrival, setFilterNewArrival] = useState("all"); // all / 신규 / 재진행
   const [searchQuery,     setSearchQuery]     = useState("");
   const [filterMarketing, setFilterMarketing] = useState(false);
   const [filterOpen,      setFilterOpen]      = useState(false);
@@ -1562,6 +1750,11 @@ export default function ArrivalTimeline() {
 
   const brands     = useMemo(() => Array.from(new Set(products.map(p => p.brand))).sort(),     [products]);
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category))).sort(), [products]);
+  const newArrivalTypes = useMemo(() => Array.from(new Set(products.map(p => p.newArrivalType).filter(Boolean))).sort() as string[], [products]);
+  const lastSync = useMemo(() => {
+    const t = products.map(p => p.syncedAt).filter(Boolean) as string[];
+    return t.length ? t.reduce((a, b) => (a > b ? a : b)) : null;
+  }, [products]);
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -1570,6 +1763,7 @@ export default function ArrivalTimeline() {
         if (filterBrand    !== "all" && p.brand    !== filterBrand)    return false;
         if (filterCategory !== "all" && p.category !== filterCategory) return false;
         if (filterStatus   !== "all" && p.status   !== filterStatus)   return false;
+        if (filterNewArrival !== "all" && (p.newArrivalType ?? "") !== filterNewArrival) return false;
         if (filterMarketing && !p.marketingUsage) return false;
         if (q && !p.productName.toLowerCase().includes(q) && !p.productCode.toLowerCase().includes(q)) return false;
         return true;
@@ -1580,7 +1774,7 @@ export default function ArrivalTimeline() {
         if (da !== db) return da.localeCompare(db);
         return (a.brand || "").localeCompare(b.brand || "");
       });
-  }, [products, filterBrand, filterCategory, filterStatus, filterMarketing, searchQuery]);
+  }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterMarketing, searchQuery]);
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
     const map = new Map<string, ArrivalProduct[]>();
@@ -1620,9 +1814,9 @@ export default function ArrivalTimeline() {
 
   const resetFilters = useCallback(() => {
     setFilterBrand("all"); setFilterCategory("all");
-    setFilterStatus("all"); setSearchQuery(""); setFilterMarketing(false);
+    setFilterStatus("all"); setFilterNewArrival("all"); setSearchQuery(""); setFilterMarketing(false);
   }, []);
-  const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterStatus !== "all" || searchQuery !== "" || filterMarketing;
+  const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterStatus !== "all" || filterNewArrival !== "all" || searchQuery !== "" || filterMarketing;
 
   if (loadingData) {
     return (
@@ -1657,7 +1851,7 @@ export default function ArrivalTimeline() {
               className={`sm:hidden flex items-center gap-1 px-2.5 py-1 text-[12px] font-semibold rounded-lg border transition-all shrink-0 ${
                 filterOpen || hasFilter ? "bg-[#1a1a1a] text-white border-[#1a1a1a]" : "border-gray-200 text-gray-600"
               }`}>
-              필터{hasFilter ? ` (${[filterBrand!=="all",filterCategory!=="all",filterStatus!=="all",filterMarketing].filter(Boolean).length})` : ""}
+              필터{hasFilter ? ` (${[filterBrand!=="all",filterCategory!=="all",filterStatus!=="all",filterNewArrival!=="all",filterMarketing].filter(Boolean).length})` : ""}
             </button>
 
             {/* 데스크탑 인라인 필터 */}
@@ -1680,6 +1874,13 @@ export default function ArrivalTimeline() {
                 <option value="입고지연">입고지연</option>
                 <option value="일정미정">일정미정</option>
               </select>
+              {newArrivalTypes.length > 0 && (
+                <select value={filterNewArrival} onChange={e => setFilterNewArrival(e.target.value)}
+                  className="border border-gray-200 px-2 py-1 text-[12px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                  <option value="all">신상구분</option>
+                  {newArrivalTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
               <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                 <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                   className="w-3 h-3 accent-orange-500 cursor-pointer" />
@@ -1704,6 +1905,20 @@ export default function ArrivalTimeline() {
                   ))}
                 </div>
               )}
+              {/* 업데이트 일자 + 주문 순위 */}
+              {lastSync && (
+                <span className="hidden sm:inline text-[10px] text-gray-400 whitespace-nowrap tabular-nums">
+                  {new Date(lastSync).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준
+                </span>
+              )}
+              <button
+                onClick={() => setShowRank(true)}
+                title="주문 순위"
+                className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold rounded-lg border border-orange-300 bg-orange-50 text-orange-600 hover:bg-orange-100 hover:border-orange-400 transition-all whitespace-nowrap shrink-0"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="8"/><rect x="13" y="5" width="3" height="12"/></svg>
+                <span className="hidden sm:inline">주문순위</span>
+              </button>
               {/* 뷰 전환 버튼 */}
               <div className="flex items-center gap-0.5 border border-gray-200 rounded-lg p-0.5">
                 <button onClick={() => setViewMode("grid")}
@@ -1750,6 +1965,13 @@ export default function ArrivalTimeline() {
                 <option value="입고지연">입고지연</option>
                 <option value="일정미정">일정미정</option>
               </select>
+              {newArrivalTypes.length > 0 && (
+                <select value={filterNewArrival} onChange={e => setFilterNewArrival(e.target.value)}
+                  className="border border-gray-200 px-2.5 py-1.5 text-[12px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700 flex-1 min-w-[100px]">
+                  <option value="all">신상구분 전체</option>
+                  {newArrivalTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              )}
               <div className="flex items-center gap-2 w-full">
                 <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
                   <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
@@ -1764,7 +1986,7 @@ export default function ArrivalTimeline() {
           )}
         </div>
         {/* 범례 */}
-        <p className="text-[9px] text-gray-400 mt-1 text-right pr-0.5">* 마케팅 = 주황 테두리 / 캘린더 = 모바일 미지원</p>
+        <p className="text-[9px] text-gray-400 mt-1 text-right pr-0.5">* R뱃지 = 재진행 제품 / 캘린더 = 모바일 미지원</p>
       </div>
 
       {/* ── 본문 ── */}
@@ -1787,6 +2009,9 @@ export default function ArrivalTimeline() {
         )}
       </div>
 
+      {showRank && (
+        <OrderRankModal products={filtered} onClose={() => setShowRank(false)} onSelect={setSelectedProduct} />
+      )}
       {selectedProduct && (
         <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
       )}

@@ -70,7 +70,7 @@ function fmtCount(n: number | null): string {
 
 // ─── SQL 에디터 ───────────────────────────────────────────────────────────────
 function SqlEditor({ projectRef, hasAccessToken }: { projectRef: string | null; hasAccessToken?: boolean }) {
-  const [sql,      setSql]      = useState("SELECT * FROM members LIMIT 10;");
+  const [sql,      setSql]      = useState("");
   const [running,  setRunning]  = useState(false);
   const [result,   setResult]   = useState<{ rows?: unknown[]; error?: string; elapsedMs?: number } | null>(null);
 

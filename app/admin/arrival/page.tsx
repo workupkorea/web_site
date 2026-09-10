@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from "react";
 import type { ArrivalProduct, ArrivalStatus } from "@/lib/arrival";
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
@@ -15,16 +15,46 @@ function fmtPrice(n: number) {
   return n > 0 ? "₩" + n.toLocaleString("ko-KR") : "—";
 }
 
+// 입고일(YYYY-MM-DD) → "M/D" 짧은 표기
+function fmtArrivalShort(iso: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  return m ? `${+m[2]}/${+m[3]}` : (iso || "—");
+}
+
+// 입고일 → 시즌 코드. SS: 2~7월 / FW: 8~12월·익년 1월(1월은 전년도 FW).
+// 시즌 경계 조정이 필요하면 이 함수만 고치면 됨.
+function seasonOf(iso: string) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
+  if (!m) return "";
+  const y = +m[1], mo = +m[2];
+  if (mo === 1)           return `${String(y - 1).slice(2)}FW`;
+  if (mo >= 2 && mo <= 7) return `${String(y).slice(2)}SS`;
+  return `${String(y).slice(2)}FW`;
+}
+
+// 목록 테이블에서 토글 가능한 열의 localStorage 키
+const ARRIVAL_HIDDEN_COLS_KEY = "arrival_table_hidden_cols";
+// 최초 방문 시 기본 숨김 열
+const ARRIVAL_DEFAULT_HIDDEN_COLS = ["season", "sheetEditedAt", "color", "size", "orderQty", "salesQty", "stockQty"];
+
 const STATUS_OPTIONS: ArrivalStatus[] = ["입고예정", "입고완료", "입고지연", "일정미정", "대기", "일정미표기"];
 
 const STATUS_CLS: Record<ArrivalStatus, string> = {
-  입고완료:   "bg-gray-100 text-gray-400",
+  입고완료:   "bg-green-100 text-green-700",
   입고예정:   "bg-[#1a1a1a] text-white",
   입고지연:   "bg-amber-100 text-amber-700",
   일정미정:   "bg-gray-200 text-gray-500",
   대기:       "bg-blue-50 text-blue-600",
-  일정미표기: "bg-gray-100 text-gray-400",
+  일정미표기: "bg-white text-gray-400 border border-dashed border-gray-300",
 };
+
+// 상태 표시용 짧은 라벨 (없으면 원래 값 그대로)
+const STATUS_LABEL: Partial<Record<ArrivalStatus, string>> = {
+  입고완료:   "완료",
+  입고예정:   "예정",
+  일정미표기: "미표기",
+};
+const statusLabel = (s: ArrivalStatus) => STATUS_LABEL[s] ?? s;
 
 // ─── 동기화 히스토리 타입 ──────────────────────────────────────────────────────
 interface ProductSnapshot {
@@ -42,6 +72,7 @@ interface SyncDiffItem {
   type: "added" | "removed" | "changed";
   snapshot?: ProductSnapshot;           // 추가/삭제된 제품의 전체 정보
   changes?: { field: string; before: string; after: string }[];
+  sheetEditedAt?: string;               // 구글 시트에서 이 행이 마지막으로 수정된 시각 (ISO)
 }
 interface SyncHistoryEntry {
   id: string;
@@ -89,7 +120,7 @@ function calcSyncDiff(before: ArrivalProduct[], after: ArrivalProduct[]): SyncDi
     if (b.price        !== a.price)        changes.push({ field: "판매가", before: `₩${b.price.toLocaleString()}`, after: `₩${a.price.toLocaleString()}` });
     if ((b.quantity??0) !== (a.quantity??0)) changes.push({ field: "수량", before: String(b.quantity??0), after: String(a.quantity??0) });
     if (b.note         !== a.note)         changes.push({ field: "비고",   before: b.note || "—",      after: a.note || "—" });
-    if (changes.length > 0) diff.push({ productCode: a.productCode, productName: a.productName, type: "changed", snapshot: toSnapshot(a), changes });
+    if (changes.length > 0) diff.push({ productCode: a.productCode, productName: a.productName, type: "changed", snapshot: toSnapshot(a), changes, sheetEditedAt: a.sheetEditedAt });
   }
   return diff;
 }
@@ -280,7 +311,7 @@ function EditModal({
                       : "border-gray-200 text-gray-400 hover:border-gray-400"
                   }`}
                 >
-                  {s}
+                  {statusLabel(s)}
                 </button>
               ))}
             </div>
@@ -456,7 +487,7 @@ function BulkPanel({
           <select value={status} onChange={e => setStatus(e.target.value as ArrivalStatus | "")}
             className="w-full border border-gray-200 px-3 py-2 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a]">
             <option value="">변경 안 함</option>
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
         </div>
         <button onClick={save} disabled={saving || saved || (!date && !status)}
@@ -564,7 +595,7 @@ function AddProductModal({
                     : "border-gray-200 text-gray-400 hover:border-gray-400"
                 }`}
               >
-                {s}
+                {statusLabel(s)}
               </button>
             ))}
           </div>
@@ -1046,6 +1077,21 @@ export default function AdminArrivalPage() {
   const [selected,       setSelected]       = useState<Set<string>>(new Set());
   const [showBulk,       setShowBulk]       = useState(false);
 
+  // 목록 테이블 열 표시 여부 (기기별 localStorage)
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set(ARRIVAL_DEFAULT_HIDDEN_COLS));
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ARRIVAL_HIDDEN_COLS_KEY);
+      if (raw) setHiddenCols(new Set(JSON.parse(raw) as string[]));
+    } catch { /* 무시 */ }
+  }, []);
+  const toggleCol = (key: string) => setHiddenCols(prev => {
+    const n = new Set(prev);
+    n.has(key) ? n.delete(key) : n.add(key);
+    try { localStorage.setItem(ARRIVAL_HIDDEN_COLS_KEY, JSON.stringify([...n])); } catch { /* 무시 */ }
+    return n;
+  });
+
   // 필터
   const [q,              setQ]             = useState("");
   const [filterBrand,       setFilterBrand]      = useState("all");
@@ -1187,7 +1233,7 @@ export default function AdminArrivalPage() {
     if (syncTimerRef.current) clearInterval(syncTimerRef.current);
     syncTimerRef.current = setInterval(() => {
       setSyncElapsed((Date.now() - syncStartRef.current) / 1000);
-    }, 100);
+    }, 1000);
 
     let entry: SyncHistoryEntry | null = null;
     try {
@@ -1278,11 +1324,74 @@ export default function AdminArrivalPage() {
     { label: "이미지 없음", value: products.filter(p => !p.image).length,               cls: "text-gray-400",   filter: "__noimage__" },
   ];
 
+  // 목록 테이블 열 정의. essential 열은 항상 표시, 나머지는 "열 표시"에서 켜고 끔
+  const columns: {
+    key: string; label: string; essential?: boolean;
+    tdCls?: string; render: (p: ArrivalProduct) => ReactNode;
+  }[] = [
+    { key: "arrivalDate", label: "입고일", essential: true, tdCls: "text-[13px] font-mono text-gray-600 whitespace-nowrap", render: p => fmtArrivalShort(p.arrivalDate) },
+    { key: "productCode", label: "상품코드", tdCls: "text-[12px] font-mono text-gray-500 whitespace-nowrap",
+      render: p => p.productCode },
+    { key: "name", label: "상품명", essential: true, tdCls: "min-w-[220px]", render: p => (
+      <div className="flex items-center gap-2.5">
+        <label className="cursor-pointer shrink-0 relative group">
+          <input type="file" accept="image/*" className="sr-only" onChange={e => handleInlineImageUpload(e, p)} />
+          {uploadingCode === p.productCode ? (
+            <div className="w-8 h-8 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center animate-pulse">
+              <span className="text-[8px] text-gray-400">...</span>
+            </div>
+          ) : p.image ? (
+            <div className="w-8 h-8 rounded-md overflow-hidden bg-[#edebe8] border border-gray-100 relative">
+              <img src={p.image.split(",")[0].trim()} alt={p.productName} className="w-full h-full object-cover"
+                onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                <span className="text-white text-[8px] font-bold opacity-0 group-hover:opacity-100 leading-none">변경</span>
+              </div>
+            </div>
+          ) : (
+            <div className="w-8 h-8 rounded-md border-2 border-dashed border-gray-300 group-hover:border-[#1a1a1a] transition-colors flex items-center justify-center">
+              <span className="text-[13px] text-gray-300 group-hover:text-[#1a1a1a] leading-none">+</span>
+            </div>
+          )}
+        </label>
+        <span className="text-[13px] font-semibold text-[#1a1a1a]">{p.productName}</span>
+      </div>
+    ) },
+    { key: "brand", label: "브랜드", tdCls: "text-[13px] text-gray-600 whitespace-nowrap", render: p => p.brand },
+    { key: "category", label: "카테고리", tdCls: "text-[13px] text-gray-600 whitespace-nowrap", render: p => p.category },
+    { key: "division", label: "구분", tdCls: "text-[12px] text-gray-500 whitespace-nowrap",
+      render: p => [p.productType, p.newArrivalType].filter(Boolean).join(" / ") || "—" },
+    { key: "season", label: "시즌", tdCls: "whitespace-nowrap", render: p => {
+      const s = seasonOf(p.arrivalDate);
+      return s
+        ? <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">{s}</span>
+        : <span className="text-gray-300">—</span>;
+    } },
+    { key: "supplyPrice", label: "공급가", tdCls: "text-[13px] text-gray-500 whitespace-nowrap tabular-nums", render: p => p.supplyPrice && p.supplyPrice > 0 ? p.supplyPrice.toLocaleString("ko-KR") : "—" },
+    { key: "price", label: "판매가", tdCls: "text-[13px] text-gray-600 whitespace-nowrap tabular-nums", render: p => p.price > 0 ? p.price.toLocaleString("ko-KR") : "—" },
+    { key: "quantity", label: "입고수량", tdCls: "text-[13px] text-gray-600 whitespace-nowrap tabular-nums", render: p => p.quantity != null && p.quantity > 0 ? p.quantity.toLocaleString("ko-KR") : "—" },
+    { key: "orderQty", label: "총주문", tdCls: "text-[13px] text-gray-500 whitespace-nowrap tabular-nums", render: p => p.orderQuantity != null && p.orderQuantity > 0 ? p.orderQuantity.toLocaleString("ko-KR") : "—" },
+    { key: "salesQty", label: "총판매", tdCls: "text-[13px] text-gray-500 whitespace-nowrap tabular-nums", render: p => p.salesQuantity != null && p.salesQuantity > 0 ? p.salesQuantity.toLocaleString("ko-KR") : "—" },
+    { key: "stockQty", label: "총재고", tdCls: "text-[13px] text-gray-500 whitespace-nowrap tabular-nums", render: p => p.stockQuantity != null && p.stockQuantity > 0 ? p.stockQuantity.toLocaleString("ko-KR") : "—" },
+    { key: "color", label: "컬러", tdCls: "text-[12px] text-gray-500 max-w-[120px] truncate", render: p => p.color },
+    { key: "size", label: "사이즈", tdCls: "text-[12px] text-gray-500 whitespace-nowrap", render: p => p.size || "—" },
+    { key: "status", label: "상태", essential: true, tdCls: "whitespace-nowrap", render: p => {
+      const meta = STATUS_CLS[p.status] ?? STATUS_CLS["입고예정"];
+      return <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${meta}`}>{statusLabel(p.status)}</span>;
+    } },
+    { key: "sheetEditedAt", label: "시트수정", tdCls: "text-[11px] text-gray-500 whitespace-nowrap tabular-nums",
+      render: p => p.sheetEditedAt
+        ? new Date(p.sheetEditedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+        : "—" },
+  ];
+  const visibleColumns = columns.filter(c => c.essential || !hiddenCols.has(c.key));
+  const toggleableColumns = columns.filter(c => !c.essential);
+
   return (
     <div className="space-y-5 max-w-[1400px]">
 
-      {/* 헤더 */}
-      <div className="flex items-start justify-between gap-4">
+      {/* 헤더 (스크롤 시 상단 고정) */}
+      <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-[#f1f5f9] border-b border-slate-200 flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-[#1a1a1a]">입고 스케쥴</h1>
         </div>
@@ -1411,7 +1520,7 @@ export default function AdminArrivalPage() {
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
           className="border border-gray-200 px-3 py-2 text-[13px] rounded-lg bg-white focus:outline-none">
           <option value="all">전체 상태</option>
-          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
         </select>
         <input
           type="date"
@@ -1432,6 +1541,27 @@ export default function AdminArrivalPage() {
         ) : (
           <span className="text-[12px] text-gray-400">{products.length.toLocaleString("ko-KR")}개</span>
         )}
+
+        {/* 열 표시 토글 */}
+        <details className="relative ml-auto">
+          <summary className="list-none cursor-pointer select-none border border-gray-200 px-3 py-2 text-[13px] rounded-lg bg-white hover:border-gray-400 flex items-center gap-1.5">
+            열 표시
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+          </summary>
+          <div className="absolute right-0 z-30 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg p-1.5">
+            {toggleableColumns.map(c => (
+              <label key={c.key} className="flex items-center gap-2 px-2 py-1.5 text-[13px] text-gray-700 hover:bg-gray-50 rounded cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={!hiddenCols.has(c.key)}
+                  onChange={() => toggleCol(c.key)}
+                  className="w-4 h-4 accent-[#1a1a1a]"
+                />
+                {c.label}
+              </label>
+            ))}
+          </div>
+        </details>
       </div>
 
       {/* 테이블 */}
@@ -1446,81 +1576,33 @@ export default function AdminArrivalPage() {
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="px-4 py-3 w-10">
+                  <th className="px-3 py-2 w-10">
                     <input type="checkbox" checked={allSelected} onChange={toggleAll}
                       className="w-4 h-4 accent-[#1a1a1a]" />
                   </th>
-                  {["상품코드","상품명","브랜드","카테고리","상품구분","신상구분","공급가","판매가","수량","컬러","입고일","상태",""].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[12px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                      {h}
+                  {visibleColumns.map(c => (
+                    <th key={c.key} className="px-3 py-2 text-left text-[12px] font-bold text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                      {c.label}
                     </th>
                   ))}
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {filtered.map((p, i) => {
-                  const meta = STATUS_CLS[p.status] ?? STATUS_CLS["입고예정"];
                   return (
                     <tr key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} className={`hover:bg-gray-50/70 ${selected.has(p.productCode) ? "bg-blue-50/30" : ""}`}>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-1.5">
                         <input type="checkbox" checked={selected.has(p.productCode)} onChange={() => toggleOne(p.productCode)}
                           className="w-4 h-4 accent-[#1a1a1a]" />
                       </td>
-                      <td className="px-4 py-3 text-[12px] font-mono text-gray-500 whitespace-nowrap">{p.productCode}</td>
-                      <td className="px-4 py-3 min-w-[220px]">
-                        <div className="flex items-center gap-3">
-                          <label className="cursor-pointer shrink-0 relative group">
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={e => handleInlineImageUpload(e, p)}
-                            />
-                            {uploadingCode === p.productCode ? (
-                              <div className="w-10 h-10 rounded-md bg-gray-100 border border-gray-200 flex items-center justify-center animate-pulse">
-                                <span className="text-[8px] text-gray-400">...</span>
-                              </div>
-                            ) : p.image ? (
-                              <div className="w-10 h-10 rounded-md overflow-hidden bg-[#edebe8] border border-gray-100 relative">
-                                <img
-                                  src={p.image.split(",")[0].trim()}
-                                  alt={p.productName}
-                                  className="w-full h-full object-cover"
-                                  onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
-                                  <span className="text-white text-[8px] font-bold opacity-0 group-hover:opacity-100 leading-none">변경</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className="w-10 h-10 rounded-md border-2 border-dashed border-gray-300 group-hover:border-[#1a1a1a] transition-colors flex items-center justify-center">
-                                <span className="text-[14px] text-gray-300 group-hover:text-[#1a1a1a] leading-none">+</span>
-                              </div>
-                            )}
-                          </label>
-                          <span className="text-[13px] font-semibold text-[#1a1a1a]">{p.productName}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-[13px] text-gray-600 whitespace-nowrap">{p.brand}</td>
-                      <td className="px-4 py-3 text-[13px] text-gray-600 whitespace-nowrap">{p.category}</td>
-                      <td className="px-4 py-3 text-[12px] text-gray-500 whitespace-nowrap">{p.productType || "—"}</td>
-                      <td className="px-4 py-3 text-[12px] text-gray-500 whitespace-nowrap">{p.newArrivalType || "—"}</td>
-                      <td className="px-4 py-3 text-[13px] text-gray-500 whitespace-nowrap tabular-nums">{p.supplyPrice ? fmtPrice(p.supplyPrice) : "—"}</td>
-                      <td className="px-4 py-3 text-[13px] text-gray-600 whitespace-nowrap tabular-nums">{fmtPrice(p.price)}</td>
-                      <td className="px-4 py-3 text-[13px] text-gray-600 whitespace-nowrap tabular-nums">{p.quantity != null && p.quantity > 0 ? p.quantity.toLocaleString("ko-KR") : "—"}</td>
-                      <td className="px-4 py-3 text-[12px] text-gray-500 max-w-[120px] truncate">{p.color}</td>
-                      <td className="px-4 py-3 text-[13px] font-mono text-gray-600 whitespace-nowrap">
-                        {p.arrivalDate || "—"}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${meta}`}>
-                          {p.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      {visibleColumns.map(c => (
+                        <td key={c.key} className={`px-3 py-1.5 align-middle ${c.tdCls ?? ""}`}>{c.render(p)}</td>
+                      ))}
+                      <td className="px-3 py-1.5 whitespace-nowrap">
                         <button
                           onClick={() => setEditProduct(p)}
-                          className="text-[12px] text-gray-400 hover:text-[#1a1a1a] border border-gray-200 px-3 py-1.5 rounded-lg hover:border-gray-400 transition-colors"
+                          className="text-[12px] text-gray-400 hover:text-[#1a1a1a] border border-gray-200 px-2.5 py-1 rounded-md hover:border-gray-400 transition-colors"
                         >
                           수정
                         </button>
@@ -1645,6 +1727,7 @@ export default function AdminArrivalPage() {
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품코드</th>
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품명</th>
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">변경 항목</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100 whitespace-nowrap">시트 수정</th>
                             </tr></thead>
                             <tbody className="divide-y divide-amber-50">
                               {changed.map((d, di) => (
@@ -1663,6 +1746,11 @@ export default function AdminArrivalPage() {
                                         </div>
                                       ))}
                                     </div>
+                                  </td>
+                                  <td className="px-3 py-2 align-top whitespace-nowrap text-[11px] text-gray-500 tabular-nums">
+                                    {d.sheetEditedAt
+                                      ? new Date(d.sheetEditedAt).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })
+                                      : "—"}
                                   </td>
                                 </tr>
                               ))}

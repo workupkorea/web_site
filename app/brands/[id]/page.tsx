@@ -33,7 +33,7 @@ async function getBrandByName(name: string): Promise<Brand | null> {
 async function getBrandBySlug(slug: string): Promise<Brand | null> {
   try {
     const supabase = createAdminClient();
-    const { data } = await supabase.from("brands").select("*");
+    const { data } = await supabase.from("brands").select("id, name, logo_url, description").order("name");
     return ((data as Brand[]) ?? []).find((b) => brandSlug(b.name) === slug) ?? null;
   } catch {
     return null;

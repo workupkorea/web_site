@@ -455,18 +455,8 @@ export default function VercelStatusPage() {
             </div>
           );
         }
-        // 모두 최신 (초록)
-        return (
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
-            <svg width="18" height="18" className="text-emerald-600 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-            </svg>
-            <div>
-              <p className="text-[13px] font-bold text-emerald-700">재배포 불필요 — 코드와 환경변수 모두 최신 상태입니다</p>
-              <p className="text-[12px] text-emerald-600 mt-0.5">변경사항이 생길 때만 배포하세요.</p>
-            </div>
-          </div>
-        );
+        // 모두 최신 → 별도 안내 없음
+        return null;
       })()}
 
       {/* 에러 */}

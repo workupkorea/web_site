@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 
-type EventRow = { store_id: number | null; store_name: string | null; event_type: string };
-
 type StoreStat = {
   store_id: number | null;
   store_name: string;
@@ -13,69 +11,49 @@ type StoreStat = {
   directions_naver: number;
   call: number;
   kakao_chat: number;
-  conversions: number; // 길찾기+전화+카톡 (실제 방문/문의로 이어지는 행동)
+  conversions: number;
 };
 
-// GET /api/admin/stores/analytics?days=30  (days=0 → 전체)
-export async function GET(req: Request) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+type RpcRow = {
+  store_id: number | null;
+  store_name: string | null;
+  view_count: number;
+  list_click_count: number;
+  directions_kakao_count: number;
+  directions_naver_count: number;
+  call_count: number;
+  kakao_chat_count: number;
+};
 
-  const { searchParams } = new URL(req.url);
-  const fromParam = searchParams.get("from"); // YYYY-MM-DD (임의 기간 시작)
-  const toParam = searchParams.get("to"); // YYYY-MM-DD (임의 기간 끝, 포함)
-  const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+async function fetchAggregated(
+  supabase: ReturnType<typeof import("@/lib/supabase-server").createAdminClient>,
+  sinceIso: string,
+  untilIso: string | null,
+) {
+  const { data, error } = await supabase.rpc("aggregate_store_events", {
+    since_iso: sinceIso,
+    until_iso: untilIso ?? undefined,
+  });
+  if (error) throw new Error(error.message);
+  return buildResult((data ?? []) as RpcRow[]);
+}
 
-  // 임의 기간(from~to)이 유효하면 우선, 아니면 days 프리셋 사용. 경계는 KST(+09:00) 기준.
-  let sinceIso: string;
-  let untilIso: string | null = null;
-  if (fromParam && toParam && dateRe.test(fromParam) && dateRe.test(toParam)) {
-    sinceIso = new Date(`${fromParam}T00:00:00+09:00`).toISOString();
-    untilIso = new Date(`${toParam}T23:59:59.999+09:00`).toISOString();
-  } else {
-    const days = Number(searchParams.get("days") ?? "30");
-    sinceIso = days > 0 ? new Date(Date.now() - days * 86400000).toISOString() : new Date(0).toISOString();
-  }
-
-  const supabase = createAdminClient();
-
-  // store_events를 페이지 단위로 모두 읽어 앱에서 집계 (RPC 불필요, Max rows 제한 회피)
-  const rows: EventRow[] = [];
-  const PAGE = 1000;
-  for (let offset = 0; offset <= 200000; offset += PAGE) {
-    let q = supabase
-      .from("store_events")
-      .select("store_id, store_name, event_type")
-      .gte("created_at", sinceIso);
-    if (untilIso) q = q.lte("created_at", untilIso);
-    const { data, error } = await q.range(offset, offset + PAGE - 1);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    if (!data || data.length === 0) break;
-    rows.push(...(data as EventRow[]));
-    if (data.length < PAGE) break;
-  }
-
-  const map = new Map<string, StoreStat>();
-  for (const row of rows) {
-    const key = String(row.store_id ?? `name:${row.store_name}`);
-    let s = map.get(key);
-    if (!s) {
-      s = {
-        store_id: row.store_id,
-        store_name: row.store_name || "(삭제된 지점)",
-        view: 0, list_click: 0, directions_kakao: 0, directions_naver: 0,
-        call: 0, kakao_chat: 0, conversions: 0,
-      };
-      map.set(key, s);
-    }
-    if (row.event_type in s) (s as unknown as Record<string, number>)[row.event_type] += 1;
-  }
-
-  const stores = Array.from(map.values()).map((s) => ({
-    ...s,
-    conversions: s.directions_kakao + s.directions_naver + s.call + s.kakao_chat,
-  }));
+function buildResult(rows: RpcRow[]) {
+  const stores: StoreStat[] = rows.map((r) => {
+    const view = Number(r.view_count ?? 0);
+    const list_click = Number(r.list_click_count ?? 0);
+    const directions_kakao = Number(r.directions_kakao_count ?? 0);
+    const directions_naver = Number(r.directions_naver_count ?? 0);
+    const call = Number(r.call_count ?? 0);
+    const kakao_chat = Number(r.kakao_chat_count ?? 0);
+    return {
+      store_id: r.store_id,
+      store_name: r.store_name || "(삭제된 지점)",
+      view, list_click, directions_kakao, directions_naver, call, kakao_chat,
+      conversions: directions_kakao + directions_naver + call + kakao_chat,
+    };
+  });
   stores.sort((a, b) => b.conversions - a.conversions || b.view - a.view);
-
   const totals = stores.reduce(
     (t, s) => ({
       view: t.view + s.view,
@@ -87,6 +65,58 @@ export async function GET(req: Request) {
     }),
     { view: 0, list_click: 0, directions: 0, call: 0, kakao_chat: 0, conversions: 0 },
   );
+  return { stores, totals };
+}
 
-  return NextResponse.json({ stores, totals });
+export async function GET(req: Request) {
+  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { searchParams } = new URL(req.url);
+  const fromParam = searchParams.get("from");
+  const toParam   = searchParams.get("to");
+  const dateRe    = /^\d{4}-\d{2}-\d{2}$/;
+
+  let sinceIso: string;
+  let untilIso: string | null = null;
+  let periodMs = 0; // 기간 길이 (ms) — 이전 기간 계산용
+
+  if (fromParam && toParam && dateRe.test(fromParam) && dateRe.test(toParam)) {
+    const fromTs = new Date(`${fromParam}T00:00:00+09:00`).getTime();
+    const toTs   = new Date(`${toParam}T23:59:59.999+09:00`).getTime();
+    sinceIso  = new Date(fromTs).toISOString();
+    untilIso  = new Date(toTs).toISOString();
+    periodMs  = toTs - fromTs;
+  } else {
+    const days = Number(searchParams.get("days") ?? "30");
+    if (days > 0) {
+      periodMs = days * 86400000;
+      sinceIso = new Date(Date.now() - periodMs).toISOString();
+    } else {
+      sinceIso = new Date(0).toISOString();
+    }
+  }
+
+  const supabase = createAdminClient();
+
+  try {
+    // 현재 기간 — RPC 단일 쿼리로 집계 (기존 최대 402회 순차 쿼리 대체)
+    const current = await fetchAggregated(supabase, sinceIso, untilIso);
+
+    // 이전 기간 (days=0 전체 조회면 비교 없음)
+    let prev = null;
+    if (periodMs > 0) {
+      const prevUntil = new Date(new Date(sinceIso).getTime() - 1).toISOString();
+      const prevSince = new Date(new Date(sinceIso).getTime() - periodMs).toISOString();
+      prev = await fetchAggregated(supabase, prevSince, prevUntil);
+    }
+
+    return NextResponse.json({
+      stores:     current.stores,
+      totals:     current.totals,
+      prevTotals: prev?.totals ?? null,
+      prevStores: prev?.stores ?? null,
+    });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }

@@ -24,11 +24,11 @@ export default function VercelStatusBadge() {
         .then(d => {
           const s = d?.deployments?.[0]?.state;
           if (s) setState(s);
-          // 빌드 중이면 15초, 아니면 60초 후 재조회
-          const delay = (s === "BUILDING" || s === "QUEUED") ? 15000 : 60000;
+          // 빌드 중이면 15초, 아니면 5분 후 재조회
+          const delay = (s === "BUILDING" || s === "QUEUED") ? 15000 : 300000;
           timer = setTimeout(poll, delay);
         })
-        .catch(() => { timer = setTimeout(poll, 60000); });
+        .catch(() => { timer = setTimeout(poll, 300000); });
     };
 
     poll();

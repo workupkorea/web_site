@@ -86,19 +86,51 @@ function parsePrice(s: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+// "행최종수정일시"(또는 "…수정일시") 헤더 열 인덱스를 찾는다. 없으면 -1.
+// 이 헤더는 상단 병합셀(1행)에 들어갈 수 있어 상위 몇 개 행을 함께 훑는다.
+function findStampIdx(rows: string[][]): number {
+  for (let r = 0; r < Math.min(5, rows.length); r++) {
+    const i = (rows[r] ?? []).findIndex(h => String(h ?? "").replace(/\s/g, "").includes("수정일시"));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+// Apps Script 가 기록한 시각 문자열 → ISO. 파싱 불가하면 빈 문자열
+function parseSheetStamp(raw: string): string {
+  const s = (raw ?? "").trim();
+  if (!s) return "";
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? "" : d.toISOString();
+}
+
 // ─── 시트 파싱 → 상품 배열 ───────────────────────────────────────────────────
 function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   // 컬럼 인덱스 (헤더 row[3] 기준)
   const IDX = {
     no: 1, productType: 2, newArrivalType: 3, cat: 4, arrivalDate: 6,
     brand: 8, name: 17, code: 18, colorCode: 19,
-    fullCode: 20, colorName: 23, note: 28, marketingUsage: 29,
-    supplyPrice: 32, price: 33, quantity: 38,
+    fullCode: 20, colorName: 23, sizeRun: 25, note: 28, marketingUsage: 29,
+    supplyPrice: 32, price: 33,
+    quantity: 38,       // 공급 수량 (공급점 발주)
+    totalArrival: 41,   // 총입고(사입) 수량
+    orderQty: 45,       // 총주문 수량
+    salesQty: 49,       // 총판매 수량
+    stockQty: 54,       // 총재고 수량
   } as const;
+
+  // 입고 수량: 총입고(사입) 수량이 0이 아니면 그 값, 아니면 공급 수량으로 폴백
+  function rowQty(row: string[]): number {
+    const total = parsePrice(row[IDX.totalArrival] ?? "");
+    return total !== 0 ? total : parsePrice(row[IDX.quantity] ?? "");
+  }
+
+  const stampIdx = findStampIdx(rows);
 
   type GroupKey = string; // `${baseCode}::${arrDate}`
   const groups = new Map<GroupKey, ArrivalProduct>();
   const groupColors = new Map<GroupKey, string[]>();
+  const groupStamps = new Map<GroupKey, string>(); // 그룹 내 행들의 최신 수정시각(ISO)
 
   for (const row of rows.slice(4)) {
     const noVal = (row[IDX.no] ?? "").trim();
@@ -125,9 +157,13 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
         productType: (row[IDX.productType] ?? "").trim() || undefined,
         newArrivalType: (row[IDX.newArrivalType] ?? "").trim() || undefined,
         color: "",
+        size: (row[IDX.sizeRun] ?? "").trim() || undefined,
         supplyPrice: parsePrice(row[IDX.supplyPrice] ?? ""),
         price: parsePrice(row[IDX.price] ?? ""),
-        quantity: parsePrice(row[IDX.quantity] ?? ""),
+        quantity: rowQty(row),
+        orderQuantity: parsePrice(row[IDX.orderQty] ?? ""),
+        salesQuantity: parsePrice(row[IDX.salesQty] ?? ""),
+        stockQuantity: parsePrice(row[IDX.stockQty] ?? ""),
         arrivalDate: arrDate,
         status,
         description: "",
@@ -140,7 +176,10 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
     } else {
       // 같은 그룹에 수량 합산
       const existing = groups.get(key)!;
-      existing.quantity = (existing.quantity ?? 0) + parsePrice(row[IDX.quantity] ?? "");
+      existing.quantity = (existing.quantity ?? 0) + rowQty(row);
+      existing.orderQuantity = (existing.orderQuantity ?? 0) + parsePrice(row[IDX.orderQty] ?? "");
+      existing.salesQuantity = (existing.salesQuantity ?? 0) + parsePrice(row[IDX.salesQty] ?? "");
+      existing.stockQuantity = (existing.stockQuantity ?? 0) + parsePrice(row[IDX.stockQty] ?? "");
     }
 
     if (color) {
@@ -148,11 +187,18 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
       if (!colors.includes(color)) colors.push(color);
       groupColors.set(key, colors);
     }
+
+    if (stampIdx >= 0) {
+      const stamp = parseSheetStamp(row[stampIdx] ?? "");
+      const prev = groupStamps.get(key);
+      if (stamp && (!prev || stamp > prev)) groupStamps.set(key, stamp);
+    }
   }
 
   const products: ArrivalProduct[] = [];
   for (const [key, product] of groups) {
     product.color = (groupColors.get(key) ?? []).join(",");
+    product.sheetEditedAt = groupStamps.get(key) || undefined;
     products.push(product);
   }
 
