@@ -56,8 +56,9 @@ export async function GET() {
           .select(`id, ${col}`)
           .order(col, { ascending: false })
           .limit(1);
-        if (data?.[0]?.[col]) {
-          recentActivity.push({ table: key, label, updatedAt: data[0][col], id: data[0].id });
+        const row = data?.[0] as Record<string, unknown> | undefined;
+        if (row?.[col]) {
+          recentActivity.push({ table: key, label, updatedAt: row[col] as string, id: row.id });
         }
       } catch { /* 컬럼 없으면 무시 */ }
     })

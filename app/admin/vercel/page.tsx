@@ -19,12 +19,56 @@ interface GitStatus {
   commits?: GitCommit[];
 }
 
+function GitHistoryModal({ commits, onClose }: { commits: GitCommit[]; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h3 className="text-[14px] font-bold text-[#1a1a1a]">커밋 히스토리</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-[18px] leading-none">×</button>
+        </div>
+        <div className="overflow-y-auto flex-1">
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-gray-50">
+              <tr className="text-gray-400 text-[10px]">
+                <th className="text-left px-4 py-2.5 font-semibold border-b w-14">상태</th>
+                <th className="text-left px-4 py-2.5 font-semibold border-b">메시지</th>
+                <th className="text-left px-4 py-2.5 font-semibold border-b w-36">날짜</th>
+                <th className="text-left px-4 py-2.5 font-semibold border-b w-16">SHA</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {commits.map(c => (
+                <tr key={c.sha} className="hover:bg-gray-50/50">
+                  <td className="px-4 py-2.5 whitespace-nowrap">
+                    {c.pushed
+                      ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">Push됨</span>
+                      : <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미푸시</span>
+                    }
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-700 max-w-0">
+                    <p className="truncate">{c.subject}</p>
+                  </td>
+                  <td className="px-4 py-2.5 text-gray-400 whitespace-nowrap">{c.date}</td>
+                  <td className="px-4 py-2.5 text-gray-400 font-mono whitespace-nowrap">{c.sha.slice(0, 7)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function GitPushPanel() {
-  const [git,     setGit]     = useState<GitStatus | null>(null);
-  const [gitErr,  setGitErr]  = useState<string | null>(null);
-  const [msg,     setMsg]     = useState("");
-  const [pushing, setPushing] = useState(false);
-  const [pushLog, setPushLog] = useState<string | null>(null);
+  const [git,       setGit]       = useState<GitStatus | null>(null);
+  const [gitErr,    setGitErr]    = useState<string | null>(null);
+  const [msg,       setMsg]       = useState("");
+  const [pushing,   setPushing]   = useState(false);
+  const [pushLog,   setPushLog]   = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   const loadGit = useCallback(async () => {
     setGitErr(null);
@@ -65,123 +109,104 @@ function GitPushPanel() {
     }
   };
 
-  const changedFiles = git?.status
-    ? git.status.split("\n").filter(Boolean)
-    : [];
+  const changedFiles = git?.status ? git.status.split("\n").filter(Boolean) : [];
 
   return (
-    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-      <div className="px-6 py-4 border-b flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <h2 className="text-[14px] font-bold text-[#1a1a1a]">Git Push</h2>
-          {git && (
-            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-mono rounded">
-              {git.branch}
-            </span>
-          )}
-          {git && git.ahead > 0 && (
-            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">
-              ↑ {git.ahead}커밋 미푸시
-            </span>
+    <>
+      {showHistory && git?.commits && (
+        <GitHistoryModal commits={git.commits} onClose={() => setShowHistory(false)} />
+      )}
+
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[14px] font-bold text-[#1a1a1a]">Git Push</h2>
+            {git && (
+              <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-mono rounded">
+                {git.branch}
+              </span>
+            )}
+            {git && git.ahead > 0 && (
+              <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">
+                ↑ {git.ahead}커밋 미푸시
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {git?.commits && git.commits.length > 0 && (
+              <button
+                onClick={() => setShowHistory(true)}
+                className="text-[11px] text-blue-500 hover:text-blue-700 flex items-center gap-1"
+              >
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                히스토리
+              </button>
+            )}
+            <button onClick={loadGit} className="text-[11px] text-gray-400 hover:text-gray-600">
+              새로고침
+            </button>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 space-y-4">
+          {gitErr ? (
+            <p className="text-[11px] text-red-400 font-mono bg-red-50 rounded p-2">{gitErr}</p>
+          ) : !git ? (
+            <p className="text-[12px] text-gray-400">불러오는 중…</p>
+          ) : (
+            <>
+              {/* 변경 파일 목록 */}
+              {changedFiles.length > 0 ? (
+                <div>
+                  <p className="text-[11px] text-gray-400 mb-1.5">변경된 파일 {changedFiles.length}개</p>
+                  <div className="bg-gray-50 rounded-lg p-2 space-y-0.5 max-h-32 overflow-y-auto">
+                    {changedFiles.map((f, i) => (
+                      <p key={i} className="text-[11px] font-mono text-gray-600">{f}</p>
+                    ))}
+                  </div>
+                </div>
+              ) : git.ahead === 0 ? (
+                <p className="text-[12px] text-gray-400">변경사항 없음 · 최신 상태</p>
+              ) : (
+                <p className="text-[12px] text-gray-500">로컬 변경 없음 · 미푸시 커밋 {git.ahead}개</p>
+              )}
+
+              {/* 커밋 메시지 + 버튼 */}
+              {(changedFiles.length > 0 || git.ahead > 0) && (
+                <div className="flex gap-2">
+                  <input
+                    value={msg}
+                    onChange={e => setMsg(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") handlePush(); }}
+                    placeholder="커밋 메시지"
+                    className="flex-1 text-[12px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
+                  />
+                  <button
+                    onClick={handlePush}
+                    disabled={pushing || !msg.trim()}
+                    className="px-4 py-2 bg-[#1a1a1a] text-white text-[12px] font-bold rounded-lg hover:bg-[#333] disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12l7-7 7 7"/><path d="M12 5v14"/>
+                    </svg>
+                    {pushing ? "푸시 중…" : "커밋 & 푸시"}
+                  </button>
+                </div>
+              )}
+
+              {/* 결과 */}
+              {pushLog && (
+                <p className={`text-[11px] font-mono rounded p-2 ${pushLog.startsWith("오류") ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-700"}`}>
+                  {pushLog}
+                </p>
+              )}
+            </>
           )}
         </div>
-        <button onClick={loadGit} className="text-[11px] text-gray-400 hover:text-gray-600">
-          새로고침
-        </button>
       </div>
-
-      <div className="px-6 py-4 space-y-4">
-        {gitErr ? (
-          <p className="text-[11px] text-red-400 font-mono bg-red-50 rounded p-2">{gitErr}</p>
-        ) : !git ? (
-          <p className="text-[12px] text-gray-400">불러오는 중…</p>
-        ) : (
-          <>
-            {/* 변경 파일 목록 */}
-            {changedFiles.length > 0 ? (
-              <div>
-                <p className="text-[11px] text-gray-400 mb-1.5">변경된 파일 {changedFiles.length}개</p>
-                <div className="bg-gray-50 rounded-lg p-2 space-y-0.5 max-h-32 overflow-y-auto">
-                  {changedFiles.map((f, i) => (
-                    <p key={i} className="text-[11px] font-mono text-gray-600">{f}</p>
-                  ))}
-                </div>
-              </div>
-            ) : git.ahead === 0 ? (
-              <p className="text-[12px] text-gray-400">변경사항 없음 · 최신 상태</p>
-            ) : (
-              <p className="text-[12px] text-gray-500">로컬 변경 없음 · 미푸시 커밋 {git.ahead}개</p>
-            )}
-
-            {/* 커밋 메시지 + 버튼 */}
-            {(changedFiles.length > 0 || git.ahead > 0) && (
-              <div className="flex gap-2">
-                <input
-                  value={msg}
-                  onChange={e => setMsg(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") handlePush(); }}
-                  placeholder="커밋 메시지"
-                  className="flex-1 text-[12px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
-                />
-                <button
-                  onClick={handlePush}
-                  disabled={pushing || !msg.trim()}
-                  className="px-4 py-2 bg-[#1a1a1a] text-white text-[12px] font-bold rounded-lg hover:bg-[#333] disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12l7-7 7 7"/><path d="M12 5v14"/>
-                  </svg>
-                  {pushing ? "푸시 중…" : "커밋 & 푸시"}
-                </button>
-              </div>
-            )}
-
-            {/* 결과 */}
-            {pushLog && (
-              <p className={`text-[11px] font-mono rounded p-2 ${pushLog.startsWith("오류") ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-700"}`}>
-                {pushLog}
-              </p>
-            )}
-
-            {/* 커밋 로그 */}
-            {git.commits && git.commits.length > 0 && (
-              <div>
-                <p className="text-[11px] text-gray-400 mb-1.5">최근 커밋 이력</p>
-                <div className="rounded-lg border border-gray-100 overflow-hidden">
-                  <table className="w-full text-[11px]">
-                    <thead>
-                      <tr className="bg-gray-50 text-gray-400 text-[10px]">
-                        <th className="text-left px-3 py-2 font-semibold border-b w-14">상태</th>
-                        <th className="text-left px-3 py-2 font-semibold border-b">메시지</th>
-                        <th className="text-left px-3 py-2 font-semibold border-b w-32 hidden sm:table-cell">날짜</th>
-                        <th className="text-left px-3 py-2 font-semibold border-b w-16 hidden sm:table-cell">SHA</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-50">
-                      {git.commits.map(c => (
-                        <tr key={c.sha} className="hover:bg-gray-50/50">
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            {c.pushed
-                              ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">Push됨</span>
-                              : <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미푸시</span>
-                            }
-                          </td>
-                          <td className="px-3 py-2 text-gray-700 max-w-0">
-                            <p className="truncate">{c.subject}</p>
-                          </td>
-                          <td className="px-3 py-2 text-gray-400 whitespace-nowrap hidden sm:table-cell">{c.date}</td>
-                          <td className="px-3 py-2 text-gray-400 font-mono whitespace-nowrap hidden sm:table-cell">{c.sha.slice(0, 7)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
 
