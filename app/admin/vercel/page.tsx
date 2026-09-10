@@ -3,11 +3,20 @@
 import { useEffect, useState, useCallback } from "react";
 
 // ─── Git Push 패널 ────────────────────────────────────────────────────────────
+interface GitCommit {
+  sha: string;
+  subject: string;
+  date: string;
+  author: string;
+  pushed: boolean;
+}
+
 interface GitStatus {
   branch: string;
   status: string;
   ahead: number;
   lastLog: string;
+  commits?: GitCommit[];
 }
 
 function GitPushPanel() {
@@ -134,7 +143,41 @@ function GitPushPanel() {
               </p>
             )}
 
-            <p className="text-[10px] text-gray-300">마지막 커밋: {git.lastLog}</p>
+            {/* 커밋 로그 */}
+            {git.commits && git.commits.length > 0 && (
+              <div>
+                <p className="text-[11px] text-gray-400 mb-1.5">최근 커밋 이력</p>
+                <div className="rounded-lg border border-gray-100 overflow-hidden">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-400 text-[10px]">
+                        <th className="text-left px-3 py-2 font-semibold border-b w-14">상태</th>
+                        <th className="text-left px-3 py-2 font-semibold border-b">메시지</th>
+                        <th className="text-left px-3 py-2 font-semibold border-b w-32 hidden sm:table-cell">날짜</th>
+                        <th className="text-left px-3 py-2 font-semibold border-b w-16 hidden sm:table-cell">SHA</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {git.commits.map(c => (
+                        <tr key={c.sha} className="hover:bg-gray-50/50">
+                          <td className="px-3 py-2 whitespace-nowrap">
+                            {c.pushed
+                              ? <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded text-[9px] font-bold">Push됨</span>
+                              : <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[9px] font-bold">미푸시</span>
+                            }
+                          </td>
+                          <td className="px-3 py-2 text-gray-700 max-w-0">
+                            <p className="truncate">{c.subject}</p>
+                          </td>
+                          <td className="px-3 py-2 text-gray-400 whitespace-nowrap hidden sm:table-cell">{c.date}</td>
+                          <td className="px-3 py-2 text-gray-400 font-mono whitespace-nowrap hidden sm:table-cell">{c.sha.slice(0, 7)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

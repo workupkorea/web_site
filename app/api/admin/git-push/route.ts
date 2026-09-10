@@ -17,9 +17,23 @@ export async function GET() {
   try {
     const branch  = exec("git branch --show-current");
     const status  = exec("git status --porcelain");
-    const ahead   = exec("git rev-list @{u}..HEAD --count").trim();
+    const ahead   = Number(exec("git rev-list @{u}..HEAD --count"));
     const lastLog = exec("git log --oneline -1");
-    return NextResponse.json({ ok: true, branch, status, ahead: Number(ahead), lastLog });
+
+    // 최근 20개 커밋 로그 (sha, 메시지, 날짜, 작성자)
+    const rawLog = exec(
+      `git log -20 --pretty=format:"%H|%s|%ad|%an" --date=format:"%Y-%m-%d %H:%M"`
+    );
+    // 아직 push 안 된 sha 목록
+    const unpushedRaw = exec("git log @{u}..HEAD --pretty=format:%H").split("\n").filter(Boolean);
+    const unpushedSet = new Set(unpushedRaw);
+
+    const commits = rawLog.split("\n").filter(Boolean).map(line => {
+      const [sha, subject, date, author] = line.split("|");
+      return { sha, subject, date, author, pushed: !unpushedSet.has(sha) };
+    });
+
+    return NextResponse.json({ ok: true, branch, status, ahead, lastLog, commits });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
   }
