@@ -26,9 +26,11 @@ interface VercelStatus {
     framework: string;
     domains: string[];
     nodeVersion: string;
+    accountId?: string;
   };
   deployments: Deployment[];
   errorLogs: string[];
+  usage?: Record<string, unknown> | null;
   error?: string;
 }
 
@@ -90,6 +92,19 @@ function CommitMessage({ msg }: { msg?: string }) {
   );
 }
 
+// ─── 사용량 값 파싱 헬퍼 ──────────────────────────────────────────────────────
+function UsageRow({ label, value }: { label: string; value: unknown }) {
+  if (value === null || value === undefined) return null;
+  const display = typeof value === "object" ? JSON.stringify(value) : String(value);
+  if (display === "0" || display === "null" || display === "{}") return null;
+  return (
+    <div className="flex justify-between py-1.5 border-b border-gray-100 last:border-0">
+      <span className="text-[12px] text-gray-500">{label}</span>
+      <span className="text-[12px] font-medium text-[#1a1a1a]">{display}</span>
+    </div>
+  );
+}
+
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 export default function VercelStatusPage() {
   const [data,       setData]       = useState<VercelStatus | null>(null);
@@ -131,7 +146,6 @@ export default function VercelStatusPage() {
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error);
       setDeployMsg(`재배포 시작됨 — 새 배포 ID: ${json.newDeploymentId}`);
-      // 5초 후 상태 자동 새로고침
       setTimeout(() => { fetch_(); }, 5000);
     } catch (e) {
       setDeployMsg(`오류: ${String(e)}`);
@@ -141,6 +155,12 @@ export default function VercelStatusPage() {
   }, [data, fetch_]);
 
   const latest = data?.deployments[0];
+  const latestProd = data?.deployments.find(d => d.target === "production" && d.state === "READY");
+
+  // "배포 불필요" 판단: 가장 최신 배포가 READY이고, 그게 프로덕션이면 변경 없음
+  const noDeployNeeded =
+    latest?.state === "READY" &&
+    latest?.target === "production";
 
   return (
     <div className="space-y-6 max-w-[1100px]">
@@ -155,7 +175,6 @@ export default function VercelStatusPage() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {/* 재배포 버튼 */}
           {data && latest && (
             <button
               onClick={handleDeploy}
@@ -163,8 +182,7 @@ export default function VercelStatusPage() {
               className="px-4 py-2 bg-purple-600 text-white text-[13px] font-bold rounded-lg hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={deploying ? "animate-spin" : ""}>
-                <path d="M5 12l7-7 7 7"/>
-                <path d="M12 5v14"/>
+                <path d="M5 12l7-7 7 7"/><path d="M12 5v14"/>
               </svg>
               {deploying ? "배포 중…" : "재배포"}
             </button>
@@ -176,14 +194,28 @@ export default function VercelStatusPage() {
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
               <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-              <path d="M3 3v5h5"/>
-              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
               <path d="M16 16h5v5"/>
             </svg>
             {loading ? "조회 중…" : "새로고침"}
           </button>
         </div>
       </div>
+
+      {/* 배포 불필요 안내 */}
+      {noDeployNeeded && !deployMsg && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+          <svg width="18" height="18" className="text-emerald-600 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          <div>
+            <p className="text-[13px] font-bold text-emerald-700">현재 배포가 최신 상태입니다</p>
+            <p className="text-[12px] text-emerald-600 mt-0.5">
+              변경사항이 없다면 재배포하지 않아도 됩니다. 코드 변경이 있을 때만 배포하세요.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 에러 */}
       {error && (
@@ -197,7 +229,6 @@ export default function VercelStatusPage() {
         </div>
       )}
 
-      {/* 로딩 */}
       {loading && !data && (
         <div className="h-40 flex items-center justify-center text-gray-400 text-[13px]">불러오는 중…</div>
       )}
@@ -250,6 +281,55 @@ export default function VercelStatusPage() {
             </div>
           </div>
 
+          {/* Vercel 사용량 */}
+          {data.usage && (
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b">
+                <h2 className="text-[14px] font-bold text-[#1a1a1a]">Vercel 사용량 / 비용</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">현재 청구 기간 기준</p>
+              </div>
+              <div className="px-6 py-4">
+                {(() => {
+                  const u = data.usage as Record<string, unknown>;
+                  const plan = (u.plan as Record<string, unknown>)?.name ?? u.plan;
+                  const billing = (u.billing as Record<string, unknown>) ?? {};
+                  const items = [
+                    ["플랜", plan],
+                    ["월 비용", billing.amount !== undefined ? `$${billing.amount}` : null],
+                    ["빌드 분", u.buildMinutesUsed ?? (u.metrics as Record<string, unknown>)?.buildMinutes],
+                    ["함수 실행", u.functionDurationUsed ?? (u.metrics as Record<string, unknown>)?.functionDuration],
+                    ["대역폭", u.bandwidthUsed ?? (u.metrics as Record<string, unknown>)?.bandwidth],
+                    ["요청 수", u.requestsUsed ?? (u.metrics as Record<string, unknown>)?.requests],
+                  ] as [string, unknown][];
+
+                  const hasAny = items.some(([, v]) => v !== null && v !== undefined);
+
+                  if (!hasAny) {
+                    return (
+                      <div className="py-4">
+                        <p className="text-[12px] text-gray-400">
+                          사용량 정보를 가져올 수 없습니다.
+                          팀 계정의 경우 Vercel 대시보드에서 직접 확인하세요.
+                        </p>
+                        <p className="text-[11px] text-gray-300 mt-1 font-mono break-all">
+                          {JSON.stringify(data.usage).slice(0, 300)}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div>
+                      {items.map(([label, value]) => (
+                        <UsageRow key={label} label={label} value={value} />
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
           {/* 빌드 에러 로그 */}
           {data.errorLogs.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-5">
@@ -269,8 +349,17 @@ export default function VercelStatusPage() {
 
           {/* 최근 배포 목록 */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
               <h2 className="text-[14px] font-bold text-[#1a1a1a]">최근 배포 이력</h2>
+              {latestProd && (
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  현재 프로덕션 SHA:
+                  <span className="font-mono text-gray-600">
+                    {latestProd.meta?.githubCommitSha?.slice(0, 8) ?? "—"}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-[12px]">

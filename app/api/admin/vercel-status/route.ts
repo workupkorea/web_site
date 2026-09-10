@@ -89,6 +89,18 @@ export async function GET() {
     // 3. 프로젝트 정보 (도메인 등)
     const project = await vFetch(`/v9/projects/${PROJECT_ID}`);
 
+    // 4. Vercel 사용량/비용 (팀 또는 개인)
+    let usage: Record<string, unknown> | null = null;
+    try {
+      // 개인 계정이면 /v2/user/billing, 팀이면 teamId가 있음
+      const teamId = project.accountId ?? null;
+      const usagePath = teamId
+        ? `/v2/teams/${teamId}/usage`
+        : `/v2/user/billing/state`;
+      const usageRes = await vFetch(usagePath);
+      usage = usageRes ?? null;
+    } catch { /* 사용량 조회 실패 시 무시 */ }
+
     return NextResponse.json({
       ok: true,
       fetchedAt: new Date().toISOString(),
@@ -97,9 +109,11 @@ export async function GET() {
         framework: project.framework,
         domains: (project.alias ?? []).map((a: Record<string, unknown>) => a.domain).slice(0, 3),
         nodeVersion: project.nodeVersion,
+        accountId: project.accountId,
       },
       deployments,
       errorLogs,
+      usage,
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

@@ -327,6 +327,19 @@ export const navGroups: NavGroup[] = [
           </svg>
         ),
       },
+      {
+        label: "DB 상태",
+        href: "/admin/db-status",
+        exact: true,
+        superAdminOnly: true,
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <ellipse cx="12" cy="5" rx="9" ry="3" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12c0 1.66-4.03 3-9 3S3 13.66 3 12" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+          </svg>
+        ),
+      },
     ],
   },
   // ── 8. 회원 관리 ──────────────────────────────────────────────────────────
