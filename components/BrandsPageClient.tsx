@@ -27,7 +27,7 @@ function matchesCategory(brand: BrandItem, category: string): boolean {
 function CatalogCard({ item }: { item: BrandItem }) {
   const { name, positioning, description, href, heroImage, imageBg } = item;
   return (
-    <Link href={href} className="group block overflow-hidden border border-gray-200 hover:shadow-md transition-shadow bg-white" style={{ borderRadius: 4 }}>
+    <Link href={href} target="_blank" rel="noopener noreferrer" className="group block overflow-hidden border border-gray-200 hover:shadow-md transition-shadow bg-white" style={{ borderRadius: 4 }}>
       <div className="relative overflow-hidden bg-gray-100" style={{ aspectRatio: "3/2", borderRadius: "3px 3px 0 0" }}>
         {heroImage ? (
           // eslint-disable-next-line @next/next/no-img-element

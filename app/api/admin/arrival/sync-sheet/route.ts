@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
 import type { ArrivalStatus, ArrivalProduct } from "@/lib/arrival";
+import { replaceAllProducts, cleanupOrphanOverrides } from "@/lib/arrival";
 
 export const dynamic = "force-dynamic";
 
@@ -187,27 +186,12 @@ export async function POST() {
       return NextResponse.json({ error: "파싱된 상품이 없습니다. 시트 구조를 확인해주세요." }, { status: 400 });
     }
 
-    // 2. 기존 오버라이드 데이터 유지 (날짜/상태 수동 수정분 보존)
-    const overridesPath = path.join(process.cwd(), "data/arrival-overrides.json");
-    let overrides: Record<string, object> = {};
-    try {
-      const raw = fs.readFileSync(overridesPath, "utf-8").replace(/^﻿/, "");
-      overrides = JSON.parse(raw);
-    } catch { /* 오버라이드 없으면 무시 */ }
+    // 2. DB에 상품 전체 교체 저장
+    await replaceAllProducts(products);
 
-    // 오버라이드에 있는 productCode만 남기기 (새 상품 기준으로 정리)
-    // 복합 키("productCode::date") 포함 처리 — 복합 키에서 baseCode 추출해 비교
+    // 3. 삭제된 상품 코드의 오버라이드 정리
     const newCodes = new Set(products.map(p => p.productCode));
-    const cleanedOverrides: Record<string, object> = {};
-    for (const [k, v] of Object.entries(overrides)) {
-      const baseCode = k.includes("::") ? k.split("::")[0] : k;
-      if (newCodes.has(baseCode)) cleanedOverrides[k] = v;
-    }
-
-    // 3. JSON 파일 저장
-    const productsPath = path.join(process.cwd(), "public/data/arrival-products.json");
-    fs.writeFileSync(productsPath, JSON.stringify(products, null, 2), "utf-8");
-    fs.writeFileSync(overridesPath, JSON.stringify(cleanedOverrides, null, 2), "utf-8");
+    await cleanupOrphanOverrides(newCodes);
 
     // 4. 통계 반환
     const byStatus = products.reduce<Record<string, number>>((acc, p) => {

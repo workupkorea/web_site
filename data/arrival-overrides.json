@@ -143,7 +143,8 @@
   },
   "BS6MUAPT119": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/BS6MUAPT119_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/BS6MUAPT119_(2).png",
-    "changeHistory": []
+    "changeHistory": [],
+    "status": "입고완료"
   },
   "BS6WMAJP201": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/BS6WMAJP201.png",
@@ -437,7 +438,8 @@
   },
   "GB6FUAPT102": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/GB6FUAPT102.png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/GB6FUAPT102_kh.png",
-    "changeHistory": []
+    "changeHistory": [],
+    "status": "입고완료"
   },
   "GB6WUADW101": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/GB6WUADW101_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/GB6WUADW101_(2).png",
@@ -581,7 +583,8 @@
   },
   "VC6FUAJP107": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAJP107_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAJP107_(2).png",
-    "changeHistory": []
+    "changeHistory": [],
+    "status": "입고완료"
   },
   "VC6FUAPT101": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAPT101_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAPT101_(2).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAPT101_(3).png",
@@ -597,7 +600,8 @@
   },
   "VC6FUATL102": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL102_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL102_(2).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL102_(3).png",
-    "changeHistory": []
+    "changeHistory": [],
+    "status": "입고완료"
   },
   "VC6FUAPT103": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAPT103_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUAPT103_(2).png",
@@ -609,7 +613,8 @@
   },
   "VC6FUATL103": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL103_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL103_(2).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL103_(3).png",
-    "changeHistory": []
+    "changeHistory": [],
+    "status": "입고완료"
   },
   "VC6FUATL104": {
     "image": "https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL104_(1).png,https://gvlyppooyqawakaieafg.supabase.co/storage/v1/object/public/arrival-images/VC6FUATL104_(2).png",

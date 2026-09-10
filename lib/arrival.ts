@@ -1,10 +1,9 @@
-import fs from "fs";
-import path from "path";
+import { createAdminClient } from "./supabase-server";
 
 export type ArrivalStatus = "입고완료" | "입고예정" | "입고지연" | "일정미정" | "대기" | "일정미표기";
 
 export interface ChangeHistoryEntry {
-  changedAt: string;   // ISO datetime
+  changedAt: string;
   previousDate: string;
   newDate: string;
   reason: string;
@@ -15,20 +14,20 @@ export interface ArrivalProduct {
   productName: string;
   brand: string;
   category: string;
-  productType?: string;    // 상품구분 (사입/직수입 등)
-  newArrivalType?: string; // 신상구분 (재진행/신상 등)
+  productType?: string;
+  newArrivalType?: string;
   color: string;
-  supplyPrice?: number; // 공급가
-  price: number;        // 판매가
-  quantity?: number;    // 발주 수량
-  arrivalDate: string; // "YYYY-MM-DD"
+  supplyPrice?: number;
+  price: number;
+  quantity?: number;
+  arrivalDate: string;
   status: ArrivalStatus;
   description: string;
   note: string;
   image: string | null;
   detailUrl: string | null;
   changeHistory?: ChangeHistoryEntry[];
-  marketingUsage?: string; // 마케팅 활용여부 (구글 시트 AD열)
+  marketingUsage?: string;
 }
 
 export interface ArrivalOverride {
@@ -39,71 +38,109 @@ export interface ArrivalOverride {
   changeHistory?: ChangeHistoryEntry[];
 }
 
-const BASE_JSON = path.join(process.cwd(), "public/data/arrival-products.json");
-const OVERRIDES_JSON = path.join(process.cwd(), "data/arrival-overrides.json");
+// ─── 내부 헬퍼 ───────────────────────────────────────────────────────────────
 
-function readBase(): ArrivalProduct[] {
-  try {
-    const raw = fs.readFileSync(BASE_JSON, "utf-8").replace(/^﻿/, "");
-    return JSON.parse(raw);
-  } catch {
-    return [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToProduct(row: any): ArrivalProduct {
+  return {
+    productCode:    row.product_code,
+    productName:    row.product_name,
+    brand:          row.brand,
+    category:       row.category,
+    productType:    row.product_type ?? undefined,
+    newArrivalType: row.new_arrival_type ?? undefined,
+    color:          row.color,
+    supplyPrice:    row.supply_price ?? undefined,
+    price:          row.price,
+    quantity:       row.quantity ?? undefined,
+    arrivalDate:    row.arrival_date,
+    status:         row.status as ArrivalStatus,
+    description:    row.description,
+    note:           row.note,
+    marketingUsage: row.marketing_usage ?? undefined,
+    image:          row.image ?? null,
+    detailUrl:      row.detail_url ?? null,
+    changeHistory:  (row.change_history as ChangeHistoryEntry[]) ?? [],
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToOverride(row: any): ArrivalOverride {
+  return {
+    arrivalDate:   row.arrival_date ?? undefined,
+    status:        row.status ?? undefined,
+    image:         row.image ?? undefined,
+    detailUrl:     row.detail_url ?? undefined,
+    changeHistory: (row.change_history as ChangeHistoryEntry[]) ?? [],
+  };
+}
+
+// ─── 공개 API ─────────────────────────────────────────────────────────────────
+
+export async function getArrivalProducts(): Promise<ArrivalProduct[]> {
+  const supabase = createAdminClient();
+
+  const [{ data: products }, { data: overrideRows }] = await Promise.all([
+    supabase.from("arrival_products").select("*").order("arrival_date").order("brand").order("product_name"),
+    supabase.from("arrival_overrides").select("*"),
+  ]);
+
+  if (!products) return [];
+
+  const overrideMap = new Map<string, ArrivalOverride>();
+  for (const row of overrideRows ?? []) {
+    overrideMap.set(row.override_key, rowToOverride(row));
   }
-}
 
-function writeBase(products: ArrivalProduct[]): void {
-  const utf8NoBom = Buffer.from(JSON.stringify(products, null, 2), "utf-8");
-  fs.writeFileSync(BASE_JSON, utf8NoBom);
-}
-
-function readOverrides(): Record<string, ArrivalOverride> {
-  try {
-    const raw = fs.readFileSync(OVERRIDES_JSON, "utf-8").replace(/^﻿/, "");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
-}
-
-function writeOverrides(overrides: Record<string, ArrivalOverride>): void {
-  const utf8NoBom = Buffer.from(JSON.stringify(overrides, null, 2), "utf-8");
-  fs.writeFileSync(OVERRIDES_JSON, utf8NoBom);
-}
-
-export function getArrivalProducts(): ArrivalProduct[] {
-  const base = readBase();
-  const overrides = readOverrides();
-  return base.map((p) => {
-    // 복합키(productCode::arrivalDate) 우선 → 없으면 productCode 단독키로 fallback
+  return products.map(row => {
+    const p = rowToProduct(row);
     const compoundKey = p.arrivalDate ? `${p.productCode}::${p.arrivalDate}` : null;
-    const ov = (compoundKey && overrides[compoundKey]) || overrides[p.productCode];
-    return ov ? { ...p, ...ov } : p;
+    const ov = (compoundKey && overrideMap.get(compoundKey)) || overrideMap.get(p.productCode);
+    if (!ov) return p;
+    // undefined 값은 스프레드하지 않음 (원본 arrivalDate 등을 덮어쓰지 않기 위해)
+    const result = { ...p };
+    if (ov.arrivalDate !== undefined) result.arrivalDate = ov.arrivalDate;
+    if (ov.status !== undefined) result.status = ov.status;
+    if (ov.image !== undefined) result.image = ov.image;
+    if (ov.detailUrl !== undefined) result.detailUrl = ov.detailUrl;
+    if (ov.changeHistory !== undefined) result.changeHistory = ov.changeHistory;
+    return result;
   });
 }
 
-export function saveArrivalOverride(
+export async function saveArrivalOverride(
   productCode: string,
   data: ArrivalOverride,
   reason?: string,
-  originalDate?: string,  // 원래 입고일 — 복합키 생성에 사용
-  clearHistory?: boolean   // 변경이력 초기화
-): void {
-  const overrides = readOverrides();
-  // 복합키: 같은 productCode지만 입고일이 다른 항목을 독립적으로 관리
+  originalDate?: string,
+  clearHistory?: boolean
+): Promise<void> {
+  const supabase = createAdminClient();
   const key = originalDate ? `${productCode}::${originalDate}` : productCode;
-  const prev = overrides[key] ?? overrides[productCode] ?? {};
+
+  const { data: existing } = await supabase
+    .from("arrival_overrides")
+    .select("*")
+    .eq("override_key", key)
+    .single();
+
+  const prev: ArrivalOverride = existing ? rowToOverride(existing) : {};
 
   let changeHistory: ChangeHistoryEntry[] = clearHistory ? [] : (prev.changeHistory ?? []);
+
   if (
     !clearHistory &&
     reason !== undefined &&
     data.arrivalDate !== undefined &&
     data.arrivalDate !== prev.arrivalDate
   ) {
-    const base = readBase();
-    const baseProduct = base.find((p) => p.productCode === productCode);
-    const previousDate = prev.arrivalDate ?? baseProduct?.arrivalDate ?? "";
+    const { data: baseRow } = await supabase
+      .from("arrival_products")
+      .select("arrival_date")
+      .eq("product_code", productCode)
+      .maybeSingle();
 
+    const previousDate = prev.arrivalDate ?? baseRow?.arrival_date ?? "";
     changeHistory = [
       ...changeHistory,
       {
@@ -115,33 +152,56 @@ export function saveArrivalOverride(
     ];
   }
 
-  overrides[key] = {
-    ...prev,
-    ...data,
-    changeHistory,
-  };
-  writeOverrides(overrides);
+  const merged: ArrivalOverride = { ...prev, ...data, changeHistory };
+
+  await supabase.from("arrival_overrides").upsert({
+    override_key:   key,
+    arrival_date:   merged.arrivalDate ?? null,
+    status:         merged.status ?? null,
+    image:          merged.image ?? null,
+    detail_url:     merged.detailUrl ?? null,
+    change_history: changeHistory,
+    updated_at:     new Date().toISOString(),
+  });
 }
 
-export function bulkSaveArrivalOverride(
+export async function bulkSaveArrivalOverride(
   productCodes: string[],
   data: ArrivalOverride,
   reason?: string
-): void {
-  const overrides = readOverrides();
-  const base = readBase();
+): Promise<void> {
+  const supabase = createAdminClient();
 
-  for (const code of productCodes) {
-    const prev = overrides[code] ?? {};
-    let changeHistory = prev.changeHistory ?? [];
+  const { data: existingRows } = await supabase
+    .from("arrival_overrides")
+    .select("*")
+    .in("override_key", productCodes);
+
+  const existingMap = new Map<string, ArrivalOverride>();
+  for (const row of existingRows ?? []) {
+    existingMap.set(row.override_key, rowToOverride(row));
+  }
+
+  const { data: baseRows } = await supabase
+    .from("arrival_products")
+    .select("product_code, arrival_date")
+    .in("product_code", productCodes);
+
+  const baseDateMap = new Map<string, string>();
+  for (const row of baseRows ?? []) {
+    baseDateMap.set(row.product_code, row.arrival_date);
+  }
+
+  const upserts = productCodes.map(code => {
+    const prev = existingMap.get(code) ?? {};
+    let changeHistory: ChangeHistoryEntry[] = prev.changeHistory ?? [];
 
     if (
       reason !== undefined &&
       data.arrivalDate !== undefined &&
       data.arrivalDate !== prev.arrivalDate
     ) {
-      const baseProduct = base.find((p) => p.productCode === code);
-      const previousDate = prev.arrivalDate ?? baseProduct?.arrivalDate ?? "";
+      const previousDate = prev.arrivalDate ?? baseDateMap.get(code) ?? "";
       changeHistory = [
         ...changeHistory,
         {
@@ -153,22 +213,101 @@ export function bulkSaveArrivalOverride(
       ];
     }
 
-    overrides[code] = { ...prev, ...data, changeHistory };
-  }
-  writeOverrides(overrides);
+    const merged = { ...prev, ...data, changeHistory };
+    return {
+      override_key:   code,
+      arrival_date:   merged.arrivalDate ?? null,
+      status:         merged.status ?? null,
+      image:          merged.image ?? null,
+      detail_url:     merged.detailUrl ?? null,
+      change_history: changeHistory,
+      updated_at:     new Date().toISOString(),
+    };
+  });
+
+  await supabase.from("arrival_overrides").upsert(upserts);
 }
 
-export function addNewProduct(product: ArrivalProduct): void {
-  const products = readBase();
-  if (products.find((p) => p.productCode === product.productCode)) {
-    throw new Error(`상품코드 ${product.productCode}는 이미 존재합니다.`);
+export async function addNewProduct(product: ArrivalProduct): Promise<void> {
+  const supabase = createAdminClient();
+
+  const { error } = await supabase.from("arrival_products").insert({
+    product_code:     product.productCode,
+    product_name:     product.productName,
+    brand:            product.brand,
+    category:         product.category,
+    product_type:     product.productType ?? null,
+    new_arrival_type: product.newArrivalType ?? null,
+    color:            product.color,
+    supply_price:     product.supplyPrice ?? 0,
+    price:            product.price,
+    quantity:         product.quantity ?? 0,
+    arrival_date:     product.arrivalDate,
+    status:           product.status,
+    description:      product.description,
+    note:             product.note,
+    marketing_usage:  product.marketingUsage ?? null,
+    image:            product.image ?? null,
+    detail_url:       product.detailUrl ?? null,
+    change_history:   product.changeHistory ?? [],
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error(`상품코드 ${product.productCode}는 이미 존재합니다.`);
+    }
+    throw new Error(error.message);
   }
-  products.push(product);
-  writeBase(products);
 }
 
-// 오늘 입고일인 상품 중 입고예정 상태인 것을 자동으로 입고완료 처리
-export function autoCompleteArrivals(): string[] {
+export async function addMultipleProducts(
+  newProducts: ArrivalProduct[]
+): Promise<{ added: number; skipped: string[] }> {
+  const supabase = createAdminClient();
+
+  const codes = newProducts.map(p => p.productCode);
+  const { data: existing } = await supabase
+    .from("arrival_products")
+    .select("product_code")
+    .in("product_code", codes);
+
+  const existingCodes = new Set((existing ?? []).map(r => r.product_code));
+  const skipped: string[] = [];
+  const toAdd = newProducts.filter(p => {
+    if (existingCodes.has(p.productCode)) { skipped.push(p.productCode); return false; }
+    return true;
+  });
+
+  if (toAdd.length > 0) {
+    const rows = toAdd.map(p => ({
+      product_code:     p.productCode,
+      product_name:     p.productName,
+      brand:            p.brand,
+      category:         p.category,
+      product_type:     p.productType ?? null,
+      new_arrival_type: p.newArrivalType ?? null,
+      color:            p.color,
+      supply_price:     p.supplyPrice ?? 0,
+      price:            p.price,
+      quantity:         p.quantity ?? 0,
+      arrival_date:     p.arrivalDate,
+      status:           p.status,
+      description:      p.description,
+      note:             p.note,
+      marketing_usage:  p.marketingUsage ?? null,
+      image:            p.image ?? null,
+      detail_url:       p.detailUrl ?? null,
+      change_history:   p.changeHistory ?? [],
+    }));
+    await supabase.from("arrival_products").insert(rows);
+  }
+
+  return { added: toAdd.length, skipped };
+}
+
+export async function autoCompleteArrivals(): Promise<string[]> {
+  const supabase = createAdminClient();
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayStr = [
@@ -177,43 +316,99 @@ export function autoCompleteArrivals(): string[] {
     String(today.getDate()).padStart(2, "0"),
   ].join("-");
 
-  const base = readBase();
-  const overrides = readOverrides();
-  const updated: string[] = [];
+  // 오늘 이하 날짜이면서 입고예정 상태인 상품 조회 (overrides 포함)
+  const [{ data: products }, { data: overrideRows }] = await Promise.all([
+    supabase.from("arrival_products").select("product_code, arrival_date, status"),
+    supabase.from("arrival_overrides").select("override_key, arrival_date, status"),
+  ]);
 
-  for (const p of base) {
-    const ov = overrides[p.productCode] ?? {};
-    const effectiveDate   = (ov.arrivalDate   ?? p.arrivalDate)?.trim();
-    const effectiveStatus = (ov.status        ?? p.status);
-    if (effectiveDate <= todayStr && effectiveStatus === "입고예정") {
-      overrides[p.productCode] = { ...ov, status: "입고완료" };
-      updated.push(p.productCode);
+  const overrideMap = new Map<string, { arrivalDate?: string; status?: string }>();
+  for (const row of overrideRows ?? []) {
+    overrideMap.set(row.override_key, { arrivalDate: row.arrival_date, status: row.status });
+  }
+
+  const updated: string[] = [];
+  const upserts: object[] = [];
+
+  for (const p of products ?? []) {
+    const compoundKey = p.arrival_date ? `${p.product_code}::${p.arrival_date}` : null;
+    const ov = (compoundKey && overrideMap.get(compoundKey)) || overrideMap.get(p.product_code);
+    const effectiveDate   = ov?.arrivalDate   ?? p.arrival_date;
+    const effectiveStatus = ov?.status        ?? p.status;
+
+    if (effectiveDate && effectiveDate <= todayStr && effectiveStatus === "입고예정") {
+      const key = compoundKey ?? p.product_code;
+      const existing = overrideMap.get(key) ?? {};
+      upserts.push({
+        override_key: key,
+        ...existing,
+        status: "입고완료",
+        updated_at: new Date().toISOString(),
+      });
+      updated.push(p.product_code);
     }
   }
 
-  if (updated.length > 0) writeOverrides(overrides);
+  if (upserts.length > 0) {
+    await supabase.from("arrival_overrides").upsert(upserts);
+  }
+
   return updated;
 }
 
-export function addMultipleProducts(
-  newProducts: ArrivalProduct[]
-): { added: number; skipped: string[] } {
-  const existing = readBase();
-  const existingCodes = new Set(existing.map((p) => p.productCode));
-  const skipped: string[] = [];
-  const toAdd: ArrivalProduct[] = [];
+// 구글 시트 동기화 시 전체 상품 교체 (기존 데이터 삭제 후 재삽입)
+export async function replaceAllProducts(products: ArrivalProduct[]): Promise<void> {
+  const supabase = createAdminClient();
 
-  for (const p of newProducts) {
-    if (existingCodes.has(p.productCode)) {
-      skipped.push(p.productCode);
-    } else {
-      toAdd.push(p);
-    }
+  // 기존 전체 삭제
+  const { error: delError } = await supabase.from("arrival_products").delete().neq("id", 0);
+  if (delError) throw new Error(`[arrival_products DELETE] ${delError.message}`);
+
+  if (products.length === 0) return;
+
+  const rows = products.map(p => ({
+    product_code:     p.productCode,
+    product_name:     p.productName,
+    brand:            p.brand,
+    category:         p.category,
+    product_type:     p.productType ?? null,
+    new_arrival_type: p.newArrivalType ?? null,
+    color:            p.color,
+    supply_price:     p.supplyPrice ?? 0,
+    price:            p.price,
+    quantity:         p.quantity ?? 0,
+    arrival_date:     p.arrivalDate,
+    status:           p.status,
+    description:      p.description,
+    note:             p.note,
+    marketing_usage:  p.marketingUsage ?? null,
+    image:            p.image ?? null,
+    detail_url:       p.detailUrl ?? null,
+    change_history:   p.changeHistory ?? [],
+    synced_at:        new Date().toISOString(),
+  }));
+
+  // 500개씩 나눠서 insert (Supabase 요청 크기 제한 대비)
+  const CHUNK = 500;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error: insError } = await supabase.from("arrival_products").insert(rows.slice(i, i + CHUNK));
+    if (insError) throw new Error(`[arrival_products INSERT chunk ${i}] ${insError.message}`);
   }
+}
 
-  if (toAdd.length > 0) {
-    writeBase([...existing, ...toAdd]);
+// 오버라이드 중 삭제된 상품 코드 정리
+export async function cleanupOrphanOverrides(validCodes: Set<string>): Promise<void> {
+  const supabase = createAdminClient();
+  const { data: overrideRows } = await supabase.from("arrival_overrides").select("override_key");
+
+  const toDelete = (overrideRows ?? [])
+    .filter(row => {
+      const baseCode = row.override_key.includes("::") ? row.override_key.split("::")[0] : row.override_key;
+      return !validCodes.has(baseCode);
+    })
+    .map(row => row.override_key);
+
+  if (toDelete.length > 0) {
+    await supabase.from("arrival_overrides").delete().in("override_key", toDelete);
   }
-
-  return { added: toAdd.length, skipped };
 }

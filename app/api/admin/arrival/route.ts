@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
     // 일괄 임포트: { products: ArrivalProduct[] }
     if (Array.isArray(body.products)) {
-      const result = addMultipleProducts(
+      const result = await addMultipleProducts(
         (body.products as ArrivalProduct[]).map((p) => ({
           productCode: String(p.productCode ?? "").trim(),
           productName: String(p.productName ?? "").trim(),
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     if (!p.productCode?.trim()) {
       return NextResponse.json({ error: "productCode required" }, { status: 400 });
     }
-    addNewProduct({
+    await addNewProduct({
       productCode: p.productCode.trim(),
       productName: String(p.productName ?? "").trim(),
       brand: String(p.brand ?? "").trim(),
@@ -74,7 +74,7 @@ export async function PATCH(req: Request) {
       clearHistory?: boolean;       // 변경이력만 삭제
     } & ArrivalOverride;
     if (!productCode) return NextResponse.json({ error: "productCode required" }, { status: 400 });
-    saveArrivalOverride(productCode, data, reason, originalArrivalDate, clearHistory);
+    await saveArrivalOverride(productCode, data, reason, originalArrivalDate, clearHistory);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -90,7 +90,7 @@ export async function PUT(req: Request) {
       reason?: string;
     } & ArrivalOverride;
     if (!productCodes?.length) return NextResponse.json({ error: "productCodes required" }, { status: 400 });
-    bulkSaveArrivalOverride(productCodes, data, reason);
+    await bulkSaveArrivalOverride(productCodes, data, reason);
     return NextResponse.json({ ok: true, count: productCodes.length });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });
@@ -98,6 +98,6 @@ export async function PUT(req: Request) {
 }
 
 export async function GET() {
-  const products = getArrivalProducts();
+  const products = await getArrivalProducts();
   return NextResponse.json(products);
 }

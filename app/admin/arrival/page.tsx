@@ -26,6 +26,80 @@ const STATUS_CLS: Record<ArrivalStatus, string> = {
   일정미표기: "bg-gray-100 text-gray-400",
 };
 
+// ─── 동기화 히스토리 타입 ──────────────────────────────────────────────────────
+interface ProductSnapshot {
+  brand: string;
+  category: string;
+  arrivalDate: string;
+  status: string;
+  price: number;
+  quantity: number;
+  note: string;
+}
+interface SyncDiffItem {
+  productCode: string;
+  productName: string;
+  type: "added" | "removed" | "changed";
+  snapshot?: ProductSnapshot;           // 추가/삭제된 제품의 전체 정보
+  changes?: { field: string; before: string; after: string }[];
+}
+interface SyncHistoryEntry {
+  id: string;
+  syncedAt: string;
+  durationSec: number;
+  total: number;
+  byStatus: Record<string, number>;
+  diff: SyncDiffItem[];
+  error?: string;
+}
+
+function toSnapshot(p: ArrivalProduct): ProductSnapshot {
+  return {
+    brand: p.brand,
+    category: p.category,
+    arrivalDate: p.arrivalDate || "—",
+    status: p.status,
+    price: p.price,
+    quantity: p.quantity ?? 0,
+    note: p.note,
+  };
+}
+
+function calcSyncDiff(before: ArrivalProduct[], after: ArrivalProduct[]): SyncDiffItem[] {
+  const beforeMap = new Map(before.map(p => [`${p.productCode}::${p.arrivalDate}`, p]));
+  const afterMap  = new Map(after.map(p => [`${p.productCode}::${p.arrivalDate}`, p]));
+  const diff: SyncDiffItem[] = [];
+
+  for (const [key, p] of afterMap) {
+    if (!beforeMap.has(key)) diff.push({ productCode: p.productCode, productName: p.productName, type: "added", snapshot: toSnapshot(p) });
+  }
+  for (const [key, p] of beforeMap) {
+    if (!afterMap.has(key)) diff.push({ productCode: p.productCode, productName: p.productName, type: "removed", snapshot: toSnapshot(p) });
+  }
+  for (const [key, b] of beforeMap) {
+    const a = afterMap.get(key);
+    if (!a) continue;
+    const changes: { field: string; before: string; after: string }[] = [];
+    if (b.productName  !== a.productName)  changes.push({ field: "상품명", before: b.productName,      after: a.productName });
+    if (b.brand        !== a.brand)        changes.push({ field: "브랜드", before: b.brand,            after: a.brand });
+    if (b.category     !== a.category)     changes.push({ field: "카테고리", before: b.category,       after: a.category });
+    if (b.arrivalDate  !== a.arrivalDate)  changes.push({ field: "입고일", before: b.arrivalDate || "—", after: a.arrivalDate || "—" });
+    if (b.status       !== a.status)       changes.push({ field: "상태",   before: b.status,           after: a.status });
+    if (b.price        !== a.price)        changes.push({ field: "판매가", before: `₩${b.price.toLocaleString()}`, after: `₩${a.price.toLocaleString()}` });
+    if ((b.quantity??0) !== (a.quantity??0)) changes.push({ field: "수량", before: String(b.quantity??0), after: String(a.quantity??0) });
+    if (b.note         !== a.note)         changes.push({ field: "비고",   before: b.note || "—",      after: a.note || "—" });
+    if (changes.length > 0) diff.push({ productCode: a.productCode, productName: a.productName, type: "changed", snapshot: toSnapshot(a), changes });
+  }
+  return diff;
+}
+
+function fmtElapsed(sec: number) {
+  if (sec < 60) return `${sec.toFixed(1)}초`;
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}분 ${String(s).padStart(2,"0")}초`;
+}
+
 const CSV_HEADERS = [
   "productCode","productName","brand","category","color",
   "supplyPrice","price","quantity","arrivalDate","status","description","note",
@@ -982,6 +1056,11 @@ export default function AdminArrivalPage() {
   const [uploadingCode,  setUploadingCode] = useState<string | null>(null);
   const [syncing,        setSyncing]       = useState(false);
   const [syncResult,     setSyncResult]    = useState<{ total: number; syncedAt: string } | null>(null);
+  const [syncElapsed,    setSyncElapsed]   = useState<number | null>(null); // 초 단위
+  const [syncHistory,    setSyncHistory]   = useState<SyncHistoryEntry[]>([]);
+  const [showSyncHistory,setShowSyncHistory] = useState(false);
+  const syncTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const syncStartRef  = useRef<number>(0);
 
   const handleInlineImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -1074,21 +1153,67 @@ export default function AdminArrivalPage() {
 
   const handleSyncFromSheet = async () => {
     if (!confirm("구글 시트에서 전체 상품 데이터를 가져옵니다.\n기존 데이터가 시트 내용으로 교체됩니다. 계속하시겠습니까?")) return;
+
+    const beforeSnapshot = [...products];
     setSyncing(true);
     setSyncResult(null);
+
+    // 타이머 시작
+    syncStartRef.current = Date.now();
+    setSyncElapsed(0);
+    if (syncTimerRef.current) clearInterval(syncTimerRef.current);
+    syncTimerRef.current = setInterval(() => {
+      setSyncElapsed((Date.now() - syncStartRef.current) / 1000);
+    }, 100);
+
+    let entry: SyncHistoryEntry | null = null;
     try {
-      const res = await fetch("/api/admin/arrival/sync-sheet", { method: "POST" });
+      const res  = await fetch("/api/admin/arrival/sync-sheet", { method: "POST" });
       const json = await res.json();
-      if (!res.ok) { alert(json.error || "동기화 실패"); return; }
-      setSyncResult({ total: json.total, syncedAt: json.syncedAt });
-      // 목록 새로고침
-      const listRes = await fetch("/api/admin/arrival");
-      const data = await listRes.json();
-      setProducts(Array.isArray(data) ? data : []);
+      const elapsed = (Date.now() - syncStartRef.current) / 1000;
+
+      if (!res.ok) {
+        entry = {
+          id: crypto.randomUUID(),
+          syncedAt: new Date().toISOString(),
+          durationSec: elapsed,
+          total: 0,
+          byStatus: {},
+          diff: [],
+          error: json.error || "동기화 실패",
+        };
+      } else {
+        setSyncResult({ total: json.total, syncedAt: json.syncedAt });
+        // 목록 새로고침
+        const listRes = await fetch("/api/admin/arrival");
+        const data = await listRes.json();
+        const newProducts: ArrivalProduct[] = Array.isArray(data) ? data : [];
+        setProducts(newProducts);
+        entry = {
+          id: crypto.randomUUID(),
+          syncedAt: json.syncedAt,
+          durationSec: elapsed,
+          total: json.total,
+          byStatus: json.byStatus ?? {},
+          diff: calcSyncDiff(beforeSnapshot, newProducts),
+        };
+      }
     } catch (e) {
-      alert("동기화 중 오류: " + String(e));
+      const elapsed = (Date.now() - syncStartRef.current) / 1000;
+      entry = {
+        id: crypto.randomUUID(),
+        syncedAt: new Date().toISOString(),
+        durationSec: elapsed,
+        total: 0,
+        byStatus: {},
+        diff: [],
+        error: String(e),
+      };
     } finally {
+      if (syncTimerRef.current) { clearInterval(syncTimerRef.current); syncTimerRef.current = null; }
+      setSyncElapsed((Date.now() - syncStartRef.current) / 1000);
       setSyncing(false);
+      if (entry) setSyncHistory(prev => [entry!, ...prev]);
     }
   };
 
@@ -1133,13 +1258,32 @@ export default function AdminArrivalPage() {
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* 구글 시트 동기화 */}
-          <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center gap-3">
+            {/* 완료 정보 고정 영역 — 항상 렌더링해서 버튼 위치 안 밀림 */}
+            <div className="flex flex-col items-end min-w-[100px]">
+              <span className={`text-[11px] tabular-nums leading-tight ${
+                syncResult && !syncing ? "text-gray-500 font-medium" : "invisible"
+              }`}>
+                {syncResult
+                  ? `${syncResult.total}개 완료 / ${new Date(syncResult.syncedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false})}`
+                  : "—"}
+              </span>
+              <button
+                onClick={() => setShowSyncHistory(true)}
+                className={`text-[10px] underline underline-offset-2 leading-tight mt-0.5 ${
+                  syncHistory.length > 0 ? "text-gray-400 hover:text-gray-600" : "invisible pointer-events-none"
+                }`}
+              >
+                히스토리 {syncHistory.length}건
+              </button>
+            </div>
+
             <button
               onClick={handleSyncFromSheet}
               disabled={syncing}
-              className="px-4 py-2 border border-green-300 bg-green-50 text-green-700 text-[13px] font-bold rounded-lg hover:bg-green-100 disabled:opacity-50 flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2 border border-green-300 bg-green-50 text-green-700 text-[13px] font-bold rounded-lg hover:bg-green-100 disabled:opacity-50 flex items-center gap-1.5 transition-colors whitespace-nowrap"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={syncing ? "animate-spin" : ""}>
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
                 <path d="M3 3v5h5"/>
                 <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
@@ -1147,11 +1291,6 @@ export default function AdminArrivalPage() {
               </svg>
               {syncing ? "동기화 중…" : "구글 시트 동기화"}
             </button>
-            {syncResult && (
-              <span className="text-[11px] text-green-600">
-                {syncResult.total}개 완료 · {new Date(syncResult.syncedAt).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
           </div>
 
           <button
@@ -1282,10 +1421,10 @@ export default function AdminArrivalPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {filtered.map(p => {
+                {filtered.map((p, i) => {
                   const meta = STATUS_CLS[p.status] ?? STATUS_CLS["입고예정"];
                   return (
-                    <tr key={`${p.productCode}_${p.arrivalDate || "none"}`} className={`hover:bg-gray-50/70 ${selected.has(p.productCode) ? "bg-blue-50/30" : ""}`}>
+                    <tr key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} className={`hover:bg-gray-50/70 ${selected.has(p.productCode) ? "bg-blue-50/30" : ""}`}>
                       <td className="px-4 py-3">
                         <input type="checkbox" checked={selected.has(p.productCode)} onChange={() => toggleOne(p.productCode)}
                           className="w-4 h-4 accent-[#1a1a1a]" />
@@ -1363,6 +1502,202 @@ export default function AdminArrivalPage() {
           </div>
         )}
       </div>
+
+      {/* 동기화 히스토리 패널 */}
+      {showSyncHistory && (
+        <div className="fixed inset-0 z-50 flex items-start justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowSyncHistory(false)} />
+          <div className="relative bg-white shadow-2xl w-full max-w-3xl h-full flex flex-col">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+              <div>
+                <h2 className="text-[15px] font-bold text-[#1a1a1a]">동기화 히스토리</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">세션 내 동기화 기록 · {syncHistory.length}건</p>
+              </div>
+              <button onClick={() => setShowSyncHistory(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700">✕</button>
+            </div>
+
+            {/* 목록 */}
+            <div className="overflow-y-auto flex-1">
+              {syncHistory.map((entry, ei) => {
+                const added   = entry.diff.filter(d => d.type === "added");
+                const removed = entry.diff.filter(d => d.type === "removed");
+                const changed = entry.diff.filter(d => d.type === "changed");
+                const STATUS_ORDER = ["입고예정","입고완료","입고지연","일정미정","대기","일정미표기"];
+
+                return (
+                  <div key={entry.id} className={`px-6 py-5 ${ei < syncHistory.length - 1 ? "border-b" : ""}`}>
+                    {/* ── 실행 요약 행 ── */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div>
+                        <span className="text-[13px] font-bold text-[#1a1a1a]">
+                          {new Date(entry.syncedAt).toLocaleString("ko-KR", {
+                            year:"numeric", month:"2-digit", day:"2-digit",
+                            hour:"2-digit", minute:"2-digit", second:"2-digit", hour12: false,
+                          })}
+                        </span>
+                        <span className="ml-2 text-[11px] text-gray-400 font-mono">{fmtElapsed(entry.durationSec)}</span>
+                        {entry.error && (
+                          <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded-full">오류</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        {!entry.error && <span className="text-[11px] text-gray-500 font-medium">총 {entry.total}개</span>}
+                        {added.length > 0   && <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[11px] font-bold rounded-full">+{added.length} 추가</span>}
+                        {removed.length > 0 && <span className="px-2 py-0.5 bg-red-100    text-red-600    text-[11px] font-bold rounded-full">−{removed.length} 삭제</span>}
+                        {changed.length > 0 && <span className="px-2 py-0.5 bg-amber-100  text-amber-700  text-[11px] font-bold rounded-full">↻{changed.length} 변경</span>}
+                        {entry.diff.length === 0 && !entry.error && <span className="text-[11px] text-gray-400">변경 없음</span>}
+                      </div>
+                    </div>
+
+                    {/* ── 에러 메시지 ── */}
+                    {entry.error && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] text-red-700 font-mono mb-3 break-all">{entry.error}</div>
+                    )}
+
+                    {/* ── 상태별 분포 ── */}
+                    {Object.keys(entry.byStatus).length > 0 && (
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 px-3 py-2 bg-gray-50 rounded-lg">
+                        {STATUS_ORDER.filter(s => entry.byStatus[s]).map(s => (
+                          <span key={s} className="text-[11px] text-gray-600">
+                            <span className="text-gray-400 mr-1">{s}</span>
+                            <span className="font-bold">{entry.byStatus[s]}개</span>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* ── 추가된 제품 ── */}
+                    {added.length > 0 && (
+                      <div className="mb-4">
+                        <div className="text-[11px] font-bold text-emerald-700 mb-1.5 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          신규 추가 {added.length}건
+                        </div>
+                        <div className="overflow-x-auto rounded-lg border border-emerald-100">
+                          <table className="w-full text-[12px] border-collapse">
+                            <thead>
+                              <tr className="bg-emerald-50 text-emerald-800 text-[11px]">
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100 w-7">#</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품코드</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">브랜드</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품명</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">카테고리</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">입고일</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상태</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">판매가</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">수량</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-emerald-50">
+                              {added.map((d, di) => (
+                                <tr key={di} className="hover:bg-emerald-50/50">
+                                  <td className="px-3 py-2 text-gray-400">{di + 1}</td>
+                                  <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap">{d.productCode}</td>
+                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.brand || "—"}</td>
+                                  <td className="px-3 py-2 text-gray-800 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
+                                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{d.snapshot?.category || "—"}</td>
+                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap font-mono text-[11px]">{d.snapshot?.arrivalDate || "—"}</td>
+                                  <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px]">{d.snapshot?.status || "—"}</span></td>
+                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.price ? `₩${d.snapshot.price.toLocaleString()}` : "—"}</td>
+                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.quantity ?? "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 변경된 제품 ── */}
+                    {changed.length > 0 && (
+                      <div className="mb-4">
+                        <div className="text-[11px] font-bold text-amber-700 mb-1.5 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />
+                          변경 {changed.length}건
+                        </div>
+                        <div className="overflow-x-auto rounded-lg border border-amber-100">
+                          <table className="w-full text-[12px] border-collapse">
+                            <thead>
+                              <tr className="bg-amber-50 text-amber-800 text-[11px]">
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100 w-7">#</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품코드</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">브랜드</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품명</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">변경 항목</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-amber-50">
+                              {changed.map((d, di) => (
+                                <tr key={di} className="hover:bg-amber-50/40">
+                                  <td className="px-3 py-2 text-gray-400 align-top">{di + 1}</td>
+                                  <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap align-top">{d.productCode}</td>
+                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap align-top">{d.snapshot?.brand || "—"}</td>
+                                  <td className="px-3 py-2 text-gray-800 max-w-[160px] align-top"><span className="block truncate">{d.productName}</span></td>
+                                  <td className="px-3 py-2 align-top">
+                                    <div className="flex flex-col gap-1">
+                                      {d.changes?.map((c, ci) => (
+                                        <div key={ci} className="flex items-baseline gap-1.5 text-[11px] flex-wrap">
+                                          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-bold whitespace-nowrap shrink-0">{c.field}</span>
+                                          <span className="line-through text-red-400 whitespace-nowrap">{c.before}</span>
+                                          <span className="text-gray-400">→</span>
+                                          <span className="text-emerald-600 font-medium whitespace-nowrap">{c.after}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── 삭제된 제품 ── */}
+                    {removed.length > 0 && (
+                      <div className="mb-2">
+                        <div className="text-[11px] font-bold text-red-600 mb-1.5 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
+                          삭제(시트에서 제거됨) {removed.length}건
+                        </div>
+                        <div className="overflow-x-auto rounded-lg border border-red-100">
+                          <table className="w-full text-[12px] border-collapse">
+                            <thead>
+                              <tr className="bg-red-50 text-red-800 text-[11px]">
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100 w-7">#</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상품코드</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">브랜드</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상품명</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">카테고리</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">마지막 입고일</th>
+                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상태</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-red-50">
+                              {removed.map((d, di) => (
+                                <tr key={di} className="hover:bg-red-50/50 opacity-70">
+                                  <td className="px-3 py-2 text-gray-400">{di + 1}</td>
+                                  <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap">{d.productCode}</td>
+                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.brand || "—"}</td>
+                                  <td className="px-3 py-2 text-gray-700 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
+                                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{d.snapshot?.category || "—"}</td>
+                                  <td className="px-3 py-2 text-gray-500 font-mono text-[11px] whitespace-nowrap">{d.snapshot?.arrivalDate || "—"}</td>
+                                  <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px]">{d.snapshot?.status || "—"}</span></td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 단일 수정 모달 */}
       {editProduct && (

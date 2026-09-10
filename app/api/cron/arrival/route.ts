@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const updated = autoCompleteArrivals();
+    const updated = await autoCompleteArrivals();
     return NextResponse.json({
       ok: true,
       updatedCount: updated.length,

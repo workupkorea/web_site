@@ -451,13 +451,13 @@ type ViewMode  = "grid" | "list" | "calendar" | "timeline" | "gantt";
 type GroupMode = "date" | "month" | "category" | "brand";
 
 // ─── 상품 카드 (그리드용) ─────────────────────────────────────────────────────
-function ProductCard({ product, onSelect, showDate }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean }) {
+function ProductCard({ product, onSelect, showDate, showMarketing }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean }) {
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const { full } = fmtDate(product.arrivalDate);
   return (
     <button onClick={onSelect}
       className="text-left transition-opacity hover:opacity-80 flex flex-col">
-      <div className={`w-full overflow-hidden rounded-sm border ${product.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
+      <div className={`w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
         <ProductImage product={product} size="sm" />
       </div>
       <div className="pt-2 flex flex-col gap-1 flex-1">
@@ -559,8 +559,8 @@ function GroupHeader({ groupKey, groupMode, count }: { groupKey: string; groupMo
 }
 
 // ─── 그리드 뷰 ───────────────────────────────────────────────────────────────
-function GridView({ grouped, groupMode, onSelect }: {
-  grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void;
+function GridView({ grouped, groupMode, onSelect, showMarketing }: {
+  grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
 }) {
   const collapsible = groupMode === "category" || groupMode === "brand";
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -587,7 +587,7 @@ function GridView({ grouped, groupMode, onSelect }: {
             )}
             {!isCollapsed && (
               <div className={GRID_COLS}>
-                {items.map(p => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} />)}
+                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} />)}
               </div>
             )}
           </div>
@@ -598,8 +598,8 @@ function GridView({ grouped, groupMode, onSelect }: {
 }
 
 // ─── 리스트 뷰 ───────────────────────────────────────────────────────────────
-function ListView({ grouped, groupMode, onSelect }: {
-  grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void;
+function ListView({ grouped, groupMode, onSelect, showMarketing }: {
+  grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
 }) {
   const collapsible = groupMode === "category" || groupMode === "brand";
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -637,7 +637,7 @@ function ListView({ grouped, groupMode, onSelect }: {
               const history = p.changeHistory ?? [];
               return (
                 <div key={`${p.productCode}_${p.arrivalDate || "none"}`}
-                  className={`bg-white rounded-lg overflow-hidden ${p.marketingUsage ? "border-2 border-orange-400" : "border border-gray-100"}`}>
+                  className={`bg-white rounded-lg overflow-hidden ${showMarketing && p.marketingUsage ? "border-2 border-orange-400" : "border border-gray-100"}`}>
                   {/* 상단 요약 행 */}
                   <div className="flex items-center gap-3 px-4 pt-4 pb-2">
                     <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${meta.cls}`}>{meta.label}</span>
@@ -951,8 +951,8 @@ function buildCalendarPDF(
 }
 
 // ─── 캘린더 뷰 ───────────────────────────────────────────────────────────────
-function CalendarView({ products, onSelect }: {
-  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void;
+function CalendarView({ products, onSelect, showMarketing }: {
+  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
 }) {
   const today = useMemo(() => { const d = new Date(); d.setHours(0,0,0,0); return d; }, []);
   const thisYear  = today.getFullYear();
@@ -1177,7 +1177,7 @@ function CalendarView({ products, onSelect }: {
                                     return (
                                       <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
                                         className="w-full text-left transition-opacity hover:opacity-75 py-2 first:pt-0 last:pb-0">
-                                        <div className={`relative w-full aspect-[3/4] overflow-hidden rounded-sm bg-[#f0efed] ${p.marketingUsage ? "ring-2 ring-orange-400" : ""}`}>
+                                        <div className={`relative w-full aspect-[3/4] overflow-hidden rounded-sm bg-[#f0efed] ${showMarketing && p.marketingUsage ? "ring-2 ring-orange-400" : ""}`}>
                                           <MiniThumb product={p} />
                                         </div>
                                         <div className="flex items-center gap-1 mt-1">
@@ -1218,8 +1218,8 @@ function CalendarView({ products, onSelect }: {
 }
 
 // ─── 간트 뷰 (브랜드 × 날짜 매트릭스) ──────────────────────────────────────
-function GanttView({ products, onSelect }: {
-  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void;
+function GanttView({ products, onSelect, showMarketing }: {
+  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
 }) {
   const todayIso = useMemo(() => {
     const d = new Date(); d.setHours(0,0,0,0);
@@ -1308,7 +1308,7 @@ function GanttView({ products, onSelect }: {
                   if (ps.length === 0) {
                     return <td key={iso} className={`border border-gray-100 w-14 ${iso === todayIso ? "bg-red-50/40" : ""}`} />;
                   }
-                  const hasMarketing = ps.some(p => p.marketingUsage);
+                  const hasMarketing = showMarketing && ps.some(p => p.marketingUsage);
                   const allDone      = ps.every(p => p.status === "입고완료");
                   const cellCls = hasMarketing
                     ? "bg-orange-50 border-orange-200"
@@ -1365,8 +1365,8 @@ function GanttView({ products, onSelect }: {
 }
 
 // ─── 타임라인 뷰 ─────────────────────────────────────────────────────────────
-function TimelineView({ products, onSelect }: {
-  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void;
+function TimelineView({ products, onSelect, showMarketing }: {
+  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
 }) {
   // 월별 → 날짜별 2단 그룹
   const byMonth = useMemo(() => {
@@ -1471,7 +1471,7 @@ function TimelineView({ products, onSelect }: {
                                   onClick={() => onSelect(p)}
                                   className="shrink-0 w-[96px] sm:w-[108px] text-left hover:opacity-75 transition-opacity"
                                 >
-                                  <div className={`w-full aspect-[3/4] border ${p.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
+                                  <div className={`w-full aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
                                     <div className="relative w-full h-full overflow-hidden bg-white">
                                       <MiniThumb product={p} />
                                       <span className={`absolute top-1 left-1 text-[7px] font-bold px-1 py-0.5 rounded leading-none ${meta.cls}`}>
@@ -1775,15 +1775,15 @@ export default function ArrivalTimeline() {
             <button onClick={resetFilters} className="mt-3 text-[12px] text-[#1a1a1a] underline underline-offset-2">필터 초기화</button>
           </div>
         ) : viewMode === "grid" ? (
-          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} />
+          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
         ) : viewMode === "list" ? (
-          <ListView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} />
+          <ListView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
         ) : viewMode === "timeline" ? (
-          <TimelineView products={filtered} onSelect={setSelectedProduct} />
+          <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
         ) : viewMode === "gantt" ? (
-          <GanttView products={filtered} onSelect={setSelectedProduct} />
+          <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
         ) : (
-          <CalendarView products={filtered} onSelect={setSelectedProduct} />
+          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
         )}
       </div>
 

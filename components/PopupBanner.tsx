@@ -48,7 +48,7 @@ const TEXT_H_ALIGN:   Record<string, string> = { left: "flex-start", center: "ce
 
 const DEFAULT_POPUP: PopupItem = {
   id: "__default__",
-  is_active: true,
+  is_active: false,
   subtitle: "안는 순간, 시원해지는",
   title: "여름을 위한\n냉감 멀티쿠션",
   link: "/products",
