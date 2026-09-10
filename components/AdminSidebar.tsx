@@ -5,10 +5,10 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAdminUI } from "./admin-ui-context";
 
-export type NavLeaf = { label: string; href: string; exact?: boolean; newTab?: boolean; icon: ReactNode };
-export type NavDropdown = { label: string; icon: ReactNode; children: NavLeaf[] };
+export type NavLeaf = { label: string; href: string; exact?: boolean; newTab?: boolean; icon: ReactNode; superAdminOnly?: boolean };
+export type NavDropdown = { label: string; icon: ReactNode; children: NavLeaf[]; superAdminOnly?: boolean };
 export type NavItem = NavLeaf | NavDropdown;
-export type NavGroup = { label: string; items: NavItem[] };
+export type NavGroup = { label: string; items: NavItem[]; superAdminOnly?: boolean };
 
 export function isDropdown(item: NavItem): item is NavDropdown {
   return "children" in item;
@@ -286,6 +286,7 @@ export const navGroups: NavGroup[] = [
   // ── 6. 마케팅/분석 ────────────────────────────────────────────────────────
   {
     label: "마케팅/분석",
+    superAdminOnly: true,
     items: [
       {
         label: "인플루언서 허브",
@@ -312,6 +313,17 @@ export const navGroups: NavGroup[] = [
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+        ),
+      },
+      {
+        label: "Vercel 상태",
+        href: "/admin/vercel",
+        exact: true,
+        superAdminOnly: true,
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l7-7 7 7" />
           </svg>
         ),
       },
@@ -381,6 +393,7 @@ export const navGroups: NavGroup[] = [
   // ── 마지막. 비활성 기능 (현재 사용하지 않는 기능 모음) ──────────────────────
   {
     label: "비활성 기능",
+    superAdminOnly: true,
     items: [
       {
         label: "제품 목록",
@@ -537,15 +550,18 @@ function LeafRow({
   );
 }
 
-export default function AdminSidebar() {
+export default function AdminSidebar({ superAdmin }: { superAdmin?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchStr = searchParams.toString();
   const { favorites, isFavorite, toggleFavorite } = useAdminUI();
 
+  // S관리자 전용 그룹/항목 필터
+  const visibleNavGroups = navGroups.filter(g => !g.superAdminOnly || superAdmin);
+
   // 현재 활성 항목이 속한 그룹 계산
   const activeGroup = (() => {
-    for (const group of navGroups) {
+    for (const group of visibleNavGroups) {
       for (const item of group.items) {
         if (isDropdown(item)) {
           if (item.children.some((c) => isLeafActive(c, pathname, searchStr))) return group.label;
@@ -565,7 +581,7 @@ export default function AdminSidebar() {
   useEffect(() => {
     if (activeGroup) setOpenGroup(activeGroup);
     const dd = new Set<string>();
-    for (const group of navGroups) {
+    for (const group of visibleNavGroups) {
       for (const item of group.items) {
         if (isDropdown(item) && item.children.some((c) => isLeafActive(c, pathname, searchStr))) {
           dd.add(item.label);
@@ -635,7 +651,7 @@ export default function AdminSidebar() {
         )}
 
         {/* 그룹 (아코디언) */}
-        {navGroups.map((group) => {
+        {visibleNavGroups.map((group) => {
           const isGroupOpen = openGroup === group.label;
           const groupActive = activeGroup === group.label;
 
@@ -670,7 +686,12 @@ export default function AdminSidebar() {
                   groupActive ? "text-blue-300" : "text-slate-300 hover:text-white"
                 }`}
               >
-                <span>{group.label}</span>
+                <span className="flex items-center gap-1.5">
+                  {group.label}
+                  {group.superAdminOnly && (
+                    <span className="text-[9px] font-black text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">S</span>
+                  )}
+                </span>
                 <svg
                   className={`w-3.5 h-3.5 transition-transform duration-200 ${isGroupOpen ? "rotate-180" : ""}`}
                   fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24"
@@ -681,7 +702,7 @@ export default function AdminSidebar() {
 
               {isGroupOpen && (
                 <div className="space-y-0.5 mt-0.5 pb-1">
-                  {group.items.map((item) => {
+                  {group.items.filter(item => !item.superAdminOnly || superAdmin).map((item) => {
                     if (isDropdown(item)) {
                       const isOpen = openDropdowns.has(item.label);
                       const hasActive = item.children.some((c) => isLeafActive(c, pathname, searchStr));

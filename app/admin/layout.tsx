@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AdminShellGate from "@/components/AdminShellGate";
 import AdminLogoutButton from "@/components/AdminLogoutButton";
-import { getAdminMember } from "@/lib/admin-auth";
+import VercelStatusBadge from "@/components/VercelStatusBadge";
+import { getAdminMember, SUPER_ADMIN_GRADE } from "@/lib/admin-auth";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // 통합 회원 인증: 로그인한 회원 중 grade="관리자" 인 경우만 접근 허용.
@@ -10,6 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!admin) {
     redirect("/member/login?from=admin");
   }
+  const superAdmin = admin.grade === SUPER_ADMIN_GRADE;
   return (
     <div className="min-h-screen bg-[#f1f5f9] flex flex-col">
       {/* 상단 헤더 */}
@@ -25,9 +27,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             </div>
           </Link>
         </div>
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          {superAdmin && <VercelStatusBadge />}
           <span className="text-slate-400 text-sm hidden sm:inline">
-            {admin.name} <span className="text-slate-600">·</span> 관리자
+            {admin.name} <span className="text-slate-600">·</span>{" "}
+            {superAdmin
+              ? <span className="text-amber-400 font-bold">S관리자</span>
+              : "관리자"}
           </span>
           <a
             href="/"
@@ -45,7 +51,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
       {/* 본문 */}
       <div className="flex flex-1 overflow-hidden">
-        <AdminShellGate>{children}</AdminShellGate>
+        <AdminShellGate superAdmin={superAdmin}>{children}</AdminShellGate>
       </div>
     </div>
   );

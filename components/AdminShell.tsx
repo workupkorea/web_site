@@ -26,7 +26,7 @@ type TabTimestamps = Record<string, number>;
  * 즐겨찾기·열린 탭 모두 로그인 계정(memberId) 기준으로 서버에 저장한다(기기 무관, 계정별로 다름).
  * 8시간 이상 사용하지 않은 탭은 자동으로 닫힌다(현재 보고 있는 탭은 제외).
  */
-export default function AdminShell({ children }: { children: React.ReactNode }) {
+export default function AdminShell({ children, superAdmin }: { children: React.ReactNode; superAdmin?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -252,7 +252,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <AdminUIContext.Provider value={value}>
-      <AdminSidebar />
+      <AdminSidebar superAdmin={superAdmin} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
         <AdminTabBar />
         <main className="flex-1 min-w-0 overflow-y-auto bg-[#f1f5f9]">

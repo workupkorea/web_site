@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { createAdminClient } from "./supabase-server";
 
 export const ADMIN_GRADE = "관리자";
+export const SUPER_ADMIN_GRADE = "S관리자";
 
 export type AdminMember = {
   id: string | number;
@@ -29,7 +30,8 @@ export async function getAdminMember(): Promise<AdminMember | null> {
       .eq("id", memberId)
       .maybeSingle();
 
-    if (!data || data.status !== "active" || data.grade !== ADMIN_GRADE) return null;
+    if (!data || data.status !== "active") return null;
+    if (data.grade !== ADMIN_GRADE && data.grade !== SUPER_ADMIN_GRADE) return null;
     return data as AdminMember;
   } catch {
     return null;
@@ -39,4 +41,10 @@ export async function getAdminMember(): Promise<AdminMember | null> {
 // 관리자 페이지/ API 보호용 불리언 체크.
 export async function isAdmin(): Promise<boolean> {
   return (await getAdminMember()) !== null;
+}
+
+// S관리자 전용 체크 (S관리자만 true).
+export async function isSuperAdmin(): Promise<boolean> {
+  const m = await getAdminMember();
+  return m?.grade === SUPER_ADMIN_GRADE;
 }
