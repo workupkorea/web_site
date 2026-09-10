@@ -1,8 +1,107 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, useCallback, type ReactNode } from "react";
 import Link from "next/link";
 import { useAdminUI } from "./admin-ui-context";
 import { getNavLeafByHref, getRouteLabel } from "./AdminSidebar";
+
+// ─── 통계 타입 ─────────────────────────────────────────────────────────────────
+interface DashStats {
+  members:   { total: number; today: number };
+  inquiries: { total: number; today: number };
+  products:  { total: number };
+  stores:    { total: number };
+  recentInquiries: { id: string; name: string; type: string; created_at: string; status?: string }[];
+  fetchedAt: string;
+}
+
+const INQUIRY_TYPE: Record<string, string> = {
+  franchise: "가맹문의",
+  wholesale: "도매문의",
+  support:   "고객지원",
+  product:   "상품문의",
+};
+
+function fmtTimeAgo(iso: string) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (diff < 60) return "방금 전";
+  if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+  return `${Math.floor(diff / 86400)}일 전`;
+}
+
+function StatCard({ label, value, sub, href, color }: {
+  label: string; value: number | string; sub?: string; href: string; color: string;
+}) {
+  return (
+    <Link href={href} className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-300 hover:shadow-md transition-all block">
+      <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide mb-3">{label}</p>
+      <p className={`text-[28px] font-black ${color}`}>{typeof value === "number" ? value.toLocaleString("ko-KR") : value}</p>
+      {sub && <p className="text-[12px] text-slate-400 mt-1">{sub}</p>}
+    </Link>
+  );
+}
+
+function StatsSection() {
+  const [stats, setStats] = useState<DashStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/dashboard-stats");
+      if (res.ok) setStats(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 h-24 animate-pulse" />
+      ))}
+    </div>
+  );
+
+  if (!stats) return null;
+
+  return (
+    <div className="mb-8">
+      {/* 핵심 지표 카드 */}
+      <h2 className="text-[13px] font-bold text-slate-500 uppercase tracking-wider mb-3">현황</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <StatCard label="회원" value={stats.members.total} sub={stats.members.today > 0 ? `오늘 +${stats.members.today}명` : "오늘 신규 없음"} href="/admin/members" color="text-slate-800" />
+        <StatCard label="문의" value={stats.inquiries.total} sub={stats.inquiries.today > 0 ? `오늘 +${stats.inquiries.today}건` : "오늘 접수 없음"} href="/admin/inquiries" color="text-blue-600" />
+        <StatCard label="상품" value={stats.products.total} href="/admin/products" color="text-slate-800" />
+        <StatCard label="매장" value={stats.stores.total} href="/admin/stores" color="text-slate-800" />
+      </div>
+
+      {/* 최근 문의 */}
+      {stats.recentInquiries.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+            <p className="text-[13px] font-bold text-slate-700">최근 문의</p>
+            <Link href="/admin/inquiries" className="text-[11px] text-blue-500 hover:underline">전체 보기 →</Link>
+          </div>
+          <div className="divide-y divide-slate-50">
+            {stats.recentInquiries.map(q => (
+              <Link key={q.id} href="/admin/inquiries" className="flex items-center justify-between px-5 py-3 hover:bg-slate-50 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="px-2 py-0.5 bg-blue-50 text-blue-600 text-[10px] font-bold rounded">
+                    {INQUIRY_TYPE[q.type] ?? q.type}
+                  </span>
+                  <span className="text-[13px] text-slate-700">{q.name}</span>
+                </div>
+                <span className="text-[11px] text-slate-400">{fmtTimeAgo(q.created_at)}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const LS_VISITS = "admin.visits.v1";
 
@@ -78,6 +177,9 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold text-slate-800">대시보드</h1>
         <p className="text-slate-500 mt-1 text-sm">자주 쓰는 메뉴를 한 곳에 모았습니다.</p>
       </div>
+
+      {/* 핵심 지표 */}
+      <StatsSection />
 
       {/* 안내 (즐겨찾기 없을 때) */}
       {usingDefaults && (
