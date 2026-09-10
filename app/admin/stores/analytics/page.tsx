@@ -529,12 +529,8 @@ function PassMatrixTab() {
   );
 }
 
-// ── 메인 페이지 ────────────────────────────────────────────���──────
-type Tab = "visit" | "pass";
-
+// ── 메인 페이지 ──────────────────────────────────────────────────
 export default function StoreAnalyticsPage() {
-  const [tab, setTab] = useState<Tab>("visit");
-
   return (
     <div>
       {/* 헤더 */}
@@ -545,23 +541,10 @@ export default function StoreAnalyticsPage() {
       </div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900">지점 분석</h1>
-        <p className="text-base text-gray-400 mt-1">방문 전환 현황과 공지별 패스 상세현황을 확인합니다.</p>
+        <p className="text-base text-gray-400 mt-1">방문 전환 현황을 확인합니다.</p>
       </div>
 
-      {/* 탭 */}
-      <div className="flex gap-0 border-b border-gray-200 mb-6">
-        {([
-          { id: "visit", label: "방문 분석" },
-          { id: "pass", label: "패스 상세현황" },
-        ] as { id: Tab; label: string }[]).map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            className={`px-5 py-3 text-sm font-semibold border-b-2 transition-colors -mb-px ${tab === t.id ? "border-[#303236] text-[#303236]" : "border-transparent text-gray-400 hover:text-gray-700"}`}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "visit" ? <VisitAnalyticsTab /> : <PassMatrixTab />}
+      <VisitAnalyticsTab />
     </div>
   );
 }
