@@ -8,8 +8,8 @@ import { getNavLeafByHref, getRouteLabel } from "./AdminSidebar";
 interface DashStats {
   members:   { total: number; week: number };
   inquiries: { total: number; week: number };
-  products:  { total: number };
   stores:    { active: number };
+  arrival:   { weekCount: number };
   recentInquiries: { id: string; name: string; type: string; created_at: string; status?: string }[];
   fetchedAt: string;
 }
@@ -29,14 +29,17 @@ function fmtTimeAgo(iso: string) {
   return `${Math.floor(diff / 86400)}일 전`;
 }
 
-function StatCard({ label, value, sub, href, color }: {
-  label: string; value: number | string; sub?: string; href: string; color: string;
+function StatCard({ label, main, mainSuffix, sub, href, color }: {
+  label: string; main: number | string; mainSuffix?: string; sub?: string; href: string; color: string;
 }) {
   return (
     <Link href={href} className="bg-white rounded-2xl border border-slate-200 p-5 hover:border-blue-300 hover:shadow-md transition-all block">
       <p className="text-[12px] font-semibold text-slate-400 uppercase tracking-wide mb-3">{label}</p>
-      <p className={`text-[28px] font-black ${color}`}>{typeof value === "number" ? value.toLocaleString("ko-KR") : value}</p>
-      {sub && <p className="text-[12px] text-slate-400 mt-1">{sub}</p>}
+      <p className={`text-[28px] font-black leading-none ${color}`}>
+        {typeof main === "number" ? main.toLocaleString("ko-KR") : main}
+        {mainSuffix && <span className="text-[14px] font-semibold ml-1">{mainSuffix}</span>}
+      </p>
+      {sub && <p className="text-[12px] text-slate-400 mt-2">{sub}</p>}
     </Link>
   );
 }
@@ -71,10 +74,10 @@ function StatsSection() {
       {/* 핵심 지표 카드 */}
       <h2 className="text-[13px] font-bold text-slate-500 uppercase tracking-wider mb-3">현황</h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard label="전체 회원" value={stats.members.total} sub={`이번 주 +${stats.members.week}명`} href="/admin/members" color="text-slate-800" />
-        <StatCard label="전체 문의" value={stats.inquiries.total} sub={`이번 주 +${stats.inquiries.week}건`} href="/admin/inquiries" color="text-blue-600" />
-        <StatCard label="전체 상품" value={stats.products.total} href="/admin/products" color="text-slate-800" />
-        <StatCard label="활성 매장" value={stats.stores.active} sub="is_active = true" href="/admin/stores" color="text-emerald-600" />
+        <StatCard label="신규 회원" main={stats.members.week} mainSuffix="명" sub={`전체 ${stats.members.total.toLocaleString("ko-KR")}명`} href="/admin/members" color="text-slate-800" />
+        <StatCard label="신규 문의" main={stats.inquiries.week} mainSuffix="건" sub={`전체 ${stats.inquiries.total.toLocaleString("ko-KR")}건`} href="/admin/inquiries" color="text-blue-600" />
+        <StatCard label="입고예정 (7일)" main={stats.arrival.weekCount} mainSuffix="건" href="/admin/arrival" color="text-amber-600" />
+        <StatCard label="활성 매장" main={stats.stores.active} mainSuffix="개" href="/admin/stores" color="text-emerald-600" />
       </div>
 
       {/* 최근 문의 */}
