@@ -40,6 +40,7 @@ interface DbStatus {
   projectRef: string | null;
   tableList?: TableListItem[];
   hasAccessToken?: boolean;
+  _envDiag?: string[];
   error?: string;
 }
 
@@ -278,6 +279,14 @@ export default function DbStatusPage() {
                   <div className="flex justify-between">
                     <span className="text-[12px] text-gray-500">Project Ref</span>
                     <span className="text-[12px] font-mono text-gray-600">{data.projectRef}</span>
+                  </div>
+                )}
+                {data._envDiag && (
+                  <div className="flex justify-between items-start pt-1 border-t border-gray-50 mt-1">
+                    <span className="text-[11px] text-gray-400">SUPABASE env 키</span>
+                    <span className="text-[10px] font-mono text-gray-400 text-right max-w-[60%]">
+                      {data._envDiag.length > 0 ? data._envDiag.join(", ") : "없음"}
+                    </span>
                   </div>
                 )}
               </div>

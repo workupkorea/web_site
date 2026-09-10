@@ -144,6 +144,11 @@ export async function GET() {
     }
   } catch { /* 조회 실패 시 빈 배열 */ }
 
+  // 진단용: 어떤 env 키가 실제로 있는지
+  const envDiag = Object.keys(process.env)
+    .filter(k => k.startsWith("SUPABASE") || k.startsWith("NEXT_PUBLIC_SUPABASE"))
+    .sort();
+
   return NextResponse.json({
     ok: true,
     fetchedAt: new Date().toISOString(),
@@ -156,5 +161,6 @@ export async function GET() {
     projectRef,
     tableList,
     hasAccessToken: !!accessToken,
+    _envDiag: envDiag,
   });
 }
