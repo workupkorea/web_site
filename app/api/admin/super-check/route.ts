@@ -5,5 +5,9 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   const m = await getAdminMember();
-  return NextResponse.json({ superAdmin: m?.grade === SUPER_ADMIN_GRADE });
+  return NextResponse.json({
+    superAdmin: m?.grade === SUPER_ADMIN_GRADE,
+    name: m?.name ?? null,
+    grade: m?.grade ?? null,
+  });
 }

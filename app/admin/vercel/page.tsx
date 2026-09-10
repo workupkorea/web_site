@@ -2,6 +2,146 @@
 
 import { useEffect, useState, useCallback } from "react";
 
+// ─── Git Push 패널 ────────────────────────────────────────────────────────────
+interface GitStatus {
+  branch: string;
+  status: string;
+  ahead: number;
+  lastLog: string;
+}
+
+function GitPushPanel() {
+  const [git,     setGit]     = useState<GitStatus | null>(null);
+  const [gitErr,  setGitErr]  = useState<string | null>(null);
+  const [msg,     setMsg]     = useState("");
+  const [pushing, setPushing] = useState(false);
+  const [pushLog, setPushLog] = useState<string | null>(null);
+
+  const loadGit = useCallback(async () => {
+    setGitErr(null);
+    try {
+      const res  = await fetch("/api/admin/git-push");
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error);
+      setGit(json);
+      if (!msg) setMsg("관리자 페이지 수정");
+    } catch (e) {
+      setGitErr(String(e));
+    }
+  }, [msg]);
+
+  useEffect(() => { loadGit(); }, [loadGit]);
+
+  const handlePush = async () => {
+    if (!msg.trim()) return;
+    setPushing(true);
+    setPushLog(null);
+    try {
+      const res  = await fetch("/api/admin/git-push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.error) throw new Error(json.error);
+      setPushLog(json.committed
+        ? `✓ 커밋 & 푸시 완료 — ${json.lastLog}`
+        : `✓ 푸시 완료 (변경사항 없음, 미푸시 커밋만 push) — ${json.lastLog}`
+      );
+      loadGit();
+    } catch (e) {
+      setPushLog(`오류: ${String(e)}`);
+    } finally {
+      setPushing(false);
+    }
+  };
+
+  const changedFiles = git?.status
+    ? git.status.split("\n").filter(Boolean)
+    : [];
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h2 className="text-[14px] font-bold text-[#1a1a1a]">Git Push</h2>
+          {git && (
+            <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-mono rounded">
+              {git.branch}
+            </span>
+          )}
+          {git && git.ahead > 0 && (
+            <span className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">
+              ↑ {git.ahead}커밋 미푸시
+            </span>
+          )}
+        </div>
+        <button onClick={loadGit} className="text-[11px] text-gray-400 hover:text-gray-600">
+          새로고침
+        </button>
+      </div>
+
+      <div className="px-6 py-4 space-y-4">
+        {gitErr ? (
+          <p className="text-[11px] text-red-400 font-mono bg-red-50 rounded p-2">{gitErr}</p>
+        ) : !git ? (
+          <p className="text-[12px] text-gray-400">불러오는 중…</p>
+        ) : (
+          <>
+            {/* 변경 파일 목록 */}
+            {changedFiles.length > 0 ? (
+              <div>
+                <p className="text-[11px] text-gray-400 mb-1.5">변경된 파일 {changedFiles.length}개</p>
+                <div className="bg-gray-50 rounded-lg p-2 space-y-0.5 max-h-32 overflow-y-auto">
+                  {changedFiles.map((f, i) => (
+                    <p key={i} className="text-[11px] font-mono text-gray-600">{f}</p>
+                  ))}
+                </div>
+              </div>
+            ) : git.ahead === 0 ? (
+              <p className="text-[12px] text-gray-400">변경사항 없음 · 최신 상태</p>
+            ) : (
+              <p className="text-[12px] text-gray-500">로컬 변경 없음 · 미푸시 커밋 {git.ahead}개</p>
+            )}
+
+            {/* 커밋 메시지 + 버튼 */}
+            {(changedFiles.length > 0 || git.ahead > 0) && (
+              <div className="flex gap-2">
+                <input
+                  value={msg}
+                  onChange={e => setMsg(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") handlePush(); }}
+                  placeholder="커밋 메시지"
+                  className="flex-1 text-[12px] border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400"
+                />
+                <button
+                  onClick={handlePush}
+                  disabled={pushing || !msg.trim()}
+                  className="px-4 py-2 bg-[#1a1a1a] text-white text-[12px] font-bold rounded-lg hover:bg-[#333] disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12l7-7 7 7"/><path d="M12 5v14"/>
+                  </svg>
+                  {pushing ? "푸시 중…" : "커밋 & 푸시"}
+                </button>
+              </div>
+            )}
+
+            {/* 결과 */}
+            {pushLog && (
+              <p className={`text-[11px] font-mono rounded p-2 ${pushLog.startsWith("오류") ? "bg-red-50 text-red-500" : "bg-emerald-50 text-emerald-700"}`}>
+                {pushLog}
+              </p>
+            )}
+
+            <p className="text-[10px] text-gray-300">마지막 커밋: {git.lastLog}</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 interface Deployment {
   uid: string;
@@ -31,6 +171,10 @@ interface VercelStatus {
   deployments: Deployment[];
   errorLogs: string[];
   usage?: Record<string, unknown> | null;
+  usageError?: string | null;
+  needsRedeploy?: boolean;
+  redeployReasons?: string[];
+  envCheckAvailable?: boolean;
   error?: string;
 }
 
@@ -157,7 +301,7 @@ export default function VercelStatusPage() {
   const latest = data?.deployments[0];
   const latestProd = data?.deployments.find(d => d.target === "production" && d.state === "READY");
 
-  // "배포 불필요" 판단: 가장 최신 배포가 READY이고, 그게 프로덕션이면 변경 없음
+  // 프로덕션 배포가 READY인 경우에만 배너 표시 (빌드 중·오류 시엔 숨김)
   const noDeployNeeded =
     latest?.state === "READY" &&
     latest?.target === "production";
@@ -202,20 +346,60 @@ export default function VercelStatusPage() {
         </div>
       </div>
 
-      {/* 배포 불필요 안내 */}
-      {noDeployNeeded && !deployMsg && (
-        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
-          <svg width="18" height="18" className="text-emerald-600 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-          </svg>
-          <div>
-            <p className="text-[13px] font-bold text-emerald-700">현재 배포가 최신 상태입니다</p>
-            <p className="text-[12px] text-emerald-600 mt-0.5">
-              변경사항이 없다면 재배포하지 않아도 됩니다. 코드 변경이 있을 때만 배포하세요.
-            </p>
+      {/* Git Push 패널 */}
+      <GitPushPanel />
+
+      {/* 재배포 필요 / 불필요 / 확인불가 안내 */}
+      {!deployMsg && noDeployNeeded && (() => {
+        // 환경변수 API 접근 불가 → 판단 불가 (회색)
+        if (!data?.envCheckAvailable) {
+          return (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <svg width="18" height="18" className="text-gray-400 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              <div>
+                <p className="text-[13px] font-bold text-gray-600">재배포 필요 여부 확인 불가</p>
+                <p className="text-[12px] text-gray-500 mt-0.5">
+                  VERCEL_TOKEN 권한이 환경변수 목록 조회를 허용하지 않아 정확한 판단이 불가합니다.
+                  환경변수를 추가·변경했다면 재배포하세요.
+                </p>
+              </div>
+            </div>
+          );
+        }
+        // 환경변수 변경 감지 → 재배포 필요 (주황)
+        if (data?.needsRedeploy) {
+          return (
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 flex items-start gap-3">
+              <svg width="18" height="18" className="text-amber-500 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              <div>
+                <p className="text-[13px] font-bold text-amber-700">재배포가 필요합니다</p>
+                <ul className="mt-1 space-y-0.5">
+                  {data.redeployReasons?.map((r, i) => (
+                    <li key={i} className="text-[12px] text-amber-600">• {r}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          );
+        }
+        // 모두 최신 (초록)
+        return (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-start gap-3">
+            <svg width="18" height="18" className="text-emerald-600 mt-0.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <div>
+              <p className="text-[13px] font-bold text-emerald-700">재배포 불필요 — 코드와 환경변수 모두 최신 상태입니다</p>
+              <p className="text-[12px] text-emerald-600 mt-0.5">변경사항이 생길 때만 배포하세요.</p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 에러 */}
       {error && (
@@ -235,101 +419,6 @@ export default function VercelStatusPage() {
 
       {data && (
         <>
-          {/* 현재 상태 카드 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* 배포 상태 */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
-              <p className="text-[11px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">현재 배포 상태</p>
-              {latest ? (
-                <>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`px-3 py-1 rounded-full text-[13px] font-bold ${STATE_STYLE[latest.state] ?? "bg-gray-100 text-gray-500"}`}>
-                      {STATE_LABEL[latest.state] ?? latest.state}
-                    </span>
-                    {latest.target === "production" && (
-                      <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-[10px] font-bold">PROD</span>
-                    )}
-                  </div>
-                  <p className="text-[11px] text-gray-500">{fmtTime(latest.createdAt)}</p>
-                  {latest.state !== "BUILDING" && latest.state !== "QUEUED" && latest.ready && latest.buildingAt && elapsed(latest.buildingAt, latest.ready) && (
-                    <p className="text-[11px] text-gray-400">빌드 소요 {elapsed(latest.buildingAt, latest.ready)}</p>
-                  )}
-                </>
-              ) : <p className="text-[13px] text-gray-400">배포 없음</p>}
-            </div>
-
-            {/* 프로젝트 정보 */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
-              <p className="text-[11px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">프로젝트</p>
-              <p className="text-[14px] font-bold text-[#1a1a1a] mb-1">{data.project.name}</p>
-              <p className="text-[11px] text-gray-500 mb-1">Framework: {data.project.framework ?? "—"}</p>
-              <p className="text-[11px] text-gray-500">Node.js {data.project.nodeVersion ?? "—"}</p>
-            </div>
-
-            {/* 도메인 */}
-            <div className="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">
-              <p className="text-[11px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">도메인</p>
-              <div className="flex flex-col gap-1">
-                {data.project.domains.length > 0
-                  ? data.project.domains.map(d => (
-                    <a key={d} href={`https://${d}`} target="_blank" rel="noreferrer"
-                      className="text-[12px] text-blue-600 hover:underline truncate">{d}</a>
-                  ))
-                  : <p className="text-[12px] text-gray-400">—</p>
-                }
-              </div>
-            </div>
-          </div>
-
-          {/* Vercel 사용량 */}
-          {data.usage && (
-            <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
-              <div className="px-6 py-4 border-b">
-                <h2 className="text-[14px] font-bold text-[#1a1a1a]">Vercel 사용량 / 비용</h2>
-                <p className="text-[11px] text-gray-400 mt-0.5">현재 청구 기간 기준</p>
-              </div>
-              <div className="px-6 py-4">
-                {(() => {
-                  const u = data.usage as Record<string, unknown>;
-                  const plan = (u.plan as Record<string, unknown>)?.name ?? u.plan;
-                  const billing = (u.billing as Record<string, unknown>) ?? {};
-                  const items = [
-                    ["플랜", plan],
-                    ["월 비용", billing.amount !== undefined ? `$${billing.amount}` : null],
-                    ["빌드 분", u.buildMinutesUsed ?? (u.metrics as Record<string, unknown>)?.buildMinutes],
-                    ["함수 실행", u.functionDurationUsed ?? (u.metrics as Record<string, unknown>)?.functionDuration],
-                    ["대역폭", u.bandwidthUsed ?? (u.metrics as Record<string, unknown>)?.bandwidth],
-                    ["요청 수", u.requestsUsed ?? (u.metrics as Record<string, unknown>)?.requests],
-                  ] as [string, unknown][];
-
-                  const hasAny = items.some(([, v]) => v !== null && v !== undefined);
-
-                  if (!hasAny) {
-                    return (
-                      <div className="py-4">
-                        <p className="text-[12px] text-gray-400">
-                          사용량 정보를 가져올 수 없습니다.
-                          팀 계정의 경우 Vercel 대시보드에서 직접 확인하세요.
-                        </p>
-                        <p className="text-[11px] text-gray-300 mt-1 font-mono break-all">
-                          {JSON.stringify(data.usage).slice(0, 300)}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div>
-                      {items.map(([label, value]) => (
-                        <UsageRow key={label} label={label} value={value} />
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-            </div>
-          )}
-
           {/* 빌드 에러 로그 */}
           {data.errorLogs.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-5">
@@ -350,7 +439,21 @@ export default function VercelStatusPage() {
           {/* 최근 배포 목록 */}
           <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
             <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h2 className="text-[14px] font-bold text-[#1a1a1a]">최근 배포 이력</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-[14px] font-bold text-[#1a1a1a]">최근 배포 이력</h2>
+                <a
+                  href="https://vercel.com/dashboard"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] font-medium rounded-md transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/>
+                    <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                  대시보드
+                </a>
+              </div>
               {latestProd && (
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400" />

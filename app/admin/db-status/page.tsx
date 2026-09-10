@@ -23,6 +23,11 @@ interface ProjectInfo {
   dbVersion: string;
 }
 
+interface TableListItem {
+  tableName: string;
+  rowEstimate: number | null;
+}
+
 interface DbStatus {
   ok: boolean;
   fetchedAt: string;
@@ -31,7 +36,10 @@ interface DbStatus {
   counts: Record<string, TableCount>;
   recentActivity: RecentActivity[];
   projectInfo: ProjectInfo | null;
+  projectInfoError?: string | null;
   projectRef: string | null;
+  tableList?: TableListItem[];
+  hasAccessToken?: boolean;
   error?: string;
 }
 
@@ -57,6 +65,136 @@ function fmtDateTime(iso: string): string {
 function fmtCount(n: number | null): string {
   if (n === null) return "—";
   return n.toLocaleString("ko-KR");
+}
+
+// ─── SQL 에디터 ───────────────────────────────────────────────────────────────
+function SqlEditor({ projectRef, hasAccessToken }: { projectRef: string | null; hasAccessToken?: boolean }) {
+  const [sql,      setSql]      = useState("SELECT * FROM members LIMIT 10;");
+  const [running,  setRunning]  = useState(false);
+  const [result,   setResult]   = useState<{ rows?: unknown[]; error?: string; elapsedMs?: number } | null>(null);
+
+  const run = async () => {
+    setRunning(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/db-query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: sql }),
+      });
+      const json = await res.json();
+      setResult(json);
+    } catch (e) {
+      setResult({ error: String(e) });
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  // 토큰 없으면 안내 배너만 표시
+  if (!hasAccessToken) {
+    return (
+      <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-[14px] font-bold text-[#1a1a1a]">SQL 에디터</h2>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-[12px] text-amber-600 font-medium mb-1">SUPABASE_ACCESS_TOKEN 필요</p>
+          <p className="text-[11px] text-gray-500 mb-3">
+            SQL 에디터는 Supabase Management API 개인 액세스 토큰이 필요합니다.
+            현재 설정된 <code className="bg-gray-100 px-1 rounded">SUPABASE_SERVICE_ROLE_KEY</code>와 다른 별도 토큰입니다.
+          </p>
+          <ol className="text-[11px] text-gray-500 space-y-1 list-decimal list-inside">
+            <li><a href="https://supabase.com/dashboard/account/tokens" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">supabase.com/dashboard/account/tokens</a>에서 토큰 발급</li>
+            <li>Vercel 환경변수에 <code className="bg-gray-100 px-1 rounded">SUPABASE_ACCESS_TOKEN</code> 이름으로 추가</li>
+            <li>Vercel 재배포</li>
+          </ol>
+        </div>
+      </div>
+    );
+  }
+
+  if (!projectRef) return null;
+
+  const cols = result?.rows?.length
+    ? Object.keys(result.rows[0] as object)
+    : [];
+
+  return (
+    <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-6 py-4 border-b flex items-center justify-between">
+        <div>
+          <h2 className="text-[14px] font-bold text-[#1a1a1a]">SQL 에디터</h2>
+          <p className="text-[11px] text-gray-400 mt-0.5">Supabase Management API 경유 · SELECT 권장</p>
+        </div>
+        <button
+          onClick={run}
+          disabled={running || !sql.trim()}
+          className="px-4 py-1.5 bg-[#1a1a1a] text-white text-[12px] font-bold rounded-lg hover:bg-[#333] disabled:opacity-50 flex items-center gap-1.5"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          {running ? "실행 중…" : "실행"}
+        </button>
+      </div>
+      <div className="p-4">
+        <textarea
+          value={sql}
+          onChange={e => setSql(e.target.value)}
+          onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") run(); }}
+          rows={4}
+          className="w-full font-mono text-[12px] bg-gray-50 border border-gray-200 rounded-lg p-3 resize-y focus:outline-none focus:border-gray-400"
+          placeholder="SELECT * FROM members LIMIT 10;"
+        />
+        <p className="text-[10px] text-gray-300 mt-1">Ctrl+Enter 로 실행</p>
+      </div>
+
+      {result && (
+        <div className="border-t px-4 pb-4">
+          {result.error ? (
+            <div className="mt-3 bg-red-50 rounded-lg p-3">
+              <p className="text-[12px] text-red-600 font-medium mb-1">오류</p>
+              <p className="text-[11px] text-red-500 font-mono">{result.error}</p>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[11px] text-gray-500">{result.rows?.length ?? 0}행</span>
+                {result.elapsedMs !== undefined && (
+                  <span className="text-[11px] text-gray-400">· {result.elapsedMs}ms</span>
+                )}
+              </div>
+              {cols.length > 0 ? (
+                <div className="overflow-x-auto rounded-lg border border-gray-100">
+                  <table className="w-full text-[11px]">
+                    <thead>
+                      <tr className="bg-gray-50">
+                        {cols.map(c => (
+                          <th key={c} className="text-left px-3 py-2 font-semibold text-gray-500 border-b whitespace-nowrap">{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {(result.rows ?? []).map((row, i) => (
+                        <tr key={i} className="hover:bg-gray-50/50">
+                          {cols.map(c => (
+                            <td key={c} className="px-3 py-2 text-gray-700 whitespace-nowrap max-w-[200px] truncate font-mono">
+                              {String((row as Record<string, unknown>)[c] ?? "NULL")}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-[12px] text-gray-400">결과 없음 (쿼리 성공)</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
@@ -183,12 +321,20 @@ export default function DbStatusPage() {
             ) : (
               <div className="bg-white border border-dashed border-gray-200 rounded-xl p-5">
                 <p className="text-[11px] text-gray-400 font-semibold mb-2 uppercase tracking-wide">Supabase 프로젝트</p>
-                <p className="text-[12px] text-gray-400">
-                  Management API 조회 불가
-                </p>
-                <p className="text-[11px] text-gray-300 mt-1">
-                  Vercel 환경변수에 <code className="bg-gray-100 px-1 rounded">SUPABASE_ACCESS_TOKEN</code>을 추가하면 플랜·리전 등을 표시합니다.
-                </p>
+                {!data.hasAccessToken ? (
+                  <p className="text-[12px] text-gray-400">
+                    <code className="bg-gray-100 px-1 rounded text-[11px]">SUPABASE_ACCESS_TOKEN</code> 추가 시 플랜·리전 정보를 표시합니다.
+                  </p>
+                ) : data.projectInfoError ? (
+                  <>
+                    <p className="text-[12px] text-red-500 font-medium mb-1">조회 실패</p>
+                    <p className="text-[11px] text-red-400 font-mono break-all bg-red-50 rounded p-2">
+                      {data.projectInfoError}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-[12px] text-gray-400">정보 없음</p>
+                )}
               </div>
             )}
           </div>
@@ -241,6 +387,39 @@ export default function DbStatusPage() {
               </div>
             )}
           </div>
+
+          {/* DB 테이블 목록 */}
+          {data.tableList && data.tableList.length > 0 && (
+            <div className="bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b">
+                <h2 className="text-[14px] font-bold text-[#1a1a1a]">DB 테이블 목록</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">public 스키마 · 행 수는 통계 추정값</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="bg-gray-50 text-gray-500 text-[11px]">
+                      <th className="text-left px-5 py-3 font-semibold border-b">테이블명</th>
+                      <th className="text-right px-5 py-3 font-semibold border-b">행 수 (추정)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {data.tableList.map(t => (
+                      <tr key={t.tableName} className="hover:bg-gray-50/50">
+                        <td className="px-5 py-2.5 font-mono text-gray-700">{t.tableName}</td>
+                        <td className="px-5 py-2.5 text-right text-gray-500">
+                          {t.rowEstimate !== null ? t.rowEstimate.toLocaleString("ko-KR") : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* SQL 에디터 */}
+          <SqlEditor projectRef={data.projectRef} hasAccessToken={data.hasAccessToken} />
         </>
       )}
     </div>

@@ -89,17 +89,43 @@ export async function GET() {
     // 3. 프로젝트 정보 (도메인 등)
     const project = await vFetch(`/v9/projects/${PROJECT_ID}`);
 
-    // 4. Vercel 사용량/비용 (팀 또는 개인)
+    // 4. Vercel 사용량/비용 — 프로젝트 범위 토큰으로는 user/billing API 접근 불가
+    // 프로젝트 정보에서 얻을 수 있는 정보만 사용
     let usage: Record<string, unknown> | null = null;
-    try {
-      // 개인 계정이면 /v2/user/billing, 팀이면 teamId가 있음
-      const teamId = project.accountId ?? null;
-      const usagePath = teamId
-        ? `/v2/teams/${teamId}/usage`
-        : `/v2/user/billing/state`;
-      const usageRes = await vFetch(usagePath);
-      usage = usageRes ?? null;
-    } catch { /* 사용량 조회 실패 시 무시 */ }
+    const usageError: string | null = null;
+    usage = {
+      _unavailable: true,
+      projectName: project.name,
+      framework:   project.framework ?? "—",
+      nodeVersion: project.nodeVersion ?? "—",
+    };
+
+    // 5. 환경변수 수정 시각 vs 최신 배포 시각 비교 → 재배포 필요 여부 판단
+    let needsRedeploy = false;
+    let redeployReasons: string[] = [];
+    let envCheckAvailable = false; // 환경변수 API 접근 가능 여부
+    const latestProdDeployment = deployments.find(
+      (d: Record<string, unknown>) => d.target === "production" && d.state === "READY"
+    );
+    if (latestProdDeployment) {
+      const deployedAt = latestProdDeployment.createdAt as number;
+      try {
+        const envData = await vFetch(`/v9/projects/${PROJECT_ID}/env`);
+        const envs: Array<{ key: string; updatedAt?: number; createdAt?: number }> = envData.envs ?? [];
+        envCheckAvailable = true;
+        const changedEnvs = envs.filter(e => {
+          const t = e.updatedAt ?? e.createdAt ?? 0;
+          return t > deployedAt;
+        });
+        if (changedEnvs.length > 0) {
+          needsRedeploy = true;
+          redeployReasons = changedEnvs.map(e => `환경변수 변경됨: ${e.key}`);
+        }
+      } catch {
+        // 403 등으로 환경변수 목록 조회 불가 → 판단 불가 상태로 처리
+        envCheckAvailable = false;
+      }
+    }
 
     return NextResponse.json({
       ok: true,
@@ -114,6 +140,10 @@ export async function GET() {
       deployments,
       errorLogs,
       usage,
+      usageError,
+      needsRedeploy,
+      redeployReasons,
+      envCheckAvailable,
     });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

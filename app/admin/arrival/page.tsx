@@ -50,6 +50,7 @@ interface SyncHistoryEntry {
   total: number;
   byStatus: Record<string, number>;
   diff: SyncDiffItem[];
+  actor?: string;
   error?: string;
 }
 
@@ -1055,12 +1056,28 @@ export default function AdminArrivalPage() {
   const [filterDate,        setFilterDate]       = useState("");
   const [uploadingCode,  setUploadingCode] = useState<string | null>(null);
   const [syncing,        setSyncing]       = useState(false);
-  const [syncResult,     setSyncResult]    = useState<{ total: number; syncedAt: string } | null>(null);
+  const [syncResult,     setSyncResult]    = useState<{ total: number; syncedAt: string; actor?: string } | null>(null);
   const [syncElapsed,    setSyncElapsed]   = useState<number | null>(null); // 초 단위
   const [syncHistory,    setSyncHistory]   = useState<SyncHistoryEntry[]>([]);
   const [showSyncHistory,setShowSyncHistory] = useState(false);
+  const [adminName,      setAdminName]     = useState<string | null>(null);
   const syncTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncStartRef  = useRef<number>(0);
+
+  // 관리자 이름 + 마지막 동기화 결과 복원
+  useEffect(() => {
+    fetch("/api/admin/super-check")
+      .then(r => r.json())
+      .then(d => { if (d.name) setAdminName(d.name); })
+      .catch(() => {});
+    try {
+      const saved = localStorage.getItem("arrival_last_sync");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed?.syncedAt) setSyncResult(parsed);
+      }
+    } catch { /* 무시 */ }
+  }, []);
 
   const handleInlineImageUpload = async (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -1183,7 +1200,9 @@ export default function AdminArrivalPage() {
           error: json.error || "동기화 실패",
         };
       } else {
-        setSyncResult({ total: json.total, syncedAt: json.syncedAt });
+        const result = { total: json.total, syncedAt: json.syncedAt, actor: adminName ?? undefined };
+        setSyncResult(result);
+        try { localStorage.setItem("arrival_last_sync", JSON.stringify(result)); } catch { /* 무시 */ }
         // 목록 새로고침
         const listRes = await fetch("/api/admin/arrival");
         const data = await listRes.json();
@@ -1196,6 +1215,7 @@ export default function AdminArrivalPage() {
           total: json.total,
           byStatus: json.byStatus ?? {},
           diff: calcSyncDiff(beforeSnapshot, newProducts),
+          actor: adminName ?? undefined,
         };
       }
     } catch (e) {
@@ -1259,23 +1279,29 @@ export default function AdminArrivalPage() {
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {/* 구글 시트 동기화 */}
           <div className="flex items-center gap-3">
-            {/* 완료 정보 고정 영역 — 항상 렌더링해서 버튼 위치 안 밀림 */}
-            <div className="flex flex-col items-end min-w-[100px]">
-              <span className={`text-[11px] tabular-nums leading-tight ${
-                syncResult && !syncing ? "text-gray-500 font-medium" : "invisible"
-              }`}>
-                {syncResult
-                  ? `${syncResult.total}개 완료 / ${new Date(syncResult.syncedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false})}`
-                  : "—"}
-              </span>
-              <button
-                onClick={() => setShowSyncHistory(true)}
-                className={`text-[10px] underline underline-offset-2 leading-tight mt-0.5 ${
-                  syncHistory.length > 0 ? "text-gray-400 hover:text-gray-600" : "invisible pointer-events-none"
-                }`}
-              >
-                히스토리 {syncHistory.length}건
-              </button>
+            {/* 완료 정보 고정 영역 — 항상 렌더링 */}
+            <div className="flex flex-col items-end min-w-[110px]">
+              {syncResult && !syncing ? (
+                <>
+                  <span className="text-[11px] tabular-nums leading-tight text-gray-500 font-medium">
+                    {syncResult.total}개 완료 / {new Date(syncResult.syncedAt).toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false})}
+                  </span>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    {syncResult.actor && (
+                      <span className="text-[10px] text-gray-400">{syncResult.actor}</span>
+                    )}
+                    {syncResult.actor && <span className="text-[10px] text-gray-300">/</span>}
+                    <button
+                      onClick={() => setShowSyncHistory(true)}
+                      className="text-[10px] text-gray-400 underline underline-offset-2 hover:text-gray-600"
+                    >
+                      {syncHistory.length > 0 ? `히스토리 ${syncHistory.length}건` : "히스토리"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <span className="text-[11px] text-gray-300 leading-tight">동기화 이력 없음</span>
+              )}
             </div>
 
             <button

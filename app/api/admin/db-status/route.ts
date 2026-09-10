@@ -64,30 +64,84 @@ export async function GET() {
   );
   recentActivity.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
 
-  // 4. Supabase 프로젝트 정보 (Management API — SUPABASE_ACCESS_TOKEN 있을 때만)
+  // 4. Supabase 프로젝트 정보 (Management API)
   let projectInfo: Record<string, unknown> | null = null;
+  let projectInfoError: string | null = null;
   const accessToken = process.env.SUPABASE_ACCESS_TOKEN;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const projectRef = supabaseUrl.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1];
 
-  if (accessToken && projectRef) {
+  if (!accessToken) {
+    projectInfoError = `SUPABASE_ACCESS_TOKEN 환경변수 없음 (process.env 키 목록: ${Object.keys(process.env).filter(k => k.startsWith("SUPABASE")).join(", ") || "없음"})`;
+  } else if (!projectRef) {
+    projectInfoError = `NEXT_PUBLIC_SUPABASE_URL에서 project ref 추출 실패 (값: ${supabaseUrl.slice(0, 40)})`;
+  } else {
     try {
       const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
+      const body = await res.json();
       if (res.ok) {
-        const p = await res.json();
         projectInfo = {
-          name:   p.name,
-          region: p.region,
-          plan:   p.subscription_tier ?? p.plan?.name ?? "—",
-          status: p.status,
-          dbVersion: p.db_version,
+          name:      body.name,
+          region:    body.region,
+          plan:      body.subscription_tier ?? body.plan?.name ?? "—",
+          status:    body.status,
+          dbVersion: body.db_version,
         };
+      } else {
+        projectInfoError = `API ${res.status}: ${JSON.stringify(body).slice(0, 120)}`;
       }
-    } catch { /* 무시 */ }
+    } catch (e) {
+      projectInfoError = String(e);
+    }
   }
+
+  // 5. DB 테이블 목록 (information_schema — service role key로 접근 가능)
+  let tableList: { tableName: string; rowEstimate: number | null }[] = [];
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: tableRows } = await (sb as any)
+      .schema("information_schema")
+      .from("tables")
+      .select("table_name")
+      .eq("table_schema", "public")
+      .eq("table_type", "BASE TABLE")
+      .order("table_name");
+
+    if (Array.isArray(tableRows) && tableRows.length > 0) {
+      // 실제 행 수는 counts에서 매핑 (이미 조회한 값 재사용)
+      const countMap: Record<string, number | null> = {};
+      for (const [key, val] of Object.entries(counts)) {
+        countMap[key] = (val as { count: number | null }).count;
+      }
+      // Management API로 추가 row count 시도 (토큰 있을 때만)
+      const relTuples: Record<string, number | null> = { ...countMap };
+      if (accessToken && projectRef) {
+        try {
+          const pgRes = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              query: `SELECT relname, reltuples::bigint AS cnt FROM pg_class
+                      JOIN pg_namespace n ON n.oid = relnamespace
+                      WHERE n.nspname = 'public' AND relkind = 'r'`,
+            }),
+            cache: "no-store",
+          });
+          if (pgRes.ok) {
+            const pgRows = await pgRes.json() as { relname: string; cnt: string }[];
+            for (const r of pgRows) relTuples[r.relname] = Number(r.cnt);
+          }
+        } catch { /* 토큰 없으면 counts 값만 사용 */ }
+      }
+      tableList = (tableRows as { table_name: string }[]).map(r => ({
+        tableName: r.table_name,
+        rowEstimate: relTuples[r.table_name] ?? null,
+      }));
+    }
+  } catch { /* 조회 실패 시 빈 배열 */ }
 
   return NextResponse.json({
     ok: true,
@@ -97,6 +151,9 @@ export async function GET() {
     counts,
     recentActivity: recentActivity.slice(0, 6),
     projectInfo,
+    projectInfoError,
     projectRef,
+    tableList,
+    hasAccessToken: !!accessToken,
   });
 }
