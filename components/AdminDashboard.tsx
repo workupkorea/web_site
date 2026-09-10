@@ -6,10 +6,10 @@ import { getNavLeafByHref, getRouteLabel } from "./AdminSidebar";
 
 // ─── 통계 타입 ─────────────────────────────────────────────────────────────────
 interface DashStats {
-  members:   { total: number; today: number };
-  inquiries: { total: number; today: number };
+  members:   { total: number; week: number };
+  inquiries: { total: number; week: number };
   products:  { total: number };
-  stores:    { total: number };
+  stores:    { active: number };
   recentInquiries: { id: string; name: string; type: string; created_at: string; status?: string }[];
   fetchedAt: string;
 }
@@ -71,10 +71,10 @@ function StatsSection() {
       {/* 핵심 지표 카드 */}
       <h2 className="text-[13px] font-bold text-slate-500 uppercase tracking-wider mb-3">현황</h2>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard label="회원" value={stats.members.total} sub={stats.members.today > 0 ? `오늘 +${stats.members.today}명` : "오늘 신규 없음"} href="/admin/members" color="text-slate-800" />
-        <StatCard label="문의" value={stats.inquiries.total} sub={stats.inquiries.today > 0 ? `오늘 +${stats.inquiries.today}건` : "오늘 접수 없음"} href="/admin/inquiries" color="text-blue-600" />
-        <StatCard label="상품" value={stats.products.total} href="/admin/products" color="text-slate-800" />
-        <StatCard label="매장" value={stats.stores.total} href="/admin/stores" color="text-slate-800" />
+        <StatCard label="전체 회원" value={stats.members.total} sub={`이번 주 +${stats.members.week}명`} href="/admin/members" color="text-slate-800" />
+        <StatCard label="전체 문의" value={stats.inquiries.total} sub={`이번 주 +${stats.inquiries.week}건`} href="/admin/inquiries" color="text-blue-600" />
+        <StatCard label="전체 상품" value={stats.products.total} href="/admin/products" color="text-slate-800" />
+        <StatCard label="활성 매장" value={stats.stores.active} sub="is_active = true" href="/admin/stores" color="text-emerald-600" />
       </div>
 
       {/* 최근 문의 */}
