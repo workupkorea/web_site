@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 interface TableCount {
@@ -200,9 +200,11 @@ function SqlEditor({ projectRef, hasAccessToken }: { projectRef: string | null; 
 
 // ─── 페이지 ───────────────────────────────────────────────────────────────────
 export default function DbStatusPage() {
-  const [data,    setData]    = useState<DbStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [data,       setData]       = useState<DbStatus | null>(null);
+  const [loading,    setLoading]    = useState(false);
+  const [error,      setError]      = useState<string | null>(null);
+  const [showSql,    setShowSql]    = useState(false);
+  const sqlPanelRef = useRef<HTMLDivElement>(null);
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -233,19 +235,39 @@ export default function DbStatusPage() {
             </p>
           )}
         </div>
-        <button
-          onClick={fetch_}
-          disabled={loading}
-          className="px-4 py-2 bg-[#1a1a1a] text-white text-[13px] font-bold rounded-lg hover:bg-[#333] disabled:opacity-50 flex items-center gap-2"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
-            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-            <path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
-            <path d="M16 16h5v5"/>
-          </svg>
-          {loading ? "조회 중…" : "새로고침"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowSql(v => !v)}
+            className={`px-3 py-2 text-[12px] font-bold rounded-lg border transition-colors flex items-center gap-1.5 ${
+              showSql
+                ? "bg-[#1a1a1a] text-white border-transparent"
+                : "border-gray-200 text-gray-600 hover:border-gray-400"
+            }`}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0 4.6-4.6-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+            SQL
+          </button>
+          <button
+            onClick={fetch_}
+            disabled={loading}
+            className="px-4 py-2 bg-[#1a1a1a] text-white text-[13px] font-bold rounded-lg hover:bg-[#333] disabled:opacity-50 flex items-center gap-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={loading ? "animate-spin" : ""}>
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 16h5v5"/>
+            </svg>
+            {loading ? "조회 중…" : "새로고침"}
+          </button>
+        </div>
       </div>
+
+      {/* SQL 에디터 — 헤더 바로 아래 */}
+      {showSql && data && (
+        <div ref={sqlPanelRef}>
+          <SqlEditor projectRef={data.projectRef} hasAccessToken={data.hasAccessToken} />
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-[13px] text-red-700 font-mono">{error}</div>
@@ -427,8 +449,6 @@ export default function DbStatusPage() {
             </div>
           )}
 
-          {/* SQL 에디터 */}
-          <SqlEditor projectRef={data.projectRef} hasAccessToken={data.hasAccessToken} />
         </>
       )}
     </div>
