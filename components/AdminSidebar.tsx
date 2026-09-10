@@ -550,11 +550,20 @@ function LeafRow({
   );
 }
 
-export default function AdminSidebar({ superAdmin }: { superAdmin?: boolean }) {
+export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmin?: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchStr = searchParams.toString();
   const { favorites, isFavorite, toggleFavorite } = useAdminUI();
+
+  // S관리자 여부: prop 전달이 불안정할 수 있어 API로 직접 확인
+  const [superAdmin, setSuperAdmin] = useState(superAdminProp ?? false);
+  useEffect(() => {
+    fetch("/api/admin/super-check")
+      .then(r => r.json())
+      .then(d => { setSuperAdmin(!!d.superAdmin); })
+      .catch(() => {});
+  }, []);
 
   // S관리자 전용 그룹/항목 필터
   const visibleNavGroups = navGroups.filter(g => !g.superAdminOnly || superAdmin);
