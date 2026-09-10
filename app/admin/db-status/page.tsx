@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 interface TableCount {
@@ -203,8 +203,7 @@ export default function DbStatusPage() {
   const [data,       setData]       = useState<DbStatus | null>(null);
   const [loading,    setLoading]    = useState(false);
   const [error,      setError]      = useState<string | null>(null);
-  const [showSql,    setShowSql]    = useState(false);
-  const sqlPanelRef = useRef<HTMLDivElement>(null);
+  const [showSql, setShowSql] = useState(false);
 
   const fetch_ = useCallback(async () => {
     setLoading(true);
@@ -264,9 +263,7 @@ export default function DbStatusPage() {
 
       {/* SQL 에디터 — 헤더 바로 아래 */}
       {showSql && data && (
-        <div ref={sqlPanelRef}>
-          <SqlEditor projectRef={data.projectRef} hasAccessToken={data.hasAccessToken} />
-        </div>
+        <SqlEditor projectRef={data.projectRef} hasAccessToken={data.hasAccessToken} />
       )}
 
       {error && (
