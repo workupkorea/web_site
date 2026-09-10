@@ -1064,17 +1064,23 @@ export default function AdminArrivalPage() {
   const syncTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const syncStartRef  = useRef<number>(0);
 
-  // 관리자 이름 + 마지막 동기화 결과 복원
+  // 관리자 이름 + 동기화 히스토리 복원
   useEffect(() => {
     fetch("/api/admin/super-check")
       .then(r => r.json())
       .then(d => { if (d.name) setAdminName(d.name); })
       .catch(() => {});
     try {
-      const saved = localStorage.getItem("arrival_last_sync");
+      const saved = localStorage.getItem("arrival_sync_history");
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed?.syncedAt) setSyncResult(parsed);
+        const parsed: SyncHistoryEntry[] = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setSyncHistory(parsed);
+          const last = parsed[0];
+          if (last?.syncedAt && !last.error) {
+            setSyncResult({ total: last.total, syncedAt: last.syncedAt, actor: last.actor });
+          }
+        }
       }
     } catch { /* 무시 */ }
   }, []);
@@ -1202,7 +1208,6 @@ export default function AdminArrivalPage() {
       } else {
         const result = { total: json.total, syncedAt: json.syncedAt, actor: adminName ?? undefined };
         setSyncResult(result);
-        try { localStorage.setItem("arrival_last_sync", JSON.stringify(result)); } catch { /* 무시 */ }
         // 목록 새로고침
         const listRes = await fetch("/api/admin/arrival");
         const data = await listRes.json();
@@ -1233,7 +1238,13 @@ export default function AdminArrivalPage() {
       if (syncTimerRef.current) { clearInterval(syncTimerRef.current); syncTimerRef.current = null; }
       setSyncElapsed((Date.now() - syncStartRef.current) / 1000);
       setSyncing(false);
-      if (entry) setSyncHistory(prev => [entry!, ...prev]);
+      if (entry) {
+        setSyncHistory(prev => {
+          const next = [entry!, ...prev];
+          try { localStorage.setItem("arrival_sync_history", JSON.stringify(next)); } catch { /* 무시 */ }
+          return next;
+        });
+      }
     }
   };
 
@@ -1530,39 +1541,40 @@ export default function AdminArrivalPage() {
       </div>
 
       {/* 동기화 히스토리 패널 */}
-      {showSyncHistory && (
-        <div className="fixed inset-0 z-50 flex items-start justify-end">
-          <div className="absolute inset-0 bg-black/30" onClick={() => setShowSyncHistory(false)} />
-          <div className="relative bg-white shadow-2xl w-full max-w-3xl h-full flex flex-col">
-            {/* 헤더 */}
-            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-              <div>
-                <h2 className="text-[15px] font-bold text-[#1a1a1a]">동기화 히스토리</h2>
-                <p className="text-[11px] text-gray-400 mt-0.5">세션 내 동기화 기록 · {syncHistory.length}건</p>
-              </div>
-              <button onClick={() => setShowSyncHistory(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700">✕</button>
-            </div>
+      {showSyncHistory && (() => {
+        const today = new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\. /g,"-").replace(".","");
+        const todayEntries  = syncHistory.filter(e => {
+          const d = new Date(e.syncedAt).toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\. /g,"-").replace(".","");
+          return d === today;
+        });
+        const pastEntries   = syncHistory.filter(e => {
+          const d = new Date(e.syncedAt).toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\. /g,"-").replace(".","");
+          return d !== today;
+        });
+        const pastByDate: Record<string, SyncHistoryEntry[]> = {};
+        for (const e of pastEntries) {
+          const d = new Date(e.syncedAt).toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" });
+          if (!pastByDate[d]) pastByDate[d] = [];
+          pastByDate[d].push(e);
+        }
+        const pastDates = Object.keys(pastByDate).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
 
-            {/* 목록 */}
-            <div className="overflow-y-auto flex-1">
-              {syncHistory.map((entry, ei) => {
+        const renderEntry = (entry: SyncHistoryEntry, ei: number, total: number) => {
                 const added   = entry.diff.filter(d => d.type === "added");
                 const removed = entry.diff.filter(d => d.type === "removed");
                 const changed = entry.diff.filter(d => d.type === "changed");
                 const STATUS_ORDER = ["입고예정","입고완료","입고지연","일정미정","대기","일정미표기"];
-
                 return (
-                  <div key={entry.id} className={`px-6 py-5 ${ei < syncHistory.length - 1 ? "border-b" : ""}`}>
-                    {/* ── 실행 요약 행 ── */}
+                  <div key={entry.id} className={`px-6 py-5 ${ei < total - 1 ? "border-b" : ""}`}>
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div>
                         <span className="text-[13px] font-bold text-[#1a1a1a]">
                           {new Date(entry.syncedAt).toLocaleString("ko-KR", {
-                            year:"numeric", month:"2-digit", day:"2-digit",
                             hour:"2-digit", minute:"2-digit", second:"2-digit", hour12: false,
                           })}
                         </span>
                         <span className="ml-2 text-[11px] text-gray-400 font-mono">{fmtElapsed(entry.durationSec)}</span>
+                        {entry.actor && <span className="ml-2 text-[11px] text-gray-400">{entry.actor}</span>}
                         {entry.error && (
                           <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-600 text-[10px] font-bold rounded-full">오류</span>
                         )}
@@ -1575,13 +1587,9 @@ export default function AdminArrivalPage() {
                         {entry.diff.length === 0 && !entry.error && <span className="text-[11px] text-gray-400">변경 없음</span>}
                       </div>
                     </div>
-
-                    {/* ── 에러 메시지 ── */}
                     {entry.error && (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] text-red-700 font-mono mb-3 break-all">{entry.error}</div>
                     )}
-
-                    {/* ── 상태별 분포 ── */}
                     {Object.keys(entry.byStatus).length > 0 && (
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 px-3 py-2 bg-gray-50 rounded-lg">
                         {STATUS_ORDER.filter(s => entry.byStatus[s]).map(s => (
@@ -1592,8 +1600,6 @@ export default function AdminArrivalPage() {
                         ))}
                       </div>
                     )}
-
-                    {/* ── 추가된 제품 ── */}
                     {added.length > 0 && (
                       <div className="mb-4">
                         <div className="text-[11px] font-bold text-emerald-700 mb-1.5 flex items-center gap-1.5">
@@ -1602,19 +1608,14 @@ export default function AdminArrivalPage() {
                         </div>
                         <div className="overflow-x-auto rounded-lg border border-emerald-100">
                           <table className="w-full text-[12px] border-collapse">
-                            <thead>
-                              <tr className="bg-emerald-50 text-emerald-800 text-[11px]">
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100 w-7">#</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품코드</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">브랜드</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품명</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">카테고리</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">입고일</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상태</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">판매가</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">수량</th>
-                              </tr>
-                            </thead>
+                            <thead><tr className="bg-emerald-50 text-emerald-800 text-[11px]">
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100 w-7">#</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품코드</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">브랜드</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품명</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">입고일</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상태</th>
+                            </tr></thead>
                             <tbody className="divide-y divide-emerald-50">
                               {added.map((d, di) => (
                                 <tr key={di} className="hover:bg-emerald-50/50">
@@ -1622,11 +1623,8 @@ export default function AdminArrivalPage() {
                                   <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap">{d.productCode}</td>
                                   <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.brand || "—"}</td>
                                   <td className="px-3 py-2 text-gray-800 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
-                                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{d.snapshot?.category || "—"}</td>
                                   <td className="px-3 py-2 text-gray-600 whitespace-nowrap font-mono text-[11px]">{d.snapshot?.arrivalDate || "—"}</td>
                                   <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px]">{d.snapshot?.status || "—"}</span></td>
-                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.price ? `₩${d.snapshot.price.toLocaleString()}` : "—"}</td>
-                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.quantity ?? "—"}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1634,8 +1632,6 @@ export default function AdminArrivalPage() {
                         </div>
                       </div>
                     )}
-
-                    {/* ── 변경된 제품 ── */}
                     {changed.length > 0 && (
                       <div className="mb-4">
                         <div className="text-[11px] font-bold text-amber-700 mb-1.5 flex items-center gap-1.5">
@@ -1644,21 +1640,17 @@ export default function AdminArrivalPage() {
                         </div>
                         <div className="overflow-x-auto rounded-lg border border-amber-100">
                           <table className="w-full text-[12px] border-collapse">
-                            <thead>
-                              <tr className="bg-amber-50 text-amber-800 text-[11px]">
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100 w-7">#</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품코드</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">브랜드</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품명</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">변경 항목</th>
-                              </tr>
-                            </thead>
+                            <thead><tr className="bg-amber-50 text-amber-800 text-[11px]">
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100 w-7">#</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품코드</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">상품명</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-amber-100">변경 항목</th>
+                            </tr></thead>
                             <tbody className="divide-y divide-amber-50">
                               {changed.map((d, di) => (
                                 <tr key={di} className="hover:bg-amber-50/40">
                                   <td className="px-3 py-2 text-gray-400 align-top">{di + 1}</td>
                                   <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap align-top">{d.productCode}</td>
-                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap align-top">{d.snapshot?.brand || "—"}</td>
                                   <td className="px-3 py-2 text-gray-800 max-w-[160px] align-top"><span className="block truncate">{d.productName}</span></td>
                                   <td className="px-3 py-2 align-top">
                                     <div className="flex flex-col gap-1">
@@ -1679,36 +1671,26 @@ export default function AdminArrivalPage() {
                         </div>
                       </div>
                     )}
-
-                    {/* ── 삭제된 제품 ── */}
                     {removed.length > 0 && (
                       <div className="mb-2">
                         <div className="text-[11px] font-bold text-red-600 mb-1.5 flex items-center gap-1.5">
                           <span className="w-2 h-2 rounded-full bg-red-500 inline-block" />
-                          삭제(시트에서 제거됨) {removed.length}건
+                          삭제 {removed.length}건
                         </div>
                         <div className="overflow-x-auto rounded-lg border border-red-100">
                           <table className="w-full text-[12px] border-collapse">
-                            <thead>
-                              <tr className="bg-red-50 text-red-800 text-[11px]">
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100 w-7">#</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상품코드</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">브랜드</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상품명</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">카테고리</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">마지막 입고일</th>
-                                <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상태</th>
-                              </tr>
-                            </thead>
+                            <thead><tr className="bg-red-50 text-red-800 text-[11px]">
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100 w-7">#</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상품코드</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상품명</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-red-100">상태</th>
+                            </tr></thead>
                             <tbody className="divide-y divide-red-50">
                               {removed.map((d, di) => (
                                 <tr key={di} className="hover:bg-red-50/50 opacity-70">
                                   <td className="px-3 py-2 text-gray-400">{di + 1}</td>
                                   <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap">{d.productCode}</td>
-                                  <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.brand || "—"}</td>
                                   <td className="px-3 py-2 text-gray-700 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
-                                  <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{d.snapshot?.category || "—"}</td>
-                                  <td className="px-3 py-2 text-gray-500 font-mono text-[11px] whitespace-nowrap">{d.snapshot?.arrivalDate || "—"}</td>
                                   <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px]">{d.snapshot?.status || "—"}</span></td>
                                 </tr>
                               ))}
@@ -1719,11 +1701,51 @@ export default function AdminArrivalPage() {
                     )}
                   </div>
                 );
-              })}
+              };
+
+        return (
+        <div className="fixed inset-0 z-50 flex items-start justify-end">
+          <div className="absolute inset-0 bg-black/30" onClick={() => setShowSyncHistory(false)} />
+          <div className="relative bg-white shadow-2xl w-full max-w-3xl h-full flex flex-col">
+            {/* 헤더 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+              <div>
+                <h2 className="text-[15px] font-bold text-[#1a1a1a]">동기화 히스토리</h2>
+                <p className="text-[11px] text-gray-400 mt-0.5">누적 기록 · {syncHistory.length}건</p>
+              </div>
+              <button onClick={() => setShowSyncHistory(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700">✕</button>
+            </div>
+
+            {/* 목록 */}
+            <div className="overflow-y-auto flex-1">
+              {syncHistory.length === 0 && (
+                <div className="py-20 text-center text-[13px] text-gray-400">동기화 기록이 없습니다.</div>
+              )}
+
+              {/* 오늘 */}
+              {todayEntries.length > 0 && (
+                <div>
+                  <div className="px-6 py-2 bg-blue-50 border-b border-blue-100 sticky top-0 z-10">
+                    <span className="text-[11px] font-bold text-blue-700 tracking-widest uppercase">오늘 · {todayEntries.length}건</span>
+                  </div>
+                  {todayEntries.map((entry, ei) => renderEntry(entry, ei, todayEntries.length))}
+                </div>
+              )}
+
+              {/* 과거 - 날짜별 그룹 */}
+              {pastDates.map(date => (
+                <div key={date}>
+                  <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                    <span className="text-[11px] font-bold text-gray-500 tracking-widest">{date} · {pastByDate[date].length}건</span>
+                  </div>
+                  {pastByDate[date].map((entry, ei) => renderEntry(entry, ei, pastByDate[date].length))}
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* 단일 수정 모달 */}
       {editProduct && (
