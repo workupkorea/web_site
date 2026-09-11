@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
-/* 모바일 가로 스크롤 전역 방지 */
-html, body {
+/* 모바일 가로 스크롤 전역 방지 — html에만 overflow-x:hidden을 건다.
+   html과 body 양쪽에 걸면 overflow-x가 hidden인 축과 짝을 이루는 overflow-y가
+   브라우저에 의해 자동으로 auto로 강제되는 스펙 규칙 때문에(overflow-x/y 중 하나라도
+   visible이 아니면 나머지 visible 쪽도 auto로 계산됨) html·body 둘 다 스크롤 컨테이너가
+   되어버리고, 그 아래 position:sticky 요소(메인기획전 배너 등)가 어느 쪽 스크롤을 기준으로
+   붙어야 할지 꼬여서 고정이 풀려버린다. html만 걸면 documentElement(html)가 유일한
+   스크롤 컨테이너로 유지되어 이 문제가 생기지 않는다. */
+html {
   overflow-x: hidden;
   max-width: 100%;
 }
