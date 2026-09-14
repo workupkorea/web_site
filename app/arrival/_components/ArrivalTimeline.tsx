@@ -486,6 +486,7 @@ function ProductCard({ product, onSelect, showDate, showMarketing }: { product: 
           <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${meta.cls}`}>{meta.label}</span>
         </div>
         <p className="text-[12px] font-semibold text-[#1a1a1a] leading-tight line-clamp-2 flex-1">{stripBrand(product.productName, product.brand)}</p>
+        <p className="text-[9px] text-gray-400 font-mono truncate">{product.productCode}</p>
         {showDate && product.arrivalDate ? (
           <div className="text-[11px] text-gray-600 flex items-center justify-between gap-1 mt-auto">
             <span className="truncate">{full}</span>
@@ -1148,7 +1149,7 @@ function CalendarView({ products, onSelect, showMarketing }: {
                               <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
                                 className="w-full text-left transition-opacity hover:opacity-70">
                                 <p className="text-[8px] text-gray-800 leading-snug font-semibold line-clamp-2">{p.productName}</p>
-                                <p className="text-[7px] text-gray-400 leading-none mt-px">{p.brand}</p>
+                                <p className="text-[7px] text-gray-400 leading-none mt-px font-mono truncate">{p.brand} · {p.productCode}</p>
                                 {p.price > 0 && <p className="text-[7px] text-gray-500 leading-none mt-px">₩{p.price.toLocaleString("ko-KR")}</p>}
                               </button>
                             ))}
@@ -1208,6 +1209,7 @@ function CalendarView({ products, onSelect, showMarketing }: {
                                           <span className={`text-[9px] font-bold px-1 py-0.5 rounded-sm leading-none truncate ${brandTextCls(p.brand)} ${brandBg(p.brand)}`}>{p.brand}</span>
                                         </div>
                                         <p className="text-[11px] font-semibold text-[#1a1a1a] leading-tight mt-0.5 line-clamp-2">{stripBrand(p.productName, p.brand)}</p>
+                                        <p className="text-[9px] text-gray-400 font-mono truncate">{p.productCode}</p>
                                         <div className="mt-0.5 space-y-0">
                                           {p.quantity != null && p.quantity > 0 && (
                                             <p className="text-[9px] text-gray-500">입고 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></p>
@@ -1520,6 +1522,7 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                     <p className="text-[10px] font-semibold text-[#1a1a1a] leading-tight line-clamp-2">
                                       {stripBrand(p.productName, p.brand)}
                                     </p>
+                                    <p className="text-[8px] text-gray-400 font-mono truncate">{p.productCode}</p>
                                     {p.quantity != null && p.quantity > 0 && (
                                       <p className="text-[9px] text-gray-500">입고 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></p>
                                     )}

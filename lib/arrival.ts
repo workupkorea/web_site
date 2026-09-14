@@ -440,6 +440,17 @@ export async function cleanupOrphanOverrides(validCodes: Set<string>): Promise<v
     })
     .map(row => row.override_key);
 
+  // 안전장치: 한 번에 기존 오버라이드의 절반 이상이 "고아"로 판정되면
+  // 시트 파싱/컬럼 매핑이 잘못됐을 가능성이 높으므로 삭제를 중단한다.
+  // (2026-09-14: 시트 컬럼 밀림으로 전체 오버라이드가 삭제된 사고 재발 방지)
+  const total = (overrideRows ?? []).length;
+  if (total > 0 && toDelete.length / total > 0.5) {
+    throw new Error(
+      `오버라이드 ${toDelete.length}/${total}개가 고아로 판정되어 정리를 중단했습니다. ` +
+      `시트 컬럼 매핑이 어긋났을 수 있으니 확인 후 다시 시도하세요.`
+    );
+  }
+
   if (toDelete.length > 0) {
     await supabase.from("arrival_overrides").delete().in("override_key", toDelete);
   }

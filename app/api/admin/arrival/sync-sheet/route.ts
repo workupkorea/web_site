@@ -107,16 +107,18 @@ function parseSheetStamp(raw: string): string {
 // ─── 시트 파싱 → 상품 배열 ───────────────────────────────────────────────────
 function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   // 컬럼 인덱스 (헤더 row[3] 기준)
+  // 2026-09-14: 시트에 "매장입고일"(구 8열), "이미지"(구 17열) 컬럼이 추가되며
+  // 기존 브랜드~총재고 구간 전체가 1칸씩 밀렸다. 실제 헤더 텍스트로 재확인해 갱신함.
   const IDX = {
     no: 1, productType: 2, newArrivalType: 3, cat: 4, arrivalDate: 6,
-    brand: 8, name: 17, code: 18, colorCode: 19,
-    fullCode: 20, colorName: 23, sizeRun: 25, note: 28, marketingUsage: 29,
-    supplyPrice: 32, price: 33,
-    quantity: 38,       // 공급 수량 (공급점 발주)
-    totalArrival: 41,   // 총입고(사입) 수량
-    orderQty: 45,       // 총주문 수량
-    salesQty: 49,       // 총판매 수량
-    stockQty: 54,       // 총재고 수량
+    brand: 9, name: 18, code: 19, colorCode: 20,
+    fullCode: 21, colorName: 24, sizeRun: 26, note: 29, marketingUsage: 30,
+    supplyPrice: 33, price: 34,
+    quantity: 39,       // 공급 수량 (공급점 발주)
+    totalArrival: 42,   // 총입고(사입) 수량
+    orderQty: 46,       // 총주문 수량
+    salesQty: 50,       // 총판매 수량
+    stockQty: 55,       // 총재고 수량
   } as const;
 
   // 입고 수량: 총입고(사입) 수량이 0이 아니면 그 값, 아니면 공급 수량으로 폴백
