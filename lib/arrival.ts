@@ -110,18 +110,27 @@ export async function getArrivalProducts(): Promise<ArrivalProduct[]> {
     overrideMap.set(row.override_key, rowToOverride(row));
   }
 
-  return products.map(row => {
-    const p = rowToProduct(row);
-    const compoundKey = p.arrivalDate ? `${p.productCode}::${p.arrivalDate}` : null;
-    const ov = (compoundKey && overrideMap.get(compoundKey)) || overrideMap.get(p.productCode);
-    if (!ov) return p;
-    // undefined 값은 스프레드하지 않음 (원본 arrivalDate 등을 덮어쓰지 않기 위해)
-    const result = { ...p };
+  // 기본 override(productCode)와 날짜별 override(productCode::arrivalDate)는
+  // 서로 다른 시점에 독립적으로 저장될 수 있으므로(예: 이미지 등록 후 날짜만 수정)
+  // 택일하지 않고 필드 단위로 겹쳐 적용한다 — 기본 → 날짜별 순.
+  function applyOverride(result: ArrivalProduct, ov: ArrivalOverride | undefined) {
+    if (!ov) return;
     if (ov.arrivalDate !== undefined) result.arrivalDate = ov.arrivalDate;
     if (ov.status !== undefined) result.status = ov.status;
     if (ov.image !== undefined) result.image = ov.image;
     if (ov.detailUrl !== undefined) result.detailUrl = ov.detailUrl;
     if (ov.changeHistory !== undefined) result.changeHistory = ov.changeHistory;
+  }
+
+  return products.map(row => {
+    const p = rowToProduct(row);
+    const compoundKey = p.arrivalDate ? `${p.productCode}::${p.arrivalDate}` : null;
+    const baseOv = overrideMap.get(p.productCode);
+    const dateOv = compoundKey ? overrideMap.get(compoundKey) : undefined;
+    if (!baseOv && !dateOv) return p;
+    const result = { ...p };
+    applyOverride(result, baseOv);
+    applyOverride(result, dateOv);
     return result;
   });
 }
