@@ -86,6 +86,48 @@ function parsePrice(s: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+// 실제 데이터 파싱에 쓰이는 열들이 기대하는 헤더 텍스트를 담고 있는지 검증한다.
+// 시트에서 열이 추가/삭제/이동되면 IDX 인덱스가 엉뚱한 열을 가리키게 되어
+// 판매가/공급가가 뒤바뀌는 등 조용한 데이터 오염이 발생했던 전례가 있다 (2026-09-14).
+// 헤더가 기대와 다르면 동기화 자체를 막아야 하므로, 데이터 교체 전에 반드시 호출한다.
+const EXPECTED_HEADERS: Record<string, { idx: number; keywords: string[] }> = {
+  "번호(NO)":        { idx: 1,  keywords: ["NO"] },
+  "상품 구분":       { idx: 2,  keywords: ["상품", "구분"] },
+  "신상 구분":       { idx: 3,  keywords: ["신상", "구분"] },
+  "물류 입고일":     { idx: 6,  keywords: ["입고일"] },
+  "브랜드명":        { idx: 8,  keywords: ["브랜드"] },
+  "품명":            { idx: 17, keywords: ["품명"] },
+  "품번":            { idx: 18, keywords: ["품번"] },
+  "컬러 CO.":        { idx: 19, keywords: ["컬러"] },
+  "품번컬러 CO.":    { idx: 20, keywords: ["품번컬러"] },
+  "컬러명":          { idx: 23, keywords: ["컬러명"] },
+  "사이즈런":        { idx: 25, keywords: ["사이즈"] },
+  "비고":            { idx: 28, keywords: ["비고"] },
+  "마케팅 활용여부": { idx: 29, keywords: ["마케팅"] },
+  "공급가":          { idx: 32, keywords: ["공급가"] },
+  "판매가":          { idx: 33, keywords: ["판매가"] },
+  "공급 수량":       { idx: 38, keywords: ["수량"] },
+  "총입고 수량":     { idx: 41, keywords: ["수량"] },
+  "총주문 수량":     { idx: 45, keywords: ["수량"] },
+  "총판매 수량":     { idx: 49, keywords: ["수량"] },
+  "총재고 수량":     { idx: 54, keywords: ["수량"] },
+};
+
+type HeaderMismatch = { label: string; idx: number; expected: string; actual: string };
+
+function validateHeaders(rows: string[][]): HeaderMismatch[] {
+  const header = rows[3] ?? [];
+  const mismatches: HeaderMismatch[] = [];
+  for (const [label, { idx, keywords }] of Object.entries(EXPECTED_HEADERS)) {
+    const actual = String(header[idx] ?? "").replace(/\s/g, "");
+    const ok = keywords.some(k => actual.includes(k.replace(/\s/g, "")));
+    if (!ok) {
+      mismatches.push({ label, idx, expected: keywords.join("/"), actual: (header[idx] ?? "").trim() || "(비어있음)" });
+    }
+  }
+  return mismatches;
+}
+
 // "행최종수정일시"(또는 "…수정일시") 헤더 열 인덱스를 찾는다. 없으면 -1.
 // 이 헤더는 상단 병합셀(1행)에 들어갈 수 있어 상위 몇 개 행을 함께 훑는다.
 function findStampIdx(rows: string[][]): number {
@@ -111,7 +153,8 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   // (판매가 자리에 지점마진율이, 공급가 자리에 판매가가 들어가는 등의 오류 원인).
   const IDX = {
     no: 1, productType: 2, newArrivalType: 3, cat: 4, arrivalDate: 6,
-    brand: 9, name: 17, code: 18, colorCode: 19,
+    brand: 8,            // 브랜드명 (I열). J열(9)은 브랜드코드(예: "KT")라 표시용으로 쓰지 않음
+    name: 17, code: 18, colorCode: 19,
     fullCode: 20, colorName: 23, sizeRun: 25, note: 28, marketingUsage: 29,
     supplyPrice: 32, price: 33,
     quantity: 38,       // 공급 수량 (공급점 발주)
@@ -228,20 +271,38 @@ export async function POST() {
 
     const csvText = await res.text();
     const rows = parseCSV(csvText);
+
+    // 2. 시트 양식(헤더) 검증 — 열이 추가/삭제/이동되면 기존 데이터가 조용히 오염될 수 있으므로
+    //    데이터를 교체하기 전에 먼저 막는다.
+    const mismatches = validateHeaders(rows);
+    if (mismatches.length > 0) {
+      const detail = mismatches
+        .map(m => `- ${m.label} (${m.idx}번째 열): 기대="${m.expected}" / 실제="${m.actual}"`)
+        .join("\n");
+      return NextResponse.json(
+        {
+          error: `구글 시트 양식이 변경되어 동기화를 중단했습니다. 열이 추가/삭제/이동되었을 수 있습니다.\n${detail}`,
+          headerMismatch: true,
+          mismatches,
+        },
+        { status: 422 }
+      );
+    }
+
     const products = parseSheetRows(rows);
 
     if (products.length === 0) {
       return NextResponse.json({ error: "파싱된 상품이 없습니다. 시트 구조를 확인해주세요." }, { status: 400 });
     }
 
-    // 2. DB에 상품 전체 교체 저장
+    // 3. DB에 상품 전체 교체 저장
     await replaceAllProducts(products);
 
-    // 3. 삭제된 상품 코드의 오버라이드 정리
+    // 4. 삭제된 상품 코드의 오버라이드 정리
     const newCodes = new Set(products.map(p => p.productCode));
     await cleanupOrphanOverrides(newCodes);
 
-    // 4. 통계 반환
+    // 5. 통계 반환
     const byStatus = products.reduce<Record<string, number>>((acc, p) => {
       acc[p.status] = (acc[p.status] ?? 0) + 1;
       return acc;

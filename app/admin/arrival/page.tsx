@@ -1251,6 +1251,14 @@ export default function AdminArrivalPage() {
           diff: [],
           error: json.error || "동기화 실패",
         };
+        if (json.headerMismatch) {
+          alert(
+            "⚠️ 구글 시트 양식이 변경되었습니다!\n\n" +
+            "열이 추가/삭제/이동된 것으로 보여 동기화를 중단했습니다.\n" +
+            "기존 데이터는 그대로 유지되었습니다.\n\n" +
+            (json.error || "")
+          );
+        }
       } else {
         const result = { total: json.total, syncedAt: json.syncedAt, actor: adminName ?? undefined };
         setSyncResult(result);
@@ -1670,7 +1678,7 @@ export default function AdminArrivalPage() {
                       </div>
                     </div>
                     {entry.error && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] text-red-700 font-mono mb-3 break-all">{entry.error}</div>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] text-red-700 font-mono mb-3 break-all whitespace-pre-line">{entry.error}</div>
                     )}
                     {Object.keys(entry.byStatus).length > 0 && (
                       <div className="flex flex-wrap gap-x-4 gap-y-1 mb-3 px-3 py-2 bg-gray-50 rounded-lg">
