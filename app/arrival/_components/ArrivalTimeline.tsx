@@ -1708,6 +1708,11 @@ export default function ArrivalTimeline() {
   const [viewMode,  setViewMode]  = useState<ViewMode>("grid");
   const [groupMode, setGroupMode] = useState<GroupMode>("month");
 
+  // 이미지(그리드) 탭으로 전환하면 항상 맨 위에서 시작
+  useEffect(() => {
+    if (viewMode === "grid") window.scrollTo({ top: 0, behavior: "auto" });
+  }, [viewMode]);
+
   const [filterBrand,     setFilterBrand]     = useState("all");
   const [filterCategory,  setFilterCategory]  = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
