@@ -1705,12 +1705,25 @@ export default function ArrivalTimeline() {
   const [selectedProduct, setSelectedProduct] = useState<ArrivalProduct | null>(null);
   const [showRank, setShowRank] = useState(false);
 
-  const [viewMode,  setViewMode]  = useState<ViewMode>("grid");
+  // ?view=calendar 같은 링크로 접속하면 해당 뷰로 바로 진입 (캘린더뷰 전용 공유 링크)
+  const [viewMode,  setViewMode]  = useState<ViewMode>(() => {
+    if (typeof window === "undefined") return "grid";
+    const v = new URLSearchParams(window.location.search).get("view");
+    return v === "calendar" || v === "timeline" || v === "gantt" ? (v as ViewMode) : "grid";
+  });
   const [groupMode, setGroupMode] = useState<GroupMode>("month");
 
   // 이미지(그리드) 탭으로 전환하면 항상 맨 위에서 시작
   useEffect(() => {
     if (viewMode === "grid") window.scrollTo({ top: 0, behavior: "auto" });
+  }, [viewMode]);
+
+  // 현재 뷰를 URL(?view=)에 반영 → 캘린더뷰 등을 그대로 링크로 공유 가능
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (viewMode === "grid") url.searchParams.delete("view");
+    else url.searchParams.set("view", viewMode);
+    window.history.replaceState(null, "", url.toString());
   }, [viewMode]);
 
   const [filterBrand,     setFilterBrand]     = useState("all");
