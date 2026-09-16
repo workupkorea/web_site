@@ -1691,6 +1691,7 @@ export default function ArrivalTimeline() {
   const [filterMarketing, setFilterMarketing] = useState(false);
   const [filterThisWeek,  setFilterThisWeek]  = useState(true);
   const [filterOpen,      setFilterOpen]      = useState(false);
+  const [showRInfo,       setShowRInfo]        = useState(false);
 
   const thisWeekRange = useMemo(() => getThisWeekRange(new Date()), []);
 
@@ -1772,6 +1773,8 @@ export default function ArrivalTimeline() {
         return (a.brand || "").localeCompare(b.brand || "");
       });
   }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterMarketing, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
+
+  const rCount = useMemo(() => filtered.filter(p => p.newArrivalType === "재진행").length, [filtered]);
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
     const map = new Map<string, ArrivalProduct[]>();
@@ -1949,12 +1952,26 @@ export default function ArrivalTimeline() {
                 </button>
               </div>
               <span className="text-[13px] text-gray-500 font-medium">{filtered.length}개</span>
-              <span
-                title="R뱃지 = 재진행 제품"
-                className="w-4 h-4 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[10px] font-bold flex items-center justify-center leading-none shrink-0 cursor-help"
-              >
-                R
-              </span>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowRInfo(v => !v)}
+                  className="flex items-center gap-1 shrink-0"
+                >
+                  <span className="w-4 h-4 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[10px] font-bold flex items-center justify-center leading-none cursor-pointer">
+                    R
+                  </span>
+                  <span className="text-[13px] text-gray-500 font-medium">{rCount}개</span>
+                </button>
+                {showRInfo && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowRInfo(false)} />
+                    <div className="absolute top-full right-0 mt-1 z-50 w-max max-w-[220px] bg-[#1a1a1a] text-white text-[12px] px-2.5 py-1.5 rounded-lg shadow-lg">
+                      R뱃지 = 재진행 제품
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
