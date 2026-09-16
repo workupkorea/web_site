@@ -387,11 +387,17 @@ export async function autoCompleteArrivals(): Promise<string[]> {
 export async function replaceAllProducts(products: ArrivalProduct[]): Promise<void> {
   const supabase = createAdminClient();
 
-  // 기존 전체 삭제
-  const { error: delError } = await supabase.from("arrival_products").delete().neq("id", 0);
-  if (delError) throw new Error(`[arrival_products DELETE] ${delError.message}`);
+  // 점주님들이 보는 실시간 화면이므로 절대 비어 보이면 안 된다.
+  // 예전 방식(전체 삭제 → insert)은 insert 도중 오류가 나면 테이블이 빈 채로 남는 위험이 있었다.
+  // 그래서 "새 데이터를 먼저 넣고, 성공했을 때만 기존 데이터를 지우는" 순서로 바꾼다:
+  // insert가 실패하면 방금 넣은 신규 행만 롤백하고 기존 데이터는 그대로 유지한다.
+  if (products.length === 0) {
+    throw new Error("동기화할 상품이 0건입니다. 기존 데이터를 보존하기 위해 교체를 중단합니다.");
+  }
 
-  if (products.length === 0) return;
+  const { data: oldRows, error: oldErr } = await supabase.from("arrival_products").select("id");
+  if (oldErr) throw new Error(`[arrival_products SELECT old ids] ${oldErr.message}`);
+  const oldIds = (oldRows ?? []).map(r => r.id);
 
   const rows = products.map(p => ({
     product_code:     p.productCode,
@@ -422,9 +428,28 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
 
   // 500개씩 나눠서 insert (Supabase 요청 크기 제한 대비)
   const CHUNK = 500;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const { error: insError } = await supabase.from("arrival_products").insert(rows.slice(i, i + CHUNK));
-    if (insError) throw new Error(`[arrival_products INSERT chunk ${i}] ${insError.message}`);
+  const insertedIds: number[] = [];
+  try {
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { data: inserted, error: insError } = await supabase
+        .from("arrival_products")
+        .insert(rows.slice(i, i + CHUNK))
+        .select("id");
+      if (insError) throw new Error(`[arrival_products INSERT chunk ${i}] ${insError.message}`);
+      insertedIds.push(...(inserted ?? []).map(r => r.id));
+    }
+  } catch (e) {
+    // 신규 삽입 도중 실패 → 방금 넣은 신규 행만 롤백하고 기존 데이터는 그대로 둔다
+    if (insertedIds.length > 0) {
+      await supabase.from("arrival_products").delete().in("id", insertedIds);
+    }
+    throw e;
+  }
+
+  // 신규 삽입이 전부 성공한 뒤에만 기존(예전) 행을 삭제한다
+  if (oldIds.length > 0) {
+    const { error: delError } = await supabase.from("arrival_products").delete().in("id", oldIds);
+    if (delError) throw new Error(`[arrival_products DELETE old] ${delError.message}`);
   }
 }
 

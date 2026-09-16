@@ -1,12 +1,32 @@
 import { NextResponse } from "next/server";
 import type { ArrivalStatus, ArrivalProduct } from "@/lib/arrival";
-import { replaceAllProducts, cleanupOrphanOverrides } from "@/lib/arrival";
+import { replaceAllProducts, cleanupOrphanOverrides, getArrivalProducts } from "@/lib/arrival";
 
 export const dynamic = "force-dynamic";
 
 const SHEET_ID = "1-LTVNiZNSOXRra4SA0MTY1V7SCfvKtJP0QS-2HTAgVA";
 const SHEET_GID = "0"; // 품목리스트 탭
 const CSV_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${SHEET_GID}`;
+
+// 구글 시트가 느리거나 일시적으로 응답이 없을 때 요청이 무한정 걸려있지 않도록 타임아웃을 두고,
+// 일시적인 네트워크 오류는 몇 번 재시도한다 (점주님들이 보는 화면이라 동기화 실패로 인한 중단을 최소화).
+async function fetchCSVWithRetry(url: string, retries = 2, timeoutMs = 15000): Promise<Response> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { cache: "no-store", signal: controller.signal });
+      clearTimeout(timer);
+      return res;
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
+}
 
 const YEAR = 2026;
 
@@ -260,8 +280,16 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
 // ─── POST /api/admin/arrival/sync-sheet ──────────────────────────────────────
 export async function POST() {
   try {
-    // 1. 구글 시트 CSV 가져오기
-    const res = await fetch(CSV_URL, { cache: "no-store" });
+    // 1. 구글 시트 CSV 가져오기 (타임아웃 + 재시도)
+    let res: Response;
+    try {
+      res = await fetchCSVWithRetry(CSV_URL);
+    } catch (e) {
+      return NextResponse.json(
+        { error: `구글 시트 요청 실패(네트워크/타임아웃): ${e instanceof Error ? e.message : String(e)}` },
+        { status: 502 }
+      );
+    }
     if (!res.ok) {
       return NextResponse.json(
         { error: `구글 시트 요청 실패: ${res.status} ${res.statusText}` },
@@ -295,7 +323,25 @@ export async function POST() {
       return NextResponse.json({ error: "파싱된 상품이 없습니다. 시트 구조를 확인해주세요." }, { status: 400 });
     }
 
-    // 3. DB에 상품 전체 교체 저장
+    // 2-1. 안전장치: 새로 파싱된 상품 수가 기존 대비 급감했다면(예: 시트 일부만 로드됐거나
+    //      실수로 대량 삭제된 경우) 동기화를 중단한다. 점주님들이 보는 화면이 갑자기
+    //      텅 비거나 크게 줄어드는 사고를 막기 위함.
+    const existing = await getArrivalProducts();
+    if (existing.length >= 20 && products.length < existing.length * 0.5) {
+      return NextResponse.json(
+        {
+          error:
+            `새로 읽은 상품 수(${products.length}개)가 기존(${existing.length}개)보다 급격히 줄어들어 동기화를 중단했습니다. ` +
+            `시트가 일부만 로드되었거나 실수로 행이 삭제되었을 수 있으니 시트 상태를 확인 후 다시 시도해주세요.`,
+          suspiciousDrop: true,
+          existingCount: existing.length,
+          newCount: products.length,
+        },
+        { status: 422 }
+      );
+    }
+
+    // 3. DB에 상품 전체 교체 저장 (신규 삽입 성공 후에만 기존 데이터 삭제 — 실패 시 기존 데이터 보존)
     await replaceAllProducts(products);
 
     // 4. 삭제된 상품 코드의 오버라이드 정리

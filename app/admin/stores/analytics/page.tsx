@@ -280,7 +280,7 @@ function VisitAnalyticsTab() {
                 const prevS = prevStoreMap.get(String(s.store_id ?? `name:${s.store_name}`));
                 const originalRank = stores.indexOf(s);
                 return (
-                  <tr key={s.store_id ?? s.store_name} className="hover:bg-gray-50 transition-colors">
+                  <tr key={`${s.store_id ?? s.store_name}-${i}`} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3.5">
                       <span className={`inline-flex items-center justify-center w-7 h-7 text-xs font-bold rounded-full ${RANK_BADGE[originalRank] ?? "bg-gray-100 text-gray-500"}`}>{originalRank + 1}</span>
                     </td>
