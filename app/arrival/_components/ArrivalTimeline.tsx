@@ -141,7 +141,7 @@ function ProductImage({ product, size = "md" }: { product: ArrivalProduct; size?
       <div className={`w-full ${aspectCls} bg-white flex flex-col items-center justify-center gap-1`}>
         <span className="text-[12px] tracking-widest text-gray-500 font-mono uppercase">{product.productCode}</span>
         <div className="w-6 h-px bg-gray-300" />
-        <span className="text-[12px] tracking-widest text-gray-400 uppercase">no image</span>
+        <span className="text-[12px] text-gray-400">이미지 준비중입니다</span>
       </div>
     );
   }
@@ -173,7 +173,7 @@ function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: Arriva
       <div className={`w-full ${aspectCls} bg-white flex flex-col items-center justify-center gap-1 rounded-sm`}>
         <span className="text-[12px] tracking-widest text-gray-500 font-mono uppercase">{product.productCode}</span>
         <div className="w-6 h-px bg-gray-300" />
-        <span className="text-[12px] tracking-widest text-gray-400 uppercase">no image</span>
+        <span className="text-[12px] text-gray-400">이미지 준비중입니다</span>
       </div>
     );
   }
@@ -429,6 +429,22 @@ function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: 
               </table>
             </div>
 
+            {/* 주문하러 가기: 발주 시스템으로 바로 이동 (품번 자동 검색) */}
+            <a
+              href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(product.productCode)}&search_word_2=`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => e.stopPropagation()}
+              className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-bold hover:bg-[#333] transition-colors"
+            >
+              주문하러 가기
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+            </a>
+
             {product.marketingUsage && (
               <div className="hidden sm:block border border-orange-300 bg-orange-50 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2">
@@ -641,8 +657,8 @@ function MiniThumb({ product, fit = "cover" }: { product: ArrivalProduct; fit?: 
 
   if (failed || !src) {
     return (
-      <div className="absolute inset-0 bg-[#edebe8] flex items-center justify-center">
-        <span className="text-[5px] text-gray-400 font-mono uppercase">no</span>
+      <div className="absolute inset-0 bg-[#edebe8] flex items-center justify-center px-1">
+        <span className="text-[9px] text-gray-400 text-center leading-tight">이미지 준비중입니다</span>
       </div>
     );
   }
@@ -1175,9 +1191,18 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                               </p>
                                             )}
                                             {(p.supplyPrice != null && p.supplyPrice > 0) || p.price > 0 ? (
-                                              <p className="text-[14px] text-gray-500 grid grid-cols-[112px_auto] items-center h-8 whitespace-nowrap">
+                                              <p className="text-[14px] text-gray-500 grid grid-cols-[112px_1fr_auto] items-center h-8 whitespace-nowrap gap-1">
                                                 {p.supplyPrice != null && p.supplyPrice > 0 && <span className="flex items-baseline gap-1.5">공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
                                                 {p.price > 0 && <span className={`flex items-baseline gap-1.5 ${p.supplyPrice != null && p.supplyPrice > 0 ? "pl-2 border-l border-gray-200" : ""}`}>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
+                                                <a
+                                                  href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  onClick={e => e.stopPropagation()}
+                                                  className="justify-self-end shrink-0 text-[12px] font-bold px-2 py-1 rounded-md bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors whitespace-nowrap"
+                                                >
+                                                  주문하기
+                                                </a>
                                               </p>
                                             ) : null}
                                           </div>
