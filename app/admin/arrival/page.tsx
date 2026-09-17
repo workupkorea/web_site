@@ -1116,19 +1116,19 @@ export default function AdminArrivalPage() {
       .then(r => r.json())
       .then(d => { if (d.name) setAdminName(d.name); })
       .catch(() => {});
-    try {
-      const saved = localStorage.getItem("arrival_sync_history");
-      if (saved) {
-        const parsed: SyncHistoryEntry[] = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setSyncHistory(parsed);
-          const last = parsed[0];
+    fetch("/api/admin/arrival/sync-history")
+      .then(r => r.json())
+      .then(d => {
+        const rows: SyncHistoryEntry[] = Array.isArray(d.rows) ? d.rows : [];
+        if (rows.length > 0) {
+          setSyncHistory(rows);
+          const last = rows[0];
           if (last?.syncedAt && !last.error) {
             setSyncResult({ total: last.total, syncedAt: last.syncedAt, actor: last.actor });
           }
         }
-      }
-    } catch { /* 무시 */ }
+      })
+      .catch(() => {});
   }, []);
 
   const handleInlineImageUpload = async (
@@ -1293,11 +1293,12 @@ export default function AdminArrivalPage() {
       setSyncElapsed((Date.now() - syncStartRef.current) / 1000);
       setSyncing(false);
       if (entry) {
-        setSyncHistory(prev => {
-          const next = [entry!, ...prev];
-          try { localStorage.setItem("arrival_sync_history", JSON.stringify(next)); } catch { /* 무시 */ }
-          return next;
-        });
+        setSyncHistory(prev => [entry!, ...prev]);
+        fetch("/api/admin/arrival/sync-history", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(entry),
+        }).catch(() => { /* 무시: 이력 저장 실패가 동기화 자체를 막지 않도록 */ });
       }
     }
   };
