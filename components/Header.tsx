@@ -286,8 +286,7 @@ export default function Header({
   return (
     <header
       ref={headerRef}
-      className={`md:sticky z-50 bg-white border-b border-gray-200 relative${hideOnMobile ? " hidden md:block" : ""}`}
-      style={{ top: "var(--wu-topbar-h, 36px)" }}
+      className={`relative md:sticky md:top-[var(--wu-topbar-h,36px)] z-50 bg-white border-b border-gray-200${hideOnMobile ? " hidden md:block" : ""}`}
     >
       {topRow}
       {brandsMegaPanel}

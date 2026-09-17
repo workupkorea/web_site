@@ -325,7 +325,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
       {/* 하단 페이지 카운터 pill + 모바일 전용 넘김 버튼(PC는 좌우 화살표로 대체됨) */}
       {total > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[3] flex items-center gap-2">
+        <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-[3] flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
             className="md:hidden flex items-center justify-center w-11 h-11 opacity-80 active:opacity-100 transition-opacity"
