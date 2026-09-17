@@ -243,7 +243,7 @@ function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: Arriva
 }
 
 // ─── 상품 상세 모달 ───────────────────────────────────────────────────────────
-function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: () => void }) {
+function ProductModal({ product, onClose, openOrderLink }: { product: ArrivalProduct; onClose: () => void; openOrderLink: (url: string, e: React.MouseEvent) => void }) {
   const { full } = fmtDate(product.arrivalDate);
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const history = product.changeHistory ?? [];
@@ -432,9 +432,9 @@ function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: 
             {/* 주문하러 가기: 발주 시스템으로 바로 이동 (품번 자동 검색) */}
             <a
               href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(product.productCode)}&search_word_2=`}
-              target={isEmbedded ? "_top" : "_blank"}
-              rel={isEmbedded ? undefined : "noopener noreferrer"}
-              onClick={e => e.stopPropagation()}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={e => openOrderLink(`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(product.productCode)}&search_word_2=`, e)}
               className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-bold hover:bg-[#333] transition-colors"
             >
               주문하러 가기
@@ -878,9 +878,10 @@ function buildCalendarPDF(
 }
 
 // ─── 캘린더 뷰 ───────────────────────────────────────────────────────────────
-function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filterThisWeek }: {
+function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filterThisWeek, openOrderLink }: {
   products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
   thisWeekRange?: { start: string; end: string }; filterThisWeek?: boolean;
+  openOrderLink: (url: string, e: React.MouseEvent) => void;
 }) {
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -1196,9 +1197,9 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                                 {p.price > 0 && <span className={`flex items-baseline gap-1.5 ${p.supplyPrice != null && p.supplyPrice > 0 ? "pl-2 border-l border-gray-200" : ""}`}>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
                                                 <a
                                                   href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`}
-                                                  target={isEmbedded ? "_top" : "_blank"}
-                                                  rel={isEmbedded ? undefined : "noopener noreferrer"}
-                                                  onClick={e => e.stopPropagation()}
+                                                  target="_blank"
+                                                  rel="noopener noreferrer"
+                                                  onClick={e => openOrderLink(`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`, e)}
                                                   className="justify-self-end shrink-0 text-[12px] font-bold px-2 py-1 rounded-md bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors whitespace-nowrap"
                                                 >
                                                   주문하기
@@ -1705,12 +1706,22 @@ export default function ArrivalTimeline() {
   const [selectedProduct, setSelectedProduct] = useState<ArrivalProduct | null>(null);
   const [showRank, setShowRank] = useState(false);
 
-  // 팝업(iframe)으로 삽입된 상태인지 여부. 이 경우 "주문하기"를 새 탭으로 열면
-  // 팝업 위에 창이 하나 더 뜨는 것처럼 보이므로, 팝업을 띄운 창(top) 자체를 이동시킨다.
+  // 팝업(iframe)으로 삽입된 상태인지 여부. 이 경우 "주문하기"를 매번 새 탭으로 열면
+  // 클릭할 때마다 창이 계속 쌓이므로, 고정된 이름의 창 하나를 재사용해 열어준다.
   const [isEmbedded] = useState(() => {
     if (typeof window === "undefined") return false;
     try { return window.self !== window.top; } catch { return true; }
   });
+
+  // 발주 링크 클릭: 임베드 상태면 "wjumun_order"라는 이름의 창을 재사용(같은 이름 → 새 창 안 만들고 기존 창 재활용),
+  // 아니면 기본 동작(target=_blank로 새 탭) 그대로 둔다.
+  const openOrderLink = useCallback((url: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (isEmbedded) {
+      e.preventDefault();
+      window.open(url, "wjumun_order");
+    }
+  }, [isEmbedded]);
 
   // ?view=calendar 같은 링크로 접속하면 해당 뷰로 바로 진입 (캘린더뷰 전용 공유 링크)
   const [viewMode,  setViewMode]  = useState<ViewMode>(() => {
@@ -1947,7 +1958,7 @@ export default function ArrivalTimeline() {
                   <input type="checkbox" checked={filterThisWeek} onChange={e => setFilterThisWeek(e.target.checked)}
                     className="w-3 h-3 accent-orange-500 cursor-pointer" />
                   <span className={`text-[13px] font-semibold whitespace-nowrap ${filterThisWeek ? "text-orange-500" : "text-gray-500"}`}>
-                    이번주 입고품목
+                    이번주 입고 예정 품목
                   </span>
                 </label>
               )}
@@ -2037,7 +2048,7 @@ export default function ArrivalTimeline() {
                 <input type="checkbox" checked={filterThisWeek} onChange={e => setFilterThisWeek(e.target.checked)}
                   className="w-3.5 h-3.5 accent-orange-500 cursor-pointer" />
                 <span className={`text-[14px] font-semibold ${filterThisWeek ? "text-orange-500" : "text-gray-500"}`}>
-                  이번주 입고품목
+                  이번주 입고 예정 품목
                 </span>
               </label>
             )}
@@ -2094,7 +2105,7 @@ export default function ArrivalTimeline() {
         ) : viewMode === "gantt" ? (
           <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
         ) : (
-          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} />
+          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} />
         )}
       </div>
 
@@ -2102,7 +2113,7 @@ export default function ArrivalTimeline() {
         <OrderRankModal products={filtered} onClose={() => setShowRank(false)} onSelect={setSelectedProduct} />
       )}
       {selectedProduct && (
-        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
+        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} openOrderLink={openOrderLink} />
       )}
     </div>
   );
