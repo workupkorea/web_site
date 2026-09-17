@@ -1453,16 +1453,20 @@ function TextCanvasEditor({ layers, onChange, pcImage, mobileImage, pcVideo, mob
             <div className="absolute inset-x-0 bg-pink-500 pointer-events-none z-[1]" style={{ top: `${snapLines.y}%`, height: 1.5 }} />
           )}
 
-          {/* 페이지 넘김(좌우 화살표) 영역 — PC 전용 */}
-          {mode === "pc" && (
+          {/* 페이지 넘김 영역 — PC는 좌우 화살표(9%씩 ≈173px), 모바일은 하단 이전/다음 버튼 바(10% ≈70px) */}
+          {mode === "pc" ? (
             <>
               <div className="absolute inset-y-0 left-0 w-[9%] bg-black/35 border-r border-dashed border-white/50 pointer-events-none flex items-center justify-center">
-                <span className="text-white/70 text-[9px] tracking-wide [writing-mode:vertical-rl] rotate-180">넘김 영역</span>
+                <span className="text-white/70 text-[9px] tracking-wide [writing-mode:vertical-rl] rotate-180">넘김 영역 · {Math.round(designW * 0.09)}px</span>
               </div>
               <div className="absolute inset-y-0 right-0 w-[9%] bg-black/35 border-l border-dashed border-white/50 pointer-events-none flex items-center justify-center">
-                <span className="text-white/70 text-[9px] tracking-wide [writing-mode:vertical-rl]">넘김 영역</span>
+                <span className="text-white/70 text-[9px] tracking-wide [writing-mode:vertical-rl]">넘김 영역 · {Math.round(designW * 0.09)}px</span>
               </div>
             </>
+          ) : (
+            <div className="absolute inset-x-0 bottom-0 h-[10%] bg-black/35 border-t border-dashed border-white/50 pointer-events-none flex items-center justify-center">
+              <span className="text-white/70 text-[9px] tracking-wide">넘김 영역 · {Math.round(695 * 0.1)}px</span>
+            </div>
           )}
           <div className="absolute top-2 left-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-full pointer-events-none">
             더블클릭 입력 · 드래그 이동 · Ctrl+클릭 다중 선택

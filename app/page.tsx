@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Fragment, type ReactNode } from "react";
 import Hero from "@/components/Hero";
+import HomeBrandLogos from "@/components/HomeBrandLogos";
 import HomeNewArrivals from "@/components/HomeNewArrivals";
 import HomeCategoryGrid from "@/components/HomeCategoryGrid";
 import HomeEditorial from "@/components/HomeEditorial";
@@ -33,6 +34,7 @@ export const metadata: Metadata = {
 // 섹션 키 → 렌더러. 관리자 "메인 배치"에서 정한 순서·노출에 따라 렌더링된다.
 const SECTION_RENDERERS: Record<HomeSectionKey, () => ReactNode> = {
   hero: () => <Hero />,
+  brandLogos: () => <HomeBrandLogos />,
   newArrivals: () => <HomeNewArrivals />,
   category: () => <HomeCategoryGrid />,
   editorial: () => <HomeEditorial />,

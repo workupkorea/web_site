@@ -51,6 +51,22 @@ const nextConfig: NextConfig = {
         source: "/:path*",
         headers: securityHeaders,
       },
+      {
+        // 입고 스케쥴 페이지는 거래처 발주 사이트(wjumun.com)에 iframe으로 삽입할 수 있도록 허용한다.
+        // X-Frame-Options는 도메인을 하나만 지정할 수 없어(SAMEORIGIN 고정) 위 공용 헤더를 그대로 두고,
+        // CSP frame-ancestors만 추가로 얹는다. 최신 브라우저는 둘 다 있으면 frame-ancestors를 우선시하므로
+        // (구형 브라우저만 X-Frame-Options로 인해 계속 차단됨) 다른 라우트의 클릭재킹 방지는 그대로 유지된다.
+        source: "/arrival",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self' https://wjumun.com;" },
+        ],
+      },
+      {
+        source: "/arrival/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self' https://wjumun.com;" },
+        ],
+      },
     ];
   },
 };

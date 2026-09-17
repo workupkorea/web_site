@@ -177,42 +177,11 @@ function WhiteBox({
             color: "#6b7280",
             lineHeight: 1.5,
             letterSpacing: "-0.02em",
-            marginBottom: "20px",
+            marginBottom: 0,
           }}
         >
           {section.desc}
         </p>
-
-        {/* 썸네일 */}
-        <div style={{ display: "flex", gap: "8px" }}>
-          {section.items.map((item, j) => (
-            <Link
-              key={j}
-              href={`/products/${item.productId}`}
-              className="group"
-              style={{ flex: "1 1 0", minWidth: 0, maxWidth: "128px" }}
-            >
-              <div
-                className="flex items-center justify-center overflow-hidden bg-gray-100"
-                style={{ width: "100%", aspectRatio: "1 / 1", marginBottom: "6px" }}
-              >
-                {item.imageUrl ? (
-                  <img
-                    src={ikSrc(item.imageUrl, 400)}
-                    alt={item.name}
-                    className="w-full h-full object-contain transition-transform"
-                  />
-                ) : (
-                  <span className="text-gray-300 text-[10px] font-black">WU</span>
-                )}
-              </div>
-              {/* PC: 브랜드 비노출(순수 상품명). 모바일 리스트는 displayName으로 브랜드 노출 */}
-              <p style={{ fontSize: "12px", color: "#303236", lineHeight: 1.3, letterSpacing: "-0.02em", marginBottom: "3px" }}>
-                {item.name}
-              </p>
-            </Link>
-          ))}
-        </div>
       </div>
       </>
       )}
@@ -334,13 +303,13 @@ export default function FeatureHeroLayout({
         flex: "0 0 50.053%",
         minWidth: 0,
         backgroundColor: "#f2f1ed",
-        paddingTop: "60px",
-        paddingBottom: "60px",
+        paddingTop: "25px",
+        paddingBottom: "25px",
         paddingLeft: "20px",
         paddingRight: "25px",
         display: "flex",
         flexDirection: "column",
-        gap: "80px",
+        gap: "25px",
       }}
     >
       <div style={{ display: "flex", gap: "25px" }}>
@@ -628,40 +597,14 @@ export default function FeatureHeroLayout({
                 <SectionTags tags={section.tags} />
               </div>
 
-              {/* 텍스트 + 상품 목록 */}
+              {/* 텍스트 */}
               <div style={{ paddingTop: "20px", paddingLeft: "15px", paddingRight: "15px", paddingBottom: "20px" }}>
-                <h3 className="text-[18px] lg:text-[20px] break-keep" style={{ fontWeight: 700, color: "#303236", margin: 0, marginBottom: "16px" }}>
+                <h3 className="text-[18px] lg:text-[20px] break-keep" style={{ fontWeight: 700, color: "#303236", marginBottom: "16px" }}>
                   {section.title}
                 </h3>
-                <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.7, margin: 0, marginBottom: "16px" }}>
+                <p style={{ fontSize: "13px", color: "#6b7280", lineHeight: 1.7, marginBottom: 0 }}>
                   {section.desc}
                 </p>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  {section.items.map((item, j) => (
-                    <Link
-                      key={j}
-                      href={`/products/${item.productId}`}
-                      style={{ display: "flex", gap: "16px", alignItems: "center" }}
-                    >
-                      <div
-                        className="flex-shrink-0 flex items-center justify-center bg-gray-100"
-                        style={{ width: "72px", height: "72px" }}
-                      >
-                        {item.imageUrl ? (
-                          <img src={ikSrc(item.imageUrl, 400)} alt={item.name} className="w-full h-full object-contain" />
-                        ) : (
-                          <span className="text-gray-300 text-xs font-black">WU</span>
-                        )}
-                      </div>
-                      <div>
-                        <p style={{ fontSize: "13px", color: "#303236", lineHeight: 1.5, margin: 0 }}>
-                          {item.displayName || item.name}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
               </div>
               </>
               )}

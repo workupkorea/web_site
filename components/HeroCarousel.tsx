@@ -121,7 +121,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
 
   return (
     <section
-      className="relative bg-[#303236] overflow-hidden aspect-[750/695] md:aspect-[1920/680]"
+      className="relative bg-[#303236] overflow-hidden aspect-[750/695] md:aspect-[1920/680] touch-pan-y"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -323,14 +323,32 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         </>
       )}
 
-      {/* 하단 페이지 카운터 pill */}
+      {/* 하단 페이지 카운터 pill + 모바일 전용 넘김 버튼(PC는 좌우 화살표로 대체됨) */}
       {total > 1 && (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[3]">
-          <div className="bg-black/50 backdrop-blur-sm text-white text-sm font-medium px-5 py-2 rounded-full tracking-wide select-none">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-[3] flex items-center gap-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="md:hidden flex items-center justify-center w-11 h-11 opacity-80 active:opacity-100 transition-opacity"
+            aria-label="이전 슬라이드"
+          >
+            <svg fill="none" stroke="white" strokeWidth={1.5} viewBox="0 0 24 24" style={{ width: 20, height: 20 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="bg-black/50 backdrop-blur-sm text-white text-xs md:text-sm font-medium px-3 py-1 md:px-5 md:py-2 rounded-full tracking-wide select-none">
             {current + 1}
-            <span className="opacity-50 mx-1.5">/</span>
+            <span className="opacity-50 mx-1 md:mx-1.5">/</span>
             {total}
           </div>
+          <button
+            onClick={() => navigate(1)}
+            className="md:hidden flex items-center justify-center w-11 h-11 opacity-80 active:opacity-100 transition-opacity"
+            aria-label="다음 슬라이드"
+          >
+            <svg fill="none" stroke="white" strokeWidth={1.5} viewBox="0 0 24 24" style={{ width: 20, height: 20 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         </div>
       )}
     </section>

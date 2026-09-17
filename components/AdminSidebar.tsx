@@ -67,6 +67,15 @@ export const navGroups: NavGroup[] = [
               </svg>
             ),
           },
+          {
+            label: "브랜드 로고 영역",
+            href: "/admin/main/brands",
+            icon: (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
+              </svg>
+            ),
+          },
         ],
       },
       {

@@ -12,6 +12,19 @@ export type EditorialTag = {
   imageUrl?: string;
 };
 
+// 기획전 상세페이지의 "카드형" 제품 위젯(이미지 페이징+컬러+사이즈+아코디언) 전용 데이터.
+export type EditorialCardColor = { id: string; name: string; hex: string; imageIndexes: number[]; soldOut?: boolean };
+export type EditorialCardSize = { id: string; label: string; soldOut?: boolean };
+export type EditorialCardDetail = {
+  images: string[];
+  colors: EditorialCardColor[];
+  sizes: EditorialCardSize[];
+  styleNo?: string;      // 품번(Style No.) — 입고 스케쥴에서 가져오거나 직접 입력
+  detailText: string;
+  materialText: string;
+  essentialText: string;
+};
+
 export type EditorialSectionItem = {
   productId: string;
   name: string;
@@ -19,6 +32,7 @@ export type EditorialSectionItem = {
   bg: string;
   imageUrl?: string;
   displayName?: string; // "[브랜드] 상품명" — 상품 brand 조회 후 채움 (없으면 name 사용)
+  cardDetail?: EditorialCardDetail;
 };
 
 // 섹션 이미지 위 상품 핫스팟 — PC·모바일 모두 8:9 object-contain이라 단일 좌표

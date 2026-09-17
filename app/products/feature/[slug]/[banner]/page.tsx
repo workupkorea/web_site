@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBannerDetail } from "@/lib/editorial-blocks";
 import { ikSrc } from "@/lib/imageSrc";
+import ProductFeatureTabs from "@/components/ProductFeatureTabs";
 
 type Props = { params: Promise<{ slug: string; banner: string }> };
 
@@ -67,33 +68,10 @@ export default async function BannerDetailPage({ params }: Props) {
         </div>
       </section>
 
-      {/* ── 하단: 제품 리스트업 (그리드 카드) ─────────────────── */}
+      {/* ── 하단: 제품 탭(제품명 클릭 시 이미지·컬러·사이즈·아코디언 전환) ─── */}
       {products.length > 0 && (
         <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24">
-          <div className="flex items-baseline justify-between mb-6 md:mb-8 border-t border-gray-100 pt-10">
-            <h2 className="text-lg md:text-xl font-bold text-[#303236]">이 기획전의 제품</h2>
-            <span className="text-xs text-gray-400">{products.length}개 제품</span>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-8 md:gap-x-6 md:gap-y-10">
-            {products.map((p, i) => (
-              <Link key={`${p.productId}-${i}`} href={`/products/${p.productId}`} className="group block">
-                <div className="w-full aspect-square bg-gray-100 overflow-hidden flex items-center justify-center mb-3">
-                  {p.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={ikSrc(p.imageUrl, 600)}
-                      alt={p.name}
-                      className="w-full h-full object-contain transition-transform duration-300"
-                    />
-                  ) : (
-                    <span className="text-gray-300 text-sm font-black">WU</span>
-                  )}
-                </div>
-                <p className="text-[13px] md:text-sm text-[#303236] leading-snug mb-1 line-clamp-2">{p.displayName}</p>
-              </Link>
-            ))}
-          </div>
+          <ProductFeatureTabs products={products} />
         </section>
       )}
 

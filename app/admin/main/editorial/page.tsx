@@ -3,6 +3,20 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 // ── 타입 정의 ──────────────────────────────────────────────
+// 기획전 상세페이지의 "카드형" 제품 위젯(이미지 페이징+컬러+사이즈+아코디언) 전용 데이터.
+// 실제 상품 DB(색상/사이즈/상세정보)와는 별개 — 기획전 배너마다 다른 이미지·문구를 자유롭게 넣기 위함.
+type ProductCardColor = { id: string; name: string; hex: string; imageIndexes: number[]; soldOut?: boolean };
+type ProductCardSize = { id: string; label: string; soldOut?: boolean };
+type ProductCardDetail = {
+  images: string[];
+  colors: ProductCardColor[];
+  sizes: ProductCardSize[];
+  styleNo?: string;
+  detailText: string;
+  materialText: string;
+  essentialText: string;
+};
+
 type ProductItem = {
   id: string;
   product_id: string;
@@ -10,6 +24,7 @@ type ProductItem = {
   price: string;
   image_url: string;
   bg: string;
+  card_detail?: ProductCardDetail;
 };
 
 type HeroTag = {
@@ -662,38 +677,242 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
-// ── 서브 컴포넌트: 상품 아이템 에디터 ─────────────────────
-function ItemEditor({ item, onChange, onDelete, products }: {
-  item: ProductItem;
-  onChange: (patch: Partial<ProductItem>) => void;
-  onDelete: () => void;
-  products: SearchProduct[];
-}) {
+function emptyCardDetail(): ProductCardDetail {
+  return { images: [], colors: [], sizes: [], styleNo: "", detailText: "", materialText: "", essentialText: "" };
+}
+
+// ── 서브 컴포넌트: 품번(Style No.) 입력 — 입고 스케쥴 상품코드 자동완성 ──
+function StyleNoField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [codes, setCodes] = useState<{ code: string; name: string }[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/arrival")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: { productCode?: string; productName?: string }[]) => {
+        if (!Array.isArray(data)) return;
+        const seen = new Set<string>();
+        const list = data
+          .filter((p) => p.productCode && !seen.has(p.productCode) && seen.add(p.productCode))
+          .map((p) => ({ code: p.productCode!, name: p.productName ?? "" }));
+        setCodes(list);
+      })
+      .catch(() => {});
+  }, []);
+
   return (
-    <div className="border border-gray-200 rounded-xl p-3 bg-gray-50">
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">상품</span>
-        <button onClick={onDelete} className="text-[11px] text-red-400 hover:text-red-600">삭제</button>
-      </div>
-      {/* 제품 검색 */}
-      <div className="mb-2">
-        <label className="block text-xs font-medium text-gray-600 mb-1">제품 검색</label>
-        <ProductPicker
-          products={products}
-          value={item.name}
-          onSelect={(p) => onChange({ product_id: p.id, name: p.name, price: p.price, image_url: p.imageUrl ?? "" })}
-        />
-      </div>
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="상품명 (직접 수정)" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
-        <Field label="가격" value={item.price} onChange={(v) => onChange({ price: v })} placeholder="19,000원" />
-        {item.image_url && (
-          <div className="col-span-2 flex items-center gap-2">
-            <img src={item.image_url} alt="" className="w-10 h-10 object-cover rounded border border-gray-200 flex-shrink-0" />
-            <span className="text-[10px] text-gray-400 truncate">{item.image_url.split("/").pop()}</span>
+    <div>
+      <label className="block text-xs font-medium text-gray-600 mb-1">품번 (Style No.)</label>
+      <input
+        list="arrival-style-no-list"
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="입고 스케쥴에서 검색하거나 직접 입력"
+        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#303236]/30"
+      />
+      <datalist id="arrival-style-no-list">
+        {codes.map((c) => (
+          <option key={c.code} value={c.code}>{c.name}</option>
+        ))}
+      </datalist>
+    </div>
+  );
+}
+
+// ── 서브 컴포넌트: 카드형 상세(이미지 페이징+컬러+사이즈+아코디언 내용) 편집 ──
+function CardDetailEditor({ detail, onChange }: {
+  detail: ProductCardDetail | undefined;
+  onChange: (detail: ProductCardDetail) => void;
+}) {
+  const [open, setOpen] = useState(true);
+  const [sizeCsv, setSizeCsv] = useState("");
+  // 예전 저장분(단일 imageIndex)을 배열로 자동 이관 — 저장된 데이터가 없어도 항상 배열을 보장한다.
+  const raw = detail ?? emptyCardDetail();
+  const d: ProductCardDetail = {
+    ...raw,
+    colors: raw.colors.map((c) => ({
+      ...c,
+      imageIndexes: c.imageIndexes ?? (typeof (c as { imageIndex?: number }).imageIndex === "number" ? [(c as { imageIndex?: number }).imageIndex!] : []),
+    })),
+  };
+  const set = <K extends keyof ProductCardDetail>(k: K, v: ProductCardDetail[K]) => onChange({ ...d, [k]: v });
+
+  async function addImage(file: File) {
+    const resized = await resizeImage(file);
+    const url = await uploadImage(resized);
+    set("images", [...d.images, url]);
+  }
+  function removeImage(idx: number) {
+    const nextImages = d.images.filter((_, i) => i !== idx);
+    // 삭제된 이미지 번호는 목록에서 빼고, 그 뒤 번호들은 한 칸씩 당긴다.
+    const nextColors = d.colors.map((c) => ({
+      ...c,
+      imageIndexes: c.imageIndexes.filter((n) => n !== idx).map((n) => (n > idx ? n - 1 : n)),
+    }));
+    onChange({ ...d, images: nextImages, colors: nextColors });
+  }
+  function addColor() {
+    set("colors", [...d.colors, { id: uid(), name: "", hex: "#303236", imageIndexes: [] }]);
+  }
+  function toggleColorImage(idx: number, imageIdx: number) {
+    const c = d.colors[idx];
+    const has = c.imageIndexes.includes(imageIdx);
+    updateColor(idx, { imageIndexes: has ? c.imageIndexes.filter((n) => n !== imageIdx) : [...c.imageIndexes, imageIdx].sort((a, b) => a - b) });
+  }
+  function updateColor(idx: number, patch: Partial<ProductCardColor>) {
+    set("colors", d.colors.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
+  }
+  function removeColor(idx: number) {
+    set("colors", d.colors.filter((_, i) => i !== idx));
+  }
+  function addSize() {
+    set("sizes", [...d.sizes, { id: uid(), label: "" }]);
+  }
+  // "S,M,L,XL" 형태로 한 번에 입력하면 콤마 기준으로 나눠 그만큼 사이즈를 만든다.
+  function addSizesFromCsv(text: string) {
+    const labels = text.split(",").map((t) => t.trim()).filter(Boolean);
+    if (labels.length === 0) return;
+    set("sizes", [...d.sizes, ...labels.map((label) => ({ id: uid(), label }))]);
+  }
+  function updateSize(idx: number, patch: Partial<ProductCardSize>) {
+    set("sizes", d.sizes.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  }
+  function removeSize(idx: number) {
+    set("sizes", d.sizes.filter((_, i) => i !== idx));
+  }
+
+  return (
+    <div className="mt-3 border-t border-gray-200 pt-3">
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-[11px] font-semibold text-[#303236] hover:opacity-70">
+        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-90" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        카드 상세 편집 (이미지 페이징 · 컬러 · 사이즈 · 아코디언)
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-4 bg-white border border-gray-200 rounded-xl p-3">
+          {/* 이미지 그리드 */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">이미지 (등록한 순서대로 2열 그리드에 이어서 노출)</label>
+            <div className="flex flex-wrap gap-2">
+              {d.images.map((url, i) => (
+                <div key={i} className="relative w-16 h-16 flex-shrink-0">
+                  <img src={url} alt="" className="w-full h-full object-cover rounded border border-gray-200" />
+                  <span className="absolute top-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded">{i}</span>
+                  <button type="button" onClick={() => removeImage(i)}
+                    className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none flex items-center justify-center">×</button>
+                </div>
+              ))}
+              <label className="w-16 h-16 flex-shrink-0 border-2 border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-[#303236] text-gray-400 text-xl">
+                +
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) addImage(f); e.target.value = ""; }} />
+              </label>
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* 컬러 */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-gray-600">컬러 (선택 시 체크한 이미지들만 표시 — 여러 장 가능)</label>
+              <button type="button" onClick={addColor} className="text-[11px] text-[#303236] hover:underline">+ 컬러 추가</button>
+            </div>
+            <div className="space-y-2">
+              {d.colors.map((c, i) => (
+                <div key={c.id} className="bg-gray-50 border border-gray-200 rounded-lg p-1.5 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <input type="color" value={c.hex} onChange={(e) => updateColor(i, { hex: e.target.value })}
+                      className="w-7 h-7 rounded border border-gray-300 cursor-pointer flex-shrink-0" />
+                    <input type="text" value={c.name} onChange={(e) => updateColor(i, { name: e.target.value })}
+                      placeholder="색상명" className="w-20 text-xs border border-gray-300 rounded px-2 py-1.5" />
+                    <label className="flex items-center gap-1 text-[10px] text-gray-500 flex-shrink-0">
+                      <input type="checkbox" checked={!!c.soldOut} onChange={(e) => updateColor(i, { soldOut: e.target.checked })} className="w-3 h-3" />
+                      품절
+                    </label>
+                    <button type="button" onClick={() => removeColor(i)} className="ml-auto text-[11px] text-red-400 hover:text-red-600 flex-shrink-0">삭제</button>
+                  </div>
+                  {d.images.length === 0 ? (
+                    <p className="text-[10px] text-gray-400 pl-1">위에 이미지를 먼저 등록하세요.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 pl-1">
+                      {d.images.map((url, imgIdx) => {
+                        const checked = c.imageIndexes.includes(imgIdx);
+                        return (
+                          <button
+                            key={imgIdx}
+                            type="button"
+                            onClick={() => toggleColorImage(i, imgIdx)}
+                            className={`relative w-10 h-10 flex-shrink-0 rounded border-2 overflow-hidden ${checked ? "border-[#303236]" : "border-transparent opacity-50"}`}
+                            title={`이미지 ${imgIdx}`}
+                          >
+                            <img src={url} alt="" className="w-full h-full object-cover" />
+                            {checked && (
+                              <span className="absolute inset-0 bg-black/30 flex items-center justify-center text-white text-xs font-bold">✓</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 사이즈 */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs font-medium text-gray-600">사이즈</label>
+              <button type="button" onClick={addSize} className="text-[11px] text-[#303236] hover:underline">+ 사이즈 추가</button>
+            </div>
+            <div className="flex items-center gap-1.5 mb-2">
+              <input
+                type="text"
+                value={sizeCsv}
+                onChange={(e) => setSizeCsv(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter") return;
+                  e.preventDefault();
+                  addSizesFromCsv(sizeCsv);
+                  setSizeCsv("");
+                }}
+                placeholder="S,M,L,XL 처럼 콤마로 구분해 한 번에 입력"
+                className="flex-1 text-xs border border-gray-300 rounded-lg px-2.5 py-1.5"
+              />
+              <button
+                type="button"
+                onClick={() => { addSizesFromCsv(sizeCsv); setSizeCsv(""); }}
+                className="text-[11px] font-medium text-white bg-[#303236] hover:bg-[#26385c] px-3 py-1.5 rounded-lg transition-colors flex-shrink-0"
+              >
+                일괄 추가
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {d.sizes.map((s, i) => (
+                <div key={s.id} className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-1">
+                  <input type="text" value={s.label} onChange={(e) => updateSize(i, { label: e.target.value })}
+                    placeholder="S" className="w-12 text-xs border border-gray-300 rounded px-1.5 py-1 text-center" />
+                  <label className="flex items-center gap-0.5 text-[10px] text-gray-500">
+                    <input type="checkbox" checked={!!s.soldOut} onChange={(e) => updateSize(i, { soldOut: e.target.checked })} className="w-3 h-3" />
+                    품절
+                  </label>
+                  <button type="button" onClick={() => removeSize(i)} className="text-[10px] text-red-400 hover:text-red-600">×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 품번 — 입고 스케쥴에서 검색해 가져오거나 직접 입력 */}
+          <StyleNoField value={d.styleNo ?? ""} onChange={(v) => set("styleNo", v)} />
+
+          {/* 아코디언 내용 */}
+          <Field label="상품 상세정보" value={d.detailText} onChange={(v) => set("detailText", v)} multiline placeholder="제품 상세 설명을 입력하세요." />
+          <Field label="소재" value={d.materialText} onChange={(v) => set("materialText", v)} multiline placeholder="예: 폴리에스터 100%" />
+          <Field label="상품 필수 정보" value={d.essentialText} onChange={(v) => set("essentialText", v)} multiline placeholder="제조사, 취급주의, 원산지 등" />
+        </div>
+      )}
     </div>
   );
 }
@@ -851,52 +1070,35 @@ function BannerTagEditor({ tags, imageUrl, onChange, products }: {
 }
 
 // ── 서브 컴포넌트: 연결상품 슬롯 에디터 (탭 내부) ───────────
-function SlotItemEditor({ item, onChange, products }: {
+function SlotItemEditor({ item, onChange }: {
   item: ProductItem;
   onChange: (patch: Partial<ProductItem>) => void;
-  products: SearchProduct[];
 }) {
   return (
-    <div className="flex gap-4">
-      {/* 상품 이미지 미리보기 */}
-      <div className="flex-shrink-0" style={{ width: "110px" }}>
-        <div
-          className="rounded-xl overflow-hidden border border-gray-200 bg-gray-100"
-          style={{ aspectRatio: "1 / 1" }}
-        >
-          {item.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 3l18 18" />
-              </svg>
-            </div>
-          )}
-        </div>
-        {item.image_url && (
-          <p className="text-[9px] text-gray-400 mt-1 truncate leading-tight">
-            {item.image_url.split("/").pop()}
-          </p>
-        )}
-      </div>
-
-      {/* 필드 */}
-      <div className="flex-1 min-w-0 space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">제품 검색</label>
-          <ProductPicker
-            products={products}
-            value={item.name}
-            onSelect={(p) => onChange({ product_id: p.id, name: p.name, price: p.price, image_url: p.imageUrl ?? "" })}
+    <div>
+      <div className="flex gap-4">
+        {/* 상품 대표 이미지 */}
+        <div className="flex-shrink-0" style={{ width: "110px" }}>
+          <ImageField
+            label="대표 이미지"
+            hint=""
+            value={item.image_url}
+            onChange={(url) => onChange({ image_url: url })}
+            compact
+            aspectRatio="1/1"
           />
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="상품명 (직접 수정)" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
-          <Field label="가격" value={item.price} onChange={(v) => onChange({ price: v })} placeholder="19,000원" />
+
+        {/* 필드 */}
+        <div className="flex-1 min-w-0 space-y-3">
+          <Field label="상품명" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
         </div>
       </div>
+
+      <CardDetailEditor
+        detail={item.card_detail}
+        onChange={(card_detail) => onChange({ card_detail })}
+      />
     </div>
   );
 }
@@ -916,18 +1118,6 @@ function BannerEditor({ banner, label, onChange, products }: {
   function updateItem(idx: number, patch: Partial<ProductItem>) {
     const next = items3.map((item, i) => (i === idx ? { ...item, ...patch } : item));
     onChange({ items: next });
-  }
-
-  // 상세페이지 전용 추가 상품 (가변 개수)
-  const detailItems: ProductItem[] = banner.detail_items ?? [];
-  function addDetailItem() {
-    onChange({ detail_items: [...detailItems, emptyItem()] });
-  }
-  function updateDetailItem(idx: number, patch: Partial<ProductItem>) {
-    onChange({ detail_items: detailItems.map((it, i) => (i === idx ? { ...it, ...patch } : it)) });
-  }
-  function removeDetailItem(idx: number) {
-    onChange({ detail_items: detailItems.filter((_, i) => i !== idx) });
   }
 
   return (
@@ -1051,88 +1241,11 @@ function BannerEditor({ banner, label, onChange, products }: {
               key={itemTab}
               item={items3[itemTab]}
               onChange={(patch) => updateItem(itemTab, patch)}
-              products={products}
             />
           </div>
         </div>
       </div>
 
-      {/* 상세페이지 추가 상품 — 섹션이미지 클릭 시 이동하는 상세페이지에만 노출 (메인 3개 뒤) */}
-      <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/60">
-        <div className="flex items-center justify-between mb-1">
-          <p className="text-[13px] font-semibold text-[#303236]">상세페이지 추가 상품</p>
-          <button
-            type="button"
-            onClick={addDetailItem}
-            className="flex items-center gap-1 text-[12px] font-medium text-white bg-[#303236] hover:bg-[#26385c] px-3 py-1.5 rounded-lg transition-colors"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            상품 추가
-          </button>
-        </div>
-        <p className="text-[11px] text-gray-400 mb-3">
-          섹션이미지를 클릭하면 열리는 상세페이지에서 위 연결상품 3개 뒤에 이어서 노출됩니다. (메인 화면에는 표시되지 않음)
-        </p>
-
-        {detailItems.length === 0 ? (
-          <div className="text-center py-5 text-[12px] text-gray-400 border border-dashed border-gray-200 rounded-lg bg-white">
-            추가된 상품이 없습니다. &lsquo;상품 추가&rsquo;로 상세페이지에만 노출할 제품을 담아보세요.
-          </div>
-        ) : (
-          <div className="space-y-2.5">
-            {detailItems.map((item, idx) => (
-              <div key={item.id} className="flex gap-3 items-start bg-white border border-gray-200 rounded-lg p-2.5">
-                {/* 썸네일 */}
-                <div className="flex-shrink-0 w-14 h-14 rounded-md overflow-hidden border border-gray-100 bg-gray-100 flex items-center justify-center">
-                  {item.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-[9px] text-gray-300 font-bold">WU</span>
-                  )}
-                </div>
-                {/* 필드 */}
-                <div className="flex-1 min-w-0 space-y-2">
-                  <ProductPicker
-                    products={products}
-                    value={item.name}
-                    onSelect={(p) => updateDetailItem(idx, { product_id: p.id, name: p.name, price: p.price, image_url: p.imageUrl ?? "" })}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={item.name}
-                      onChange={(e) => updateDetailItem(idx, { name: e.target.value })}
-                      placeholder="상품명"
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#303236]/30"
-                    />
-                    <input
-                      type="text"
-                      value={item.price}
-                      onChange={(e) => updateDetailItem(idx, { price: e.target.value })}
-                      placeholder="가격"
-                      className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#303236]/30"
-                    />
-                  </div>
-                </div>
-                {/* 삭제 */}
-                <button
-                  type="button"
-                  onClick={() => removeDetailItem(idx)}
-                  className="flex-shrink-0 text-gray-300 hover:text-red-500 transition-colors p-1"
-                  aria-label="삭제"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
       </>
       )}
     </div>

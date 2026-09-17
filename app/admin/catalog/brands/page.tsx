@@ -476,8 +476,15 @@ export default function UnifiedBrandsPage() {
                       <input type="checkbox" checked={checkedIds.has(String(b.id))} readOnly
                         onClick={(e) => toggleCheck(String(b.id), e)}
                         className="w-3.5 h-3.5 accent-blue-600 flex-shrink-0 cursor-pointer pointer-events-auto" />
-                      {/* 색상 스와치 */}
-                      <div className="w-5 h-5 rounded flex-shrink-0 border border-black/10" style={{ backgroundColor: b.accent_color }} />
+                      {/* 로고 등록 시 로고 미리보기, 없으면 색상 스와치 */}
+                      {b.logo_url ? (
+                        <div className="w-5 h-5 rounded flex-shrink-0 border border-black/10 bg-slate-100 flex items-center justify-center overflow-hidden">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={b.logo_url} alt="" className="max-w-full max-h-full object-contain" />
+                        </div>
+                      ) : (
+                        <div className="w-5 h-5 rounded flex-shrink-0 border border-black/10" style={{ backgroundColor: b.accent_color }} />
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-semibold text-slate-800 truncate">{b.name || b.name_ko || "(이름 없음)"}</p>
                         {b.name_ko && b.name && <p className="text-[10px] text-slate-500 truncate">{b.name_ko}</p>}
@@ -597,6 +604,7 @@ export default function UnifiedBrandsPage() {
                       </Field>
                     </div>
                     <CardImageField editing={editing} set={set} flash={flash} />
+                    <LogoField editing={editing} set={set} flash={flash} />
 
                     {/* 카탈로그 PDF — 기본 정보 하단 */}
                     {!isNew && (
@@ -942,8 +950,9 @@ function LogoField({ editing, set, flash }: {
     <div className="border-t border-slate-100 pt-5">
       <div className="flex items-center justify-between mb-1.5">
         <label className="text-sm font-medium text-slate-700">히어로 로고</label>
-        <span className="text-[11px] text-slate-400">이미지가 있으면 텍스트 대신 표시됩니다</span>
+        <span className="text-[11px] text-slate-400">권장 사이즈: <strong>500 × 200px</strong> 내외 (가로형, 투명 배경)</span>
       </div>
+      <p className="text-[11px] text-slate-400 mb-2">이미지가 있으면 텍스트 대신 표시됩니다. 메인 페이지 브랜드 로고 마퀴에도 이 이미지가 사용됩니다.</p>
 
       {/* 이미지 업로드 */}
       <div className="flex items-center gap-3 mb-3">

@@ -1,11 +1,11 @@
 import { createAdminClient } from "@/lib/supabase-server";
 import { editorials } from "@/data/editorial";
 import { productDisplayName } from "@/data/products";
-import type { Editorial, EditorialSection, EditorialSectionItem } from "@/data/editorial";
+import type { Editorial, EditorialSection, EditorialSectionItem, EditorialCardDetail } from "@/data/editorial";
 
 // ── DB 원본 타입 ──────────────────────────────────────────────
 export type HeroTag = { id: string; x: number; y: number; pc_x?: number; pc_y?: number; name: string; price: string; product_id: string; image_url: string; bg: string };
-export type ProductItem = { id: string; product_id: string; name: string; price: string; image_url: string; bg: string };
+export type ProductItem = { id: string; product_id: string; name: string; price: string; image_url: string; bg: string; card_detail?: EditorialCardDetail };
 export type Banner = {
   title: string; desc: string; section_bg: string; image_url: string;
   label?: string;               // 상세페이지 상단 라벨 (배너별 기획전명)
@@ -52,6 +52,7 @@ function mapItems(items?: ProductItem[]): EditorialSectionItem[] {
       price: i.price || "",
       bg: i.bg || "#f0f0f0",
       imageUrl: i.image_url || undefined,
+      cardDetail: i.card_detail,
     }));
 }
 
@@ -77,8 +78,11 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
   };
 }
 
+// 기획전 상세페이지 내용이 아직 테스트/미완성이라 임시로 링크를 꺼둔다 — 내용 준비되면 true로.
+const FEATURE_DETAIL_LINKS_ENABLED = false;
+
 export function blockToEditorial(block: DBBlock): Editorial {
-  const href = (n: number) => `/products/feature/${block.id}/${n}`;
+  const href = (n: number) => (FEATURE_DETAIL_LINKS_ENABLED ? `/products/feature/${block.id}/${n}` : undefined);
   const s1 = makeSection(block.banner1, href(1));
   const s2 = makeSection(block.banner2, href(2));
   const s3 = block.banner3 ? makeSection(block.banner3, href(3)) : s1;

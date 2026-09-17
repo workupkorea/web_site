@@ -3,6 +3,7 @@
 
 export type HomeSectionKey =
   | "hero"
+  | "brandLogos"
   | "newArrivals"
   | "category"
   | "editorial"
@@ -20,6 +21,7 @@ export type HomeSectionMeta = {
 // 섹션을 새로 추가하면 여기에 한 줄 추가하면 된다(저장된 설정에도 자동으로 끝에 노출됨).
 export const HOME_SECTIONS: HomeSectionMeta[] = [
   { key: "hero", label: "메인 비주얼", description: "최상단 히어로 영역", editHref: "/admin/main/visual" },
+  { key: "brandLogos", label: "브랜드 로고", description: "매장검색 아래 브랜드 로고 무한 마퀴", editHref: "/admin/main/brands" },
   { key: "newArrivals", label: "신상품", description: "‘신상품이 입고되었어요’ 영역", editHref: "/admin/main/new-arrivals" },
   { key: "category", label: "카테고리", description: "카테고리 그리드", editHref: "/admin/main/categories" },
   { key: "editorial", label: "기획전", description: "기획전(에디토리얼) 블록", editHref: "/admin/main/editorial" },

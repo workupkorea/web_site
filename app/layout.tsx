@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
+import Topbar from "@/components/Topbar";
 import Footer from "@/components/Footer";
 import SideBanner from "@/components/SideBanner";
 import BottomNav from "@/components/BottomNav";
@@ -98,9 +99,12 @@ export default async function RootLayout({
   return (
     <html lang="ko">
       <body className={`min-h-full flex flex-col ${notoSansKR.className}`}>
-        {/* 상단 탑배너를 없애고 가맹/제휴문의를 헤더 로고 행에 통합했으므로 탑바 높이는 항상 0 —
-            카탈로그 뷰어 등에서 여전히 참조하는 --wu-topbar-h 변수는 하위 호환을 위해 유지한다. */}
-        <style>{`:root{--wu-topbar-h:0px}`}</style>
+        {/* 헤더가 top: var(--wu-topbar-h)로 스티키 위치를 잡고, 카탈로그 뷰어 등도 이 값을 참조한다.
+            탑바가 꺼져 있거나 없으면 0, 켜져 있으면 PC/모바일 각각의 실제 높이로 맞춘다. */}
+        <style>{`
+          :root{--wu-topbar-h:${topbar?.enabled ? topbar.height : 0}px}
+          @media (max-width:767px){:root{--wu-topbar-h:${topbar?.enabled ? topbar.mobile_height : 0}px}}
+        `}</style>
         {/* 모바일 핀치줌 차단 — iOS Safari는 meta viewport user-scalable=no를 무시하므로 JS로 처리 */}
         <script dangerouslySetInnerHTML={{ __html: `document.addEventListener('touchmove',function(e){if(e.touches.length>1)e.preventDefault();},{passive:false});` }} />
         {/* 웹폰트 라이브러리 (영문+한글 장식용) — 슬라이딩 메뉴 텍스트 캔버스용 · 실제 사용 시에만 폰트 파일 다운로드 */}
@@ -121,11 +125,12 @@ export default async function RootLayout({
               id={hideChrome ? undefined : "scroll-root"}
               className={hideChrome ? "flex-1 min-h-0 overflow-y-auto" : "flex-1 min-h-0 flex flex-col"}
             >
+              {!hideChrome && topbar && <Topbar cfg={topbar} />}
               {!hideChrome && topbar && headerNav && logo && search && (
                 <Header
                   navItems={visibleNavItems}
                   logo={logo}
-                  topbarItems={topbar.enabled ? topbar.items : []}
+                  topbarItems={[]}
                   studioEnabled={studio?.enabled ?? true}
                   megaBrandsConfig={effectiveMegaBrands}
                 />
