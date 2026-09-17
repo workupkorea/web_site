@@ -432,8 +432,8 @@ function ProductModal({ product, onClose }: { product: ArrivalProduct; onClose: 
             {/* 주문하러 가기: 발주 시스템으로 바로 이동 (품번 자동 검색) */}
             <a
               href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(product.productCode)}&search_word_2=`}
-              target="_blank"
-              rel="noopener noreferrer"
+              target={isEmbedded ? "_top" : "_blank"}
+              rel={isEmbedded ? undefined : "noopener noreferrer"}
               onClick={e => e.stopPropagation()}
               className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-bold hover:bg-[#333] transition-colors"
             >
@@ -1196,8 +1196,8 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                                 {p.price > 0 && <span className={`flex items-baseline gap-1.5 ${p.supplyPrice != null && p.supplyPrice > 0 ? "pl-2 border-l border-gray-200" : ""}`}>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
                                                 <a
                                                   href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
+                                                  target={isEmbedded ? "_top" : "_blank"}
+                                                  rel={isEmbedded ? undefined : "noopener noreferrer"}
                                                   onClick={e => e.stopPropagation()}
                                                   className="justify-self-end shrink-0 text-[12px] font-bold px-2 py-1 rounded-md bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors whitespace-nowrap"
                                                 >
@@ -1705,6 +1705,13 @@ export default function ArrivalTimeline() {
   const [selectedProduct, setSelectedProduct] = useState<ArrivalProduct | null>(null);
   const [showRank, setShowRank] = useState(false);
 
+  // 팝업(iframe)으로 삽입된 상태인지 여부. 이 경우 "주문하기"를 새 탭으로 열면
+  // 팝업 위에 창이 하나 더 뜨는 것처럼 보이므로, 팝업을 띄운 창(top) 자체를 이동시킨다.
+  const [isEmbedded] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.self !== window.top; } catch { return true; }
+  });
+
   // ?view=calendar 같은 링크로 접속하면 해당 뷰로 바로 진입 (캘린더뷰 전용 공유 링크)
   const [viewMode,  setViewMode]  = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "grid";
@@ -1888,7 +1895,7 @@ export default function ArrivalTimeline() {
           {/* ── Row 1: 타이틀 / 검색 / 필터토글(모바일) / 뷰버튼 / 개수 ── */}
           <div className="flex items-center gap-1.5">
             {/* 타이틀 (모바일에서 검색 왼쪽) */}
-            <span className="text-[15px] font-black text-[#1a1a1a] tracking-tight shrink-0 mr-1 hidden sm:block">워크업 입고 스케쥴</span>
+            <span className="text-[15px] font-black text-[#1a1a1a] tracking-tight shrink-0 mr-1 hidden sm:block">워크업 입고 예정 스케쥴</span>
 
             {/* 검색 */}
             <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
