@@ -1192,19 +1192,21 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                               </p>
                                             )}
                                             {(p.supplyPrice != null && p.supplyPrice > 0) || p.price > 0 ? (
-                                              <p className="text-[14px] text-gray-500 grid grid-cols-[112px_1fr_auto] items-center h-8 whitespace-nowrap gap-1">
-                                                {p.supplyPrice != null && p.supplyPrice > 0 && <span className="flex items-baseline gap-1.5">공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
-                                                {p.price > 0 && <span className={`flex items-baseline gap-1.5 ${p.supplyPrice != null && p.supplyPrice > 0 ? "pl-2 border-l border-gray-200" : ""}`}>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
+                                              <div className="text-[14px] text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5">
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                  {p.supplyPrice != null && p.supplyPrice > 0 && <span className="flex items-baseline gap-1.5 whitespace-nowrap">공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
+                                                  {p.price > 0 && <span className={`flex items-baseline gap-1.5 whitespace-nowrap ${p.supplyPrice != null && p.supplyPrice > 0 ? "pl-2 border-l border-gray-200" : ""}`}>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
+                                                </div>
                                                 <a
                                                   href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`}
                                                   target="_blank"
                                                   rel="noopener noreferrer"
                                                   onClick={e => openOrderLink(`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`, e)}
-                                                  className="justify-self-end shrink-0 text-[12px] font-bold px-2 py-1 rounded-md bg-[#1a1a1a] text-white hover:bg-[#333] transition-colors whitespace-nowrap"
+                                                  className="shrink-0 ml-auto text-[12px] font-bold px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 transition-colors whitespace-nowrap"
                                                 >
-                                                  주문하기
+                                                  주문
                                                 </a>
-                                              </p>
+                                              </div>
                                             ) : null}
                                           </div>
                                         </div>
