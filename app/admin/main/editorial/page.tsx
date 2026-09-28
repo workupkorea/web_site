@@ -65,6 +65,7 @@ type EditorialBlock = {
     hero_subtitle: string;
     desc: string;
     image_url: string;
+    image_url_pc?: string;   // 없으면 image_url을 PC에서도 그대로 사용 (하위호환)
     image_position?: string;
     image_position_mobile?: string;
     image_scale?: number;
@@ -1254,89 +1255,26 @@ function BannerEditor({ banner, label, onChange, products }: {
 
 
 // ── 서브 컴포넌트: 메인 기획전 에디터 ──────────────────────
-function HeroEditor({ hero, onChange, products }: {
+// 확대/축소·상품 태그 편집 기능은 제거했다(공개 렌더러도 스케일은 애초에 반영하지 않았고,
+// 태그는 여기서 새로 추가/편집만 못 할 뿐 기존에 저장된 값은 그대로 노출된다).
+// 이미지 위치(크롭 기준점) 드래그 조정만 남기고 미리보기를 크게 키웠다.
+function HeroEditor({ hero, onChange }: {
   hero: EditorialBlock["hero"];
   onChange: (patch: Partial<EditorialBlock["hero"]>) => void;
-  products: SearchProduct[];
 }) {
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const [posView, setPosView] = useState<"pc" | "mobile">("pc");
   const [isDraggingPos, setIsDraggingPos] = useState(false);
-  const imgAreaRef = useRef<HTMLDivElement>(null);
   const posPreviewRef = useRef<HTMLDivElement>(null);
-  const wasDraggingRef = useRef(false);
   const posDragRef = useRef<{ startX: number; startY: number; startPx: number; startPy: number } | null>(null);
 
-  function handleImageClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (wasDraggingRef.current) { wasDraggingRef.current = false; return; }
-    if (!hero.image_url) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
-    const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
-    if (posView === "mobile") {
-      const newTag: HeroTag = { id: uid(), x, y, name: "", price: "", product_id: "", image_url: "", bg: "#303236" };
-      const next = [...hero.tags, newTag];
-      onChange({ tags: next });
-      setSelectedIdx(next.length - 1);
-    } else {
-      // PC 뷰: 선택된 태그(없으면 마지막)의 PC 좌표 업데이트
-      const idx = selectedIdx !== null ? selectedIdx : hero.tags.length - 1;
-      if (idx >= 0) updateTag(idx, { pc_x: x, pc_y: y });
-    }
-  }
-
-  function handleTagPointerDown(e: React.PointerEvent<HTMLButtonElement>, idx: number) {
-    e.stopPropagation();
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    wasDraggingRef.current = false;
-    setDraggingIdx(idx);
-    setSelectedIdx(idx);
-  }
-
-  function handleTagPointerMove(e: React.PointerEvent<HTMLButtonElement>) {
-    if (draggingIdx === null || !imgAreaRef.current) return;
-    wasDraggingRef.current = true;
-    const rect = imgAreaRef.current.getBoundingClientRect();
-    const x = Math.round(Math.min(99, Math.max(1, ((e.clientX - rect.left) / rect.width) * 100)));
-    const y = Math.round(Math.min(99, Math.max(1, ((e.clientY - rect.top) / rect.height) * 100)));
-    if (posView === "mobile") {
-      updateTag(draggingIdx, { x, y });
-    } else {
-      updateTag(draggingIdx, { pc_x: x, pc_y: y });
-    }
-  }
-
-  function handleTagPointerUp() {
-    setDraggingIdx(null);
-  }
-
-  function updateTag(idx: number, patch: Partial<HeroTag>) {
-    const next = [...hero.tags];
-    next[idx] = { ...next[idx], ...patch };
-    onChange({ tags: next });
-  }
-
-  function deleteTag(idx: number) {
-    onChange({ tags: hero.tags.filter((_, i) => i !== idx) });
-    setSelectedIdx(null);
-  }
-
-  const selectedTag = selectedIdx !== null ? hero.tags[selectedIdx] : null;
-
-  // ── 이미지 위치/스케일 파싱 ──────────────────────────────────
   const pcPos = (hero.image_position ?? "50% 0%").split(" ");
   const pcPx = parseInt(pcPos[0]) || 50;
   const pcPy = parseInt(pcPos[1]) || 0;
   const mobilePos = (hero.image_position_mobile ?? "50% 50%").split(" ");
   const mobilePx = parseInt(mobilePos[0]) || 50;
   const mobilePy = parseInt(mobilePos[1]) || 50;
-  const pcScale = hero.image_scale ?? 1.0;
-  const mobileScale = hero.image_scale_mobile ?? 1.0;
   const currPx = posView === "pc" ? pcPx : mobilePx;
   const currPy = posView === "pc" ? pcPy : mobilePy;
-  const currScale = posView === "pc" ? pcScale : mobileScale;
 
   function handlePosDragStart(e: React.PointerEvent<HTMLDivElement>) {
     if (!hero.image_url) return;
@@ -1364,43 +1302,49 @@ function HeroEditor({ hero, onChange, products }: {
   }
 
   return (
-    <div className="space-y-4">
-      {/* ── 3-column (대표이미지 | 위치·크기 | 상품태그) ── */}
-      <div className="flex gap-3 items-start">
+    <div className="flex gap-4 items-start">
 
-        {/* Col 1: 대표 이미지 (compact, 3:4) */}
-        <div className="flex-shrink-0" style={{ width: "130px" }}>
+      {/* 이미지 업로드 */}
+      <div className="flex-shrink-0 space-y-2" style={{ width: "180px" }}>
+        <ImageField
+          label="모바일 이미지"
+          hint="950 × 1280px (3:4)"
+          value={hero.image_url}
+          onChange={(url) => onChange({ image_url: url })}
+          compact
+        />
+        <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!hero.image_url_pc}
+            onChange={(e) => onChange({ image_url_pc: e.target.checked ? (hero.image_url_pc || hero.image_url) : "" })}
+          />
+          PC 이미지 다르게 등록
+        </label>
+        {!!hero.image_url_pc && (
           <ImageField
-            label="대표 이미지 (모바일 · 3:4)"
-            hint="모바일용: 950 × 1280px (3:4) — PC는 패널 전체를 채우도록 크롭"
-            value={hero.image_url}
-            onChange={(url) => { onChange({ image_url: url }); setSelectedIdx(null); }}
+            label="PC 이미지"
+            hint="1600 × 1800px (8:9)"
+            value={hero.image_url_pc}
+            onChange={(url) => onChange({ image_url_pc: url })}
             compact
           />
-        </div>
-
-        {/* Col 2: 이미지 위치 / 스케일 컨트롤 */}
-        {!hero.image_url && (
-          <div className="flex-shrink-0 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-[11px] text-gray-400" style={{ width: "200px", minHeight: "200px" }}>
-            이미지를 업로드하면<br/>위치·크기 조절 가능
-          </div>
         )}
-        {hero.image_url && (
-          <div className="flex-shrink-0 space-y-2" style={{ width: "200px" }}>
-            <div className="flex items-center justify-between">
-              <label className="text-[11px] font-semibold text-gray-700">이미지 위치·크기</label>
-              <button type="button"
-                onClick={() => {
-                  if (posView === "pc") onChange({ image_position: "50% 0%", image_scale: 1.0 });
-                  else onChange({ image_position_mobile: "50% 50%", image_scale_mobile: 1.0 });
-                }}
-                className="text-[10px] text-gray-400 hover:text-gray-600">초기화</button>
-            </div>
-            {/* PC / 모바일 탭 */}
+      </div>
+
+      {/* 이미지 위치 조정 */}
+      {!hero.image_url && (
+        <div className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-[12px] text-gray-400" style={{ minHeight: "260px" }}>
+          이미지를 업로드하면 위치 조절 가능
+        </div>
+      )}
+      {hero.image_url && (
+        <div className="flex-1 min-w-0 space-y-2">
+          <div className="flex items-center justify-between">
             <div className="flex gap-1">
               {(["pc", "mobile"] as const).map((v) => (
                 <button key={v} type="button" onClick={() => setPosView(v)}
-                  className={`flex-1 text-[10px] font-semibold py-1 rounded border transition-colors ${
+                  className={`text-[11px] font-semibold px-3 py-1 rounded border transition-colors ${
                     posView === v
                       ? (v === "pc" ? "bg-indigo-600 text-white border-indigo-600" : "bg-[#303236] text-white border-[#303236]")
                       : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
@@ -1409,241 +1353,36 @@ function HeroEditor({ hero, onChange, products }: {
                 </button>
               ))}
             </div>
-            {/* 드래그 미리보기 */}
-            <div
-              ref={posPreviewRef}
-              onPointerDown={handlePosDragStart}
-              onPointerMove={handlePosDragMove}
-              onPointerUp={handlePosDragEnd}
-              className="relative overflow-hidden rounded-lg border border-gray-200 select-none"
-              style={{
-                aspectRatio: posView === "pc" ? "8/9" : "3/4",
-                cursor: isDraggingPos ? "grabbing" : "grab",
-                touchAction: "none",
+            <button type="button"
+              onClick={() => {
+                if (posView === "pc") onChange({ image_position: "50% 0%" });
+                else onChange({ image_position_mobile: "50% 50%" });
               }}
-            >
-              <img
-                src={hero.image_url} alt=""
-                draggable={false}
-                className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-                style={{
-                  objectPosition: `${currPx}% ${currPy}%`,
-                  ...(currScale !== 1.0 ? { transform: `scale(${currScale})`, transformOrigin: `${currPx}% ${currPy}%` } : {}),
-                }}
-              />
-              {/* 태그 도트 오버레이 — 실시간 반영 */}
-              {hero.tags.map((tag) => {
-                const tx = posView === "mobile" ? tag.x : (tag.pc_x ?? tag.x);
-                const ty = posView === "mobile" ? tag.y : (tag.pc_y ?? tag.y);
-                return (
-                  <div key={tag.id}
-                    className="absolute rounded-full bg-white/80 border-2 border-orange-400 pointer-events-none"
-                    style={{ width: "10px", height: "10px", left: `${tx}%`, top: `${ty}%`, transform: "translate(-50%,-50%)" }} />
-                );
-              })}
-              <div className="absolute bottom-1 left-1 text-[7px] text-white bg-black/40 px-1 rounded pointer-events-none">드래그로 이동</div>
-              <div className="absolute top-1 right-1 text-[7px] text-white bg-black/40 px-1 rounded pointer-events-none">{currPx}%·{currPy}%</div>
-            </div>
-            {/* 스케일 슬라이더 */}
-            <div>
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-[11px] text-gray-500">확대/축소</span>
-                <span className="text-[11px] text-gray-400 font-mono">{Math.round(currScale * 100)}%</span>
-              </div>
-              <input type="range" min={80} max={200} step={5}
-                value={Math.round(currScale * 100)}
-                onChange={(e) => {
-                  const scale = parseInt(e.target.value) / 100;
-                  if (posView === "pc") onChange({ image_scale: scale });
-                  else onChange({ image_scale_mobile: scale });
-                }}
-                className="w-full h-1.5 accent-[#303236] cursor-pointer" />
-              <div className="flex justify-between text-[9px] text-gray-400 mt-0.5">
-                <span>80%</span><span>원본</span><span>200%</span>
-              </div>
-            </div>
+              className="text-[11px] text-gray-400 hover:text-gray-600">위치 초기화</button>
           </div>
-        )}
-
-        {/* Col 3: 상품 태그 에디터 */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <label className="text-xs font-medium text-gray-700">상품 태그 ({hero.tags.length}개)</label>
-              <p className="text-[11px] text-gray-400 mt-0.5">
-                {hero.image_url ? "이미지 클릭 → 태그 추가 · 드래그 → 위치 이동" : "이미지 업로드 후 클릭으로 태그 추가"}
-              </p>
-            </div>
-            {hero.tags.length > 0 && (
-              <button
-                onClick={() => { onChange({ tags: [] }); setSelectedIdx(null); }}
-                className="text-[11px] text-red-400 hover:text-red-600"
-              >전체 삭제</button>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            {/* 태그 이미지 클릭 영역 */}
-            <div className="flex-shrink-0" style={{ width: "200px" }}>
-            <div
-              ref={imgAreaRef}
-              onClick={handleImageClick}
-              className="relative rounded-xl overflow-hidden select-none border border-gray-200"
-              style={{
-                width: "200px",
-                aspectRatio: posView === "mobile" ? "3 / 4" : "8 / 9",
-                background: "#d1d5db",
-                cursor: draggingIdx !== null ? "grabbing" : (hero.image_url ? "crosshair" : "default"),
-              }}
-            >
-              {hero.image_url && (
-                <img
-                  src={hero.image_url}
-                  alt=""
-                  draggable={false}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
-                  style={posView === "pc"
-                    ? { objectPosition: `${pcPx}% ${pcPy}%`, ...(pcScale !== 1.0 ? { transform: `scale(${pcScale})`, transformOrigin: `${pcPx}% ${pcPy}%` } : {}) }
-                    : { objectPosition: `${mobilePx}% ${mobilePy}%`, ...(mobileScale !== 1.0 ? { transform: `scale(${mobileScale})`, transformOrigin: `${mobilePx}% ${mobilePy}%` } : {}) }
-                  }
-                />
-              )}
-
-              {!hero.image_url && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                  <svg className="w-8 h-8 text-white/40" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909" />
-                  </svg>
-                  <p className="text-white/50 text-xs text-center px-3 leading-snug">이미지 업로드 후<br/>클릭하여 태그 추가</p>
-                </div>
-              )}
-
-              {hero.tags.map((tag, idx) => {
-                const tagX = posView === "mobile" ? tag.x : (tag.pc_x ?? tag.x);
-                const tagY = posView === "mobile" ? tag.y : (tag.pc_y ?? tag.y);
-                return (
-                  <button
-                    key={tag.id}
-                    onPointerDown={(e) => handleTagPointerDown(e, idx)}
-                    onPointerMove={handleTagPointerMove}
-                    onPointerUp={handleTagPointerUp}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!wasDraggingRef.current) setSelectedIdx(selectedIdx === idx ? null : idx);
-                    }}
-                    className="absolute"
-                    style={{
-                      left: `${tagX}%`, top: `${tagY}%`, transform: "translate(-50%, -50%)",
-                      cursor: draggingIdx === idx ? "grabbing" : "grab",
-                      touchAction: "none",
-                    }}
-                    title={tag.name || `태그 ${idx + 1} (드래그로 이동)`}
-                  >
-                    <span className={`flex items-center justify-center rounded-full transition-all duration-150 ${
-                      selectedIdx === idx
-                        ? "w-6 h-6 bg-[#E5541B]/90 border-2 border-white shadow-lg"
-                        : "w-4 h-4 bg-white/80 border-2 border-white shadow-md hover:w-5 hover:h-5"
-                    }`}>
-                      <span className="text-[8px] font-bold text-[#303236]">{idx + 1}</span>
-                    </span>
-                  </button>
-                );
-              })}
-
-              <div className="absolute inset-0 pointer-events-none opacity-10"
-                style={{ backgroundImage: "linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)", backgroundSize: "25% 25%" }} />
-            </div>
-            {posView === "pc" && hero.image_url && (
-              <p className="text-[10px] text-indigo-500 mt-1.5 leading-snug">
-                클릭: 선택된 태그의 PC 위치 설정<br/>태그가 없으면 모바일 탭에서 먼저 추가하세요
-              </p>
-            )}
-          </div>
-
-          {/* 오른쪽: 태그 칩 + 선택된 태그 편집 */}
-          <div className="flex-1 min-w-0 space-y-3">
-            {/* 태그 칩 목록 */}
-            {hero.tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
-                {hero.tags.map((tag, idx) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] transition-colors ${
-                      selectedIdx === idx
-                        ? "bg-[#E5541B] text-white"
-                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                    }`}
-                  >
-                    <span className="w-3.5 h-3.5 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: "currentColor", opacity: 0.3 }}>{idx + 1}</span>
-                    {tag.name || "이름 미입력"}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* 선택된 태그 편집 */}
-            {selectedTag !== null && selectedIdx !== null && (
-              <div className="border-2 border-[#E5541B]/30 rounded-xl p-3 bg-orange-50/30 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-[#E5541B]">태그 {selectedIdx + 1} 편집</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-gray-400">
-                      📱 {selectedTag.x}%,{selectedTag.y}%
-                      {(selectedTag.pc_x !== undefined || selectedTag.pc_y !== undefined) && (
-                        <> · 🖥️ {selectedTag.pc_x ?? selectedTag.x}%,{selectedTag.pc_y ?? selectedTag.y}%</>
-                      )}
-                    </span>
-                    <button onClick={() => deleteTag(selectedIdx)}
-                      className="text-[11px] text-red-500 hover:text-red-700 font-medium">삭제</button>
-                  </div>
-                </div>
-                {/* 제품 검색 */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">제품 검색</label>
-                  <ProductPicker
-                    products={products}
-                    value={selectedTag.name}
-                    onSelect={(p) => updateTag(selectedIdx, {
-                      product_id: p.id, name: p.name, price: p.price, image_url: p.imageUrl ?? "",
-                    })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Field label="상품명 (직접 수정)" value={selectedTag.name}
-                    onChange={(v) => updateTag(selectedIdx, { name: v })} placeholder="쿨링 반팔 티셔츠" />
-                  <Field label="가격" value={selectedTag.price}
-                    onChange={(v) => updateTag(selectedIdx, { price: v })} placeholder="19,000원" />
-                  {selectedTag.image_url && (
-                    <div className="col-span-2 flex items-center gap-2">
-                      <img src={selectedTag.image_url} alt="" className="w-10 h-10 object-cover rounded border border-orange-200 flex-shrink-0" />
-                      <span className="text-[10px] text-gray-400 truncate">선택된 이미지</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 태그가 없고 이미지도 없을 때 */}
-            {!hero.image_url && hero.tags.length === 0 && (
-              <div className="flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-[12px] text-gray-400"
-                style={{ minHeight: "120px" }}>
-                이미지를 업로드하면<br />클릭으로 태그 추가 가능
-              </div>
-            )}
-
-            {/* 이미지는 있지만 태그가 없을 때 */}
-            {hero.image_url && hero.tags.length === 0 && !selectedTag && (
-              <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-xl border border-blue-100">
-                <span className="text-blue-400 text-lg">👆</span>
-                <p className="text-[12px] text-blue-600">왼쪽 이미지를 클릭하면 태그가 추가됩니다.</p>
-              </div>
-            )}
+          <div
+            ref={posPreviewRef}
+            onPointerDown={handlePosDragStart}
+            onPointerMove={handlePosDragMove}
+            onPointerUp={handlePosDragEnd}
+            className="relative overflow-hidden rounded-lg border border-gray-200 select-none mx-auto"
+            style={{
+              aspectRatio: posView === "pc" ? "8/9" : "3/4",
+              maxWidth: posView === "pc" ? 480 : 380,
+              cursor: isDraggingPos ? "grabbing" : "grab",
+              touchAction: "none",
+            }}
+          >
+            <img
+              src={posView === "pc" ? (hero.image_url_pc || hero.image_url) : hero.image_url} alt=""
+              draggable={false}
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+              style={{ objectPosition: `${currPx}% ${currPy}%` }}
+            />
           </div>
         </div>
-      </div>
+      )}
     </div>
-  </div>
   );
 }
 
@@ -1825,7 +1564,6 @@ function BlockCard({
               <HeroEditor
                 hero={block.hero}
                 onChange={(patch) => onUpdate({ hero: { ...block.hero, ...patch } })}
-                products={products}
               />
             )}
             {tab === "banner1" && (

@@ -10,6 +10,10 @@
 html {
   overflow-x: hidden;
   max-width: 100%;
+  /* iOS Safari는 overflow-x:hidden만으로는 고무줄(elastic) 가로 스크롤을 완전히 막지 못하고,
+     어딘가 뷰포트보다 넓은 요소가 생기면 그 여백(흰 배경)까지 드래그로 보여준다.
+     overscroll-behavior-x는 가로 방향 오버스크롤 체이닝 자체를 막아 iOS에서도 실효성이 있다. */
+  overscroll-behavior-x: none;
 }
 
 :root {

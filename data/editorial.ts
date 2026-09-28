@@ -66,7 +66,8 @@ export type Editorial = {
   subtitle: string;
   desc: string;
   bg: string;
-  heroImageUrl?: string;        // 히어로 배경 이미지
+  heroImageUrl?: string;        // 히어로 배경 이미지 (모바일/태블릿 기준, PC 전용 이미지 없으면 PC에서도 사용)
+  heroImageUrlPc?: string;      // PC(1280px 이상) 전용 이미지 — 없으면 heroImageUrl로 대체
   heroImagePosition?: string;   // CSS objectPosition (예: "50% 20%"), 기본값 "50% 0%"
   textAccent: string;
   heroSubtitle: string;

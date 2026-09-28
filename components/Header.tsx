@@ -265,9 +265,12 @@ export default function Header({
   );
 
   // BRANDS 메가메뉴 — 두 header 반환부에서 공통으로 쓰이는 패널
+  // PC 전용(hover로만 열림) — 모바일에서는 opacity-0로만 숨기면 카드 목록의 실제 너비가
+  // 레이아웃에 남아 문서 가로 스크롤을 유발하므로(header가 overflow를 잘라내지 않음),
+  // hidden md:block으로 모바일에서는 아예 렌더 트리에서 제외한다.
   const brandsMegaPanel = hasBrandsMega ? (
     <div
-      className={`absolute top-full left-0 right-0 z-40 transition-[opacity,transform] duration-200 ease-out ${
+      className={`hidden md:block absolute top-full left-0 right-0 z-40 transition-[opacity,transform] duration-200 ease-out ${
         brandsOpen
           ? "opacity-100 translate-y-0 pointer-events-auto"
           : "opacity-0 -translate-y-[6px] pointer-events-none"

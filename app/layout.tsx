@@ -16,8 +16,10 @@ import { getSearchConfig } from "@/lib/header-search-server";
 import { getStudioSettings } from "@/lib/studio-server";
 import { getMegaBrandsConfig } from "@/lib/mega-brands-server";
 import { headers } from "next/headers";
+import PinchZoomBlocker from "@/components/PinchZoomBlocker";
 import ScrollToTop from "@/components/ScrollToTop";
 import ScrollToTopButton from "@/components/ScrollToTopButton";
+import HorizontalOverflowGuard from "@/components/HorizontalOverflowGuard";
 import ImageProtection from "@/components/ImageProtection";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -106,7 +108,7 @@ export default async function RootLayout({
           @media (max-width:767px){:root{--wu-topbar-h:${topbar?.enabled ? topbar.mobile_height : 0}px}}
         `}</style>
         {/* 모바일 핀치줌 차단 — iOS Safari는 meta viewport user-scalable=no를 무시하므로 JS로 처리 */}
-        <script dangerouslySetInnerHTML={{ __html: `document.addEventListener('touchmove',function(e){if(e.touches.length>1)e.preventDefault();},{passive:false});` }} />
+        <PinchZoomBlocker />
         {/* 웹폰트 라이브러리 (영문+한글 장식용) — 슬라이딩 메뉴 텍스트 캔버스용 · 실제 사용 시에만 폰트 파일 다운로드 */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -117,6 +119,7 @@ export default async function RootLayout({
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
         <ScrollToTop />
         <ScrollToTopButton />
+        <HorizontalOverflowGuard />
         {!hideChrome && <PixelManager />}
         {!hideChrome && <ImageProtection />}
         <CartProvider>

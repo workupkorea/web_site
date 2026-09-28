@@ -4,6 +4,7 @@ import { BRANDS } from "@/lib/brands-data";
 import { createAdminClient } from "@/lib/supabase-server";
 import type { Brand } from "@/data/brands";
 import type { CatalogPage } from "@/data/catalog";
+import type { BrandCatalog } from "@/data/brandCatalogs";
 
 // 브랜드명 → URL 슬러그. 정적 BRANDS는 고정 id를 쓰고, DB 전용 브랜드는 이 함수로 슬러그를 만든다.
 export function brandSlug(name: string): string {
@@ -22,23 +23,48 @@ const normName = (s: string) => (s || "").toLowerCase().replace(/[^a-z0-9가-힣
 //   - 정적 BRANDS.id (예: "maddog", "detroit")
 //   - DB brands.id 숫자 (예: "14") — 관리자 편집기가 ?brand=<id> 로 넘기는 값
 //   - slugify(브랜드명) (예: "k-workers") — DB 전용 브랜드
+async function resolveBrand(
+  sb: ReturnType<typeof createAdminClient>,
+  slug: string,
+): Promise<Brand | null> {
+  const staticBrand = BRANDS.find((b) => b.id === slug);
+  const { data: all } = await sb.from("brands").select("*");
+  const brands = (all as Brand[]) ?? [];
+  if (staticBrand) return brands.find((b) => normName(b.name) === normName(staticBrand.name)) ?? null;
+  if (/^\d+$/.test(slug)) return brands.find((b) => String(b.id) === slug) ?? null;
+  return brands.find((b) => brandSlug(b.name) === slug) ?? null;
+}
+
+export type LoadedBrandPdfCatalog = { brand: Brand; catalog: BrandCatalog };
+
+// 브랜드의 PDF 카탈로그(brand_catalogs) 중 노출 중인 최신 1건.
+// "MAD DOG" vs "MADDOG" 같은 표기 차이는 정규화 이름으로 흡수한다.
+export async function loadBrandPdfCatalog(slug: string): Promise<LoadedBrandPdfCatalog | null> {
+  try {
+    const sb = createAdminClient();
+    const brand = await resolveBrand(sb, slug);
+    if (!brand) return null;
+    const { data: rows } = await sb
+      .from("brand_catalogs").select("*")
+      .eq("is_visible", true)
+      .order("created_at", { ascending: false });
+    const catalog = ((rows as BrandCatalog[]) ?? []).find(
+      (c) => normName(c.brand_name) === normName(brand.name) && c.pdf_url && c.page_count > 0,
+    );
+    return catalog ? { brand, catalog } : null;
+  } catch (e) {
+    console.error("[brandCatalog] loadBrandPdfCatalog failed:", e);
+    return null;
+  }
+}
+
 export async function loadBrandCatalog(
   slug: string,
   opts: { includeHidden?: boolean } = {},
 ): Promise<LoadedBrandCatalog | null> {
-  const staticBrand = BRANDS.find((b) => b.id === slug);
   try {
     const sb = createAdminClient();
-    const { data: all } = await sb.from("brands").select("*");
-    const brands = (all as Brand[]) ?? [];
-    let brand: Brand | null = null;
-    if (staticBrand) {
-      brand = brands.find((b) => normName(b.name) === normName(staticBrand.name)) ?? null;
-    } else if (/^\d+$/.test(slug)) {
-      brand = brands.find((b) => String(b.id) === slug) ?? null;
-    } else {
-      brand = brands.find((b) => brandSlug(b.name) === slug) ?? null;
-    }
+    const brand = await resolveBrand(sb, slug);
     if (!brand) return null;
     if (brand.catalog_enabled !== true && !opts.includeHidden) return null;
 

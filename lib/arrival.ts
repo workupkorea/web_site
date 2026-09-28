@@ -389,15 +389,20 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
 
   // 점주님들이 보는 실시간 화면이므로 절대 비어 보이면 안 된다.
   // 예전 방식(전체 삭제 → insert)은 insert 도중 오류가 나면 테이블이 빈 채로 남는 위험이 있었다.
-  // 그래서 "새 데이터를 먼저 넣고, 성공했을 때만 기존 데이터를 지우는" 순서로 바꾼다:
-  // insert가 실패하면 방금 넣은 신규 행만 롤백하고 기존 데이터는 그대로 유지한다.
+  // "새 데이터를 먼저 넣고, 성공했을 때만 기존 데이터를 지우는" 순서 자체는 유지하되,
+  // (product_code, arrival_date) unique 제약 때문에 기존에 남아있는(=이번에도 유지되는) 상품과
+  // 새로 넣는 행이 같은 키를 가지면 plain insert는 항상 충돌한다. upsert로 같은 키는 갱신,
+  // 새 키는 삽입되게 하고, 이번 동기화에서 사라진 키만 골라 마지막에 삭제한다.
   if (products.length === 0) {
     throw new Error("동기화할 상품이 0건입니다. 기존 데이터를 보존하기 위해 교체를 중단합니다.");
   }
 
-  const { data: oldRows, error: oldErr } = await supabase.from("arrival_products").select("id");
+  const { data: oldRows, error: oldErr } = await supabase.from("arrival_products").select("id, product_code, arrival_date");
   if (oldErr) throw new Error(`[arrival_products SELECT old ids] ${oldErr.message}`);
-  const oldIds = (oldRows ?? []).map(r => r.id);
+  const newKeys = new Set(products.map(p => `${p.productCode}::${p.arrivalDate}`));
+  const staleIds = (oldRows ?? [])
+    .filter(r => !newKeys.has(`${r.product_code}::${r.arrival_date}`))
+    .map(r => r.id);
 
   const rows = products.map(p => ({
     product_code:     p.productCode,
@@ -426,30 +431,20 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
     synced_at:        new Date().toISOString(),
   }));
 
-  // 500개씩 나눠서 insert (Supabase 요청 크기 제한 대비)
+  // 500개씩 나눠서 upsert (Supabase 요청 크기 제한 대비) — 같은 (product_code, arrival_date)는 갱신,
+  // 없던 키는 삽입되므로 남아있는 기존 행과 충돌하지 않는다.
   const CHUNK = 500;
-  const insertedIds: number[] = [];
-  try {
-    for (let i = 0; i < rows.length; i += CHUNK) {
-      const { data: inserted, error: insError } = await supabase
-        .from("arrival_products")
-        .insert(rows.slice(i, i + CHUNK))
-        .select("id");
-      if (insError) throw new Error(`[arrival_products INSERT chunk ${i}] ${insError.message}`);
-      insertedIds.push(...(inserted ?? []).map(r => r.id));
-    }
-  } catch (e) {
-    // 신규 삽입 도중 실패 → 방금 넣은 신규 행만 롤백하고 기존 데이터는 그대로 둔다
-    if (insertedIds.length > 0) {
-      await supabase.from("arrival_products").delete().in("id", insertedIds);
-    }
-    throw e;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error: upsertError } = await supabase
+      .from("arrival_products")
+      .upsert(rows.slice(i, i + CHUNK), { onConflict: "product_code,arrival_date" });
+    if (upsertError) throw new Error(`[arrival_products UPSERT chunk ${i}] ${upsertError.message}`);
   }
 
-  // 신규 삽입이 전부 성공한 뒤에만 기존(예전) 행을 삭제한다
-  if (oldIds.length > 0) {
-    const { error: delError } = await supabase.from("arrival_products").delete().in("id", oldIds);
-    if (delError) throw new Error(`[arrival_products DELETE old] ${delError.message}`);
+  // upsert가 전부 성공한 뒤, 이번 동기화에서 사라진(=더 이상 시트에 없는) 기존 행만 삭제한다
+  if (staleIds.length > 0) {
+    const { error: delError } = await supabase.from("arrival_products").delete().in("id", staleIds);
+    if (delError) throw new Error(`[arrival_products DELETE stale] ${delError.message}`);
   }
 }
 

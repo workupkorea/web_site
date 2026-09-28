@@ -17,7 +17,7 @@ export type Banner = {
 };
 export type DBBlock = {
   id: string; sort_order: number; is_visible: boolean; reversed: boolean;
-  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_position?: string; link: string; tags: HeroTag[] };
+  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_position?: string; link: string; tags: HeroTag[] };
   banner1: Banner; banner2: Banner; banner3?: Banner; banner4?: Banner;
 };
 
@@ -78,8 +78,9 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
   };
 }
 
-// 기획전 상세페이지 내용이 아직 테스트/미완성이라 임시로 링크를 꺼둔다 — 내용 준비되면 true로.
-const FEATURE_DETAIL_LINKS_ENABLED = false;
+// 기획전 상세페이지 내용이 아직 테스트/미완성이라 배포본(Vercel)에서는 꺼두고,
+// 로컬(`next dev`)에서만 확인할 수 있게 한다 — 내용 준비되면 항상 true로 바꿀 것.
+const FEATURE_DETAIL_LINKS_ENABLED = process.env.NODE_ENV === "development";
 
 export function blockToEditorial(block: DBBlock): Editorial {
   const href = (n: number) => (FEATURE_DETAIL_LINKS_ENABLED ? `/products/feature/${block.id}/${n}` : undefined);
@@ -96,6 +97,7 @@ export function blockToEditorial(block: DBBlock): Editorial {
     desc: block.hero?.desc || "",
     bg: block.hero?.bg_color || "#303236",
     heroImageUrl: block.hero?.image_url || undefined,
+    heroImageUrlPc: block.hero?.image_url_pc || undefined,
     heroImagePosition: block.hero?.image_position || undefined,
     textAccent: "#E5541B",
     heroSubtitle: block.hero?.hero_subtitle || "",

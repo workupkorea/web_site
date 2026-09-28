@@ -3,15 +3,66 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import type { CatalogPage } from "@/data/catalog";
+import type { PDFDocumentProxy } from "pdfjs-dist";
 import CatalogPageView from "./CatalogPageView";
+import PdfPageCanvas, { renderPdfThumb, type PdfHalf } from "./PdfPageCanvas";
 import { ikSrc } from "@/lib/imageSrc";
+import { PDF_OPTIONS, PDF_WORKER_SRC } from "@/lib/pdf-options";
 
 export type BrandEntry = { id: string; name: string; cover: string; pages: string[]; pdf_url: string };
+// PDF 원본을 브라우저에서 직접 그려 플립북 UI로 보여주는 모드.
+// url: pdf.js가 읽을 주소(CORS 우회 프록시 경유), downloadUrl: 다운로드 버튼용 원본 주소
+export type PdfSource = { url: string; pageCount: number; downloadUrl: string };
+type PdfTocItem = { title: string; pageIndex: number };
+// 뷰어에서 "한 쪽"으로 취급하는 단위. page는 PDF 페이지 번호(1부터), half는 그 페이지에서 그릴 영역.
+type PdfSlot = { page: number; half: PdfHalf };
+
+// 인쇄용 펼침면 PDF(A4 세로 2쪽을 가로로 붙인 1.3~1.55 비율)는 한 페이지에 2쪽이 들어 있다.
+// 이를 좌/우 반쪽으로 쪼개 뷰어가 한 칸에 한 쪽만 보이게 한다. 세로 페이지(단면 PDF)는 그대로 둔다.
+// 첫 페이지가 펼침면이면 인쇄 관례대로 [뒷표지 | 표지]로 보고, 표지(오른쪽)를 맨 앞·뒷표지(왼쪽)를 맨 뒤에 둔다.
+// ※ 가로형 단면 PDF(A4 가로 슬라이드형 등)도 같은 비율이라 쪼개질 수 있다 — 필요 시 브랜드별 옵션으로 분리할 것.
+const SPREAD_RATIO_MIN = 1.3;
+const SPREAD_RATIO_MAX = 1.55;
+function buildPdfSlots(pageRatios: number[]): PdfSlot[] {
+  const isSpread = (r: number) => r >= SPREAD_RATIO_MIN && r <= SPREAD_RATIO_MAX;
+  const coverSpread = pageRatios.length > 1 && isSpread(pageRatios[0]);
+  const slots: PdfSlot[] = [];
+  pageRatios.forEach((r, i) => {
+    const page = i + 1;
+    if (!isSpread(r)) slots.push({ page, half: "full" });
+    else if (i === 0 && coverSpread) slots.push({ page, half: "right" });
+    else slots.push({ page, half: "left" }, { page, half: "right" });
+  });
+  if (coverSpread) slots.push({ page: 1, half: "left" });
+  return slots;
+}
+
+// PDF 북마크(아웃라인) 최상위 항목 → 목차. 북마크가 없는 PDF는 빈 배열(번호 그리드로 대체됨).
+async function loadPdfOutline(doc: PDFDocumentProxy): Promise<PdfTocItem[]> {
+  try {
+    const outline = await doc.getOutline();
+    if (!outline) return [];
+    const items: PdfTocItem[] = [];
+    for (const it of outline) {
+      const dest = typeof it.dest === "string" ? await doc.getDestination(it.dest) : it.dest;
+      const target = Array.isArray(dest) ? dest[0] : null;
+      if (target == null) continue;
+      const pageIndex = typeof target === "object" ? await doc.getPageIndex(target) : Number(target);
+      if (Number.isFinite(pageIndex) && it.title?.trim()) items.push({ title: it.title.trim(), pageIndex });
+    }
+    return items;
+  } catch {
+    return [];
+  }
+}
 // 조립형 카탈로그(이미지+정보 입력형) — 플립북에 넣지 않고 전용 페이지로 링크만 노출
 export type AssembledCatalogLink = { name: string; href: string };
 
 const A4_RATIO = 297 / 210;
 const THUMB_PER_GROUP = 30;
+// "PDF 저장" 버튼 프린터 아이콘 — 조립형(인쇄 저장)과 PDF 원본(파일 저장)이 같은 모양을 쓴다
+const PRINT_ICON_PATH = "M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z";
+const PDF_THUMB_RENDER_W = 140; // 사이드바 썸네일 표시 폭(약 65px)의 2배 — 고해상도 화면용
 
 function buildTocItems(pages: CatalogPage[]) {
   return pages.map((p, i) => {
@@ -94,8 +145,17 @@ function pagesOfSpread(s: number, total: number) {
   return { left: l < total ? l : -1, right: r < total ? r : -1 };
 }
 
-export default function UnifiedCatalogViewer({ workupPages, brands, assembledLinks = [], sourceLabel }: { workupPages: CatalogPage[]; brands: BrandEntry[]; assembledLinks?: AssembledCatalogLink[]; sourceLabel?: string }) {
-  const [selectedId, setSelectedId]   = useState(workupPages.length > 0 ? "workup" : (brands[0]?.id ?? "workup"));
+export default function UnifiedCatalogViewer({ workupPages, brands, assembledLinks = [], sourceLabel, pdf }: { workupPages: CatalogPage[]; brands: BrandEntry[]; assembledLinks?: AssembledCatalogLink[]; sourceLabel?: string; pdf?: PdfSource }) {
+  const [selectedId, setSelectedId]   = useState(workupPages.length > 0 || pdf ? "workup" : (brands[0]?.id ?? "workup"));
+  // PDF 모드: 문서는 한 번만 로드해 모든 페이지 캔버스가 공유한다
+  const [pdfDoc, setPdfDoc]         = useState<PDFDocumentProxy | null>(null);
+  const [pdfToc, setPdfToc]         = useState<PdfTocItem[]>([]);
+  const [pdfSlots, setPdfSlots]     = useState<PdfSlot[]>([]);
+  const [pdfThumbs, setPdfThumbs]   = useState<Record<number, string>>({});
+  const [pdfFailed, setPdfFailed]   = useState(false);
+  // 페이지 세로/가로 비율(h/w). 조립형·이미지형은 A4 세로 고정, PDF는 첫 페이지 실제 비율을 따른다.
+  const [pageRatio, setPageRatio]   = useState(A4_RATIO);
+  const ratioRef = useRef(A4_RATIO);
   const areaRef      = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const thumbStripRef = useRef<HTMLDivElement>(null);
@@ -111,9 +171,56 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
   // PDF 저장(인쇄): "idle" → "preparing"(오프스크린 렌더+이미지 로딩) → 인쇄 대화상자
   const [printState, setPrintState] = useState<"idle" | "preparing">("idle");
 
+  // PDF 로드 — react-pdf(pdf.js)는 SSR에서 평가되면 깨지므로 마운트 후 동적 import한다.
+  // 페이지 수는 실제 문서의 numPages를 우선한다(관리자가 잘못 입력해도 정확히 표시).
+  const pdfSrcUrl = pdf?.url;
+  useEffect(() => {
+    if (!pdfSrcUrl) return;
+    let cancelled = false;
+    let loaded: PDFDocumentProxy | null = null;
+    (async () => {
+      try {
+        const { pdfjs } = await import("react-pdf");
+        pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+        loaded = await pdfjs.getDocument({ url: pdfSrcUrl, ...PDF_OPTIONS }).promise;
+        if (cancelled) { loaded.destroy(); return; }
+        const doc = loaded;
+        // 페이지별 가로/세로 비율(w/h)로 펼침면 여부를 판단
+        const wh = await Promise.all(
+          Array.from({ length: doc.numPages }, async (_, i) => {
+            const v = (await doc.getPage(i + 1)).getViewport({ scale: 1 });
+            return v.width / v.height;
+          }),
+        );
+        if (cancelled) { doc.destroy(); return; }
+        const slots = buildPdfSlots(wh);
+        // 뷰어 한 칸의 세로/가로 비율(h/w): 반쪽이면 가로가 절반이라 h/w가 2배
+        const first = slots[0];
+        const ratio = first.half === "full" ? 1 / wh[0] : 2 / wh[first.page - 1];
+        // A4와 1% 이내면 A4로 맞춰 조립형 플립북과 책 크기가 픽셀 단위로 같게 한다
+        setPageRatio(Math.abs(ratio - A4_RATIO) / A4_RATIO < 0.01 ? A4_RATIO : ratio);
+        setPdfSlots(slots);
+        setPdfDoc(doc);
+        setPdfToc(await loadPdfOutline(loaded));
+      } catch (e) {
+        console.error("[UnifiedCatalogViewer] PDF 로드 실패", e);
+        if (!cancelled) setPdfFailed(true);
+      }
+    })();
+    return () => { cancelled = true; loaded?.destroy(); };
+  }, [pdfSrcUrl]);
+
   const isWorkup = selectedId === "workup";
   const brand    = brands.find(b => b.id === selectedId);
-  const pageNodes: React.ReactNode[] = isWorkup
+  // 로드 전에는 DB에 기록된 페이지 수만큼 자리표시, 로드 후에는 실제 쪽 수(펼침면은 2배)
+  const pdfTotal = pdf ? (pdfDoc ? pdfSlots.length : pdf.pageCount) : 0;
+  const pageNodes: React.ReactNode[] = pdf
+    ? Array.from({ length: pdfTotal }, (_, i) => pdfDoc && pdfSlots[i]
+        ? <PdfPageCanvas key={i} doc={pdfDoc} pageNumber={pdfSlots[i].page} half={pdfSlots[i].half} width={dims.w} />
+        : <div key={i} className="w-full h-full flex items-center justify-center" style={{ backgroundColor: "#f5f0eb" }}>
+            <span className="w-6 h-6 border-2 border-black/15 border-t-black/40 rounded-full animate-spin" />
+          </div>)
+    : isWorkup
     ? workupPages.map(p => <CatalogPageView key={p.id} page={p} />)
     : (brand?.pages ?? []).map((url, i) => (
         // eslint-disable-next-line @next/next/no-img-element
@@ -121,16 +228,20 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
           style={{ backgroundColor: "#f5f0eb" }} loading="lazy" decoding="async" />
       ));
 
-  // 썸네일 URL 배열 (실제 이미지)
-  const thumbUrls: (string | null)[] = isWorkup
+  // 썸네일 URL 배열 (실제 이미지) — PDF는 썸네일 스트립을 열었을 때 현재 그룹만 순서대로 그려 채운다
+  const thumbUrls: (string | null)[] = pdf
+    ? Array.from({ length: pdfTotal }, (_, i) => pdfThumbs[i] ?? null)
+    : isWorkup
     ? workupPages.map(p => p.image_url ? ikSrc(p.image_url, 240) : null)
     : (brand?.pages ?? []).map(url => ikSrc(url, 240));
 
   const total        = pageNodes.length;
-  const pdfUrl       = isWorkup ? "" : (brand?.pdf_url ?? "");
+  const pdfUrl       = pdf ? pdf.downloadUrl : isWorkup ? "" : (brand?.pdf_url ?? "");
   const catalogTitle = isWorkup ? (sourceLabel || "2026 FW CATALOG") : (brand?.name ?? "CATALOG");
   const catalogSub   = isWorkup ? (sourceLabel ? "" : "K-WORKER STORE") : "";
-  const tocItems     = isWorkup ? buildTocItems(workupPages) : [];
+  const tocItems     = pdf
+    ? pdfToc.map(t => ({ ...t, pageIndex: Math.max(0, pdfSlots.findIndex(sl => sl.page === t.pageIndex + 1)), type: "image" as const }))
+    : isWorkup ? buildTocItems(workupPages) : [];
   const hasBrandTabs = brands.length > 0 || assembledLinks.length > 0;
   const totalSpreads = total === 0 ? 0 : Math.ceil((total + 1) / 2);
 
@@ -142,6 +253,33 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
   const thumbStart  = thumbGroup * THUMB_PER_GROUP;
   const thumbEnd    = Math.min(thumbStart + THUMB_PER_GROUP, total);
 
+  // 목차(Contents) 사이드바에 목차 항목이 없으면 페이지 썸네일 그리드를 보여준다
+  const showSidebarGrid = !dims.portrait && showToc && !isFullscreen && tocItems.length === 0;
+
+  // PDF 썸네일 — 사이드바 그리드(전체) 또는 스트립(현재 그룹)이 보일 때만,
+  // 순서대로 하나씩 그린다(동시 렌더링으로 버벅이지 않게).
+  const pdfThumbFrom = showSidebarGrid ? 0 : thumbStart;
+  const pdfThumbTo   = showSidebarGrid ? total : thumbEnd;
+  useEffect(() => {
+    if (!pdfDoc || !(showThumbs || showSidebarGrid)) return;
+    let cancelled = false;
+    (async () => {
+      for (let i = pdfThumbFrom; i < pdfThumbTo; i++) {
+        if (cancelled) return;
+        const slot = pdfSlots[i];
+        if (!slot || pdfThumbs[i]) continue;
+        try {
+          const url = await renderPdfThumb(pdfDoc, slot.page, slot.half, PDF_THUMB_RENDER_W);
+          if (cancelled) return;
+          setPdfThumbs(prev => ({ ...prev, [i]: url }));
+        } catch { /* 썸네일 실패는 번호 표시로 대체 */ }
+      }
+    })();
+    return () => { cancelled = true; };
+    // pdfThumbs는 진행 중 갱신되므로 의존성에서 제외(이미 그린 것은 위에서 건너뜀)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pdfDoc, pdfSlots, showThumbs, showSidebarGrid, pdfThumbFrom, pdfThumbTo]);
+
   // ── 크기 계산 ──
   const calcDims = useCallback(() => {
     const el = areaRef.current;
@@ -149,17 +287,18 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
     const portrait = window.innerWidth < 768;
     const aw = el.clientWidth;
     const ah = el.clientHeight;
+    const ratio = ratioRef.current;
     let h = ah - 16;
-    let w = Math.round(h / A4_RATIO);
+    let w = Math.round(h / ratio);
     if (portrait) {
       w = aw - 8;
-      h = Math.round(w * A4_RATIO);
-      if (h > ah - 8) { h = ah - 8; w = Math.round(h / A4_RATIO); }
+      h = Math.round(w * ratio);
+      if (h > ah - 8) { h = ah - 8; w = Math.round(h / ratio); }
     } else {
       const maxW = Math.floor((aw - 32) / 2);
-      if (w > maxW) { w = maxW; h = Math.round(w * A4_RATIO); }
+      if (w > maxW) { w = maxW; h = Math.round(w * ratio); }
     }
-    setDims({ w: Math.max(80, w), h: Math.max(120, h), portrait });
+    setDims({ w: Math.max(80, w), h: Math.max(80, h), portrait });
   }, []);
 
   useEffect(() => {
@@ -168,6 +307,9 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
     if (areaRef.current) ro.observe(areaRef.current);
     return () => ro.disconnect();
   }, [calcDims, showToc]);
+
+  // PDF 첫 페이지 비율이 확정되면 책 크기를 다시 계산
+  useEffect(() => { ratioRef.current = pageRatio; calcDims(); }, [pageRatio, calcDims]);
 
   useEffect(() => { calcDims(); }, [spread, calcDims]);
   useEffect(() => { setSpread(0); setThumbGroup(0); }, [selectedId]);
@@ -311,9 +453,12 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
           </button>
           {/* 다운로드 — 원본 PDF가 있으면 파일 링크, 없으면(조립형) 브라우저 인쇄로 PDF 저장 */}
           {pdfUrl ? (
-            <a href={pdfUrl} download className="hidden md:flex items-center gap-2 px-4 py-3 text-white/50 hover:text-white/90 transition-colors text-[11px] tracking-widest">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-              <span>다운로드</span>
+            <a href={pdfUrl} download target="_blank" rel="noopener noreferrer" className="hidden md:flex items-center gap-2 px-4 py-3 text-white/50 hover:text-white/90 transition-colors text-[11px] tracking-widest">
+              {pdf
+                // PDF 카탈로그: 조립형 플립북과 동일한 「PDF 저장」 모양(동작은 원본 PDF 내려받기)
+                ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={PRINT_ICON_PATH} /></svg>
+                : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>}
+              <span>{pdf ? "PDF 저장" : "다운로드"}</span>
             </a>
           ) : total > 0 ? (
             <button onClick={() => setPrintState("preparing")} disabled={printState === "preparing"}
@@ -321,7 +466,7 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
               title="브라우저 인쇄 대화상자에서 'PDF로 저장'을 선택하세요">
               {printState === "preparing"
                 ? <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V2a10 10 0 00-10 10h2z" /></svg>
-                : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" /></svg>
+                : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d={PRINT_ICON_PATH} /></svg>
               }
               <span>{printState === "preparing" ? "준비 중" : "PDF 저장"}</span>
             </button>
@@ -398,12 +543,25 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
                 </ul>
               ) : (
                 <div className="px-4 pt-3 grid grid-cols-4 gap-1.5">
-                  {Array.from({ length: total }, (_, i) => (
-                    <button key={i} onClick={() => goToPage(i)}
-                      className={`aspect-[210/297] flex items-center justify-center text-[9px] font-semibold rounded transition-colors ${i === leftIdx || i === rightIdx ? "bg-[#E5541B] text-white" : "bg-white/8 text-white/40 hover:bg-white/16"}`}>
-                      {i + 1}
-                    </button>
-                  ))}
+                  {Array.from({ length: total }, (_, i) => {
+                    const isActive = i === leftIdx || i === rightIdx;
+                    const imgUrl   = thumbUrls[i];
+                    return (
+                      <button key={i} onClick={() => goToPage(i)} aria-label={`${i + 1}페이지로 이동`}
+                        className={`relative overflow-hidden flex items-center justify-center text-[9px] font-semibold rounded transition-all ${isActive ? "ring-2 ring-[#E5541B]" : "opacity-70 hover:opacity-100"} ${imgUrl ? "bg-[#f5f0eb]" : isActive ? "bg-[#E5541B] text-white" : "bg-white/8 text-white/40 hover:bg-white/16"}`}
+                        style={{ aspectRatio: `1 / ${pageRatio}` }}>
+                        {imgUrl ? (
+                          <>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={imgUrl} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
+                            <span className={`absolute bottom-0 inset-x-0 py-0.5 text-center text-[9px] tabular-nums ${isActive ? "bg-[#E5541B] text-white" : "bg-black/55 text-white/80"}`}>
+                              {i + 1}
+                            </span>
+                          </>
+                        ) : i + 1}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -445,7 +603,17 @@ export default function UnifiedCatalogViewer({ workupPages, brands, assembledLin
                 </svg>
               </div>
             )}
-            {total > 0 && dims.w > 0 ? (
+            {pdfFailed ? (
+              <div className="text-center px-6">
+                <p className="text-white/50 text-xs tracking-wide leading-relaxed">카탈로그를 불러오지 못했습니다.<br />잠시 후 다시 시도하거나 PDF를 내려받아 확인해 주세요.</p>
+                {pdfUrl && (
+                  <a href={pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                    className="inline-block mt-4 px-4 py-2 min-h-[44px] leading-[28px] rounded-lg border border-white/20 text-white/70 text-xs tracking-widest hover:text-white">
+                    PDF 다운로드
+                  </a>
+                )}
+              </div>
+            ) : total > 0 && dims.w > 0 ? (
               <>
                 {/* 책 */}
                 <div style={{

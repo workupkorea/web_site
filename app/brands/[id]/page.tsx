@@ -6,10 +6,8 @@ import { BRANDS } from "@/lib/brands-data";
 import { createAdminClient } from "@/lib/supabase-server";
 import { brandSlug } from "@/lib/brandCatalog-server";
 import { type BrandCatalog } from "@/data/brandCatalogs";
-import { type BrandTocItem } from "@/types/catalog";
-import BrandCatalogViewerWrapper from "@/components/BrandCatalogViewerWrapper";
+import UnifiedCatalogViewer from "@/components/UnifiedCatalogViewer";
 import CatalogBodyClass from "@/components/CatalogBodyClass";
-import PdfDownloadButton from "@/components/PdfDownloadButton";
 import type { Brand } from "@/data/brands";
 
 type Props = { params: Promise<{ id: string }> };
@@ -83,22 +81,7 @@ export default async function BrandPage({ params }: Props) {
 
   // 브랜드 데이터 (DB 우선, 정적값 폴백)
   const brandName = dbBrand?.name ?? staticBrand?.name ?? "";
-  const brandPositioning = dbBrand?.positioning ?? staticBrand?.positioning ?? "";
-  const brandDescription = dbBrand?.description ?? staticBrand?.description ?? "";
-  const brandDescriptionKo = dbBrand?.name_ko ?? staticBrand?.descriptionKo ?? "";
   const brandAccentColor = dbBrand?.accent_color ?? staticBrand?.accentColor ?? "#333333";
-  // mega_menu_image 우선, 없으면 image_bg가 URL인 경우 히어로 이미지로 사용
-  const bgValue = dbBrand?.image_bg ?? (staticBrand?.imageBg ?? "");
-  const bgIsImage = bgValue.startsWith("http");
-  const heroImage = dbBrand?.mega_menu_image || (bgIsImage ? bgValue : "");
-  const brandImageBg = bgIsImage ? "" : (bgValue || (staticBrand?.imageBg ?? ""));
-  const heroX = dbBrand?.mega_menu_image_x ?? 50;
-  const heroY = dbBrand?.mega_menu_image_y ?? 30;
-  const heroTextColor = dbBrand?.hero_text_color || "#ffffff";
-
-  const logoUrl = dbBrand?.logo_url ?? "";
-  const logoText = dbBrand?.logo_text ?? "";
-
   const latestCatalog = await getCatalog(brandName);
 
   // 조립형 카탈로그(이미지+정보 입력형)가 공개 상태이고 항목이 있으면 링크를 노출한다.
@@ -119,13 +102,22 @@ export default async function BrandPage({ params }: Props) {
   // react-pdf 클라이언트 fetch의 CORS 문제를 서버사이드 프록시로 우회
   const proxyPdfUrl = pdfUrl ? `/api/pdf-proxy?url=${encodeURIComponent(pdfUrl)}` : "";
 
-  const toc: BrandTocItem[] = [];
-  // 포지셔닝은 쉼표로 구분해 여러 태그 지원. 한글명은 별도 태그로 마지막에 추가.
-  const positioningTags = (brandPositioning ?? "")
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean);
-  const hashtags = [...positioningTags, brandDescriptionKo].filter(Boolean);
+  // PDF 카탈로그가 있으면 조립형 플립북(/brands/[id]/catalog)과 동일하게 뷰어만 화면 가득 보여준다
+  // (브레드크럼·제목·다운로드 버튼 없음 — 저장은 뷰어 상단 「PDF 저장」으로)
+  if (latestCatalog && pdfUrl) {
+    return (
+      <main style={{ backgroundColor: "#12161c" }}>
+        <CatalogBodyClass />
+        <h1 className="sr-only">{brandName} {latestCatalog.season || "카탈로그"}</h1>
+        <UnifiedCatalogViewer
+          workupPages={[]}
+          brands={[]}
+          sourceLabel={brandName}
+          pdf={{ url: proxyPdfUrl, pageCount: latestCatalog.page_count, downloadUrl: pdfUrl }}
+        />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-white">
@@ -142,52 +134,13 @@ export default async function BrandPage({ params }: Props) {
         </div>
       </nav>
 
-      {/* ── 히어로 ── */}
-      <section className="relative overflow-hidden" style={{ height: 280 }}>
-        {heroImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={heroImage}
-            alt={brandName}
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ objectPosition: `${heroX}% ${heroY}%` }}
-          />
-        ) : (
-          <div className="absolute inset-0" style={{ background: brandImageBg }} />
-        )}
-        <div className="absolute inset-0 bg-black/40" />
-
-        <div className="relative h-full max-w-screen-xl mx-auto px-6 md:px-10 flex flex-col justify-end pb-8">
-          <p className="text-[10px] tracking-[0.3em] font-bold uppercase mb-2" style={{ color: brandAccentColor }}>
-            {brandPositioning}
-          </p>
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt={brandName} className="max-h-16 md:max-h-20 max-w-xs object-contain mb-3" />
-          ) : (
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight leading-none mb-3" style={{ color: heroTextColor }}>
-              {logoText || brandName}
-            </h1>
-          )}
-          <p className="text-sm max-w-lg" style={{ color: heroTextColor, opacity: 0.7 }}>{brandDescription}</p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {hashtags.map((tag, i) => (
-              <span key={i} className="text-[10px] rounded-full px-3 py-1"
-                style={{ color: heroTextColor, opacity: 0.6, border: `1px solid ${heroTextColor}30` }}>
-                #{tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── 카탈로그 섹션 ── */}
       <section className="max-w-screen-xl mx-auto px-4 md:px-8 pt-4 pb-8">
         <div className="flex items-center justify-between mb-3 gap-4">
           <div>
-            <h2 className="text-lg md:text-xl font-black text-gray-900 tracking-tight">
-              {brandName} {latestCatalog?.season || "카탈로그"}
-            </h2>
+            <h1 className="text-lg md:text-xl font-black text-gray-900 tracking-tight">
+              {brandName} 카탈로그
+            </h1>
           </div>
 
           {hasAssembledCatalog ? (
@@ -200,39 +153,15 @@ export default async function BrandPage({ params }: Props) {
             </Link>
           ) : null}
 
-          {pdfUrl ? (
-            <PdfDownloadButton pdfUrl={pdfUrl} fileName={`${brandName}_카탈로그.pdf`} />
-          ) : (
-            <button
-              disabled
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-300 text-sm cursor-not-allowed select-none"
-              title="준비 중입니다"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              PDF 다운로드
-            </button>
-          )}
         </div>
 
-        {latestCatalog && pdfUrl ? (
-          <BrandCatalogViewerWrapper
-            pdfUrl={proxyPdfUrl}
-            pageCount={latestCatalog.page_count}
-            brandName={brandName}
-            accentColor={brandAccentColor}
-            toc={toc}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center text-center py-24 border border-dashed border-gray-200 rounded-xl bg-gray-50">
-            <p className="text-[10px] tracking-[0.28em] uppercase text-gray-300 mb-3">Coming Soon</p>
-            <p className="text-gray-400 text-sm">{brandName} 카탈로그를 준비 중입니다.</p>
-            <Link href="/catalog" className="mt-6 text-xs text-gray-400 underline underline-offset-2 hover:text-gray-700 transition-colors">
-              전체 카탈로그 보기
-            </Link>
-          </div>
-        )}
+        <div className="flex flex-col items-center justify-center text-center py-24 border border-dashed border-gray-200 rounded-xl bg-gray-50">
+          <p className="text-[10px] tracking-[0.28em] uppercase text-gray-300 mb-3">Coming Soon</p>
+          <p className="text-gray-400 text-sm">{brandName} 카탈로그를 준비 중입니다.</p>
+          <Link href="/catalog" className="mt-6 text-xs text-gray-400 underline underline-offset-2 hover:text-gray-700 transition-colors">
+            전체 카탈로그 보기
+          </Link>
+        </div>
       </section>
 
       {/* ── 하단 CTA ── */}

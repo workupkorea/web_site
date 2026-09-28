@@ -232,15 +232,16 @@ export default function FeatureHeroLayout({
 
   // ── PC 히어로 패널 ──────────────────────────────────────────
   const imgPos = editorial.heroImagePosition ?? "50% 0%";
+  const heroImageUrlPc = editorial.heroImageUrlPc || editorial.heroImageUrl;
   const heroPanel = (
     <div
       className="sticky top-0 self-start overflow-hidden bg-gray-100"
       style={{ flex: "0 0 49.947%", minWidth: 0, height: heroHeight ? `${heroHeight}px` : "100vh" }}
     >
       <>
-        {editorial.heroImageUrl && (
+        {heroImageUrlPc && (
           <img
-            src={ikSrc(editorial.heroImageUrl, 1600)}
+            src={ikSrc(heroImageUrlPc, 1600)}
             alt={editorial.title}
             className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
             style={{ objectPosition: imgPos }}
