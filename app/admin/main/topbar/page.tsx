@@ -101,11 +101,14 @@ export default function TopbarManagePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
+  // 마지막으로 서버에 저장된 설정 — ON/OFF 스위치는 이 값에 enabled만 바꿔 즉시 저장한다(편집 중인 미저장 내용은 섞지 않음)
+  const [savedCfg, setSavedCfg] = useState<TopbarConfig>(DEFAULT_TOPBAR);
+  const [toggling, setToggling] = useState(false);
 
   useEffect(() => {
     fetch("/api/admin/site-settings/topbar")
       .then((r) => r.json())
-      .then((data) => setCfg(normalizeTopbar(data)))
+      .then((data) => { const c = normalizeTopbar(data); setCfg(c); setSavedCfg(c); })
       .catch(() => setCfg(DEFAULT_TOPBAR))
       .finally(() => setLoading(false));
   }, []);
@@ -136,11 +139,34 @@ export default function TopbarManagePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cfg),
       });
+      if (r.ok) setSavedCfg(cfg);
       flash(r.ok ? "저장됐습니다. 사이트에 바로 반영됩니다." : "저장에 실패했습니다.");
     } catch {
       flash("저장에 실패했습니다.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // 탑바 ON/OFF — 누르는 즉시 사이트에 반영
+  const toggleEnabled = async () => {
+    const enabled = !cfg.enabled;
+    setToggling(true);
+    try {
+      const next = { ...savedCfg, enabled };
+      const r = await fetch("/api/admin/site-settings/topbar", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+      if (!r.ok) { flash("변경에 실패했습니다."); return; }
+      setSavedCfg(next);
+      set("enabled", enabled);
+      flash(enabled ? "탑바를 켰습니다." : "탑바를 껐습니다.");
+    } catch {
+      flash("변경에 실패했습니다.");
+    } finally {
+      setToggling(false);
     }
   };
 
@@ -156,7 +182,17 @@ export default function TopbarManagePage() {
         </div>
         <div className="flex items-center gap-3">
           {toast && <span className="text-sm font-medium text-green-600">{toast}</span>}
-          <button onClick={() => setCfg(DEFAULT_TOPBAR)}
+          {/* ON/OFF 스위치 — 저장 버튼 없이 즉시 반영 */}
+          <button type="button" role="switch" aria-checked={cfg.enabled} aria-label="탑바 표시"
+            onClick={toggleEnabled} disabled={toggling}
+            title={cfg.enabled ? "누르면 탑바를 끕니다 (즉시 반영)" : "누르면 탑바를 켭니다 (즉시 반영)"}
+            className={`flex items-center gap-2.5 pl-3 pr-2 min-h-[44px] rounded-lg border text-sm font-semibold transition-colors disabled:opacity-50 ${cfg.enabled ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-slate-50 text-slate-500"}`}>
+            탑바 {cfg.enabled ? "ON" : "OFF"}
+            <span className={`relative inline-flex items-center rounded-full transition-colors ${cfg.enabled ? "bg-blue-600" : "bg-slate-300"}`} style={{ width: 40, height: 22 }}>
+              <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${cfg.enabled ? "translate-x-[21px]" : "translate-x-[3px]"}`} />
+            </span>
+          </button>
+          <button onClick={() => setCfg((p) => ({ ...DEFAULT_TOPBAR, enabled: p.enabled }))}
             className="px-4 py-2.5 border border-slate-200 text-slate-500 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
             기본값
           </button>
@@ -171,7 +207,7 @@ export default function TopbarManagePage() {
       <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6 space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">미리보기</p>
-          {!cfg.enabled && <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded">탑바 꺼짐 — 사이트에 표시되지 않습니다</span>}
+          {!cfg.enabled && <span className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded">탑바 꺼짐 — 사이트에 표시되지 않고 헤더가 맨 위로 붙습니다</span>}
         </div>
         <div className={cfg.enabled ? "" : "opacity-40"}>
           <p className="text-[11px] text-gray-400 mb-1.5">PC <span className="text-slate-400">({cfg.height}px · {cfg.font_size}px)</span></p>
@@ -189,12 +225,6 @@ export default function TopbarManagePage() {
           {/* 표시 + 크기 (PC / 모바일 분리) */}
           <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-5">
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">표시 · 크기</p>
-
-            <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input type="checkbox" checked={cfg.enabled} onChange={(e) => set("enabled", e.target.checked)} className="w-4 h-4 accent-blue-600" />
-              <span className="text-sm font-medium text-gray-700">탑바 표시</span>
-              <span className="text-xs text-gray-400">끄면 사이트 최상단 띠가 사라지고 헤더가 맨 위로 붙습니다.</span>
-            </label>
 
             {/* 높이 */}
             <div className="grid grid-cols-2 gap-4">
