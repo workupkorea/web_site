@@ -15,6 +15,7 @@ export const DEFAULT_BRAND_MARQUEE_CONFIG: BrandMarqueeConfig = {
   brandIds: [],
 };
 
+// logoUrl이 비어 있으면 마퀴에서 브랜드명을 텍스트로 표시한다
 export type BrandLogoItem = { id: string; name: string; logoUrl: string };
 
 export async function getBrandMarquee(): Promise<{ title: string; items: BrandLogoItem[] }> {
@@ -34,8 +35,8 @@ export async function getBrandMarquee(): Promise<{ title: string; items: BrandLo
     const byId = new Map((brands ?? []).map((b) => [String(b.id), b as { id: string | number; name: string; logo_url: string | null }]));
     const items: BrandLogoItem[] = brandIds
       .map((id) => byId.get(String(id)))
-      .filter((b): b is { id: string | number; name: string; logo_url: string } => !!b?.logo_url)
-      .map((b) => ({ id: String(b.id), name: b.name, logoUrl: b.logo_url }));
+      .filter((b): b is { id: string | number; name: string; logo_url: string | null } => !!b)
+      .map((b) => ({ id: String(b.id), name: b.name, logoUrl: b.logo_url ?? "" }));
 
     return { title, items };
   } catch {

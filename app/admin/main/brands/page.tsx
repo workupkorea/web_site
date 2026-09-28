@@ -55,8 +55,7 @@ export default function AdminBrandMarqueePage() {
   const byId = new Map(brands.map((b) => [String(b.id), b]));
   const included = cfg.brandIds.map((id) => byId.get(String(id))).filter((b): b is BrandRow => !!b);
   const includedIds = new Set(cfg.brandIds.map(String));
-  const selectable = brands.filter((b) => !!b.logo_url && !includedIds.has(String(b.id)));
-  const noLogoCount = brands.filter((b) => !b.logo_url && !includedIds.has(String(b.id))).length;
+  const selectable = brands.filter((b) => !includedIds.has(String(b.id)));
 
   const addBrand = (id: string | number) => {
     setCfg((prev) => ({ ...prev, brandIds: [...prev.brandIds, String(id)] }));
@@ -116,7 +115,7 @@ export default function AdminBrandMarqueePage() {
 
       <div className="mb-4 text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-4 py-3">
         브랜드명·로고 이미지 자체는 <Link href="/admin/catalog/brands" className="text-blue-600 hover:underline font-medium">브랜드 관리</Link>에서 등록·수정합니다.
-        로고가 없는 브랜드는 아래 목록에 나타나지 않습니다{noLogoCount > 0 ? ` (로고 없음 ${noLogoCount}개 제외됨)` : ""}.
+        로고가 없는 브랜드는 마퀴에 브랜드명이 텍스트로 표시됩니다.
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -131,8 +130,10 @@ export default function AdminBrandMarqueePage() {
             )}
             {included.map((b, i) => (
               <li key={b.id} className="flex items-center gap-3 px-4 py-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={b.logo_url ?? ""} alt="" className="h-8 w-8 object-contain flex-shrink-0 bg-slate-50 rounded" />
+                {b.logo_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={b.logo_url} alt="" className="h-8 w-8 object-contain flex-shrink-0 bg-slate-50 rounded" />
+                  : <span className="h-8 w-8 flex-shrink-0 bg-slate-800 rounded flex items-center justify-center text-[8px] font-black text-white/80 overflow-hidden">TXT</span>}
                 <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">{b.name}</span>
                 <div className="flex flex-col flex-shrink-0">
                   <button onClick={() => move(i, -1)} disabled={i === 0} className="text-slate-400 hover:text-slate-800 disabled:opacity-25" title="위로">
@@ -159,8 +160,10 @@ export default function AdminBrandMarqueePage() {
             )}
             {selectable.map((b) => (
               <li key={b.id} className="flex items-center gap-3 px-4 py-2.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={b.logo_url ?? ""} alt="" className="h-8 w-8 object-contain flex-shrink-0 bg-slate-50 rounded" />
+                {b.logo_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={b.logo_url} alt="" className="h-8 w-8 object-contain flex-shrink-0 bg-slate-50 rounded" />
+                  : <span className="h-8 w-8 flex-shrink-0 bg-slate-800 rounded flex items-center justify-center text-[8px] font-black text-white/80 overflow-hidden">TXT</span>}
                 <span className="flex-1 min-w-0 text-sm text-slate-800 truncate">{b.name}</span>
                 <button
                   onClick={() => addBrand(b.id)}

@@ -577,7 +577,7 @@ export default function UnifiedBrandsPage() {
                     <Field label="설명 (영문)">
                       <input type="text" value={editing.description} onChange={(e) => set("description", e.target.value)} placeholder="예: Everyday basic workwear for every occasion" className={INPUT} />
                     </Field>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div>
                       <Field label="강조 색상 (Accent Color)">
                         <div className="flex items-center gap-2">
                           <input type="color" value={editing.accent_color} onChange={(e) => set("accent_color", e.target.value)}
@@ -587,24 +587,12 @@ export default function UnifiedBrandsPage() {
                         </div>
                         <p className="text-[11px] text-slate-400 mt-1">포지셔닝 텍스트·CTA 버튼 색상</p>
                       </Field>
-                      <Field label="히어로 텍스트 색상">
-                        <div className="flex items-center gap-2">
-                          <input type="color" value={editing.hero_text_color || "#ffffff"}
-                            onChange={(e) => set("hero_text_color", e.target.value)}
-                            className="w-9 h-9 rounded cursor-pointer border border-gray-200 p-0.5 flex-shrink-0" />
-                          <input type="text" value={editing.hero_text_color ?? ""}
-                            onChange={(e) => set("hero_text_color", e.target.value)}
-                            placeholder="#ffffff (비워두면 흰색)" className={INPUT} />
-                          {editing.hero_text_color && (
-                            <button type="button" onClick={() => set("hero_text_color", "")}
-                              className="text-xs text-slate-400 hover:text-red-500 flex-shrink-0">초기화</button>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-400 mt-1">배경 이미지 위 브랜드명·설명 글자색</p>
-                      </Field>
                     </div>
-                    <CardImageField editing={editing} set={set} flash={flash} />
-                    <LogoField editing={editing} set={set} flash={flash} />
+                    {/* 카드 이미지 · 로고 — 한 줄에 나란히 (좁은 화면에서는 세로로) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 border-t border-slate-100 pt-5">
+                      <CardImageField editing={editing} set={set} flash={flash} />
+                      <LogoField editing={editing} set={set} flash={flash} />
+                    </div>
 
                     {/* 카탈로그 PDF — 기본 정보 하단 */}
                     {!isNew && (
@@ -790,7 +778,7 @@ function CatalogTab({ brandName, catalogs, onRefresh, flash }: {
   );
 }
 
-// ── BgField ───────────────────────────────────────────────────
+// ── CardImageField ────────────────────────────────────────────
 // 브랜드 목록(/brands) 카드 이미지 — catalog_cover_url 컬럼 재사용 (3:2 가로형)
 function CardImageField({ editing, set, flash }: {
   editing: Brand;
@@ -819,13 +807,12 @@ function CardImageField({ editing, set, flash }: {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-700">브랜드 목록 카드 이미지</label>
-        <span className="text-[11px] text-slate-400">권장 사이즈: <strong>1200 × 800px</strong> (3:2 가로형)</span>
-      </div>
-      <p className="text-[11px] text-slate-400 mb-2"><code>/brands</code> 목록에서 이 브랜드 카드에 표시됩니다. 비우면 히어로 배경 이미지를 대신 사용합니다.</p>
-      <div className="flex items-center gap-3 mb-3">
+    <div className="min-w-0">
+      <label className="block text-sm font-medium text-slate-700">브랜드 목록 카드 이미지</label>
+      <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
+        <code>/brands</code> 목록의 브랜드 카드에 표시됩니다. 권장 <strong>1200 × 800px</strong> (3:2 가로형)
+      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className="px-4 py-2 text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 transition-colors">
           {uploading ? "업로드 중…" : url ? "이미지 교체" : "이미지 업로드"}
@@ -848,78 +835,8 @@ function CardImageField({ editing, set, flash }: {
   );
 }
 
-// 히어로 배경: 이미지 업로드 OR CSS 그라디언트 둘 다 지원
-function BgField({ editing, set, flash }: {
-  editing: Brand;
-  set: <K extends keyof Brand>(k: K, v: Brand[K]) => void;
-  flash: (msg: string, type?: string) => void;
-}) {
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  // image_bg 값이 http(s)://로 시작하면 이미지 URL
-  const isImageUrl = (editing.image_bg ?? "").startsWith("http");
-
-  const uploadBg = async (file: File) => {
-    setUploading(true);
-    try {
-      const sig = await fetch("/api/admin/r2-upload-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folder: "workup/brands/bg", fileName: file.name, contentType: file.type }),
-      }).then((r) => r.json());
-      if (!sig?.uploadUrl) { flash("업로드 URL 발급 실패", "err"); return; }
-      const up = await fetch(sig.uploadUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
-      if (!up.ok) { flash(`업로드 실패: ${up.status}`, "err"); return; }
-      set("image_bg", sig.publicUrl);
-      flash("배경 이미지 업로드 완료");
-    } catch { flash("업로드 실패 (네트워크 확인)", "err"); }
-    finally { setUploading(false); }
-  };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-700">히어로 배경</label>
-        <span className="text-[11px] text-slate-400">권장 사이즈: <strong>1920 × 560px</strong> (가로 배너)</span>
-      </div>
-      <p className="text-[11px] text-slate-400 mb-2">브랜드 페이지(<code>/brands/[브랜드]</code>) 상단 배너 전용. 브랜드 목록 카드 이미지는 아래 <b>&ldquo;브랜드 목록 카드 이미지&rdquo;</b>에서 따로 올립니다.</p>
-
-      {/* 업로드 버튼 */}
-      <div className="flex items-center gap-3 mb-3">
-        <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
-          className="px-4 py-2 text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 transition-colors">
-          {uploading ? "업로드 중…" : isImageUrl ? "이미지 교체" : "이미지 업로드"}
-        </button>
-        {isImageUrl && (
-          <button type="button" onClick={() => set("image_bg", "")}
-            className="text-xs text-red-400 hover:text-red-600">이미지 삭제</button>
-        )}
-        <span className="text-xs text-slate-400">JPG · PNG · WEBP</span>
-      </div>
-      <input ref={fileRef} type="file" accept="image/*" className="hidden"
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadBg(f); e.target.value = ""; }} />
-
-      {/* 미리보기 */}
-      {editing.image_bg && (
-        <div className="mb-3 rounded-lg overflow-hidden border border-slate-200" style={{ height: 80 }}>
-          {isImageUrl
-            // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={editing.image_bg} alt="" className="w-full h-full object-cover" />
-            : <div className="w-full h-full" style={{ background: editing.image_bg }} />}
-        </div>
-      )}
-
-      {/* 이미지 URL 표시 */}
-      {isImageUrl && (
-        <p className="text-[10px] text-slate-400 font-mono break-all mt-1">{editing.image_bg}</p>
-      )}
-    </div>
-  );
-}
-
 // ── LogoField ─────────────────────────────────────────────────
-// 히어로 로고: 이미지 업로드 OR 텍스트 직접 입력
+// 브랜드 로고 이미지 (메인 브랜드 로고 마퀴용)
 function LogoField({ editing, set, flash }: {
   editing: Brand;
   set: <K extends keyof Brand>(k: K, v: Brand[K]) => void;
@@ -947,43 +864,32 @@ function LogoField({ editing, set, flash }: {
   };
 
   return (
-    <div className="border-t border-slate-100 pt-5">
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-slate-700">히어로 로고</label>
-        <span className="text-[11px] text-slate-400">권장 사이즈: <strong>500 × 200px</strong> 내외 (가로형, 투명 배경)</span>
-      </div>
-      <p className="text-[11px] text-slate-400 mb-2">이미지가 있으면 텍스트 대신 표시됩니다. 메인 페이지 브랜드 로고 마퀴에도 이 이미지가 사용됩니다.</p>
-
-      {/* 이미지 업로드 */}
-      <div className="flex items-center gap-3 mb-3">
+    <div className="min-w-0">
+      <label className="block text-sm font-medium text-slate-700">브랜드 로고</label>
+      <p className="text-[11px] text-slate-400 mt-0.5 mb-2">
+        메인 페이지 브랜드 로고 마퀴에 사용됩니다. 권장 <strong>500 × 200px</strong> 내외 (가로형, 투명 배경)
+      </p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-3">
         <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading}
           className="px-4 py-2 text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-lg disabled:opacity-50 transition-colors">
-          {uploading ? "업로드 중…" : hasLogo ? "로고 교체" : "로고 이미지 업로드"}
+          {uploading ? "업로드 중…" : hasLogo ? "로고 교체" : "로고 업로드"}
         </button>
         {hasLogo && (
           <button type="button" onClick={() => set("logo_url", "")}
             className="text-xs text-red-400 hover:text-red-600">이미지 삭제</button>
         )}
-        <span className="text-xs text-slate-400">PNG · SVG · WEBP (투명 배경 권장)</span>
+        <span className="text-xs text-slate-400">PNG · SVG · WEBP</span>
       </div>
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = ""; }} />
-
-      {/* 로고 미리보기 */}
-      {hasLogo && (
-        <div className="mb-3 rounded-lg overflow-hidden border border-slate-200 bg-slate-800 flex items-center justify-center" style={{ height: 72 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={editing.logo_url} alt="로고 미리보기" className="max-h-14 max-w-[240px] object-contain" />
-        </div>
-      )}
-
-      {/* 텍스트 로고 */}
-      <Field label="텍스트 로고" hint="로고 이미지가 없을 때 브랜드명 대신 표시할 텍스트. 비워두면 브랜드명 그대로 표시.">
-        <input type="text" value={editing.logo_text ?? ""}
-          onChange={(e) => set("logo_text", e.target.value)}
-          placeholder={`예: ${editing.name || "BRAND NAME"}`}
-          className={INPUT} />
-      </Field>
+      {/* 카드 이미지 미리보기와 같은 3:2 박스 — 로고가 없으면 사이트와 동일하게 브랜드명 텍스트로 표시 */}
+      <div className="rounded-lg overflow-hidden border border-slate-200 bg-slate-800 flex items-center justify-center p-4" style={{ aspectRatio: "3 / 2", maxWidth: 280 }}>
+        {hasLogo
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={editing.logo_url} alt="로고 미리보기" className="max-w-full max-h-full object-contain" />
+          : <span className="text-xl font-black tracking-[0.08em] text-white/80 truncate">{editing.name || "BRAND"}</span>}
+      </div>
+      {!hasLogo && <p className="text-[11px] text-slate-400 mt-1.5">로고가 없으면 브랜드명이 텍스트로 표시됩니다.</p>}
     </div>
   );
 }

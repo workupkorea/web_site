@@ -65,12 +65,19 @@ export default function BrandMarqueeClient({ items }: { items: BrandLogoItem[] }
               aria-hidden={i >= items.length}
               className="flex h-16 flex-shrink-0 items-center justify-center px-6 md:h-20 md:px-8"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={ikSrc(b.logoUrl, 240)}
-                alt={i < items.length ? b.name : ""}
-                className="h-[52%] w-auto max-w-[180px] object-contain grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100"
-              />
+              {b.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={ikSrc(b.logoUrl, 240)}
+                  alt={i < items.length ? b.name : ""}
+                  className="h-[52%] w-auto max-w-[180px] object-contain grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100"
+                />
+              ) : (
+                // 로고 이미지가 없는 브랜드는 브랜드명을 텍스트로
+                <span className="whitespace-nowrap text-lg font-black tracking-[0.08em] text-gray-400 transition-colors hover:text-gray-900 md:text-xl">
+                  {b.name}
+                </span>
+              )}
             </div>
           ))}
         </div>
