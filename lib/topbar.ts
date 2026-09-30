@@ -2,6 +2,9 @@
 // ⚠️ 이 파일은 클라이언트(관리자 페이지)와 서버(배너) 양쪽에서 import 되므로 서버 전용 코드를 넣지 않는다.
 //    서버 전용 조회 로직은 lib/topbar-server.ts 에 둔다.
 
+// 관리자 탑바 ON/OFF 변경 시 발생시키는 브라우저 이벤트(detail: boolean) — 사이드바 상태 배지가 즉시 갱신된다.
+export const TOPBAR_ENABLED_EVENT = "wu:topbar-enabled";
+
 export type TopbarIconName =
   | "none"
   | "phone"

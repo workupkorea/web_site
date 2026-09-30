@@ -4,6 +4,9 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAdminUI } from "./admin-ui-context";
+import { TOPBAR_ENABLED_EVENT } from "@/lib/topbar";
+
+const TOPBAR_HREF = "/admin/main/topbar";
 
 export type NavLeaf = { label: string; href: string; exact?: boolean; newTab?: boolean; icon: ReactNode; superAdminOnly?: boolean };
 export type NavDropdown = { label: string; icon: ReactNode; children: NavLeaf[]; superAdminOnly?: boolean };
@@ -533,11 +536,13 @@ function LeafRow({
   active,
   fav,
   onToggleFav,
+  status,
 }: {
   leaf: NavLeaf;
   active: boolean;
   fav: boolean;
   onToggleFav: () => void;
+  status?: boolean; // 켜고 끄는 기능의 현재 상태 — 있으면 ON/OFF 배지 표시
 }) {
   return (
     <div className="group/leaf relative flex items-center">
@@ -554,6 +559,15 @@ function LeafRow({
         <span className={`flex-shrink-0 ${active ? "text-white" : "text-slate-500"}`}>{leaf.icon}</span>
         <span className="truncate">{leaf.label}</span>
         {leaf.newTab && <ExternalLinkIcon />}
+        {status !== undefined && (
+          <span className={`flex-shrink-0 px-1.5 py-px rounded text-[10px] font-bold tracking-wide leading-4 ${
+            status
+              ? active ? "bg-white/25 text-white" : "bg-emerald-500/15 text-emerald-400"
+              : active ? "bg-black/20 text-white/70" : "bg-slate-500/20 text-slate-400"
+          }`}>
+            {status ? "ON" : "OFF"}
+          </span>
+        )}
       </Link>
       <button
         type="button"
@@ -586,6 +600,19 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
       .then(d => { setSuperAdmin(!!d.superAdmin); })
       .catch(() => {});
   }, []);
+
+  // 상단 탑바 ON/OFF 상태 — 메뉴 배지용. 탑바 관리 화면에서 바꾸면 이벤트로 즉시 반영
+  const [topbarEnabled, setTopbarEnabled] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    fetch("/api/admin/site-settings/topbar")
+      .then(r => r.json())
+      .then(d => { setTopbarEnabled(typeof d?.enabled === "boolean" ? d.enabled : true); })
+      .catch(() => {});
+    const onChange = (e: Event) => setTopbarEnabled(!!(e as CustomEvent<boolean>).detail);
+    window.addEventListener(TOPBAR_ENABLED_EVENT, onChange);
+    return () => window.removeEventListener(TOPBAR_ENABLED_EVENT, onChange);
+  }, []);
+  const statusOf = (href: string) => (href === TOPBAR_HREF ? topbarEnabled : undefined);
 
   // S관리자 전용 그룹/항목 필터
   const visibleNavGroups = navGroups.filter(g => !g.superAdminOnly || superAdmin);
@@ -674,6 +701,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
                   active={isLeafActive(leaf, pathname, searchStr)}
                   fav
                   onToggleFav={() => toggleFavorite(leaf.href)}
+                  status={statusOf(leaf.href)}
                 />
               ))}
             </div>
@@ -766,6 +794,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
                                   active={isLeafActive(child, pathname, searchStr)}
                                   fav={isFavorite(child.href)}
                                   onToggleFav={() => toggleFavorite(child.href)}
+                                  status={statusOf(child.href)}
                                 />
                               ))}
                             </div>
@@ -781,6 +810,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
                         active={isLeafActive(item, pathname, searchStr)}
                         fav={isFavorite(item.href)}
                         onToggleFav={() => toggleFavorite(item.href)}
+                        status={statusOf(item.href)}
                       />
                     );
                   })}

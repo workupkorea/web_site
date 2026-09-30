@@ -6,6 +6,7 @@ import {
   DEFAULT_TOPBAR,
   ICON_OPTIONS,
   normalizeTopbar,
+  TOPBAR_ENABLED_EVENT,
   type TopbarConfig,
   type TopbarItem,
   type TopbarIconName,
@@ -139,7 +140,10 @@ export default function TopbarManagePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(cfg),
       });
-      if (r.ok) setSavedCfg(cfg);
+      if (r.ok) {
+        setSavedCfg(cfg);
+        window.dispatchEvent(new CustomEvent(TOPBAR_ENABLED_EVENT, { detail: cfg.enabled }));
+      }
       flash(r.ok ? "저장됐습니다. 사이트에 바로 반영됩니다." : "저장에 실패했습니다.");
     } catch {
       flash("저장에 실패했습니다.");
@@ -162,6 +166,7 @@ export default function TopbarManagePage() {
       if (!r.ok) { flash("변경에 실패했습니다."); return; }
       setSavedCfg(next);
       set("enabled", enabled);
+      window.dispatchEvent(new CustomEvent(TOPBAR_ENABLED_EVENT, { detail: enabled }));
       flash(enabled ? "탑바를 켰습니다." : "탑바를 껐습니다.");
     } catch {
       flash("변경에 실패했습니다.");
