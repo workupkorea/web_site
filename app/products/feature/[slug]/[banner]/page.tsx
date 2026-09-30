@@ -10,7 +10,7 @@ type Props = { params: Promise<{ slug: string; banner: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, banner } = await params;
   const detail = await getBannerDetail(slug, Number(banner));
-  if (!detail) return { title: "기획전 | WORKUP" };
+  if (!detail) return { title: "기획전" };
   return {
     title: `${detail.title} — WORKUP`,
     description: detail.desc || `${detail.title} 기획전. 워크업 매장에서 직접 체험해보세요.`,

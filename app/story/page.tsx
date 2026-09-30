@@ -6,7 +6,7 @@ import StoryHeroView from "@/components/StoryHeroView";
 import StorySectionView from "@/components/StorySectionView";
 
 export const metadata: Metadata = {
-  title: "STORY — 브랜드 철학 | WORKUP",
+  title: "STORY — 브랜드 철학",
   description: "워크업이 왜 존재하는가. 일하는 사람을 위한 브랜드의 철학.",
 };
 

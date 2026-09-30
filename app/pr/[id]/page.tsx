@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   if (!post) return { title: "공지사항 — WORKUP" };
   const desc = post.summary || post.body.slice(0, 120) || "워크업의 새로운 소식";
   return {
-    title: `${post.title} — 공지사항 | WORKUP`,
+    title: `${post.title} — 공지사항`,
     description: desc,
     openGraph: {
       title: post.title,

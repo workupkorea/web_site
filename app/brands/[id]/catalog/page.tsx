@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!data) return {};
   const name = data.brand.name;
   return {
-    title: `${name} 카탈로그 | WORKUP`,
+    title: `${name} 카탈로그`,
     description: `${name} 제품 카탈로그. WORKUP K-WORKER STORE.`,
   };
 }

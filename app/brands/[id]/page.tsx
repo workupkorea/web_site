@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const desc = dbBrand?.description ?? staticBrand?.description ?? "";
   if (!name) return {};
   return {
-    title: `${name} 카탈로그 | WORKUP`,
+    title: `${name} 카탈로그`,
     description: `${name} — ${desc}. WORKUP K-WORKER STORE에서 브랜드 카탈로그를 확인하세요.`,
   };
 }

@@ -12,7 +12,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const editorial = editorials.find((ed) => ed.slug === slug);
-  if (!editorial) return { title: "기획 특집 | WORKUP" };
+  if (!editorial) return { title: "기획 특집" };
   return {
     title: `${editorial.title} — WORKUP`,
     description: editorial.desc,

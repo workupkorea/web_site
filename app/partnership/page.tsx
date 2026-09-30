@@ -2,7 +2,7 @@
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "파트너십 — 가맹·창업 / 입점·제휴 문의 | WORKUP",
+  title: "파트너십 — 가맹·창업 / 입점·제휴 문의",
   description: "WORKUP 가맹·창업 및 브랜드 입점·제휴 문의 안내.",
 };
 

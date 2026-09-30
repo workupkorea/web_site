@@ -7,7 +7,7 @@ import type { Brand } from "@/data/brands";
 import BrandsPageClient from "@/components/BrandsPageClient";
 
 export const metadata: Metadata = {
-  title: "브랜드 카탈로그 | WORKUP",
+  title: "브랜드 카탈로그",
   description: "WORKUP K-WORKER STORE 입점 브랜드 카탈로그를 한눈에 확인하세요.",
 };
 

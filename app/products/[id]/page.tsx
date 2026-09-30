@@ -65,7 +65,7 @@ async function fetchRelatedProducts(ids: string[]): Promise<Product[]> {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const [product, nav] = await Promise.all([fetchProduct(id), getHeaderNavConfig()]);
-  if (!product) return { title: "제품을 찾을 수 없습니다 | WORKUP" };
+  if (!product) return { title: "제품을 찾을 수 없습니다" };
 
   const productsNav = nav.items.find((it) => it.href === "/products");
   const isHidden = productsNav ? productsNav.isVisible === false : false;

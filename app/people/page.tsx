@@ -8,7 +8,7 @@ type PageHeader = { title: string; description: string };
 type PageData = { header?: PageHeader; items?: Person[] };
 
 export const metadata: Metadata = {
-  title: "MATE — 일하는 사람들의 이야기 | WORKUP",
+  title: "MATE — 일하는 사람들의 이야기",
   description: "워크업과 함께하는 사람들. 매일 현장에서 땀 흘리는 사람들의 이야기.",
 };
 
