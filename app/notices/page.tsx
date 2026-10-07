@@ -1,4 +1,5 @@
 "use client";
+import { noticeCoverAspect } from "@/lib/noticeImage";
 import { useEffect, useRef, useState } from "react";
 import NoticeStatusSelect, { type NoticeStatus } from "./_components/NoticeStatusSelect";
 import NoticeStatusLine from "./_components/NoticeStatusLine";
@@ -25,7 +26,8 @@ type NoticeRow = {
   temp_image_url: string | null;
   temp_tagline: string | null;
   badge: string | null;
-  products: { id: string; name: string } | null;
+  temp_image_portrait?: boolean;
+  products: { id: string; name: string; image_url?: string | null } | null;
 };
 
 const PRESET_BADGES = ["재공지", "정보변경", "가격변동"];
@@ -47,6 +49,10 @@ function fmtNoticeDate(iso: string): string {
 }
 
 // 정식 상품(products) 공지든 마감패스 전용(temp_name) 공지든 상관없이 표시용 이름 하나로.
+function noticeImage(n: NoticeRow): string | null {
+  return n.products?.image_url ?? n.temp_image_url ?? null;
+}
+
 function noticeName(n: NoticeRow): string {
   return n.products?.name ?? n.temp_name ?? "상품 정보 없음";
 }
@@ -73,6 +79,7 @@ export default function NoticesPreviewPage() {
   const [reregShowCustom, setReregShowCustom] = useState(false);
   const [reregName, setReregName] = useState("");
   const [reregCover, setReregCover] = useState("");
+  const [reregPortrait, setReregPortrait] = useState(false);
   const [reregTagline, setReregTagline] = useState("");
   const [reregExtraImages, setReregExtraImages] = useState<string[]>([]);
   const [reregDesc, setReregDesc] = useState("");
@@ -552,7 +559,25 @@ export default function NoticesPreviewPage() {
                                 </div>
                               </td>
                             )}
-                            <td className="px-5 py-3 text-sm font-semibold text-gray-900">{noticeName(n)}</td>
+                            <td className="px-5 py-3 text-sm font-semibold text-gray-900">
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`flex-shrink-0 rounded-md overflow-hidden border border-gray-100 bg-gray-50 ${n.temp_image_portrait ? "h-12" : "w-[68px]"}`}
+                                  style={{ aspectRatio: noticeCoverAspect(n.temp_image_portrait) }}
+                                >
+                                  {noticeImage(n) && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={noticeImage(n)!}
+                                      alt={noticeName(n)}
+                                      loading="lazy"
+                                      className={`w-full h-full ${n.temp_image_portrait ? "object-contain" : "object-cover"}`}
+                                    />
+                                  )}
+                                </div>
+                                <span>{noticeName(n)}</span>
+                              </div>
+                            </td>
                             <td className="px-5 py-3">
                               <div className="flex items-center gap-2">
                                 <NoticeStatusSelect
@@ -579,6 +604,7 @@ export default function NoticesPreviewPage() {
                                     setReregShowCustom(false);
                                     setReregName(n.temp_name ?? n.products?.name ?? "");
                                     setReregCover(n.temp_image_url ?? "");
+                                    setReregPortrait(n.temp_image_portrait ?? false);
                                     setReregTagline(n.temp_tagline ?? "");
                                     setReregExtraImages(n.extra_images ?? []);
                                     setReregDesc(n.description ?? "");
@@ -660,6 +686,7 @@ export default function NoticesPreviewPage() {
           initialTagline={editingTempNotice.temp_tagline}
           initialExtraImages={editingTempNotice.extra_images}
           initialBadge={editingTempNotice.badge}
+          initialPortrait={editingTempNotice.temp_image_portrait ?? false}
           onClose={() => setEditingTempNotice(null)}
           onSaved={(data) => {
             setNotices((prev) => prev.map((n) => (n.id === editingTempNotice.id ? { ...n, ...data } : n)));
@@ -711,6 +738,8 @@ export default function NoticesPreviewPage() {
               <CoverAndDetailImagesField
                 cover={reregCover}
                 onCoverChange={setReregCover}
+                portrait={reregPortrait}
+                onPortraitChange={setReregPortrait}
                 detailImages={[]}
                 onDetailImagesChange={() => {}}
                 showDetail={false}
@@ -762,6 +791,7 @@ export default function NoticesPreviewPage() {
                           product_id: reregisterSource.product_id,
                           temp_name: reregisterSource.product_id ? null : reregName.trim(),
                           temp_image_url: reregisterSource.product_id ? null : (reregCover || null),
+                          temp_image_portrait: reregPortrait,
                           temp_tagline: reregisterSource.product_id ? null : (reregTagline.trim() || null),
                           description: reregDesc.trim() || null,
                           extra_images: reregExtraImages,

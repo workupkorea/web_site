@@ -77,6 +77,8 @@ export type NoticeCard = {
     badge: string | null;
     description: string | null;
     extraImages: string[];
+    // 대표 썸네일이 세로형이면 잘라내지 않고 전체를 보여준다(컬럼 미적용 시 항상 false).
+    imagePortrait: boolean;
   };
   product: {
     // 실제 상품(products 테이블) 연결이 있으면 그 id, 마감패스 전용(공지에만 존재)이면 null.
@@ -139,6 +141,9 @@ export async function getPassContextByToken(token: string, date?: string): Promi
   const productById = new Map((products ?? []).map((p) => [p.id, p]));
 
   const noticeIds = noticeList.map((n) => n.id);
+  // 세로 플래그는 별도 조회 — 마이그레이션 전이라 컬럼이 없어도 본 화면이 깨지지 않게 오류는 무시한다.
+  const { data: portraitRows } = await sb.from("notices").select("id, temp_image_portrait").in("id", noticeIds);
+  const portraitById = new Map((portraitRows ?? []).map((r) => [r.id as string, Boolean(r.temp_image_portrait)]));
   const { data: entries } = await sb
     .from("pass_entries")
     .select("notice_id, status, updated_at")
@@ -176,6 +181,7 @@ export async function getPassContextByToken(token: string, date?: string): Promi
         badge: (n.badge ?? null) as string | null,
         description: n.description ?? null,
         extraImages: (n.extra_images ?? []) as string[],
+        imagePortrait: portraitById.get(n.id) ?? false,
       },
       product,
       passStatus: (entry?.status as PassStatus) ?? "출고",

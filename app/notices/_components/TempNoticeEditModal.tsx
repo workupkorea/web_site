@@ -14,6 +14,7 @@ export default function TempNoticeEditModal({
   initialTagline,
   initialExtraImages,
   initialBadge,
+  initialPortrait = false,
   onClose,
   onSaved,
 }: {
@@ -23,6 +24,7 @@ export default function TempNoticeEditModal({
   initialTagline: string | null;
   initialExtraImages: string[];
   initialBadge?: string | null;
+  initialPortrait?: boolean;
   onClose: () => void;
   onSaved: (data: {
     temp_name: string;
@@ -30,10 +32,12 @@ export default function TempNoticeEditModal({
     temp_tagline: string | null;
     extra_images: string[];
     badge: string | null;
+    temp_image_portrait: boolean;
   }) => void;
 }) {
   const [name, setName] = useState(initialName);
   const [cover, setCover] = useState(initialImageUrl ?? "");
+  const [portrait, setPortrait] = useState(initialPortrait);
   const [tagline, setTagline] = useState(initialTagline ?? "");
   const [extraImages, setExtraImages] = useState<string[]>(initialExtraImages);
   const [badgeValue, setBadgeValue] = useState(initialBadge ?? "");
@@ -66,6 +70,8 @@ export default function TempNoticeEditModal({
           temp_tagline: tagline.trim() || null,
           extra_images: extraImages,
           badge: badgeValue.trim() || null,
+          // 컬럼 미적용 DB에서 저장이 깨지지 않도록 값이 바뀌었을 때만 보낸다.
+          ...(portrait !== initialPortrait ? { temp_image_portrait: portrait } : {}),
         }),
       });
       const data = await res.json();
@@ -79,6 +85,7 @@ export default function TempNoticeEditModal({
         temp_tagline: data.temp_tagline ?? null,
         extra_images: data.extra_images ?? [],
         badge: data.badge ?? null,
+        temp_image_portrait: data.temp_image_portrait ?? portrait,
       });
     } catch {
       setError("네트워크 오류로 저장에 실패했습니다.");
@@ -121,7 +128,9 @@ export default function TempNoticeEditModal({
             showDetail={false}
             onError={setError}
             onInfo={showInfo}
-            coverSize={140}
+            coverSize={220}
+            portrait={portrait}
+            onPortraitChange={setPortrait}
           />
 
           {/* 뱃지 */}

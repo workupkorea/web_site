@@ -46,6 +46,7 @@ export default async function BranchPassPage({ params, searchParams }: Props) {
     taglineHtml: card.product?.tagline ? DOMPurify.sanitize(card.product.tagline) : null,
     descriptionHtml: card.notice.description ? DOMPurify.sanitize(card.notice.description) : null,
     extraImages: card.notice.extraImages,
+    imagePortrait: card.notice.imagePortrait,
     passStatus: card.passStatus,
     updatedAt: card.updatedAt,
   }));

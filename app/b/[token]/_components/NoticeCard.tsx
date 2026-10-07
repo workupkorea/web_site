@@ -46,6 +46,7 @@ export default function NoticeCard({ item, token, closeTime }: { item: NoticeIte
         <TempProductReveal
           images={item.images}
           name={item.productName}
+          portrait={item.imagePortrait}
           tagline={
             item.taglineHtml ? (
               <div className="text-[13.5px] text-gray-500 mt-0.5 [&_p]:m-0" dangerouslySetInnerHTML={{ __html: item.taglineHtml }} />

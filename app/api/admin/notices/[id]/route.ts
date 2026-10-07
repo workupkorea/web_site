@@ -98,6 +98,10 @@ export async function PATCH(req: Request, { params }: Params) {
     patch.temp_image_url = body.temp_image_url || null;
     summary = summary || "마감패스 상품 정보 수정";
   }
+  if (body.temp_image_portrait !== undefined) {
+    patch.temp_image_portrait = Boolean(body.temp_image_portrait);
+    summary = summary || "마감패스 상품 정보 수정";
+  }
   if (body.temp_tagline !== undefined) {
     patch.temp_tagline = body.temp_tagline || null;
     summary = summary || "마감패스 상품 정보 수정";

@@ -5,6 +5,7 @@ import Image from "next/image";
 import DOMPurify from "isomorphic-dompurify";
 import DescriptionField from "./DescriptionField";
 import CoverAndDetailImagesField from "./CoverAndDetailImagesField";
+import { noticeCoverAspect } from "@/lib/noticeImage";
 
 // 지점 출고 패스에서 빠르게 등록한 "마감패스 전용" 상품 — products 테이블(사이트 카탈로그)과 무관하게
 // 공지(notices)에 이름/썸네일/설명을 직접 저장한다. 나중에 진짜 상품으로 옮기는 기능은 별도 작업.
@@ -12,6 +13,7 @@ type TempProductEntry = {
   temp_name: string;
   temp_image_url: string | null;
   temp_tagline: string | null;
+  temp_image_portrait?: boolean;
 };
 
 export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: string) => void } = {}) {
@@ -72,6 +74,7 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
           temp_name: entry.temp_name,
           temp_image_url: entry.temp_image_url,
           temp_tagline: entry.temp_tagline,
+          temp_image_portrait: entry.temp_image_portrait ?? false,
           description: extraDesc.trim() || undefined,
           extra_images: extraImages,
         }),
@@ -93,6 +96,7 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
   const [qName, setQName] = useState("");
   const [qTagline, setQTagline] = useState("");
   const [qCover, setQCover] = useState("");
+  const [qPortrait, setQPortrait] = useState(false);
   const [qSaving, setQSaving] = useState(false);
 
   const quickRegisterAndNotice = async () => {
@@ -109,6 +113,7 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
         body: JSON.stringify({
           temp_name: qName.trim(),
           temp_image_url: qCover || null,
+          temp_image_portrait: qPortrait,
           temp_tagline: qTagline.trim() || null,
         }),
       });
@@ -157,7 +162,9 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
                   showDetail={false}
                   onError={setError}
                   onInfo={showInfo}
-                  coverSize={220}
+                  coverSize={260}
+                  portrait={qPortrait}
+                  onPortraitChange={setQPortrait}
                   coverHint=""
                   coverButtonPosition="below"
                 />
@@ -210,9 +217,12 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
                           onClick={() => setPreviewEntry(p)}
                           className="flex items-center gap-4 flex-1 min-w-0 text-left"
                         >
-                          <div className="relative w-12 h-12 flex-shrink-0 rounded-lg overflow-hidden border border-gray-100 bg-gray-50">
+                          <div
+                            className={`relative flex-shrink-0 rounded-lg overflow-hidden border border-gray-100 bg-gray-50 ${p.temp_image_portrait ? "h-14" : "w-20"}`}
+                            style={{ aspectRatio: noticeCoverAspect(p.temp_image_portrait) }}
+                          >
                             {p.temp_image_url ? (
-                              <Image src={p.temp_image_url} alt={p.temp_name} fill className="object-cover" sizes="48px" />
+                              <Image src={p.temp_image_url} alt={p.temp_name} fill className={p.temp_image_portrait ? "object-contain" : "object-cover"} sizes="80px" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-gray-300 text-[10px]">없음</div>
                             )}
@@ -277,9 +287,18 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
             className="bg-white rounded-2xl w-full max-w-sm overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative w-full aspect-square bg-gray-50">
+            <div
+              className={`relative bg-gray-50 ${previewEntry.temp_image_portrait ? "w-3/5 mx-auto" : "w-full"}`}
+              style={{ aspectRatio: noticeCoverAspect(previewEntry.temp_image_portrait) }}
+            >
               {previewEntry.temp_image_url ? (
-                <Image src={previewEntry.temp_image_url} alt={previewEntry.temp_name} fill className="object-cover" sizes="400px" />
+                <Image
+                  src={previewEntry.temp_image_url}
+                  alt={previewEntry.temp_name}
+                  fill
+                  className={previewEntry.temp_image_portrait ? "object-contain" : "object-cover"}
+                  sizes="400px"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">이미지 없음</div>
               )}

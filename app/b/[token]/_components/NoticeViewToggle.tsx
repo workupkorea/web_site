@@ -15,6 +15,7 @@ export type NoticeItem = {
   taglineHtml: string | null;
   descriptionHtml: string | null;
   extraImages: string[];
+  imagePortrait?: boolean;
   passStatus: "출고" | "패스";
   updatedAt: string | null;
 };

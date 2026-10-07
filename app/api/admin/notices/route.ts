@@ -6,11 +6,12 @@ import { logAudit } from "@/lib/audit-server";
 export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const sb = createAdminClient();
-  const { data, error } = await sb
-    .from("notices")
-    .select("id, product_id, notice_date, status, opened_at, closed_at, created_at, description, extra_images, temp_name, temp_image_url, temp_tagline, badge, products(id, name, image_url, registration_status)")
-    .order("notice_date", { ascending: false })
-    .order("created_at", { ascending: false });
+  const base = "id, product_id, notice_date, status, opened_at, closed_at, created_at, description, extra_images, temp_name, temp_image_url, temp_tagline, badge, products(id, name, image_url, registration_status)";
+  const run = (cols: string) =>
+    sb.from("notices").select(cols).order("notice_date", { ascending: false }).order("created_at", { ascending: false });
+  // temp_image_portrait 컬럼이 아직 없는 DB에서도 목록이 열리도록 실패 시 기존 컬럼만으로 재조회한다.
+  let { data, error } = await run(`${base}, temp_image_portrait`);
+  if (error) ({ data, error } = await run(base));
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data ?? []);
 }
@@ -35,6 +36,8 @@ export async function POST(req: Request) {
       description: body.description ?? null,
       extra_images: Array.isArray(body.extra_images) ? body.extra_images : [],
       badge: body.badge ?? null,
+      // 컬럼 미적용 DB에서 등록이 깨지지 않도록 true일 때만 보낸다.
+      ...(body.product_id || !body.temp_image_portrait ? {} : { temp_image_portrait: true }),
     })
     .select()
     .single();
