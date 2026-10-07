@@ -9,6 +9,7 @@ import BottomNav from "@/components/BottomNav";
 import { CartProvider } from "@/contexts/CartContext";
 import PixelManager from "@/components/PixelManager";
 import { getTopbarConfig } from "@/lib/topbar-server";
+import type { TopbarItem } from "@/lib/topbar";
 import { getFooterConfig } from "@/lib/footer-server";
 import { getHeaderNavConfig } from "@/lib/header-nav-server";
 import { getLogoConfig } from "@/lib/logo-server";
@@ -29,6 +30,12 @@ import { siteUrl } from "@/lib/site";
 // 웹폰트로 교체하지 않고 폴백 폰트를 계속 사용한다. 한글은 폴백/실제 글꼴의 글자 폭이 완전히 같지
 // 않아 자간 지표를 맞춰도(swap) 교체 시점에 줄바꿈이 달라져 박스가 커지는 현상이 남았기 때문—
 // optional로 교체 자체를 없애 리플로우를 원천 차단한다(재방문 시엔 캐시되어 처음부터 정상 표시).
+// 관리자 탑바 설정에서 링크 항목이 비어 있어도 가맹·창업문의 / 입점·제휴문의는 헤더에 상시 노출한다.
+const HEADER_FALLBACK_ITEMS: TopbarItem[] = [
+  { id: "header-franchise", label: "가맹문의", href: "/partnership/franchise", icon: "none", newTab: false },
+  { id: "header-wholesale", label: "제휴문의", href: "/partnership/wholesale", icon: "none", newTab: false },
+];
+
 const notoSansKR = Noto_Sans_KR({ weight: ["400", "700", "900"], display: "optional" });
 
 export const viewport: Viewport = {
@@ -128,12 +135,13 @@ export default async function RootLayout({
               id={hideChrome ? undefined : "scroll-root"}
               className={hideChrome ? "flex-1 min-h-0 overflow-y-auto" : "flex-1 min-h-0 flex flex-col"}
             >
-              {!hideChrome && topbar && <Topbar cfg={topbar} />}
+              {/* 가맹/제휴문의 등 링크는 헤더에 상시 노출하므로 탑바 띠에서는 중복 표시하지 않는다. */}
+              {!hideChrome && topbar && <Topbar cfg={{ ...topbar, items: [] }} />}
               {!hideChrome && topbar && headerNav && logo && search && (
                 <Header
                   navItems={visibleNavItems}
                   logo={logo}
-                  topbarItems={[]}
+                  topbarItems={topbar.items.length > 0 ? topbar.items : HEADER_FALLBACK_ITEMS}
                   studioEnabled={studio?.enabled ?? true}
                   megaBrandsConfig={effectiveMegaBrands}
                 />
