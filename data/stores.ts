@@ -10,7 +10,18 @@ export type Store = {
   phone: string;
   products?: StoreProduct[];
   pageActive?: boolean;
+  createdAt?: string; // 매장 등록일(ISO) — 신규오픈 뱃지 판단용
 };
+
+// 등록 후 이 기간(일) 동안 '신규오픈' 뱃지·신규 매장 목록에 노출 (2개월)
+const NEW_STORE_DAYS = 60;
+
+export function isNewStore(store: Pick<Store, "createdAt">): boolean {
+  if (!store.createdAt) return false;
+  const created = new Date(store.createdAt).getTime();
+  if (Number.isNaN(created)) return false;
+  return Date.now() - created < NEW_STORE_DAYS * 24 * 60 * 60 * 1000;
+}
 
 export const stores: Store[] = [
   { id: 1, name: '워크업 포천직영점', address: '경기도 포천시 호국로 90 워크업 포천 본점', lat: 37.7834706370167, lng: 127.121414777823, hours: '10:00 - 20:00 (평일) / 10:00 - 19:00 (주말)', phone: '031-000-0000' },

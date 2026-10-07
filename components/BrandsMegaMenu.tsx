@@ -72,8 +72,8 @@ export default function BrandsMegaMenu({
         <div
           className="flex-shrink-0 flex flex-col justify-between"
           style={{
-            width: "clamp(140px, 15%, 196px)",
-            padding: "28px 22px",
+            width: "clamp(120px, 15%, 196px)",
+            padding: "28px clamp(12px, 1.5vw, 22px)",
             borderRight: "1px solid rgba(255,255,255,0.15)",
           }}
         >
@@ -107,6 +107,7 @@ export default function BrandsMegaMenu({
             style={{
               fontSize: "11px",
               letterSpacing: "0.06em",
+              wordBreak: "keep-all",
               color: "rgba(255,255,255,0.72)",
             }}
           >
@@ -115,14 +116,16 @@ export default function BrandsMegaMenu({
         </div>
 
         {/* ── 브랜드 카드 ── */}
-        <div className="flex flex-1">
+        {/* 태블릿·좁은 화면: 카드가 찌그러지지 않도록 최소 너비를 두고 가로 스크롤 */}
+        <div className="flex flex-1 min-w-0 overflow-x-auto overscroll-x-contain">
           {displayBrands.map((brand, i) => (
             <Link
               key={brand.id}
               href={brand.href}
               onClick={onLinkClick}
-              className="flex-1 group flex flex-col min-w-0 overflow-hidden hover:bg-white/[0.02] transition-colors duration-200"
+              className="group flex flex-col overflow-hidden hover:bg-white/[0.02] transition-colors duration-200"
               style={{
+                flex: "1 0 150px",
                 borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.15)" : undefined,
               }}
             >

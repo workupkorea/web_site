@@ -88,6 +88,10 @@ export async function getPublicStores(region?: string): Promise<Store[]> {
         hours: s.hours ?? "",
         phone: s.phone ?? "",
         pageActive: s.page_active ?? true,
+        // NEW 기준일 = 등록일과 (비활성→)재활성일 중 더 최근
+        ...(s.created_at || s.activated_at
+          ? { createdAt: [s.created_at, s.activated_at].filter(Boolean).sort().pop() as string }
+          : {}),
         ...(products.length > 0 ? { products } : {}),
       };
     });

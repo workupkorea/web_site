@@ -357,6 +357,129 @@ function DetailMatrix({ date, storeFilter }: { date: string; storeFilter: Set<nu
   );
 }
 
+// ── 상품별 출고/패스 요약 테이블 ──────────────────────────────────────
+// 공지(상품) 단위로 몇 개 지점이 패스/출고했는지 보여주고, 행을 누르면 패스한 지점 목록을 펼친다.
+// 응답 없는 지점은 출고로 친다(지점별 통계와 동일 기준).
+function ProductStatsTable({
+  matrixParams, storeFilter,
+}: {
+  matrixParams: { date?: string; from?: string; to?: string };
+  storeFilter: Set<number>;
+}) {
+  const [data, setData] = useState<MatrixData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const q = new URLSearchParams();
+    if (matrixParams.date) q.set("date", matrixParams.date);
+    else if (matrixParams.from && matrixParams.to) { q.set("from", matrixParams.from); q.set("to", matrixParams.to); }
+    else q.set("days", "3650");
+    setLoading(true);
+    setOpenId(null);
+    fetch(`/api/admin/stores/pass-matrix?${q}`)
+      .then((r) => (r.ok ? r.json() : { stores: [], dates: [] }))
+      .then(setData)
+      .finally(() => setLoading(false));
+  }, [matrixParams.date, matrixParams.from, matrixParams.to]);
+
+  const rows = useMemo(() => {
+    if (!data) return [];
+    const stores = storeFilter.size === 0 ? data.stores : data.stores.filter((s) => storeFilter.has(s.id));
+    const list = data.dates.flatMap((d) =>
+      d.notices.map((n) => {
+        const passStores = stores.filter((s) => n.entries[s.id]?.status === "패스");
+        const total = stores.length;
+        return {
+          notice_id: n.notice_id,
+          date: d.date,
+          name: n.product_name,
+          total,
+          pass: passStores.length,
+          outbound: total - passStores.length,
+          passStores,
+        };
+      }),
+    );
+    return list.sort((a, b) => b.pass - a.pass || b.date.localeCompare(a.date) || a.name.localeCompare(b.name, "ko"));
+  }, [data, storeFilter]);
+
+  if (loading) {
+    return (
+      <div className="bg-white border border-gray-200 rounded-xl py-10 flex items-center justify-center gap-2 text-sm text-gray-400">
+        <div className="w-4 h-4 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
+        불러오는 중...
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return <div className="bg-white border border-gray-200 rounded-xl py-10 text-center text-sm text-gray-400">이 기간에 등록된 상품이 없습니다.</div>;
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+      <table className="w-full">
+        <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+          <tr>
+            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 whitespace-nowrap">상품명</th>
+            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 whitespace-nowrap">공지일</th>
+            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 whitespace-nowrap">출고</th>
+            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 whitespace-nowrap">패스</th>
+            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 whitespace-nowrap">패스율</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const rate = r.total > 0 ? Math.round((r.pass / r.total) * 100) : 0;
+            const open = openId === r.notice_id;
+            return (
+              <Fragment key={r.notice_id}>
+                <tr
+                  onClick={() => setOpenId(open ? null : r.notice_id)}
+                  className="border-b border-gray-100 cursor-pointer hover:bg-gray-50"
+                >
+                  <td className="px-5 py-3 text-sm font-semibold text-gray-900">
+                    <span className="mr-1.5 text-gray-400 text-xs">{open ? "▲" : "▼"}</span>
+                    {r.name}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(r.date)}</td>
+                  <td className="px-5 py-3 text-sm text-emerald-600 whitespace-nowrap">{r.outbound}개 지점</td>
+                  <td className="px-5 py-3 text-sm text-amber-600 whitespace-nowrap">{r.pass}개 지점</td>
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2 min-w-[120px]">
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-400 rounded-full" style={{ width: `${rate}%` }} />
+                      </div>
+                      <span className="text-[12px] font-semibold text-gray-500 w-9 text-right whitespace-nowrap">{rate}%</span>
+                    </div>
+                  </td>
+                </tr>
+                {open && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+                      {r.passStores.length === 0 ? (
+                        <p className="text-xs text-gray-400">패스한 지점이 없습니다.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {r.passStores.map((s) => (
+                            <span key={s.id} className="px-2 py-1 text-[11px] font-semibold bg-orange-50 text-orange-600 border border-orange-200 rounded">
+                              {s.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ── 기간 필터로 byStore 재집계 ────────────────────────────────────
 function aggregateByStore(filtered: DailyRow[]): StoreStat[] {
   const map = new Map<number, StoreStat>();
@@ -378,6 +501,7 @@ export default function NoticeStatsPage() {
   const [byStore, setByStore] = useState<StoreStat[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAllDetail, setShowAllDetail] = useState(false);
+  const [statsTab, setStatsTab] = useState<"store" | "product">("store");
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -438,6 +562,14 @@ export default function NoticeStatsPage() {
     [filteredDaily],
   );
   const selectedDay = filteredDaily.find((d) => d.notice_date === selectedDate) ?? null;
+
+  // 지점별 자세히 / 상품별 현황이 공통으로 쓰는 조회 기간
+  const matrixParams = useMemo(() => {
+    if (selectedDay) return { date: selectedDay.notice_date };
+    if (filterMode === "month") return { from: `${currentMonthKst()}-01`, to: `${currentMonthKst()}-31` };
+    if (filterMode === "range") return { from: filterFrom, to: filterTo };
+    return { date: todayKst() };
+  }, [selectedDay, filterMode, filterFrom, filterTo]);
 
   const filterLabel = useMemo(() => {
     if (filterMode === "month") return `${currentMonthKst().replace("-", "년 ")}월`;
@@ -533,61 +665,79 @@ export default function NoticeStatsPage() {
 
         {/* 지점별 현황 */}
         <div className="flex-1 min-w-0">
-          {/* 헤더: 제목 + 전체 자세히 + 엑셀 */}
-          <div className="flex items-center gap-2 mb-3">
-            <h2 className="text-sm font-bold text-gray-700 flex-1">
-              {selectedDay
-                ? `${fmtDate(selectedDay.notice_date)} 지점별 출고/패스 현황`
-                : `지점별 출고/패스 현황 (${filterLabel})`}
-              {(selectedDay ? selectedDay.byStore : filteredByStore).length > 0 && (
-                <span className="ml-2 font-normal text-gray-400">
-                  {(selectedDay ? selectedDay.byStore : filteredByStore).length}개 지점
-                </span>
-              )}
-            </h2>
-            <button
-              onClick={() => setShowAllDetail((v) => !v)}
-              className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium rounded-lg border transition-colors ${showAllDetail ? "border-[#303236] bg-[#303236] text-white" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
-            >
-              전체 자세히 {showAllDetail ? "▲" : "▼"}
-            </button>
-            <button
-              onClick={async () => {
-                const rows = selectedDay ? selectedDay.byStore : filteredByStore;
-                if (rows.length === 0) return;
-                const XLSX = await import("xlsx");
-                const sheetRows = rows.map((r) => ({
-                  "지점명": r.store_name,
-                  "전체": r.total,
-                  "출고": r.outbound,
-                  "패스": r.pass,
-                  "패스율(%)": r.total > 0 ? Math.round((r.pass / r.total) * 100) : 0,
-                }));
-                const ws = XLSX.utils.json_to_sheet(sheetRows);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "지점별현황");
-                XLSX.writeFile(wb, `지점별현황_${filterLabel}.xlsx`);
-              }}
-              className="flex-shrink-0 px-2.5 py-1 text-[12px] font-medium border border-gray-200 rounded-lg hover:border-[#303236] text-gray-500"
-            >
-              엑셀
-            </button>
+          {/* 탭: 지점별 / 상품별 */}
+          <div className="flex gap-1 mb-3 border border-gray-200 rounded-lg overflow-hidden w-fit">
+            {([["store", "지점별 출고/패스 현황"], ["product", "상품별 출고/패스 현황"]] as const).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setStatsTab(k)}
+                className={`px-3.5 py-1.5 text-sm font-semibold transition-colors ${statsTab === k ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <StoreStatsTable
-            rows={selectedDay ? selectedDay.byStore : filteredByStore}
-            emptyText={selectedDay ? "이 날짜에 접수된 출고/패스 현황이 없습니다." : "이 기간에 접수된 출고/패스 현황이 없습니다."}
-            storeFilter={storeFilter}
-            showAllDetail={showAllDetail}
-            matrixParams={
-              selectedDay
-                ? { date: selectedDay.notice_date }
-                : filterMode === "month"
-                ? { from: `${currentMonthKst()}-01`, to: `${currentMonthKst()}-31` }
-                : filterMode === "range"
-                ? { from: filterFrom, to: filterTo }
-                : undefined
-            }
-          />
+
+          {statsTab === "store" ? (
+            <>
+              <div className="flex items-center gap-2 mb-3">
+                <h2 className="text-sm font-bold text-gray-700 flex-1">
+                  {selectedDay
+                    ? `${fmtDate(selectedDay.notice_date)} 지점별 출고/패스 현황`
+                    : `지점별 출고/패스 현황 (${filterLabel})`}
+                  {(selectedDay ? selectedDay.byStore : filteredByStore).length > 0 && (
+                    <span className="ml-2 font-normal text-gray-400">
+                      {(selectedDay ? selectedDay.byStore : filteredByStore).length}개 지점
+                    </span>
+                  )}
+                </h2>
+                <button
+                  onClick={() => setShowAllDetail((v) => !v)}
+                  className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium rounded-lg border transition-colors ${showAllDetail ? "border-[#303236] bg-[#303236] text-white" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+                >
+                  전체 자세히 {showAllDetail ? "▲" : "▼"}
+                </button>
+                <button
+                  onClick={async () => {
+                    const rows = selectedDay ? selectedDay.byStore : filteredByStore;
+                    if (rows.length === 0) return;
+                    const XLSX = await import("xlsx");
+                    const sheetRows = rows.map((r) => ({
+                      "지점명": r.store_name,
+                      "전체": r.total,
+                      "출고": r.outbound,
+                      "패스": r.pass,
+                      "패스율(%)": r.total > 0 ? Math.round((r.pass / r.total) * 100) : 0,
+                    }));
+                    const ws = XLSX.utils.json_to_sheet(sheetRows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "지점별현황");
+                    XLSX.writeFile(wb, `지점별현황_${filterLabel}.xlsx`);
+                  }}
+                  className="flex-shrink-0 px-2.5 py-1 text-[12px] font-medium border border-gray-200 rounded-lg hover:border-[#303236] text-gray-500"
+                >
+                  엑셀
+                </button>
+              </div>
+              <StoreStatsTable
+                rows={selectedDay ? selectedDay.byStore : filteredByStore}
+                emptyText={selectedDay ? "이 날짜에 접수된 출고/패스 현황이 없습니다." : "이 기간에 접수된 출고/패스 현황이 없습니다."}
+                storeFilter={storeFilter}
+                showAllDetail={showAllDetail}
+                matrixParams={matrixParams}
+              />
+            </>
+          ) : (
+            <>
+              <h2 className="text-sm font-bold text-gray-700 mb-3">
+                {selectedDay
+                  ? `${fmtDate(selectedDay.notice_date)} 상품별 출고/패스 현황`
+                  : `상품별 출고/패스 현황 (${filterLabel})`}
+                <span className="ml-2 font-normal text-gray-400">상품을 누르면 패스한 지점이 보입니다</span>
+              </h2>
+              <ProductStatsTable matrixParams={matrixParams} storeFilter={storeFilter} />
+            </>
+          )}
         </div>
       </div>
 

@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 
@@ -5,6 +6,21 @@ export const dynamic    = "force-dynamic";
 export const maxDuration = 60;
 
 const BUCKET = "arrival-images";
+
+/**
+ * Supabase Storage는 ASCII 외 문자(한글 등)가 든 키를 거부한다("Invalid key").
+ * 안전하지 않은 문자는 "_"로 치환하고, 치환이 일어난 경우 원본명 해시를 붙여
+ * 서로 다른 한글 파일명이 같은 키로 충돌(덮어쓰기)하지 않게 한다.
+ */
+function toStorageKey(name: string): string {
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot).replace(/[^A-Za-z0-9.]/g, "").toLowerCase() : "";
+  const safeBase = base.replace(/[^A-Za-z0-9._-]+/g, "_");
+  if (safeBase === base) return `${base}${ext}`;
+  const hash = createHash("sha1").update(name).digest("hex").slice(0, 8);
+  return `${safeBase.replace(/^_+|_+$/g, "") || "img"}_${hash}${ext}`;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,7 +49,7 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
 
     for (const file of files) {
-      const filename = (file.name.split("/").pop() ?? file.name).replace(/\s+/g, "_");
+      const filename = toStorageKey(file.name.split("/").pop() ?? file.name);
       const buffer   = Buffer.from(await file.arrayBuffer());
 
       const { error } = await sb.storage

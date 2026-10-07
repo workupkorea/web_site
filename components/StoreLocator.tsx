@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { type Store, type StoreProduct } from "@/data/stores";
+import { type Store, type StoreProduct, isNewStore } from "@/data/stores";
 import KakaoMap from "@/components/KakaoMap";
 import { trackStoreEvent } from "@/lib/track";
 import { DEFAULT_STORE_PAGE, type StorePageConfig } from "@/lib/store-page";
@@ -161,6 +161,7 @@ export default function StoreLocator({
   const [allSorted, setAllSorted] = useState<StoreWithDistance[]>([]);
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [showNew, setShowNew] = useState(false); // 신규 오픈 매장만 보기
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<number | null>(null);
   const [onlineExpanded, setOnlineExpanded] = useState(false);
@@ -207,6 +208,7 @@ export default function StoreLocator({
         setNearbyStores(sorted.slice(0, NEARBY_COUNT));
         setLocStatus("success");
         setShowAll(false);
+        setShowNew(false);
         setSearch("");
         setExpanded(null);
         setSelectedSido("");
@@ -267,6 +269,7 @@ export default function StoreLocator({
     const qParam = searchParams.get("q")?.trim();
     if (qParam) {
       setShowAll(false);
+      setShowNew(false);
       setSelectedSido("");
       setSelectedSigungu("");
       setSearch(qParam);
@@ -368,6 +371,7 @@ export default function StoreLocator({
   // 검색어 입력 시 지도도 결과 위치로 이동 — 결과가 1개면 그 매장으로, 여러 개면 평균 위치로
   const handleSearchChange = (value: string) => {
     setSearch(value);
+    if (value.trim()) setShowNew(false);
     const q = value.trim();
     if (!q) return;
     const matches = baseList.filter((s) => s.name.includes(q) || s.address.includes(q));
@@ -393,8 +397,16 @@ export default function StoreLocator({
     });
   };
 
+  // 신규 오픈 매장 — 등록 후 2개월 이내, 최신 등록순. 없으면 버튼 자체를 숨긴다.
+  const newStores = baseList
+    .filter((s) => isNewStore(s))
+    .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+  const showNewList = showNew && newStores.length > 0;
+
   const displayList = applyRegionFilter(
-    isSearching
+    showNewList && !isSearching
+      ? newStores
+      : isSearching
       ? baseList.filter((s) => s.name.includes(search.trim()) || s.address.includes(search.trim()))
       : selectedSido
       // 지역을 선택하면 "가장 가까운 5개"로 좁혀진 목록이 아니라 전체 목록에서 필터링해야
@@ -435,21 +447,44 @@ export default function StoreLocator({
     setSelectedSido("");
     setSelectedSigungu("");
     setShowAll(false);
+    setShowNew(false);
     setExpanded(null);
     setSelectedStore(null);
     if (userCoords) setMapCenter({ lat: userCoords.lat, lng: userCoords.lng, level: 7 });
     else setMapCenter({ lat: 37.3205, lng: 127.0423, level: 9 });
   };
 
+  // 신규 오픈 매장 보기 — 신규 매장만 리스트에 노출하고 지도를 해당 위치로 이동
+  const showNewStores = () => {
+    if (newStores.length === 0) return;
+    setShowNew(true);
+    setShowAll(false);
+    setSearch("");
+    setSelectedSido("");
+    setSelectedSigungu("");
+    setExpanded(null);
+    setSelectedStore(null);
+    const lats = newStores.map((s) => s.lat);
+    const lngs = newStores.map((s) => s.lng);
+    const spread = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lngs) - Math.min(...lngs));
+    setMapCenter({
+      lat: (Math.max(...lats) + Math.min(...lats)) / 2,
+      lng: (Math.max(...lngs) + Math.min(...lngs)) / 2,
+      level: newStores.length === 1 ? 5 : spread > 1.5 ? 12 : spread > 0.3 ? 9 : 7,
+    });
+    setTimeout(() => listRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  };
+
   // 전체 매장 보기 — 지역/검색 필터 해제 후 전국 매장을 지도에 축소 노출
   const showAllStores = () => {
+    setShowNew(false);
     setShowAll(true);
     setSearch("");
     setSelectedSido("");
     setSelectedSigungu("");
     setExpanded(null);
     setSelectedStore(null);
-    setMapCenter({ lat: 36.4, lng: 127.8, level: 13 });
+    setMapCenter({ lat: 36.4, lng: 127.8, level: 12 });
   };
 
   return (
@@ -492,7 +527,7 @@ export default function StoreLocator({
           <div className="flex flex-row gap-2 sm:gap-2.5 md:flex-1 md:max-w-2xl">
             <select
               value={selectedSido}
-              onChange={(e) => { const v = e.target.value; setSelectedSido(v); setSelectedSigungu(""); setShowAll(false); moveToRegion(v, ""); }}
+              onChange={(e) => { const v = e.target.value; setSelectedSido(v); setSelectedSigungu(""); setShowAll(false); setShowNew(false); moveToRegion(v, ""); }}
               className="border border-gray-300 bg-white text-sm text-[#303236] px-3 py-2.5 focus:outline-none focus:border-[#303236] w-28 sm:w-36 flex-shrink-0"
             >
               <option value="">지역 전체</option>
@@ -536,6 +571,17 @@ export default function StoreLocator({
               >
                 전체 매장 보기
               </button>
+              {newStores.length > 0 && (
+                <button
+                  onClick={showNewStores}
+                  className={`col-span-2 md:col-span-1 inline-flex items-center justify-center gap-1.5 border border-[#E5541B] text-sm px-5 py-2.5 transition-colors whitespace-nowrap ${
+                    showNewList ? "bg-[#E5541B] text-white" : "text-[#E5541B] hover:bg-[#E5541B] hover:text-white"
+                  }`}
+                >
+                  신규 오픈 매장
+                  <span className="text-[11px] font-bold">{newStores.length}</span>
+                </button>
+              )}
               <button
                 onClick={handleLocate}
                 disabled={locStatus === "loading"}
@@ -717,6 +763,9 @@ export default function StoreLocator({
                       </span>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
+                          {isNewStore(store) && (
+                            <span className="text-[10px] md:text-[11px] px-1.5 py-0.5 font-bold flex-shrink-0 bg-[#E5541B] text-white">NEW</span>
+                          )}
                           <span className="font-bold text-sm md:text-[15px] text-[#303236]">{store.name}</span>
                           {store.distance >= 0 && (
                             <span className="text-xs md:text-[13px] px-2 py-0.5 font-medium flex-shrink-0 border border-gray-300 text-gray-600">

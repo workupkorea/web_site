@@ -43,9 +43,16 @@ export async function PUT(req: Request, { params }: Params) {
     }
   }
 
+  // 비활성 → 활성 전환 시각을 기록해 '신규(NEW)' 뱃지 기준에 반영한다.
+  // (activated_at 컬럼은 전환 시에만 쓰므로, 일반 수정은 컬럼 유무와 무관하게 동작)
+  const nextActive = body.is_active ?? true;
+  const { data: prev } = await supabase.from("stores").select("is_active").eq("id", id).single();
+  const reactivated = prev?.is_active === false && nextActive === true;
+
   const { data, error } = await supabase
     .from("stores")
     .update({
+      ...(reactivated ? { activated_at: new Date().toISOString() } : {}),
       name: body.name,
       store_code: body.store_code || null,
       region: body.region ?? "",

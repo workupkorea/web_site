@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useEffect, useRef, useState } from "react";
-import { type Store } from "@/data/stores";
+import { type Store, isNewStore } from "@/data/stores";
 
 declare global {
   // 카카오 맵 SDK는 런타임 스크립트로 로드되어 별도 타입 패키지가 없다.
@@ -17,10 +17,22 @@ interface Props {
   onClusterSelect?: (stores: Store[]) => void;
 }
 
-// ── 카드 마커 (레벨 ≤ 8) ───────────────────────────────
-function CardMarker({ name, selected }: { name: string; selected: boolean }) {
+// ── 신규오픈 뱃지 (등록 후 2개월, 기준은 isNewStore) ─────────────────────────
+function NewBadge() {
   return (
-    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", transform: "translateX(-50%)", cursor: "pointer" }}>
+    <span style={{
+      position: "absolute", top: -9, right: -14, zIndex: 1,
+      padding: "1px 5px", borderRadius: 8, fontSize: 9, fontWeight: 800, lineHeight: 1.4,
+      background: "#E5541B", color: "#fff", border: "1px solid #fff", whiteSpace: "nowrap",
+    }}>NEW</span>
+  );
+}
+
+// ── 카드 마커 (레벨 ≤ 8) ───────────────────────────────
+function CardMarker({ name, selected, isNew }: { name: string; selected: boolean; isNew?: boolean }) {
+  return (
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", transform: "translateX(-50%)", cursor: "pointer", position: "relative" }}>
+      {isNew && <NewBadge />}
       <div style={{
         padding: "5px 9px", borderRadius: "4px", fontSize: "11px", fontWeight: 700,
         whiteSpace: "nowrap", lineHeight: 1.4,
@@ -39,9 +51,10 @@ function CardMarker({ name, selected }: { name: string; selected: boolean }) {
 }
 
 // ── W 핀 마커 (레벨 9) ──────────────────────────────────
-function PinMarker({ selected }: { selected: boolean }) {
+function PinMarker({ selected, isNew }: { selected: boolean; isNew?: boolean }) {
   return (
-    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", transform: "translateX(-50%)", cursor: "pointer" }}>
+    <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", transform: "translateX(-50%)", cursor: "pointer", position: "relative" }}>
+      {isNew && <NewBadge />}
       <div style={{
         width: 26, height: 26, borderRadius: "50%",
         background: selected ? "#303236" : "#E5541B",
@@ -180,6 +193,7 @@ export default function KakaoMap({ stores, center, selectedStore, userCoords, on
     const key = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
     if (!key || initializedRef.current) return;
 
+    let resizeObs: ResizeObserver | null = null;
     const init = () => {
       if (!containerRef.current) return;
       window.kakao.maps.load(() => {
@@ -195,6 +209,13 @@ export default function KakaoMap({ stores, center, selectedStore, userCoords, on
         window.kakao.maps.event.addListener(map, "idle", updatePositions);
 
         setTimeout(updatePositions, 300);
+
+        // 컨테이너 크기가 바뀌면(레이아웃 확정·창 크기 변경) 지도 크기를 다시 계산해
+        // 타일이 일부만 그려지거나 마커 위치가 어긋나는 문제를 막는다.
+        if (typeof ResizeObserver !== "undefined") {
+          resizeObs = new ResizeObserver(() => { map.relayout(); scheduleUpdate(); });
+          resizeObs.observe(containerRef.current!);
+        }
       });
     };
 
@@ -208,14 +229,16 @@ export default function KakaoMap({ stores, center, selectedStore, userCoords, on
       script.onload = init;
       document.head.appendChild(script);
     }
+    return () => resizeObs?.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 중심/레벨 업데이트
   useEffect(() => {
     if (!mapRef.current || !window.kakao?.maps) return;
-    mapRef.current.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
-    mapRef.current.setLevel(center.level, { animate: true });
+    const map = mapRef.current;
+    map.setCenter(new window.kakao.maps.LatLng(center.lat, center.lng));
+    map.setLevel(center.level, { animate: true });
   }, [center.lat, center.lng, center.level]);
 
   // userCoords 변경 시 마커 즉시 갱신
@@ -294,7 +317,7 @@ export default function KakaoMap({ stores, center, selectedStore, userCoords, on
                 style={{ position: "absolute", left: x, top: y, pointerEvents: "auto" }}
                 onClick={() => onStoreSelectRef.current?.(store)}
               >
-                <PinMarker selected={selectedStore?.id === store.id} />
+                <PinMarker selected={selectedStore?.id === store.id} isNew={isNewStore(store)} />
               </div>
             ))
         ) : (
@@ -307,7 +330,7 @@ export default function KakaoMap({ stores, center, selectedStore, userCoords, on
                 style={{ position: "absolute", left: x, top: y, pointerEvents: "auto" }}
                 onClick={() => onStoreSelectRef.current?.(store)}
               >
-                <CardMarker name={store.name} selected={selectedStore?.id === store.id} />
+                <CardMarker name={store.name} selected={selectedStore?.id === store.id} isNew={isNewStore(store)} />
               </div>
             ))
         )}
