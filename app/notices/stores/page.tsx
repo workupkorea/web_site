@@ -113,12 +113,16 @@ export default function PassLinksPage() {
     }
   };
 
-  const copyLink = async (token: string | null) => {
+  const copyLink = async (id: number, token: string | null) => {
     if (!token) return;
     const url = `${window.location.origin}/b/${token}`;
     try {
       await navigator.clipboard.writeText(url);
       showMsg("링크가 복사됐습니다.");
+      // 복사 기록을 히스토리에 남김 (실패해도 복사 동작엔 영향 없음)
+      fetch(`/api/admin/stores/${id}/pass-link/history`, { method: "POST" })
+        .then(() => { if (linkModalStoreId === id) loadHistory(id); })
+        .catch(() => {});
     } catch {
       showMsg(url);
     }
@@ -216,7 +220,7 @@ export default function PassLinksPage() {
                       {s.pass_link_token ? (
                         <div className="flex items-center gap-1.5">
                           <button
-                            onClick={() => copyLink(s.pass_link_token)}
+                            onClick={() => copyLink(s.id, s.pass_link_token)}
                             className="px-2.5 py-1 text-[12px] font-semibold text-[#3A6DF0] border border-[#3A6DF0]/30 rounded-lg hover:bg-blue-50"
                           >
                             링크 복사
@@ -324,7 +328,7 @@ export default function PassLinksPage() {
                       {`${typeof window !== "undefined" ? window.location.origin : ""}/b/${linkModalStore.pass_link_token}`}
                     </p>
                     <button
-                      onClick={() => copyLink(linkModalStore.pass_link_token)}
+                      onClick={() => copyLink(linkModalStore.id, linkModalStore.pass_link_token)}
                       className="flex-shrink-0 px-2.5 py-1 text-[12px] font-semibold text-[#3A6DF0] border border-[#3A6DF0]/30 rounded-lg hover:bg-blue-50"
                     >
                       복사
