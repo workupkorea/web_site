@@ -108,6 +108,12 @@ export default function NoticeViewToggle({
           ))}
         </div>
       )}
+
+      {items.length > 0 && (
+        <p className="mt-4 text-center text-[11.5px] text-gray-400">
+          상품 사진을 누르면 크게 볼 수 있어요.
+        </p>
+      )}
     </div>
   );
 }
