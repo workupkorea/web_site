@@ -205,9 +205,14 @@ export async function fetchWjumunRows(sb: SupabaseClient): Promise<WjumunRow[]> 
 }
 
 // ── 비교 ─────────────────────────────────────────────
+// DB(jsonb)에 저장했다 읽으면 객체 키 순서가 바뀌므로, JSON.stringify 대신 고정된 필드 순서로 값만 뽑아 해시한다.
+// (키 순서에 의존하면 저장된 스냅샷과 새로 가져온 데이터가 같아도 해시가 달라져 "데이터가 바뀌었습니다"가 뜬다.)
+const HASH_FIELDS: (keyof WjumunRow)[] = ["code", "name", "manager", "contact", "shipNotice", "email", "address", "openedAt"];
 function hashRows(rows: WjumunRow[]) {
-  const sorted = [...rows].sort((a, b) => a.code.localeCompare(b.code));
-  return createHash("sha256").update(JSON.stringify(sorted)).digest("hex");
+  const canonical = [...rows]
+    .sort((a, b) => a.code.localeCompare(b.code))
+    .map((r) => HASH_FIELDS.map((f) => r[f] ?? ""));
+  return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }
 
 const pickChanges = (before: Partial<WjumunRow>, after: Partial<WjumunRow>, fields = COMPARE_FIELDS): FieldChange[] =>
