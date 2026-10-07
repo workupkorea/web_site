@@ -8,6 +8,7 @@ type StoreRow = {
   store_code: string | null;
   manager_name: string | null;
   pass_link_token: string | null;
+  is_active?: boolean;
 };
 
 type HistoryRow = { id: number; summary: string; actor_name: string; created_at: string };
@@ -40,6 +41,7 @@ export default function PassLinksPage() {
   const linkModalStore = stores.find((s) => s.id === linkModalStoreId) ?? null;
 
   const filteredStores = stores
+    .filter((s) => s.is_active !== false) // 비활성 지점은 목록에서 제외
     .filter((s) => {
       const q = search.trim().toLowerCase();
       if (!q) return true;
