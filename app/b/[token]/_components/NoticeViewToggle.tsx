@@ -52,6 +52,11 @@ export default function NoticeViewToggle({
 
   return (
     <div>
+      {items.length > 0 && (
+        <p className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-center text-[12.5px] font-semibold text-amber-800">
+          상품 사진을 누르면 크게 볼 수 있어요.
+        </p>
+      )}
       <div className="flex items-center justify-between gap-2 mb-3">
         <PushSubscribeButton token={token} />
         <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg flex-shrink-0">
@@ -107,12 +112,6 @@ export default function NoticeViewToggle({
             <NoticeCard key={item.noticeId} item={item} token={token} closeTime={closeTime} />
           ))}
         </div>
-      )}
-
-      {items.length > 0 && (
-        <p className="mt-4 text-center text-[11.5px] text-gray-400">
-          상품 사진을 누르면 크게 볼 수 있어요.
-        </p>
       )}
     </div>
   );
