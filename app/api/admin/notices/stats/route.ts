@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
+import { getBulkShipStoreIds } from "@/lib/wjumun-sync";
 
 type StoreAgg = { name: string; pass: number; outbound: number };
 type StoreStat = { store_id: number; store_name: string; total: number; outbound: number; pass: number };
@@ -47,12 +48,14 @@ export async function GET(req: Request) {
     dailyProducts.set(n.notice_date, list);
   }
 
-  // 전체 활성 지점 목록 — 미응답 지점도 통계에 포함하기 위해 필요
-  const { data: allStores } = await sb
-    .from("stores")
-    .select("id, name")
-    .eq("is_active", true);
-  const storeNameById = new Map<number, string>((allStores ?? []).map((s) => [s.id, s.name]));
+  // 전체 활성 지점 목록 — 미응답 지점도 통계에 포함하기 위해 필요. 일괄출고금지점은 통계에서 완전히 제외.
+  const [{ data: allStores }, bulkIds] = await Promise.all([
+    sb.from("stores").select("id, name").eq("is_active", true),
+    getBulkShipStoreIds(sb),
+  ]);
+  const storeNameById = new Map<number, string>(
+    (allStores ?? []).filter((s) => !bulkIds.has(s.id)).map((s) => [s.id, s.name]),
+  );
 
   // 조회된 notices 범위의 ID만 필터링
   const noticeIds = (notices ?? []).map((n) => n.id);

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
+import { getBulkShipStoreIds } from "@/lib/wjumun-sync";
 
 // GET /api/admin/stores/pass-matrix
 // ?date=YYYY-MM-DD          → 특정 날짜
@@ -18,13 +19,18 @@ export async function GET(req: Request) {
 
   const sb = createAdminClient();
 
-  const { data: stores, error: storesErr } = await sb
-    .from("stores")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
+  const [{ data: allStores, error: storesErr }, bulkIds] = await Promise.all([
+    sb
+      .from("stores")
+      .select("id, name")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true }),
+    getBulkShipStoreIds(sb),
+  ]);
   if (storesErr) return NextResponse.json({ error: storesErr.message }, { status: 500 });
+  // 일괄출고금지점은 패스 현황 매트릭스에서 제외
+  const stores = (allStores ?? []).filter((s) => !bulkIds.has(s.id));
 
   let noticeQuery = sb
     .from("notices")

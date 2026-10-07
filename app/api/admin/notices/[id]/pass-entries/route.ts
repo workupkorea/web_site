@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
+import { getBulkShipStoreIds } from "@/lib/wjumun-sync";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -10,13 +11,18 @@ export async function GET(_req: Request, { params }: Params) {
   const { id } = await params;
   const sb = createAdminClient();
 
-  const { data: stores, error: storesErr } = await sb
-    .from("stores")
-    .select("id, name, store_code")
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true })
-    .order("id", { ascending: true });
+  const [{ data: allStores, error: storesErr }, bulkIds] = await Promise.all([
+    sb
+      .from("stores")
+      .select("id, name, store_code")
+      .eq("is_active", true)
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true }),
+    getBulkShipStoreIds(sb),
+  ]);
   if (storesErr) return NextResponse.json({ error: storesErr.message }, { status: 500 });
+  // 일괄출고금지점은 공지별 출고/패스 현황에서 제외
+  const stores = (allStores ?? []).filter((s) => !bulkIds.has(s.id));
 
   const { data: entries, error: entriesErr } = await sb
     .from("pass_entries")

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
+import { isBulkShip } from "@/lib/bulk-ship";
 
 // 코드·매장명·주소는 항상 스토어관리(stores 테이블)를 그대로 보여준다 — 이 화면에서 수정 불가,
 // 매장 추가/삭제도 스토어관리에서만. 담당자·연락처·출고안내번호·이메일·오픈일은 stores에 없는
@@ -74,6 +75,8 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState<Supplementary | null>(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  // 일괄출고금지은 공지 & 현황·통계에서 빠지므로, 여기서 따로 모아 볼 수 있게 탭으로 나눈다.
+  const [tab, setTab] = useState<"all" | "bulk" | "normal">("all");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const showInfo = (text: string) => {
@@ -183,6 +186,14 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const bulkCount = merged.filter((r) => isBulkShip(r.openedAt)).length;
+  const visible = merged.filter((r) => (tab === "all" ? true : tab === "bulk" ? isBulkShip(r.openedAt) : !isBulkShip(r.openedAt)));
+  const TABS = [
+    { key: "all", label: "전체", count: merged.length },
+    { key: "normal", label: "출고 대상", count: merged.length - bulkCount },
+    { key: "bulk", label: "일괄출고금지", count: bulkCount },
+  ] as const;
+
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
       <div
@@ -235,11 +246,29 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
+        <div className="flex items-center gap-1.5 px-5 pt-3 flex-shrink-0">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-1.5 text-[12px] font-semibold rounded-full border ${
+                tab === t.key ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-200 hover:border-gray-400"
+              }`}
+            >
+              {t.label} {t.count}
+            </button>
+          ))}
+          <span className="ml-2 text-[11px] text-gray-400">일괄출고금지은 공지 &amp; 현황·통계에서 제외됩니다.</span>
+        </div>
+
         <div className="flex-1 overflow-auto p-5">
           {loading ? (
             <div className="py-16 text-center text-sm text-gray-400">불러오는 중...</div>
           ) : merged.length === 0 ? (
             <div className="py-16 text-center text-sm text-gray-400">스토어관리에 등록된 매장이 없습니다.</div>
+          ) : visible.length === 0 ? (
+            <div className="py-16 text-center text-sm text-gray-400">해당하는 지점이 없습니다.</div>
           ) : (
             <table className="w-full text-[12px] border border-gray-100 rounded-lg overflow-hidden">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -258,7 +287,7 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {merged.map((r) => {
+                {visible.map((r) => {
                   const isEditing = editStoreId === r.storeId;
                   return (
                     <tr key={r.storeId} className={isEditing ? "bg-amber-50/60" : "hover:bg-gray-50"}>
@@ -293,7 +322,12 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
                         )}
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap font-mono text-gray-500">{r.code || "-"}</td>
-                      <td className="px-2 py-1.5 whitespace-nowrap text-gray-900 font-semibold">{r.name}</td>
+                      <td className="px-2 py-1.5 whitespace-nowrap text-gray-900 font-semibold">
+                        {r.name}
+                        {isBulkShip(r.openedAt) && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-semibold align-middle">일괄출고금지</span>
+                        )}
+                      </td>
                       {SUPPLEMENTARY_COLUMNS.map((c) => (
                         <td key={c.key} className="px-2 py-1.5 whitespace-nowrap">
                           {isEditing ? (

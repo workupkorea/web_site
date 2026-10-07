@@ -27,6 +27,8 @@ type NoticeRow = {
   temp_tagline: string | null;
   badge: string | null;
   temp_image_portrait?: boolean;
+  pass_count?: number;
+  store_total?: number;
   products: { id: string; name: string; image_url?: string | null } | null;
 };
 
@@ -587,6 +589,14 @@ export default function NoticesPreviewPage() {
                                     setNotices((prev) => prev.map((x) => (x.id === n.id ? { ...x, status, ...data } : x)))
                                   }
                                 />
+                                {n.store_total ? (
+                                  <span
+                                    className="text-[12px] font-semibold text-gray-500 whitespace-nowrap"
+                                    title={`${n.store_total}개 지점 중 ${n.pass_count ?? 0}개 지점 패스`}
+                                  >
+                                    패스율 {Math.round(((n.pass_count ?? 0) / n.store_total) * 100)}%
+                                  </span>
+                                ) : null}
                                 {n.status === "진행중" && isPastClose && (
                                   <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap" title="마감 시각이 지났습니다. 자동 마감 처리를 기다리는 중입니다.">
                                     마감 시각 경과

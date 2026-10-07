@@ -87,7 +87,7 @@ function StoreFilterDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[180px] py-1.5 max-h-72 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[340px] py-1.5 max-h-80 overflow-y-auto">
           <button
             onClick={() => onChange(new Set())}
             className={`w-full text-left px-4 py-2 text-sm transition-colors ${selected.size === 0 ? "font-semibold text-[#303236]" : "text-gray-600 hover:bg-gray-50"}`}
@@ -521,6 +521,7 @@ export default function NoticeStatsPage() {
   });
   const [filterTo, setFilterTo] = useState(todayKst);
   const [storeFilter, setStoreFilter] = useState<Set<number>>(new Set());
+  const [storeQuery, setStoreQuery] = useState("");
 
   useEffect(() => {
     fetch("/api/admin/notices/stats")
@@ -556,6 +557,17 @@ export default function NoticeStatsPage() {
 
   // 필터 적용된 byStore
   const filteredByStore = useMemo(() => aggregateByStore(filteredDaily), [filteredDaily]);
+
+  // 드롭다운 선택 + 검색어를 합친 실제 지점 필터. 표들은 "빈 Set = 전체"로 해석하므로,
+  // 검색 결과가 하나도 없을 땐 존재하지 않는 ID(-1)를 넣어 전체가 아니라 빈 결과가 나오게 한다.
+  const effectiveStoreFilter = useMemo(() => {
+    const q = storeQuery.trim().toLowerCase();
+    if (!q) return storeFilter;
+    const ids = byStore
+      .filter((s) => s.store_name.toLowerCase().includes(q) && (storeFilter.size === 0 || storeFilter.has(s.store_id)))
+      .map((s) => s.store_id);
+    return new Set(ids.length > 0 ? ids : [-1]);
+  }, [storeFilter, storeQuery, byStore]);
 
   const markedDates = useMemo(
     () => Object.fromEntries(filteredDaily.map((d) => [d.notice_date, d.count])),
@@ -647,6 +659,29 @@ export default function NoticeStatsPage() {
           />
         )}
 
+        {/* 지점명 검색 — 입력하는 즉시 아래 표들이 걸러진다 */}
+        {byStore.length > 0 && (
+          <div className="relative">
+            <input
+              value={storeQuery}
+              onChange={(e) => setStoreQuery(e.target.value)}
+              placeholder="지점명 검색"
+              aria-label="지점명 검색"
+              className="w-48 pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#303236]"
+            />
+            {storeQuery && (
+              <button
+                type="button"
+                onClick={() => setStoreQuery("")}
+                aria-label="검색어 지우기"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 text-gray-400 hover:text-gray-700"
+              >
+                ×
+              </button>
+            )}
+          </div>
+        )}
+
         <span className="ml-auto text-xs text-gray-400">{filterLabel}</span>
       </div>
 
@@ -722,7 +757,7 @@ export default function NoticeStatsPage() {
               <StoreStatsTable
                 rows={selectedDay ? selectedDay.byStore : filteredByStore}
                 emptyText={selectedDay ? "이 날짜에 접수된 출고/패스 현황이 없습니다." : "이 기간에 접수된 출고/패스 현황이 없습니다."}
-                storeFilter={storeFilter}
+                storeFilter={effectiveStoreFilter}
                 showAllDetail={showAllDetail}
                 matrixParams={matrixParams}
               />
@@ -735,7 +770,7 @@ export default function NoticeStatsPage() {
                   : `상품별 출고/패스 현황 (${filterLabel})`}
                 <span className="ml-2 font-normal text-gray-400">상품을 누르면 패스한 지점이 보입니다</span>
               </h2>
-              <ProductStatsTable matrixParams={matrixParams} storeFilter={storeFilter} />
+              <ProductStatsTable matrixParams={matrixParams} storeFilter={effectiveStoreFilter} />
             </>
           )}
         </div>
@@ -775,7 +810,7 @@ export default function NoticeStatsPage() {
             </button>
             {showDetail && (
               <div className="border-t border-gray-100">
-                <DetailMatrix date={selectedDay.notice_date} storeFilter={storeFilter} />
+                <DetailMatrix date={selectedDay.notice_date} storeFilter={effectiveStoreFilter} />
               </div>
             )}
           </div>

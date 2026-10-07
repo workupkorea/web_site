@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
+import { getBulkShipStoreIds } from "@/lib/wjumun-sync";
 
 export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -13,7 +14,24 @@ export async function GET() {
   let { data, error } = await run(`${base}, temp_image_portrait`);
   if (error) ({ data, error } = await run(base));
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data ?? []);
+
+  // 공지별 패스율 계산용 — 패스 건수와 활성 지점 수(미응답 지점은 출고로 친다).
+  const rows = (data ?? []) as unknown as { id: string }[];
+  const ids = rows.map((r) => r.id);
+  // 일괄출고금지점은 패스율 분모·분자 모두에서 제외한다.
+  const [{ data: activeStores }, { data: passRows }, bulkIds] = await Promise.all([
+    sb.from("stores").select("id").eq("is_active", true),
+    ids.length ? sb.from("pass_entries").select("notice_id, store_id").eq("status", "패스").in("notice_id", ids) : Promise.resolve({ data: [] as { notice_id: string; store_id: number }[] }),
+    getBulkShipStoreIds(sb),
+  ]);
+  const storeTotal = (activeStores ?? []).filter((s) => !bulkIds.has(s.id)).length;
+  const passCount = new Map<string, number>();
+  for (const p of passRows ?? []) {
+    if (bulkIds.has(p.store_id)) continue;
+    passCount.set(p.notice_id, (passCount.get(p.notice_id) ?? 0) + 1);
+  }
+
+  return NextResponse.json(rows.map((r) => ({ ...r, pass_count: passCount.get(r.id) ?? 0, store_total: storeTotal })));
 }
 
 export async function POST(req: Request) {

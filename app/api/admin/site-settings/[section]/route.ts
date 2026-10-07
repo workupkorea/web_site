@@ -14,11 +14,18 @@ const SENSITIVE_SECTIONS = new Set(["notifications", "admin_favorites", "store_s
 // 감사로그를 남기지 않는 섹션(관리자 UI 개인설정 등 — 로그 노이즈 방지).
 const NO_AUDIT_SECTIONS = new Set(["admin_favorites"]);
 
+// wjumun 연동 전용 섹션 — 암호화된 계정·가맹점 스냅샷(개인정보)이 들어있어
+// 이 범용 API로는 읽기/쓰기 모두 막고, /api/admin/wjumun/* 전용 라우트로만 다룬다.
+const WJUMUN_PRIVATE_SECTIONS = new Set(["wjumun_credentials", "wjumun_snapshot"]);
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ section: string }> }
 ) {
   const { section } = await params;
+  if (WJUMUN_PRIVATE_SECTIONS.has(section)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   if (SENSITIVE_SECTIONS.has(section) && !(await isAdmin())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -38,6 +45,9 @@ export async function PUT(
 ) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { section } = await params;
+  if (WJUMUN_PRIVATE_SECTIONS.has(section)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
   const config = await req.json();
   const supabase = createAdminClient();
   const { error } = await supabase

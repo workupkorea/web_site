@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import StoreStatusModal from "../_components/StoreStatusModal";
+import WjumunSyncPanel from "../_components/WjumunSyncPanel";
+import { isBulkShip } from "@/lib/bulk-ship";
 
 type StoreRow = {
   id: number;
@@ -31,7 +33,13 @@ export default function PassLinksPage() {
   const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [previewStoreId, setPreviewStoreId] = useState<number | null>(null);
   const [showStatus, setShowStatus] = useState(false);
+  const [showSync, setShowSync] = useState(false);
   const [search, setSearch] = useState("");
+  // 일괄출고금지 여부는 지점 현황(store_status)의 오픈일 값이 기준 — 계속 바뀌므로 목록은 지우지 않고 표시·필터만 한다.
+  const [bulkIds, setBulkIds] = useState<Set<number>>(new Set());
+  const [bulkOnly, setBulkOnly] = useState(false);
+  // 마지막 wjumun 동기화(승인·반영 완료 시점) — 누가, 언제
+  const [lastSync, setLastSync] = useState<{ syncedAt: string | null; syncedBy: string | null } | null>(null);
   // 링크 히스토리 모달
   const [linkModalStoreId, setLinkModalStoreId] = useState<number | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -42,6 +50,7 @@ export default function PassLinksPage() {
 
   const filteredStores = stores
     .filter((s) => s.is_active !== false) // 비활성 지점은 목록에서 제외
+    .filter((s) => !bulkOnly || bulkIds.has(s.id))
     .filter((s) => {
       const q = search.trim().toLowerCase();
       if (!q) return true;
@@ -66,7 +75,21 @@ export default function PassLinksPage() {
       .finally(() => setLoading(false));
   };
 
+  const loadBulk = () => {
+    fetch("/api/admin/site-settings/store_status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((config: { rows?: { storeId: number; openedAt: string }[] } | null) => {
+        setBulkIds(new Set((config?.rows ?? []).filter((r) => isBulkShip(r.openedAt)).map((r) => r.storeId)));
+      });
+  };
+
   useEffect(load, []);
+  useEffect(loadBulk, []);
+  useEffect(() => {
+    fetch("/api/admin/wjumun/sync")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setLastSync);
+  }, []);
 
   const showMsg = (text: string) => {
     setMsg(text);
@@ -159,23 +182,51 @@ export default function PassLinksPage() {
             <h1 className="text-xl font-bold text-gray-900">지점 링크 관리</h1>
             <p className="text-sm text-gray-500 mt-1">링크 토큰이 지점코드 역할을 합니다. 유출이 의심되면 즉시 재발급하세요.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowStatus(true)}
-            className="flex-shrink-0 px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-600 hover:border-[#303236] hover:text-[#303236]"
-          >
-            지점 현황
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {lastSync?.syncedAt && (
+              <span className="text-[12px] text-gray-500 text-right leading-tight whitespace-nowrap">
+                마지막 동기화{lastSync.syncedBy ? ` ${lastSync.syncedBy}` : ""}
+                <br />
+                {new Date(lastSync.syncedAt).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowSync(true)}
+              className="px-4 py-2 text-sm font-semibold bg-[#303236] text-white rounded-lg hover:bg-[#1f2124]"
+            >
+              wjumun 동기화
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowStatus(true)}
+              className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-600 hover:border-[#303236] hover:text-[#303236]"
+            >
+              지점 현황
+            </button>
+          </div>
         </div>
 
         {msg && <div className="px-4 py-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg">{msg}</div>}
 
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="지점명 또는 지점코드 검색"
-          className="w-full max-w-sm border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#303236]"
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="지점명 또는 지점코드 검색"
+            className="w-full max-w-sm border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#303236]"
+          />
+          <button
+            type="button"
+            onClick={() => setBulkOnly((v) => !v)}
+            aria-pressed={bulkOnly}
+            className={`px-4 py-2.5 text-sm font-semibold rounded-lg border ${
+              bulkOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
+            }`}
+          >
+            일괄출고금지 {bulkIds.size}
+          </button>
+        </div>
 
         {loading ? (
           <div className="py-20 text-center text-sm text-gray-400">불러오는 중...</div>
@@ -198,7 +249,12 @@ export default function PassLinksPage() {
                     className={previewStore?.id === s.id ? "bg-gray-50" : !s.pass_link_token ? "bg-amber-50/60" : undefined}
                   >
                     <td className="px-5 py-3 text-sm text-gray-500 font-mono">{s.store_code || "-"}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-gray-900">{s.name}</td>
+                    <td className="px-5 py-3 text-sm font-semibold text-gray-900">
+                      {s.name}
+                      {bulkIds.has(s.id) && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold align-middle">일괄출고금지</span>
+                      )}
+                    </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <input
@@ -385,7 +441,25 @@ export default function PassLinksPage() {
         </div>
       )}
 
-      {showStatus && <StoreStatusModal onClose={() => setShowStatus(false)} />}
+      {showStatus && (
+        <StoreStatusModal
+          onClose={() => {
+            setShowStatus(false);
+            loadBulk(); // 지점 현황에서 오픈일을 직접 고쳤을 수 있으니 표시를 갱신
+          }}
+        />
+      )}
+      {showSync && (
+        <WjumunSyncPanel
+          onClose={() => setShowSync(false)}
+          onApplied={(message, last) => {
+            setShowSync(false);
+            loadBulk();
+            setLastSync(last);
+            showMsg(message);
+          }}
+        />
+      )}
     </>
   );
 }
