@@ -614,7 +614,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing }: {
 // ─── 한 줄 맞춤 제품명: 브랜드 배지 + 제품명이 한 줄에 들어가도록 글자 크기를 자동 축소 ─────
 const FIT_MAX_PX = 16;
 const FIT_MIN_PX = 9;
-function FitName({ brand, name, reorder }: { brand: string; name: string; reorder?: boolean }) {
+function FitName({ name, reorder }: { name: string; reorder?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(FIT_MAX_PX);
 
@@ -636,14 +636,13 @@ function FitName({ brand, name, reorder }: { brand: string; name: string; reorde
     const ro = new ResizeObserver(fit);
     ro.observe(row);
     return () => ro.disconnect();
-  }, [brand, name]);
+  }, [name]);
 
   return (
-    <div ref={rowRef} className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden px-1.5 h-9">
-      <span className={`shrink-0 text-[14px] font-bold px-1 py-0.5 rounded-sm leading-none ${brandTextCls(brand)} ${brandBg(brand)}`}>{brand}</span>
+    <div ref={rowRef} className={`relative flex items-center justify-center gap-1.5 whitespace-nowrap overflow-hidden h-9 ${reorder ? "px-8" : "px-1.5"}`}>
       <span data-fit-text className="font-semibold text-[#1a1a1a]" style={{ fontSize: size, lineHeight: 1.2 }}>{name}</span>
       {reorder && (
-        <span className="ml-auto shrink-0 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재입고 상품">R</span>
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재입고 상품">R</span>
       )}
     </div>
   );
@@ -1020,7 +1019,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
         </div>
       )}
 
-      {months.map(({ year, month }, mi) => {
+      {months.map(({ year, month }) => {
         const monthKey = `${year}-${month}`;
         const isCollapsed = collapsed.has(monthKey);
         const past = isPast(year, month);
@@ -1073,13 +1072,6 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
               <span className={`text-[14px] font-medium ${past ? "text-gray-400" : "text-gray-500"} group-hover:text-gray-700`}>
                 {isCollapsed ? "▼ 펼치기" : "▲ 접기"}
               </span>
-              {/* 클릭 안내: 첫 월 헤더와 같은 줄 오른쪽 끝, 항상 한 줄로 전부 보이게 */}
-              {mi === 0 && (
-                <span className="ml-auto pr-1 shrink-0 whitespace-nowrap text-[14px] font-bold text-orange-600 flex items-center gap-1.5 animate-pulse motion-reduce:animate-none">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  제품을 클릭하면 크게 볼 수 있습니다
-                </span>
-              )}
             </button>
 
             {isCollapsed ? (
@@ -1166,26 +1158,27 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                     const isThisWeek = thisWeekRange ? isInWeekRange(p.arrivalDate, thisWeekRange) : false;
                                     return (
                                       <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
-                                        className="block w-full text-left transition-opacity hover:opacity-75 pb-2 border-b border-gray-100">
+                                        className="block w-full text-left transition-opacity hover:opacity-75 pb-2 border-b-2 border-gray-400">
                                         {/* 날짜/상태 줄: 이번 주 입고 품목은 주황 음영 */}
                                         <div className={`flex items-center justify-between px-1.5 py-1 ${isThisWeek ? "bg-orange-200" : ""}`}>
                                           <span className="text-[14px] font-bold leading-none text-gray-700">{month + 1}/{day}({dayKoLabel})</span>
-                                          <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${meta.cls}`}>{meta.label}</span>
+                                          <span className="flex items-center gap-1.5 shrink-0">
+                                            <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${brandTextCls(p.brand)} ${brandBg(p.brand)}`}>{p.brand}</span>
+                                            <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${meta.cls}`}>{meta.label}</span>
+                                          </span>
                                         </div>
-                                        <FitName brand={p.brand} name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} reorder={p.newArrivalType === "재진행"} />
+                                        <FitName name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} reorder={p.newArrivalType === "재진행"} />
                                         <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
                                           </div>
                                         </div>
                                         <div className="px-1.5">
-                                          <div className="flex items-baseline justify-between gap-2 mt-1">
-                                            <p className="text-[14px] text-gray-400 font-mono leading-none truncate">{p.productCode}</p>
-                                            {p.price > 0 && (
-                                              <p className="text-[14px] text-gray-500 leading-none whitespace-nowrap shrink-0">
-                                                판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span>
-                                              </p>
-                                            )}
+                                          <div className="mt-1 flex flex-col gap-1">
+                                            <p className="h-[14px] text-[14px] text-gray-400 font-mono leading-none truncate text-center">{p.productCode}</p>
+                                            <p className="h-[14px] text-[14px] text-gray-500 leading-none whitespace-nowrap text-center">
+                                              {p.price > 0 && (<>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></>)}
+                                            </p>
                                           </div>
                                         </div>
                                       </button>
@@ -1959,6 +1952,14 @@ export default function ArrivalTimeline() {
                 <button onClick={resetFilters} className="text-[13px] text-gray-400 hover:text-[#1a1a1a] underline underline-offset-2 whitespace-nowrap">초기화</button>
               )}
             </div>
+
+            {/* 클릭 안내 (PC·캘린더): 이미지/타임라인/캘린더 버튼과 같은 줄, 좌측 */}
+            {viewMode === "calendar" && (
+              <div className="hidden sm:flex items-center gap-1.5 shrink-0 whitespace-nowrap text-[14px] font-bold text-orange-600 animate-pulse motion-reduce:animate-none">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                제품을 클릭하면 크게 볼 수 있습니다
+              </div>
+            )}
 
             <div className="ml-auto flex items-center gap-1.5 shrink-0">
               {/* 그룹 기준 (sm+, 캘린더·타임라인·간트 제외) */}
