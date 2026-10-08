@@ -27,39 +27,39 @@ function fmtDate(iso: string) {
   };
 }
 const BRAND_BG: Record<string, string> = {
-  "켄타":        "bg-[#1a56db]",   // 로열 블루       hue 225
-  "디트로잇":    "bg-[#cc0000]",   // 선명 레드       hue 0
-  "GRBD":        "bg-[#009b3a]",   // 선명 그린       hue 132
-  "K-WORKERS":   "bg-[#5e17eb]",   // 바이올렛        hue 264
-  "덴버":        "bg-[#cc0077]",   // 마젠타/핫핑크   hue 330
-  "디월트":      "bg-[#ffd700]",   // 선명 옐로       hue 51
-  "매드독캠프":  "bg-[#007660]",   // 다크 틸         hue 165
-  "모디뜨":      "bg-[#e74694]",   // 핑크            hue 335
-  "몬스톤":      "bg-[#60a5fa]",   // 라이트 블루      hue 213
-  "볼컴":        "bg-[#ff7700]",   // 선명 오렌지     hue 29
-  "블랙스미스":  "bg-[#884400]",   // 브라운          hue 30 (dark)
-  "블랙아머":    "bg-[#1f1f3a]",   // 다크 네이비     near black
-  "유니보스":    "bg-[#00b4cc]",   // 아쿠아/시안     hue 186
-  "이글서플라이":"bg-[#e6a817]",   // 앰버/골드       hue 43
-  "프레파라트":  "bg-[#7cb900]",   // 라임 그린       hue 81
+  "켄타":        "bg-[#4769b3]",   // 로열 블루       hue 225
+  "디트로잇":    "bg-[#a73030]",   // 선명 레드       hue 0
+  "GRBD":        "bg-[#27874b]",   // 선명 그린       hue 132
+  "K-WORKERS":   "bg-[#7049bc]",   // 바이올렛        hue 264
+  "덴버":        "bg-[#a73076]",   // 마젠타/핫핑크   hue 330
+  "디월트":      "bg-[#c6b13c]",   // 선명 옐로       hue 51
+  "매드독캠프":  "bg-[#206e60]",   // 다크 틸         hue 165
+  "모디뜨":      "bg-[#c36a95]",   // 핑크            hue 335
+  "몬스톤":      "bg-[#83a9d7]",   // 라이트 블루      hue 213
+  "볼컴":        "bg-[#c67d3c]",   // 선명 오렌지     hue 29
+  "블랙스미스":  "bg-[#7a4f23]",   // 브라운          hue 30 (dark)
+  "블랙아머":    "bg-[#313145]",   // 다크 네이비     near black
+  "유니보스":    "bg-[#3099a7]",   // 아쿠아/시안     hue 186
+  "이글서플라이":"bg-[#b99748]",   // 앰버/골드       hue 43
+  "프레파라트":  "bg-[#769a2d]",   // 라임 그린       hue 81
 };
 
 const BRAND_BG_HEX: Record<string, string> = {
-  "켄타":        "#1a56db",
-  "디트로잇":    "#cc0000",
-  "GRBD":        "#009b3a",
-  "K-WORKERS":   "#5e17eb",
-  "덴버":        "#cc0077",
-  "디월트":      "#ffd700",
-  "매드독캠프":  "#007660",
-  "모디뜨":      "#e74694",
-  "몬스톤":      "#60a5fa",
-  "볼컴":        "#ff7700",
-  "블랙스미스":  "#884400",
-  "블랙아머":    "#1f1f3a",
-  "유니보스":    "#00b4cc",
-  "이글서플라이":"#e6a817",
-  "프레파라트":  "#7cb900",
+  "켄타":        "#4769b3",
+  "디트로잇":    "#a73030",
+  "GRBD":        "#27874b",
+  "K-WORKERS":   "#7049bc",
+  "덴버":        "#a73076",
+  "디월트":      "#c6b13c",
+  "매드독캠프":  "#206e60",
+  "모디뜨":      "#c36a95",
+  "몬스톤":      "#83a9d7",
+  "볼컴":        "#c67d3c",
+  "블랙스미스":  "#7a4f23",
+  "블랙아머":    "#313145",
+  "유니보스":    "#3099a7",
+  "이글서플라이":"#b99748",
+  "프레파라트":  "#769a2d",
 };
 
 function brandBg(brand: string) {
@@ -1158,7 +1158,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                     const isThisWeek = thisWeekRange ? isInWeekRange(p.arrivalDate, thisWeekRange) : false;
                                     return (
                                       <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
-                                        className="block w-full text-left transition-opacity hover:opacity-75 pb-2 border-b-2 border-gray-400">
+                                        className="block w-full text-left transition-opacity hover:opacity-75 pb-2 border-b-2 border-gray-400 last:border-b-0 last:pb-0">
                                         {/* 날짜/상태 줄: 이번 주 입고 품목은 주황 음영 */}
                                         <div className={`flex items-center justify-between px-1.5 py-1 ${isThisWeek ? "bg-orange-200" : ""}`}>
                                           <span className="text-[14px] font-bold leading-none text-gray-700">{month + 1}/{day}({dayKoLabel})</span>
@@ -1953,6 +1953,8 @@ export default function ArrivalTimeline() {
               )}
             </div>
 
+            {/* PC: 항상 2줄 — 여기서 줄바꿈(1줄: 타이틀·검색·필터 / 2줄: 안내·기준시각·보기 버튼) */}
+            <div className="hidden sm:block basis-full h-0" aria-hidden="true" />
             {/* 클릭 안내 (PC·캘린더): 이미지/타임라인/캘린더 버튼과 같은 줄, 좌측 */}
             {viewMode === "calendar" && (
               <div className="hidden sm:flex items-center gap-1.5 shrink-0 whitespace-nowrap text-[14px] font-bold text-orange-600 animate-pulse motion-reduce:animate-none">
