@@ -172,7 +172,7 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   // 2026-09-14: name~stockQty 구간이 실제 헤더보다 1칸씩 밀려 있던 것을 재확인해 수정함
   // (판매가 자리에 지점마진율이, 공급가 자리에 판매가가 들어가는 등의 오류 원인).
   const IDX = {
-    no: 1, productType: 2, newArrivalType: 3, cat: 4, arrivalDate: 7, logisticsDate: 6,
+    no: 1, productType: 2, newArrivalType: 3, cat: 4, arrivalDate: 7,
     brand: 8,            // 브랜드명 (I열). J열(9)은 브랜드코드(예: "KT")라 표시용으로 쓰지 않음
     name: 17, code: 18, colorCode: 19,
     fullCode: 20, colorName: 23, sizeRun: 25, note: 28, marketingUsage: 29,
@@ -204,8 +204,8 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
     const baseCode = (row[IDX.code] ?? "").trim();
     if (!baseCode) continue;
 
-    // 물류·매장 입고일 중 하나라도 "취소"인 품목은 리스트에서 제외
-    if (/취소/.test(row[IDX.arrivalDate] ?? "") || /취소/.test(row[IDX.logisticsDate] ?? "")) continue;
+    // 매장 입고일이 "취소" 또는 "개별"인 품목은 수집하지 않고 제외 (물류 입고일은 보지 않음)
+    if (/취소|개별/.test(row[IDX.arrivalDate] ?? "")) continue;
 
     const [arrDate, status] = parseArrivalDate(row[IDX.arrivalDate] ?? "");
 

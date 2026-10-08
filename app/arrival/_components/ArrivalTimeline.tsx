@@ -147,7 +147,7 @@ function ProductImage({ product, size = "md" }: { product: ArrivalProduct; size?
   }
   return (
     <img src={src} alt={product.productName}
-      className={`w-full ${aspectCls} object-cover bg-white`}
+      className={`w-full ${aspectCls} object-contain bg-white`}
       loading="lazy" decoding="async"
       onError={() => setFailed(true)} />
   );
