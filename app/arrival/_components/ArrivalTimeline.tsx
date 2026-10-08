@@ -614,7 +614,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing }: {
 // ─── 한 줄 맞춤 제품명: 브랜드 배지 + 제품명이 한 줄에 들어가도록 글자 크기를 자동 축소 ─────
 const FIT_MAX_PX = 16;
 const FIT_MIN_PX = 9;
-function FitName({ brand, name }: { brand: string; name: string }) {
+function FitName({ brand, name, reorder }: { brand: string; name: string; reorder?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(FIT_MAX_PX);
 
@@ -622,7 +622,7 @@ function FitName({ brand, name }: { brand: string; name: string }) {
     const row = rowRef.current;
     if (!row) return;
     const fit = () => {
-      const text = row.lastElementChild as HTMLElement | null;
+      const text = row.querySelector<HTMLElement>("[data-fit-text]");
       if (!text) return;
       let px = FIT_MAX_PX;
       text.style.fontSize = `${px}px`;
@@ -641,7 +641,10 @@ function FitName({ brand, name }: { brand: string; name: string }) {
   return (
     <div ref={rowRef} className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden px-1.5 h-9">
       <span className={`shrink-0 text-[14px] font-bold px-1 py-0.5 rounded-sm leading-none ${brandTextCls(brand)} ${brandBg(brand)}`}>{brand}</span>
-      <span className="font-semibold text-[#1a1a1a]" style={{ fontSize: size, lineHeight: 1.2 }}>{name}</span>
+      <span data-fit-text className="font-semibold text-[#1a1a1a]" style={{ fontSize: size, lineHeight: 1.2 }}>{name}</span>
+      {reorder && (
+        <span className="ml-auto shrink-0 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재입고 상품">R</span>
+      )}
     </div>
   );
 }
@@ -938,7 +941,12 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
       if (todayEl) {
         // 날짜가 쓰인 셀의 맨 윗줄(날짜 라인)이 상단 sticky 필터바 바로 아래에 오도록 정확히 스크롤
         const topbarH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--arrival-topbar-h")) || 64;
-        const targetY = todayEl.getBoundingClientRect().top + window.scrollY - topbarH - 8;
+        const todayY = todayEl.getBoundingClientRect().top + window.scrollY - topbarH - 8;
+        // 월 헤더(월·개수·재입고·클릭 안내)가 상단 바에 가려지지 않도록,
+        // 오늘 줄이 월 헤더 바로 아래(약 350px 이내)에 있으면 월 헤더 기준으로 스크롤한다.
+        const monthHeaderEl = document.getElementById(monthId);
+        const headerY = monthHeaderEl ? monthHeaderEl.getBoundingClientRect().top + window.scrollY - topbarH - 8 : todayY;
+        const targetY = todayY - headerY < 350 ? headerY : todayY;
         window.scrollTo({ top: targetY, behavior: "smooth" });
         return;
       }
@@ -987,12 +995,6 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
   return (
     <div className="space-y-8">
 
-      {/* 클릭 안내: 모든 사용자에게 노출 */}
-      <p className="text-[13px] text-gray-500 flex items-center gap-1.5">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        제품을 클릭하면 크게 볼 수 있습니다
-      </p>
-
       {/* 안내 + PDF 버튼: 관리자 전용 */}
       {isAdmin && (
         <div className="hidden sm:flex items-center gap-3 flex-wrap">
@@ -1018,15 +1020,17 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
         </div>
       )}
 
-      {months.map(({ year, month }) => {
+      {months.map(({ year, month }, mi) => {
         const monthKey = `${year}-${month}`;
         const isCollapsed = collapsed.has(monthKey);
         const past = isPast(year, month);
 
-        const monthTotal = allDates.filter(d => {
+        const monthDates = allDates.filter(d => {
           const dd = parseDate(d);
           return dd && dd.getFullYear() === year && dd.getMonth() === month;
-        }).reduce((sum, d) => sum + (dateMap.get(d)?.length ?? 0), 0);
+        });
+        const monthTotal = monthDates.reduce((sum, d) => sum + (dateMap.get(d)?.length ?? 0), 0);
+        const monthReorder = monthDates.reduce((sum, d) => sum + (dateMap.get(d)?.filter(p => p.newArrivalType === "재진행").length ?? 0), 0);
 
         // 월요일 시작 기준 오프셋(토·일 제외한 5일 그리드 구성용)
         const firstDay = new Date(year, month, 1).getDay();
@@ -1060,9 +1064,22 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                   {monthTotal}개
                 </span>
               )}
+              {monthReorder > 0 && (
+                <span className="flex items-center gap-1 shrink-0">
+                  <span className="w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[11px] font-bold flex items-center justify-center leading-none">R</span>
+                  <span className="text-[14px] text-gray-600 font-medium">재입고 {monthReorder}개</span>
+                </span>
+              )}
               <span className={`text-[14px] font-medium ${past ? "text-gray-400" : "text-gray-500"} group-hover:text-gray-700`}>
                 {isCollapsed ? "▼ 펼치기" : "▲ 접기"}
               </span>
+              {/* 클릭 안내: 첫 월 헤더와 같은 줄 오른쪽 끝, 항상 한 줄로 전부 보이게 */}
+              {mi === 0 && (
+                <span className="ml-auto pr-1 shrink-0 whitespace-nowrap text-[14px] font-bold text-orange-600 flex items-center gap-1.5 animate-pulse motion-reduce:animate-none">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  제품을 클릭하면 크게 볼 수 있습니다
+                </span>
+              )}
             </button>
 
             {isCollapsed ? (
@@ -1155,14 +1172,11 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                           <span className="text-[14px] font-bold leading-none text-gray-700">{month + 1}/{day}({dayKoLabel})</span>
                                           <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${meta.cls}`}>{meta.label}</span>
                                         </div>
-                                        <FitName brand={p.brand} name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} />
+                                        <FitName brand={p.brand} name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} reorder={p.newArrivalType === "재진행"} />
                                         <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
                                           </div>
-                                          {p.newArrivalType === "재진행" && (
-                                            <span className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재진행 상품">R</span>
-                                          )}
                                         </div>
                                         <div className="px-1.5">
                                           <div className="flex items-baseline justify-between gap-2 mt-1">
@@ -1742,7 +1756,6 @@ export default function ArrivalTimeline() {
   const [filterMarketing, setFilterMarketing] = useState(false);
   const [filterThisWeek,  setFilterThisWeek]  = useState(true);
   const [filterOpen,      setFilterOpen]      = useState(false);
-  const [showRInfo,       setShowRInfo]        = useState(false);
 
   const thisWeekRange = useMemo(() => getThisWeekRange(new Date()), []);
 
@@ -1823,7 +1836,6 @@ export default function ArrivalTimeline() {
       });
   }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
 
-  const rCount = useMemo(() => filtered.filter(p => p.newArrivalType === "재진행").length, [filtered]);
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
     const map = new Map<string, ArrivalProduct[]>();
@@ -1913,17 +1925,17 @@ export default function ArrivalTimeline() {
             {/* 데스크탑 인라인 필터 */}
             <div className="hidden sm:flex items-center gap-1.5 flex-1">
               <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
-                className="border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
                 <option value="all">브랜드</option>
                 {brands.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
               <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-                className="border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
                 <option value="all">카테고리</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                className="border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
                 <option value="all">상태</option>
                 <option value="입고예정">입고예정</option>
                 <option value="입고완료">입고완료</option>
@@ -1994,27 +2006,6 @@ export default function ArrivalTimeline() {
                   className={`px-2 py-0.5 text-[13px] font-semibold rounded-md transition-all whitespace-nowrap ${viewMode === "calendar" ? "bg-[#1a1a1a] text-white" : "text-gray-500 hover:text-[#1a1a1a]"}`}>
                   ⊞<span className="hidden sm:inline"> 캘린더</span>
                 </button>
-              </div>
-              <span className="text-[13px] text-gray-500 font-medium">{filtered.length}개</span>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowRInfo(v => !v)}
-                  className="flex items-center gap-1 shrink-0"
-                >
-                  <span className="w-4 h-4 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[10px] font-bold flex items-center justify-center leading-none cursor-pointer">
-                    R
-                  </span>
-                  <span className="text-[13px] text-gray-500 font-medium">{rCount}개</span>
-                </button>
-                {showRInfo && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowRInfo(false)} />
-                    <div className="absolute top-full right-0 mt-1 z-50 w-max max-w-[220px] bg-[#1a1a1a] text-white text-[12px] px-2.5 py-1.5 rounded-lg shadow-lg">
-                      R뱃지 = 재진행 제품
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>
