@@ -244,7 +244,7 @@ function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: Arriva
 }
 
 // ─── 상품 상세 모달 ───────────────────────────────────────────────────────────
-function ProductModal({ product, onClose, openOrderLink }: { product: ArrivalProduct; onClose: () => void; openOrderLink: (url: string, e: React.MouseEvent) => void }) {
+function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: ArrivalProduct; onClose: () => void; openOrderLink: (url: string, e: React.MouseEvent) => void; isAdmin?: boolean }) {
   const { full } = fmtDate(product.arrivalDate);
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const history = product.changeHistory ?? [];
@@ -295,7 +295,7 @@ function ProductModal({ product, onClose, openOrderLink }: { product: ArrivalPro
             <div className="w-full sm:w-[520px] shrink-0">
               <div className="relative px-3 pt-1 pb-1 sm:px-4 sm:pt-4 sm:pb-4">
                 <ImageGallery product={product} aspectCls="aspect-square sm:aspect-[3/4]" />
-                {product.marketingUsage && (
+                {isAdmin && product.marketingUsage && (
                   <span className="sm:hidden absolute top-4 left-6 inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500 text-white text-[12px] font-bold rounded-full shadow">
                     마케팅
                   </span>
@@ -408,7 +408,7 @@ function ProductModal({ product, onClose, openOrderLink }: { product: ArrivalPro
               </table>
             </div>
 
-            {product.marketingUsage && (
+            {isAdmin && product.marketingUsage && (
               <div className="hidden sm:block border border-orange-300 bg-orange-50 rounded-lg px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="text-[12px] tracking-widest text-orange-400 uppercase font-bold shrink-0">마케팅</span>
@@ -1369,7 +1369,7 @@ function GanttView({ products, onSelect, showMarketing }: {
       <div className="flex items-center gap-5 mt-5 pt-4 border-t border-gray-100 text-[12px] text-gray-400">
         <span className="flex items-center gap-1.5"><span className="inline-flex w-5 h-5 rounded-full bg-[#1a1a1a] items-center justify-center text-white text-[11px] font-black">N</span>입고예정</span>
         <span className="flex items-center gap-1.5"><span className="inline-flex w-5 h-5 rounded-full bg-gray-300 items-center justify-center text-gray-600 text-[11px] font-black">N</span>입고완료</span>
-        <span className="flex items-center gap-1.5"><span className="inline-flex w-5 h-5 rounded-full bg-orange-400 items-center justify-center text-white text-[11px] font-black">N</span>마케팅 활용</span>
+        {showMarketing && <span className="flex items-center gap-1.5"><span className="inline-flex w-5 h-5 rounded-full bg-orange-400 items-center justify-center text-white text-[11px] font-black">N</span>마케팅 활용</span>}
       </div>
     </div>
   );
@@ -1952,11 +1952,11 @@ export default function ArrivalTimeline() {
                 <option value="입고완료">입고완료</option>
                 <option value="일정미표기">일정미정</option>
               </select>
-              <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
+              {isAdmin && <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                 <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                   className="w-3 h-3 accent-blue-500 cursor-pointer" />
                 <span className={`text-[13px] font-semibold whitespace-nowrap ${filterMarketing ? "text-blue-500" : "text-gray-500"}`}>마케팅</span>
-              </label>
+              </label>}
               {viewMode === "calendar" && (
                 <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                   <input type="checkbox" checked={filterThisWeek} onChange={e => setFilterThisWeek(e.target.checked)}
@@ -2033,11 +2033,11 @@ export default function ArrivalTimeline() {
 
           {/* ── 모바일: 마케팅/이번주 체크박스는 필터 펼치기와 무관하게 항상 노출 ── */}
           <div className="sm:hidden mt-2 flex items-center gap-2 flex-wrap">
-            <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
+            {isAdmin && <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
               <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                 className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
               <span className={`text-[14px] font-semibold ${filterMarketing ? "text-blue-500" : "text-gray-500"}`}>마케팅 활용</span>
-            </label>
+            </label>}
             {viewMode === "calendar" && (
               <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
                 <input type="checkbox" checked={filterThisWeek} onChange={e => setFilterThisWeek(e.target.checked)}
@@ -2087,13 +2087,13 @@ export default function ArrivalTimeline() {
             <button onClick={resetFilters} className="mt-3 text-[14px] text-[#1a1a1a] underline underline-offset-2">필터 초기화</button>
           </div>
         ) : viewMode === "grid" ? (
-          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
+          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
         ) : viewMode === "timeline" ? (
-          <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
+          <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
         ) : viewMode === "gantt" ? (
-          <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} />
+          <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
         ) : (
-          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} />
+          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} />
         )}
       </div>
 
@@ -2101,7 +2101,7 @@ export default function ArrivalTimeline() {
         <OrderRankModal products={filtered} onClose={() => setShowRank(false)} onSelect={setSelectedProduct} />
       )}
       {selectedProduct && (
-        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} openOrderLink={openOrderLink} />
+        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} openOrderLink={openOrderLink} isAdmin={isAdmin} />
       )}
     </div>
   );
