@@ -987,6 +987,12 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
   return (
     <div className="space-y-8">
 
+      {/* 클릭 안내: 모든 사용자에게 노출 */}
+      <p className="-mb-4 text-[13px] text-gray-500 flex items-center gap-1.5">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        제품을 클릭하면 크게 볼 수 있습니다
+      </p>
+
       {/* 안내 + PDF 버튼: 관리자 전용 */}
       {isAdmin && (
         <div className="hidden sm:flex items-center gap-3 flex-wrap">
@@ -1887,7 +1893,7 @@ export default function ArrivalTimeline() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-3 py-2">
 
           {/* ── Row 1: 타이틀 / 검색 / 필터토글(모바일) / 뷰버튼 / 개수 ── */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 sm:flex-wrap sm:gap-y-1.5">
             {/* 타이틀 (모바일에서 검색 왼쪽) */}
             <span className="text-[15px] font-black text-[#1a1a1a] tracking-tight shrink-0 mr-1 hidden sm:block">워크업 입고 예정 스케쥴</span>
 
