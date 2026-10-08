@@ -988,7 +988,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
     <div className="space-y-8">
 
       {/* 클릭 안내: 모든 사용자에게 노출 */}
-      <p className="-mb-4 text-[13px] text-gray-500 flex items-center gap-1.5">
+      <p className="text-[13px] text-gray-500 flex items-center gap-1.5">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         제품을 클릭하면 크게 볼 수 있습니다
       </p>
@@ -1798,7 +1798,6 @@ export default function ArrivalTimeline() {
 
   const brands     = useMemo(() => Array.from(new Set(products.map(p => p.brand))).sort(),     [products]);
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category))).sort(), [products]);
-  const newArrivalTypes = useMemo(() => Array.from(new Set(products.map(p => p.newArrivalType).filter(Boolean))).sort() as string[], [products]);
   const lastSync = useMemo(() => {
     const t = products.map(p => p.syncedAt).filter(Boolean) as string[];
     return t.length ? t.reduce((a, b) => (a > b ? a : b)) : null;
@@ -1930,13 +1929,6 @@ export default function ArrivalTimeline() {
                 <option value="입고완료">입고완료</option>
                 <option value="일정미표기">일정미정</option>
               </select>
-              {newArrivalTypes.length > 0 && (
-                <select value={filterNewArrival} onChange={e => setFilterNewArrival(e.target.value)}
-                  className="border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
-                  <option value="all">신상구분</option>
-                  {newArrivalTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              )}
               <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                 <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                   className="w-3 h-3 accent-blue-500 cursor-pointer" />
@@ -2065,13 +2057,6 @@ export default function ArrivalTimeline() {
                 <option value="입고완료">입고완료</option>
                 <option value="일정미표기">일정미정</option>
               </select>
-              {newArrivalTypes.length > 0 && (
-                <select value={filterNewArrival} onChange={e => setFilterNewArrival(e.target.value)}
-                  className="border border-gray-200 px-2.5 py-1.5 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700 flex-1 min-w-[100px]">
-                  <option value="all">신상구분</option>
-                  {newArrivalTypes.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              )}
               <div className="flex items-center gap-2 w-full flex-wrap">
                 {hasFilter && (
                   <button onClick={resetFilters} className="text-[14px] text-gray-400 hover:text-[#1a1a1a] underline underline-offset-2 font-medium">초기화</button>
