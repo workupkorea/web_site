@@ -593,7 +593,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing }: {
                 <button onClick={() => toggle(key)} className="flex items-center gap-3 group text-left flex-1 min-w-0">
                   <span className="text-[19px] font-black text-[#1a1a1a] tracking-tight leading-none uppercase">{key || "미분류"}</span>
                   <span className="text-[14px] text-gray-500 font-medium">{items.length}개</span>
-                  <span className="ml-auto text-[13px] text-gray-400 group-hover:text-gray-600">{isCollapsed ? "▼ 펼치기" : "▲ 접기"}</span>
+                  <span className="text-[13px] text-gray-400 group-hover:text-gray-600">{isCollapsed ? "▼ 펼치기" : "▲ 접기"}</span>
                 </button>
                 {groupMode === "brand" && key && key !== "미분류" && <BrandCatalogLink brand={key} />}
               </div>
@@ -639,9 +639,9 @@ function FitName({ brand, name }: { brand: string; name: string }) {
   }, [brand, name]);
 
   return (
-    <div ref={rowRef} className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden mt-2 pt-2 border-t border-gray-200">
+    <div ref={rowRef} className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden px-1.5 h-9">
       <span className={`shrink-0 text-[14px] font-bold px-1 py-0.5 rounded-sm leading-none ${brandTextCls(brand)} ${brandBg(brand)}`}>{brand}</span>
-      <span className="font-semibold text-[#1a1a1a] leading-snug" style={{ fontSize: size }}>{name}</span>
+      <span className="font-semibold text-[#1a1a1a]" style={{ fontSize: size, lineHeight: 1.2 }}>{name}</span>
     </div>
   );
 }
@@ -899,10 +899,13 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
     return m;
   }, [products]);
 
+  // 매장입고일이 비어 있는 품목은 달력에 못 올라가므로 "일정미정" 그룹으로 따로 모은다
+  const undated = useMemo(() => products.filter(p => !p.arrivalDate?.trim()), [products]);
+
   const allDates = Array.from(dateMap.keys()).sort();
-  if (allDates.length === 0) return (
-    <div className="py-20 text-center text-gray-400 text-[16px]">표시할 데이터가 없습니다.</div>
-  );
+  if (allDates.length === 0) return undated.length > 0
+    ? <UndatedSection items={undated} onSelect={onSelect} showMarketing={showMarketing} />
+    : <div className="py-20 text-center text-gray-400 text-[16px]">표시할 데이터가 없습니다.</div>;
 
   const minDate = parseDate(allDates[0])!;
   const maxDate = parseDate(allDates[allDates.length-1])!;
@@ -1051,7 +1054,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                   {monthTotal}개
                 </span>
               )}
-              <span className={`ml-auto text-[14px] font-medium ${past ? "text-gray-400" : "text-gray-500"} group-hover:text-gray-700`}>
+              <span className={`text-[14px] font-medium ${past ? "text-gray-400" : "text-gray-500"} group-hover:text-gray-700`}>
                 {isCollapsed ? "▼ 펼치기" : "▲ 접기"}
               </span>
             </button>
@@ -1146,7 +1149,8 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                           <span className="text-[14px] font-bold leading-none text-gray-700">{month + 1}/{day}({dayKoLabel})</span>
                                           <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${meta.cls}`}>{meta.label}</span>
                                         </div>
-                                        <div className={`relative w-full h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
+                                        <FitName brand={p.brand} name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} />
+                                        <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
                                           </div>
@@ -1163,7 +1167,6 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                               </p>
                                             )}
                                           </div>
-                                          <FitName brand={p.brand} name={stripBrand(p.productName, p.brand)} />
                                         </div>
                                       </button>
                                     );
@@ -1182,6 +1185,31 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
           </div>
         );
       })}
+      {undated.length > 0 && <UndatedSection items={undated} onSelect={onSelect} showMarketing={showMarketing} />}
+    </div>
+  );
+}
+
+// ─── 캘린더 하단: 매장입고일 미정 그룹 ────────────────────────────────────────
+function UndatedSection({ items, onSelect, showMarketing }: {
+  items: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
+}) {
+  const [open, setOpen] = useState(false); // 기본은 접힌 상태
+  return (
+    <div>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
+        className="w-full flex items-center gap-3 mb-3 text-left">
+        <span className="text-[18px] font-black text-gray-500 tracking-wide">일정미정</span>
+        <span className="text-[14px] font-bold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500 leading-none">{items.length}개</span>
+        <span className="text-[14px] text-gray-500 whitespace-nowrap">{open ? "▲ 접기" : "▼ 펼치기"}</span>
+      </button>
+      {open && (
+        <div className={GRID_COLS}>
+          {items.map((p, i) => (
+            <ProductCard key={`${p.productCode}_none_${i}`} product={p} onSelect={() => onSelect(p)} showMarketing={showMarketing} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1653,6 +1681,14 @@ export default function ArrivalTimeline() {
   const [loadingData, setLoadingData] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<ArrivalProduct | null>(null);
   const [showRank, setShowRank] = useState(false);
+  // 주문순위는 관리자 로그인 상태에서만 노출
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    fetch("/api/member/me")
+      .then(r => r.json())
+      .then(data => setIsAdmin(data?.grade === "관리자"))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   // 팝업(iframe)으로 삽입된 상태인지 여부. 이 경우 "주문하기"를 매번 새 탭으로 열면
   // 클릭할 때마다 창이 계속 쌓이므로, 고정된 이름의 창 하나를 재사용해 열어준다.
@@ -1847,7 +1883,7 @@ export default function ArrivalTimeline() {
           원인). position:fixed는 조상의 스크롤 컨테이너 여부와 무관하게 항상 뷰포트 기준으로
           고정되므로 이 문제를 확실하게 피해간다. 대신 fixed는 문서 흐름에서 빠지므로, 위 wrapper에
           그 높이만큼 padding-top을 줘서 본문이 가려지지 않게 한다. */}
-      <div ref={topBarRef} className="fixed top-0 left-0 right-0 z-30 px-3 sm:px-8 lg:px-14 pt-3 pb-1.5 bg-[#fafaf8]">
+      <div ref={topBarRef} className={`fixed top-0 left-0 right-0 z-30 ${viewMode === "calendar" ? "px-3 sm:px-5" : "px-3 sm:px-8 lg:px-14"} pt-3 pb-1.5 bg-[#fafaf8]`}>
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-3 py-2">
 
           {/* ── Row 1: 타이틀 / 검색 / 필터토글(모바일) / 뷰버튼 / 개수 ── */}
@@ -1934,6 +1970,7 @@ export default function ArrivalTimeline() {
                   {new Date(lastSync).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준
                 </span>
               )}
+              {isAdmin && (
               <button
                 onClick={() => setShowRank(true)}
                 title="주문 순위"
@@ -1942,6 +1979,7 @@ export default function ArrivalTimeline() {
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><rect x="7" y="9" width="3" height="8"/><rect x="13" y="5" width="3" height="12"/></svg>
                 <span className="hidden sm:inline">주문순위</span>
               </button>
+              )}
               {/* 뷰 전환 버튼 */}
               <div className="flex items-center gap-0.5 border border-gray-200 rounded-lg p-0.5">
                 <button onClick={() => setViewMode("grid")}
@@ -2039,7 +2077,7 @@ export default function ArrivalTimeline() {
       </div>
 
       {/* ── 본문 ── */}
-      <div className="px-3 sm:px-8 lg:px-14 py-4">
+      <div className={viewMode === "calendar" ? "px-3 sm:px-5 py-4" : "px-3 sm:px-8 lg:px-14 py-4"}>
         {filtered.length === 0 ? (
           <div className="py-32 text-center">
             <p className="text-[15px] text-gray-400">조건에 맞는 상품이 없습니다.</p>
@@ -2056,7 +2094,7 @@ export default function ArrivalTimeline() {
         )}
       </div>
 
-      {showRank && (
+      {isAdmin && showRank && (
         <OrderRankModal products={filtered} onClose={() => setShowRank(false)} onSelect={setSelectedProduct} />
       )}
       {selectedProduct && (
