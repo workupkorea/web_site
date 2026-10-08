@@ -52,7 +52,7 @@ const STATUS_CLS: Record<ArrivalStatus, string> = {
 const STATUS_LABEL: Partial<Record<ArrivalStatus, string>> = {
   입고완료:   "완료",
   입고예정:   "예정",
-  일정미표기: "미표기",
+  일정미표기: "일정미정",
 };
 const statusLabel = (s: ArrivalStatus) => STATUS_LABEL[s] ?? s;
 

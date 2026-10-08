@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ArrivalProduct, ArrivalStatus } from "@/lib/arrival";
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ const STATUS_META: Record<ArrivalStatus, { label: string; cls: string }> = {
   입고지연:   { label: "지연",      cls: "bg-amber-100 text-amber-800" },
   일정미정:   { label: "미정",      cls: "bg-gray-200 text-gray-600" },
   대기:       { label: "대기",      cls: "bg-blue-50 text-blue-600" },
-  일정미표기: { label: "일정미표기", cls: "bg-gray-100 text-gray-500" },
+  일정미표기: { label: "일정미정",   cls: "bg-gray-100 text-gray-500" },
 };
 
 // ─── 이미지 파싱 ─────────────────────────────────────────────────────────────
@@ -346,19 +346,9 @@ function ProductModal({ product, onClose, openOrderLink }: { product: ArrivalPro
                     </tr>
                   )}
                   <tr className="border-b border-gray-100">
-                    <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">공급가</td>
-                    <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{product.supplyPrice && product.supplyPrice > 0 ? fmtPrice(product.supplyPrice) : "—"}</td>
-                  </tr>
-                  <tr className="border-b border-gray-100">
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">판매가</td>
                     <td className="py-2.5 text-[15px] font-bold text-[#1a1a1a] align-middle">{product.price > 0 ? fmtPrice(product.price) : "—"}</td>
                   </tr>
-                  {product.quantity != null && product.quantity > 0 && (
-                    <tr className="border-b border-gray-100">
-                      <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">수량</td>
-                      <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle font-semibold">{product.quantity.toLocaleString("ko-KR")}개</td>
-                    </tr>
-                  )}
                   <tr className="last:border-0">
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">입고일</td>
                     <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{full}</td>
@@ -410,40 +400,12 @@ function ProductModal({ product, onClose, openOrderLink }: { product: ArrivalPro
                     </tr>
                   )}
                   <tr className="border-b border-gray-100">
-                    <td className="py-1 pr-3 text-[12px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">공급/판매가</td>
-                    <td className="py-1 text-[13px] text-[#1a1a1a] align-middle">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-gray-500">{product.supplyPrice && product.supplyPrice > 0 ? fmtPrice(product.supplyPrice) : "—"}</span>
-                        <span className="text-gray-300">/</span>
-                        <span className="font-bold">{product.price > 0 ? fmtPrice(product.price) : "—"}</span>
-                      </div>
-                    </td>
+                    <td className="py-1 pr-3 text-[12px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">판매가</td>
+                    <td className="py-1 text-[13px] text-[#1a1a1a] align-middle font-bold">{product.price > 0 ? fmtPrice(product.price) : "—"}</td>
                   </tr>
-                  {product.quantity != null && product.quantity > 0 && (
-                    <tr className="border-b border-gray-100">
-                      <td className="py-1 pr-3 text-[12px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">수량</td>
-                      <td className="py-1 text-[13px] text-[#1a1a1a] align-middle font-semibold">{product.quantity.toLocaleString("ko-KR")}개</td>
-                    </tr>
-                  )}
                 </tbody>
               </table>
             </div>
-
-            {/* 주문하러 가기: 발주 시스템으로 바로 이동 (품번 자동 검색) */}
-            <a
-              href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(product.productCode)}&search_word_2=`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={e => openOrderLink(`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(product.productCode)}&search_word_2=`, e)}
-              className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-[#1a1a1a] text-white text-[14px] font-bold hover:bg-[#333] transition-colors"
-            >
-              주문하러 가기
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-            </a>
 
             {product.marketingUsage && (
               <div className="hidden sm:block border border-orange-300 bg-orange-50 rounded-lg px-3 py-2">
@@ -501,7 +463,7 @@ function ProductCard({ product, onSelect, showDate, showMarketing }: { product: 
   return (
     <button onClick={onSelect}
       className="text-left transition-opacity hover:opacity-80 flex flex-col">
-      <div className={`relative w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
+      <div className={`relative w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
         <ProductImage product={product} size="sm" />
         {product.newArrivalType === "재진행" && (
           <span
@@ -649,6 +611,41 @@ function GridView({ grouped, groupMode, onSelect, showMarketing }: {
     </div>
   );
 }
+// ─── 한 줄 맞춤 제품명: 브랜드 배지 + 제품명이 한 줄에 들어가도록 글자 크기를 자동 축소 ─────
+const FIT_MAX_PX = 16;
+const FIT_MIN_PX = 9;
+function FitName({ brand, name }: { brand: string; name: string }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState(FIT_MAX_PX);
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const fit = () => {
+      const text = row.lastElementChild as HTMLElement | null;
+      if (!text) return;
+      let px = FIT_MAX_PX;
+      text.style.fontSize = `${px}px`;
+      while (row.scrollWidth > row.clientWidth && px > FIT_MIN_PX) {
+        px -= 0.5;
+        text.style.fontSize = `${px}px`;
+      }
+      setSize(px);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(row);
+    return () => ro.disconnect();
+  }, [brand, name]);
+
+  return (
+    <div ref={rowRef} className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden mt-2 pt-2 border-t border-gray-200">
+      <span className={`shrink-0 text-[14px] font-bold px-1 py-0.5 rounded-sm leading-none ${brandTextCls(brand)} ${brandBg(brand)}`}>{brand}</span>
+      <span className="font-semibold text-[#1a1a1a] leading-snug" style={{ fontSize: size }}>{name}</span>
+    </div>
+  );
+}
+
 // ─── 캘린더 셀 미니 썸네일 ──────────────────────────────────────────────────
 function MiniThumb({ product, fit = "cover" }: { product: ArrivalProduct; fit?: "cover" | "contain" }) {
   const images = parseImages(product);
@@ -657,7 +654,7 @@ function MiniThumb({ product, fit = "cover" }: { product: ArrivalProduct; fit?: 
 
   if (failed || !src) {
     return (
-      <div className="absolute inset-0 bg-[#edebe8] flex items-center justify-center px-1">
+      <div className="absolute inset-0 flex items-center justify-center px-1">
         <span className="text-[9px] text-gray-400 text-center leading-tight">이미지 준비중입니다</span>
       </div>
     );
@@ -766,10 +763,7 @@ function buildCalendarPDF(
             const statusCls   = p.status === "입고예정" ? "s-upcoming" : p.status === "입고지연" ? "s-delay" : "s-done";
             const bgHex       = brandBgHex(p.brand);
             const pName       = stripBrand(p.productName, p.brand);
-            const supplyTxt   = p.supplyPrice && p.supplyPrice > 0 ? `공급 ${p.supplyPrice.toLocaleString("ko-KR")}` : "";
-            const priceTxt    = p.price > 0 ? `판매 ${p.price.toLocaleString("ko-KR")}` : "";
-            const priceLine   = [supplyTxt, priceTxt].filter(Boolean).join(" / ");
-            const qtyTxt      = p.quantity && p.quantity > 0 ? `수량 ${p.quantity.toLocaleString("ko-KR")}` : "";
+            const priceLine   = p.price > 0 ? `판매 ${p.price.toLocaleString("ko-KR")}` : "";
             return `<div class="pi">
               <div class="pi-img">
                 ${imgSrc
@@ -783,7 +777,6 @@ function buildCalendarPDF(
                 </div>
                 <p class="pname">${pName}</p>
                 ${priceLine ? `<p class="pprice">${priceLine}</p>` : ""}
-                ${qtyTxt ? `<p class="pqty">${qtyTxt}</p>` : ""}
               </div>
             </div>`;
           }).join("");
@@ -1139,18 +1132,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                           const isToday    = year === thisYear && month === thisMonth && day === today.getDate();
                           const dayKoLabel = DAY_KO[new Date(year, month, day).getDay()];
                           return (
-                            <div key={di} data-cal-today={isToday ? "true" : undefined} className="bg-white p-1.5">
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className={`text-[15px] font-black leading-none ${hasItems && !completedAll ? "text-[#1a1a1a]" : "text-gray-300"}`}>
-                                  {month + 1}/{day}({dayKoLabel})
-                                </span>
-                                {items.length > 0 && (
-                                  <span className={`text-[15px] font-bold px-2.5 py-1 rounded-full leading-none
-                                    ${completedAll ? "bg-gray-100 text-gray-400" : "bg-orange-500 text-white"}`}>
-                                    {items.length}개
-                                  </span>
-                                )}
-                              </div>
+                            <div key={di} data-cal-today={isToday ? "true" : undefined} className="bg-white pb-1.5">
                               {hasItems && (
                                 <div>
                                   {items.map(p => {
@@ -1158,57 +1140,30 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                     const isThisWeek = thisWeekRange ? isInWeekRange(p.arrivalDate, thisWeekRange) : false;
                                     return (
                                       <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
-                                        className={`w-full text-left transition-opacity hover:opacity-75 py-2 first:pt-0 ${
-                                          isThisWeek ? "border-2 border-orange-500 rounded-md px-1.5 -mx-1.5 my-0.5" : "border-b border-gray-100"
-                                        }`}>
-                                        <div className={`relative w-full h-80 overflow-hidden rounded-sm bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
-                                          <MiniThumb product={p} fit="contain" />
-                                          {p.newArrivalType === "재진행" && (
-                                            <span className="absolute top-1 left-1 z-10 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재진행 상품">R</span>
-                                          )}
-                                          <span className={`absolute top-1 right-1 z-10 text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none shadow ${meta.cls}`}>{meta.label}</span>
+                                        className="block w-full text-left transition-opacity hover:opacity-75 pb-2 border-b border-gray-100">
+                                        {/* 날짜/상태 줄: 이번 주 입고 품목은 주황 음영 */}
+                                        <div className={`flex items-center justify-between px-1.5 py-1 ${isThisWeek ? "bg-orange-200" : ""}`}>
+                                          <span className="text-[14px] font-bold leading-none text-gray-700">{month + 1}/{day}({dayKoLabel})</span>
+                                          <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${meta.cls}`}>{meta.label}</span>
                                         </div>
-                                        <div className="pl-2">
-                                          <div className="flex items-center gap-2 mt-1">
-                                            <span className="text-[14px] font-bold px-1 py-0.5 rounded-sm leading-none shrink-0 bg-gray-100 text-gray-600">{month + 1}/{day}({dayKoLabel})</span>
-                                            <span className={`text-[14px] font-bold px-1 py-0.5 rounded-sm leading-none truncate ${brandTextCls(p.brand)} ${brandBg(p.brand)}`}>{p.brand}</span>
-                                            <span className="text-[14px] text-gray-400 font-mono leading-none truncate">{p.productCode}</span>
+                                        <div className={`relative w-full h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
+                                          <div className="relative w-4/5 h-full mx-auto">
+                                            <MiniThumb product={p} fit="contain" />
                                           </div>
-                                          <p className="text-[16px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2 mt-2 pt-2 border-t border-gray-200">{stripBrand(p.productName, p.brand)}</p>
-                                          <div className="mt-1 border-t border-gray-200 divide-y divide-gray-100">
-                                            {((p.quantity != null && p.quantity > 0) || (p.orderQuantity != null && p.orderQuantity > 0)) && (
-                                              <p className="text-[14px] text-gray-500 grid grid-cols-[112px_auto] items-center h-8 whitespace-nowrap">
-                                                {p.quantity != null && p.quantity > 0 && (
-                                                  <span className="flex items-baseline gap-1.5">입고 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></span>
-                                                )}
-                                                {p.orderQuantity != null && p.orderQuantity > 0 && (
-                                                  <span className={`flex items-baseline gap-1.5 ${p.quantity != null && p.quantity > 0 ? "pl-2 border-l border-gray-200" : ""}`}>
-                                                    주문 <span className="font-semibold text-[#1a1a1a]">{p.orderQuantity.toLocaleString("ko-KR")}</span>
-                                                    {p.quantity != null && p.quantity > 0 && (
-                                                      <span className="font-bold text-blue-600">{Math.round((p.orderQuantity / p.quantity) * 100)}%</span>
-                                                    )}
-                                                  </span>
-                                                )}
+                                          {p.newArrivalType === "재진행" && (
+                                            <span className="absolute top-1 right-1 z-10 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재진행 상품">R</span>
+                                          )}
+                                        </div>
+                                        <div className="px-1.5">
+                                          <div className="flex items-baseline justify-between gap-2 mt-1">
+                                            <p className="text-[14px] text-gray-400 font-mono leading-none truncate">{p.productCode}</p>
+                                            {p.price > 0 && (
+                                              <p className="text-[14px] text-gray-500 leading-none whitespace-nowrap shrink-0">
+                                                판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span>
                                               </p>
                                             )}
-                                            {(p.supplyPrice != null && p.supplyPrice > 0) || p.price > 0 ? (
-                                              <div className="text-[14px] text-gray-500 flex flex-wrap items-center gap-x-2 gap-y-1 py-1.5">
-                                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                  {p.supplyPrice != null && p.supplyPrice > 0 && <span className="flex items-baseline gap-1.5 whitespace-nowrap">공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
-                                                  {p.price > 0 && <span className={`flex items-baseline gap-1.5 whitespace-nowrap ${p.supplyPrice != null && p.supplyPrice > 0 ? "pl-2 border-l border-gray-200" : ""}`}>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
-                                                </div>
-                                                <a
-                                                  href={`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`}
-                                                  target="_blank"
-                                                  rel="noopener noreferrer"
-                                                  onClick={e => openOrderLink(`https://wjumun.com/new_shop/list.php?brand=&search_word_1=${encodeURIComponent(p.productCode)}&search_word_2=`, e)}
-                                                  className="shrink-0 ml-auto text-[12px] font-bold px-2 py-1 rounded-md bg-orange-500 text-white hover:bg-orange-600 transition-colors whitespace-nowrap"
-                                                >
-                                                  주문
-                                                </a>
-                                              </div>
-                                            ) : null}
                                           </div>
+                                          <FitName brand={p.brand} name={stripBrand(p.productName, p.brand)} />
                                         </div>
                                       </button>
                                     );
@@ -1325,7 +1280,7 @@ function GanttView({ products, onSelect, showMarketing }: {
                   const hasMarketing = showMarketing && ps.some(p => p.marketingUsage);
                   const allDone      = ps.every(p => p.status === "입고완료");
                   const cellCls = hasMarketing
-                    ? "bg-orange-50 border-orange-200"
+                    ? "bg-blue-50 border-blue-200"
                     : allDone
                     ? "bg-gray-100 border-gray-200"
                     : "bg-[#1a1a1a]/5 border-gray-200";
@@ -1508,7 +1463,7 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                   onClick={() => onSelect(p)}
                                   className="shrink-0 w-[130px] sm:w-[200px] text-left hover:opacity-75 transition-opacity"
                                 >
-                                  <div className={`w-[130px] sm:w-[145px] aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-orange-400 border-2" : "border-[#979797]"}`}>
+                                  <div className={`w-[130px] sm:w-[145px] aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
                                     <div className="relative w-full h-full overflow-hidden bg-white">
                                       <MiniThumb product={p} />
                                       <span className={`absolute top-1 left-1 text-[11px] font-bold px-1 py-0.5 rounded leading-none ${meta.cls}`}>
@@ -1527,22 +1482,13 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                     <p className="text-[15px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2">
                                       {stripBrand(p.productName, p.brand)}
                                     </p>
-                                    {p.quantity != null && p.quantity > 0 && (
-                                      <p className="text-[14px] text-gray-500">입고 <span className="font-semibold text-[#1a1a1a]">{p.quantity.toLocaleString("ko-KR")}</span></p>
-                                    )}
                                     {p.orderQuantity != null && p.orderQuantity > 0 && (
                                       <p className="text-[14px] text-gray-500">
                                         주문 <span className="font-semibold text-[#1a1a1a]">{p.orderQuantity.toLocaleString("ko-KR")}</span>
-                                        {p.quantity != null && p.quantity > 0 && (
-                                          <span className="ml-1 font-bold text-blue-600">{Math.round((p.orderQuantity / p.quantity) * 100)}%</span>
-                                        )}
                                       </p>
                                     )}
-                                    {((p.supplyPrice != null && p.supplyPrice > 0) || p.price > 0) && (
-                                      <p className="text-[14px] text-gray-500 flex gap-1.5">
-                                        {p.supplyPrice != null && p.supplyPrice > 0 && <span>공급가 <span className="font-semibold text-[#1a1a1a]">{p.supplyPrice.toLocaleString("ko-KR")}</span></span>}
-                                        {p.price > 0 && <span>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></span>}
-                                      </p>
+                                    {p.price > 0 && (
+                                      <p className="text-[14px] text-gray-500">판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></p>
                                     )}
                                   </div>
                                 </button>
@@ -1824,7 +1770,6 @@ export default function ArrivalTimeline() {
         if (filterCategory !== "all" && p.category !== filterCategory) return false;
         if (filterStatus   !== "all" && p.status   !== filterStatus)   return false;
         if (filterNewArrival !== "all" && (p.newArrivalType ?? "") !== filterNewArrival) return false;
-        if (filterMarketing && !p.marketingUsage) return false;
         if (viewMode === "calendar" && filterThisWeek && !isInWeekRange(p.arrivalDate, thisWeekRange)) return false;
         if (q && !p.productName.toLowerCase().includes(q) && !p.productCode.toLowerCase().includes(q)) return false;
         return true;
@@ -1835,7 +1780,7 @@ export default function ArrivalTimeline() {
         if (da !== db) return da.localeCompare(db);
         return (a.brand || "").localeCompare(b.brand || "");
       });
-  }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterMarketing, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
+  }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
 
   const rCount = useMemo(() => filtered.filter(p => p.newArrivalType === "재진행").length, [filtered]);
 
