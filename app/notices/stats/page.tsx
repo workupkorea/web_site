@@ -480,6 +480,119 @@ function ProductStatsTable({
   );
 }
 
+// ── 일별 패스율 추이 그래프 (직접 SVG — 별도 차트 라이브러리 없이) ──────────
+// 기간 필터와 지점 필터가 적용된 daily 로 그린다. 패스율 = 패스 건수 / (공지 × 지점) 전체 건수.
+const CHART = { w: 640, h: 220, left: 40, right: 16, top: 16, bottom: 36 };
+const MAX_X_LABELS = 8;
+
+function DailyPassRateChart({ daily, storeFilter }: { daily: DailyRow[]; storeFilter: Set<number> }) {
+  const [open, setOpen] = useState(false); // 리스트 하단에 접힌 채로 시작
+  const [active, setActive] = useState<number | null>(null);
+
+  const points = useMemo(
+    () =>
+      daily
+        .map((d) => {
+          const rows = storeFilter.size === 0 ? d.byStore : d.byStore.filter((s) => storeFilter.has(s.store_id));
+          const pass = rows.reduce((a, s) => a + s.pass, 0);
+          const total = rows.reduce((a, s) => a + s.total, 0);
+          return { date: d.notice_date, pass, total, rate: total > 0 ? (pass / total) * 100 : 0, products: d.count };
+        })
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [daily, storeFilter],
+  );
+
+  const sumPass = points.reduce((a, p) => a + p.pass, 0);
+  const sumTotal = points.reduce((a, p) => a + p.total, 0);
+  const overallRate = sumTotal > 0 ? Math.round((sumPass / sumTotal) * 100) : 0;
+
+  const plotW = CHART.w - CHART.left - CHART.right;
+  const plotH = CHART.h - CHART.top - CHART.bottom;
+  const yMax = Math.max(10, Math.ceil(Math.max(0, ...points.map((p) => p.rate)) / 10) * 10);
+  const xAt = (i: number) => (points.length === 1 ? CHART.left + plotW / 2 : CHART.left + (i * plotW) / (points.length - 1));
+  const yAt = (v: number) => CHART.top + plotH * (1 - v / yMax);
+  const labelStep = Math.ceil(points.length / MAX_X_LABELS);
+  const cur = active !== null ? points[active] : undefined;
+  const line = points.map((p, i) => `${xAt(i)},${yAt(p.rate)}`).join(" ");
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+      >
+        <span>일별 패스율 추이 그래프</span>
+        <span className="text-gray-400 text-base">{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+      <div className="border-t border-gray-100 p-5">
+      <div className="flex flex-wrap items-baseline justify-end gap-2 mb-3">
+        <span className="text-[12px] text-gray-500">
+          기간 패스율 <span className="font-bold text-amber-600">{overallRate}%</span> (패스 {sumPass}건 / 전체 {sumTotal}건)
+        </span>
+      </div>
+
+      {points.length === 0 ? (
+        <div className="py-10 text-center text-sm text-gray-400">선택한 기간에 오픈된 공지가 없습니다.</div>
+      ) : (
+        <div className="relative">
+          {cur && (
+            <div
+              className="absolute z-10 -translate-x-1/2 pointer-events-none bg-[#303236] text-white rounded-lg px-3 py-2 text-[12px] leading-snug whitespace-nowrap shadow-lg"
+              style={{ left: `${Math.min(85, Math.max(15, (xAt(active as number) / CHART.w) * 100))}%`, top: 0 }}
+            >
+              <div className="font-semibold">{fmtDate(cur.date)}</div>
+              <div>패스율 {Math.round(cur.rate)}% · 패스 {cur.pass}건 / 출고 {cur.total - cur.pass}건</div>
+              <div className="text-gray-300">오픈 상품 {cur.products}개</div>
+            </div>
+          )}
+          <svg
+            viewBox={`0 0 ${CHART.w} ${CHART.h}`}
+            className="w-full h-auto"
+            role="img"
+            aria-label={`일별 패스율 추이 그래프. 기간 패스율 ${overallRate}퍼센트`}
+            onMouseLeave={() => setActive(null)}
+          >
+            {[0, 0.5, 1].map((r) => (
+              <g key={r}>
+                <line x1={CHART.left} x2={CHART.w - CHART.right} y1={yAt(yMax * r)} y2={yAt(yMax * r)} stroke="#E5E7EB" strokeWidth={1} />
+                <text x={CHART.left - 6} y={yAt(yMax * r) + 4} textAnchor="end" fontSize={11} fill="#9CA3AF">
+                  {Math.round(yMax * r)}%
+                </text>
+              </g>
+            ))}
+            {points.length > 1 && <polyline points={line} fill="none" stroke="#F59E0B" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
+            {points.map((p, i) => (
+              <g key={p.date}>
+                <circle cx={xAt(i)} cy={yAt(p.rate)} r={active === i ? 6 : 3.5} fill="#F59E0B" stroke="#fff" strokeWidth={1.5} />
+                {i % labelStep === 0 && (
+                  <text x={xAt(i)} y={CHART.h - 12} textAnchor="middle" fontSize={11} fill="#6B7280">
+                    {p.date.slice(5, 7)}/{p.date.slice(8, 10)}
+                  </text>
+                )}
+                {/* 터치·마우스 모두 잡히는 넓은 투명 영역 */}
+                <rect
+                  x={xAt(i) - plotW / Math.max(points.length, 1) / 2}
+                  y={CHART.top}
+                  width={plotW / Math.max(points.length, 1)}
+                  height={plotH}
+                  fill="transparent"
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => setActive(i)}
+                />
+              </g>
+            ))}
+          </svg>
+        </div>
+      )}
+      </div>
+      )}
+    </div>
+  );
+}
+
 // ── 기간 필터로 byStore 재집계 ────────────────────────────────────
 function aggregateByStore(filtered: DailyRow[]): StoreStat[] {
   const map = new Map<number, StoreStat>();
@@ -816,6 +929,9 @@ export default function NoticeStatsPage() {
           </div>
         </div>
       )}
+
+      {/* 일별 패스율 추이 그래프 — 리스트 하단, 기본 접힘 */}
+      <DailyPassRateChart daily={filteredDaily} storeFilter={effectiveStoreFilter} />
 
       {/* 최근 상태 변경 이력 */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">

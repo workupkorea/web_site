@@ -38,6 +38,9 @@ export default function PassLinksPage() {
   // 일괄출고금지 여부는 지점 현황(store_status)의 오픈일 값이 기준 — 계속 바뀌므로 목록은 지우지 않고 표시·필터만 한다.
   const [bulkIds, setBulkIds] = useState<Set<number>>(new Set());
   const [bulkOnly, setBulkOnly] = useState(false);
+  // 알림(웹푸시) 설정 현황 — 지점 화면에서 "알림받기"를 켠 기기 수. available=false면 확인 불가(테이블 미적용).
+  const [push, setPush] = useState<{ available: boolean; stores: Record<number, { count: number; firstAt: string | null }> } | null>(null);
+  const [pushOnly, setPushOnly] = useState(false); // 알림을 설정한 지점만 보기
   // 마지막 wjumun 동기화(승인·반영 완료 시점) — 누가, 언제
   const [lastSync, setLastSync] = useState<{ syncedAt: string | null; syncedBy: string | null } | null>(null);
   // 링크 히스토리 모달
@@ -51,6 +54,7 @@ export default function PassLinksPage() {
   const filteredStores = stores
     .filter((s) => s.is_active !== false) // 비활성 지점은 목록에서 제외
     .filter((s) => !bulkOnly || bulkIds.has(s.id))
+    .filter((s) => !pushOnly || !!push?.stores[s.id])
     .filter((s) => {
       const q = search.trim().toLowerCase();
       if (!q) return true;
@@ -85,6 +89,11 @@ export default function PassLinksPage() {
 
   useEffect(load, []);
   useEffect(loadBulk, []);
+  useEffect(() => {
+    fetch("/api/admin/stores/push-status")
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setPush);
+  }, []);
   useEffect(() => {
     fetch("/api/admin/wjumun/sync")
       .then((r) => (r.ok ? r.json() : null))
@@ -226,6 +235,18 @@ export default function PassLinksPage() {
           >
             일괄출고금지 {bulkIds.size}
           </button>
+          {push?.available && (
+            <button
+              type="button"
+              onClick={() => setPushOnly((v) => !v)}
+              aria-pressed={pushOnly}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-lg border ${
+                pushOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
+              }`}
+            >
+              알림 설정 {stores.filter((s) => s.is_active !== false && !!push.stores[s.id]).length}
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -239,6 +260,7 @@ export default function PassLinksPage() {
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">지점명</th>
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">담당자명</th>
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">링크</th>
+                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">알림</th>
                   <th className="px-5 py-3" />
                 </tr>
               </thead>
@@ -266,7 +288,7 @@ export default function PassLinksPage() {
                         <button
                           onClick={() => saveManager(s.id)}
                           disabled={savingId === s.id}
-                          className="px-3 py-1.5 text-[13px] font-semibold border border-gray-200 rounded-lg hover:border-[#303236] disabled:opacity-50"
+                          className="px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap border border-gray-200 rounded-lg hover:border-[#303236] disabled:opacity-50"
                         >
                           저장
                         </button>
@@ -274,22 +296,30 @@ export default function PassLinksPage() {
                     </td>
                     <td className="px-5 py-3">
                       {s.pass_link_token ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-nowrap">
                           <button
                             onClick={() => copyLink(s.id, s.pass_link_token)}
-                            className="px-2.5 py-1 text-[12px] font-semibold text-[#3A6DF0] border border-[#3A6DF0]/30 rounded-lg hover:bg-blue-50"
+                            className="px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap text-[#3A6DF0] border border-[#3A6DF0]/30 rounded-lg hover:bg-blue-50"
                           >
                             링크 복사
-                          </button>
-                          <button
-                            onClick={() => openLinkModal(s.id)}
-                            className="px-2.5 py-1 text-[12px] font-semibold text-gray-600 border border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-800"
-                          >
-                            히스토리
                           </button>
                         </div>
                       ) : (
                         <span className="px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-amber-100 text-amber-700">발급 필요</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 whitespace-nowrap">
+                      {!push?.available ? (
+                        <span className="text-[12px] text-gray-300">-</span>
+                      ) : push.stores[s.id] ? (
+                        <span
+                          className="px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-emerald-50 text-emerald-700"
+                          title={push.stores[s.id].firstAt ? `처음 설정 ${new Date(push.stores[s.id].firstAt as string).toLocaleString("ko-KR")}` : undefined}
+                        >
+                          설정 ({push.stores[s.id].count}대)
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-gray-100 text-gray-500">미설정</span>
                       )}
                     </td>
                     <td className="px-5 py-3 text-right whitespace-nowrap">
@@ -320,6 +350,15 @@ export default function PassLinksPage() {
           </span>
           {previewStore && (
             <div className="flex items-center gap-2 flex-shrink-0">
+              {previewStore.pass_link_token && (
+                <button
+                  type="button"
+                  onClick={() => openLinkModal(previewStore.id)}
+                  className="px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap text-gray-600 border border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-800"
+                >
+                  히스토리
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => regenerate(previewStore.id, previewStore.name)}

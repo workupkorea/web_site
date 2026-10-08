@@ -398,12 +398,12 @@ export default function UnifiedBrandsPage() {
                 )}
               </div>}
               {/* 일괄 선택·삭제 툴바 */}
-              {!listCollapsed && <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1.5 cursor-pointer select-none" onClick={toggleCheckAll}>
+              {!listCollapsed && <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none whitespace-nowrap flex-shrink-0" onClick={toggleCheckAll}>
                   <input type="checkbox" readOnly
                     checked={brands.length > 0 && checkedIds.size === brands.length}
                     className="w-3.5 h-3.5 accent-blue-600 pointer-events-none" />
-                  <span className="text-[11px] text-slate-500">전체 선택</span>
+                  <span className="text-[11px] text-slate-500 whitespace-nowrap">전체 선택</span>
                 </label>
                 {sortMode === "order" && (
                   <span className="text-[10px] text-slate-400 ml-auto">
@@ -411,7 +411,7 @@ export default function UnifiedBrandsPage() {
                   </span>
                 )}
                 {checkedIds.size > 0 && (
-                  <div className="ml-auto flex items-center gap-1">
+                  <div className="ml-auto flex items-center gap-1 flex-shrink-0 whitespace-nowrap">
                     <button onClick={() => bulkSetVisible(true)} disabled={togglingVis}
                       className="px-2 py-1 bg-blue-50 text-blue-600 border border-blue-200 text-[11px] font-semibold rounded-md hover:bg-blue-100 transition-colors disabled:opacity-50">
                       노출
@@ -421,7 +421,7 @@ export default function UnifiedBrandsPage() {
                       비노출
                     </button>
                     <button onClick={handleBulkDelete} disabled={deletingBulk}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-600 border border-red-200 text-[11px] font-semibold rounded-md hover:bg-red-100 transition-colors disabled:opacity-50">
+                      className="flex items-center gap-1 px-2.5 py-1 whitespace-nowrap bg-red-50 text-red-600 border border-red-200 text-[11px] font-semibold rounded-md hover:bg-red-100 transition-colors disabled:opacity-50">
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                       {deletingBulk ? "삭제 중…" : `${checkedIds.size} 삭제`}
                     </button>
@@ -429,7 +429,7 @@ export default function UnifiedBrandsPage() {
                 )}
                 {checkedIds.size > 0 && (
                   <div className="w-full mt-1.5 flex items-center gap-1.5 px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl">
-                    <span className="text-[10px] font-semibold text-amber-700 flex-shrink-0">시즌 적용</span>
+                    <span className="text-[10px] font-semibold text-amber-700 flex-shrink-0 whitespace-nowrap">시즌 적용</span>
                     <input
                       type="text"
                       value={seasonInput}
@@ -441,7 +441,7 @@ export default function UnifiedBrandsPage() {
                     <button
                       onClick={applySeasonBulk}
                       disabled={applyingSeasonBulk || !seasonInput.trim()}
-                      className="flex-shrink-0 px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      className="flex-shrink-0 whitespace-nowrap px-2.5 py-1 bg-amber-500 text-white text-[10px] font-semibold rounded-lg hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                       {applyingSeasonBulk ? "적용 중…" : `${checkedIds.size}개 브랜드 적용`}
                     </button>
                   </div>
