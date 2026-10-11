@@ -92,7 +92,8 @@ function toIsoDate(d: Date) {
 // 오늘이 속한 주의 월~금 범위 (주말 제외, 캘린더 뷰와 동일한 기준)
 function getThisWeekRange(today: Date) {
   const day = today.getDay(); // 0=일 ~ 6=토
-  const mondayOffset = day === 0 ? -6 : 1 - day;
+  // 일요일 00:00부터 다음 주(월~금)로 전환 (토요일까지는 해당 주 유지)
+  const mondayOffset = day === 0 ? 1 : 1 - day;
   const monday = new Date(today); monday.setDate(today.getDate() + mondayOffset);
   const friday = new Date(monday); friday.setDate(monday.getDate() + 4);
   return { start: toIsoDate(monday), end: toIsoDate(friday), startFmt: fmtDate(toIsoDate(monday)).full, endFmt: fmtDate(toIsoDate(friday)).full };
@@ -1750,7 +1751,24 @@ export default function ArrivalTimeline() {
   const [filterThisWeek,  setFilterThisWeek]  = useState(true);
   const [filterOpen,      setFilterOpen]      = useState(false);
 
-  const thisWeekRange = useMemo(() => getThisWeekRange(new Date()), []);
+  const [todayKey, setTodayKey] = useState(() => toIsoDate(new Date()));
+  const thisWeekRange = useMemo(() => getThisWeekRange(new Date()), [todayKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 탭을 열어둔 채 자정을 넘기면 날짜 갱신 → 일요일 00:00에 이번주 범위가 자동 전환
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const sync = () => setTodayKey(toIsoDate(new Date()));
+    const schedule = () => {
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+      timer = setTimeout(() => { sync(); schedule(); }, next.getTime() - now.getTime());
+    };
+    schedule();
+    // 절전/백그라운드 탭에서 타이머가 밀렸을 때 복귀 즉시 보정
+    const onVisible = () => { if (document.visibilityState === "visible") sync(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, []);
 
   useEffect(() => {
     fetch("/api/arrival")
