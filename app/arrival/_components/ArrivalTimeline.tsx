@@ -324,12 +324,6 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">카테고리</td>
                     <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{product.category || "—"}</td>
                   </tr>
-                  {product.productType && (
-                    <tr className="border-b border-gray-100">
-                      <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">상품구분</td>
-                      <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{product.productType}</td>
-                    </tr>
-                  )}
                   {product.newArrivalType && (
                     <tr className="border-b border-gray-100">
                       <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">신상구분</td>
