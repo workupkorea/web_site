@@ -1,6 +1,7 @@
 "use client";
 import { noticeCoverAspect } from "@/lib/noticeImage";
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import NoticeStatusSelect, { type NoticeStatus } from "./_components/NoticeStatusSelect";
 import NoticeStatusLine from "./_components/NoticeStatusLine";
 import PassEntriesTable from "./_components/PassEntriesTable";
@@ -67,6 +68,7 @@ function toMinutes(hhmm: string): number {
 }
 
 export default function NoticesPreviewPage() {
+  const router = useRouter();
   // ── 관리자 화면 ──
   const [adminTab, setAdminTab] = useState("detail");
   const [notices, setNotices] = useState<NoticeRow[]>([]);
@@ -257,6 +259,20 @@ export default function NoticesPreviewPage() {
     }
   };
 
+  const openReregister = (n: NoticeRow) => {
+    setReregisterSource(n);
+    setReregBadge("재공지");
+    setReregShowCustom(false);
+    setReregName(n.temp_name ?? n.products?.name ?? "");
+    setReregCover(n.temp_image_url ?? "");
+    setReregPortrait(n.temp_image_portrait ?? false);
+    setReregTagline(n.temp_tagline ?? "");
+    setReregExtraImages(n.extra_images ?? []);
+    setReregDesc(n.description ?? "");
+    setReregError("");
+    setReregInfo("");
+  };
+
   const currentSrc = adminTab === "detail" ? null : STATIC_NAV.find((n) => n.key === adminTab)?.src ?? null;
   const selectedNotice = notices.find((n) => n.id === selectedNoticeId) ?? null;
 
@@ -264,7 +280,7 @@ export default function NoticesPreviewPage() {
   type ListFilterMode = "month" | "today" | "range";
   const todayKst = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
   const currentMonthKst = () => todayKst().slice(0, 7);
-  const [listFilterMode, setListFilterMode] = useState<ListFilterMode>("month");
+  const [listFilterMode, setListFilterMode] = useState<ListFilterMode>("today");
   const [listFilterFrom, setListFilterFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -323,24 +339,31 @@ export default function NoticesPreviewPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex gap-5">
-          <nav className="w-48 flex-shrink-0 space-y-1">
+      <div className="flex flex-col lg:flex-row gap-3 lg:gap-5">
+          <nav className="lg:w-48 flex-shrink-0 grid grid-cols-3 lg:block gap-1.5 lg:gap-0 lg:space-y-1">
             {STATIC_NAV.map((n) => (
               <button
                 key={n.key}
-                onClick={() => setAdminTab(n.key)}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                onClick={() => {
+                  // 모바일: iframe 안의 이중 스크롤·고정 패널 문제를 피하려고 해당 페이지로 직접 이동
+                  if (n.src && window.matchMedia("(max-width: 1023px)").matches) {
+                    router.push(n.src.replace("?embed=1", ""));
+                    return;
+                  }
+                  setAdminTab(n.key);
+                }}
+                className={`w-full lg:text-left max-lg:text-center px-2 lg:px-3 py-2.5 min-h-[44px] lg:min-h-0 whitespace-nowrap rounded-lg text-[13px] lg:text-sm font-medium transition-colors ${
                   adminTab === n.key ? "bg-[#303236] text-white" : "text-gray-600 hover:bg-gray-100"
                 }`}
               >
                 {n.label}
               </button>
             ))}
-            <div className="pt-2" ref={previewRef}>
+            <div className="col-span-3 lg:pt-2" ref={previewRef}>
               <button
                 onClick={openPreviewModal}
                 disabled={previewFetching}
-                className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 border border-indigo-100 flex items-center gap-1.5 disabled:opacity-50"
+                className="w-full max-lg:justify-center text-left px-4 lg:px-3 py-2.5 min-h-[44px] lg:min-h-0 whitespace-nowrap rounded-lg text-sm font-medium text-indigo-600 hover:bg-indigo-50 border border-indigo-100 flex items-center gap-1.5 disabled:opacity-50"
               >
                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178Z" />
@@ -354,7 +377,7 @@ export default function NoticesPreviewPage() {
           {/* ── 지점 화면 미리보기 모달 ── */}
           {previewModalToken && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setPreviewModalToken(null)}>
-              <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ width: 420, height: "85vh" }} onClick={(e) => e.stopPropagation()}>
+              <div className="relative bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col" style={{ width: "min(420px, calc(100vw - 1rem))", height: "85vh" }} onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0">
                   <span className="text-sm font-semibold text-gray-700">지점 화면 샘플</span>
                   <button onClick={() => setPreviewModalToken(null)} className="text-gray-400 hover:text-gray-700 p-1 rounded-lg hover:bg-gray-100">
@@ -384,7 +407,7 @@ export default function NoticesPreviewPage() {
                     ? "마감 시간이 지났습니다"
                     : `마감까지 ${Math.floor((closeMin - nowMin) / 60)}시간 ${(closeMin - nowMin) % 60}분 남음`;
                 return (
-                  <div className="bg-white border border-gray-200 rounded-xl px-5 py-3.5 flex flex-wrap items-center gap-4">
+                  <div className="bg-white border border-gray-200 rounded-xl px-4 lg:px-5 py-3.5 flex flex-wrap items-center gap-3 lg:gap-4">
                     <div className="flex items-center gap-2 text-sm flex-shrink-0">
                       <span className="font-bold text-gray-900">{dlCounts.total}건</span>
                       <span className="text-gray-300">|</span>
@@ -398,27 +421,27 @@ export default function NoticesPreviewPage() {
                       </div>
                       <p className="text-[11px] text-gray-400 mt-0.5">{dlNow.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} · {countdown}</p>
                     </div>
-                    <div className="flex gap-1.5 flex-shrink-0 items-center">
+                    <div className="grid grid-cols-4 lg:flex gap-1.5 items-center w-full lg:w-auto">
                       <button
                         onClick={() => runBulk("open-all")}
                         disabled={dlBusy !== null || dlCounts.대기 === 0}
-                        className="px-3 py-1.5 text-[12px] font-bold rounded-lg disabled:opacity-40 bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"
+                        className="px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] flex items-center justify-center text-center whitespace-nowrap text-[11px] lg:text-[12px] font-bold rounded-lg disabled:opacity-40 bg-gray-100 text-gray-700 border border-gray-200 hover:bg-gray-200"
                       >
-                        {dlBusy === "open" ? "처리 중..." : `대기 (${dlCounts.대기}건)`}
+                        {dlBusy === "open" ? "처리 중..." : `대기 ${dlCounts.대기}건`}
                       </button>
                       <button
                         onClick={() => runBulk("close-all")}
                         disabled={dlBusy !== null || dlCounts.진행중 === 0}
-                        className="px-3 py-1.5 text-[12px] font-bold rounded-lg disabled:opacity-40 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+                        className="px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] flex items-center justify-center text-center whitespace-nowrap text-[11px] lg:text-[12px] font-bold rounded-lg disabled:opacity-40 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
                       >
-                        {dlBusy === "close" ? "처리 중..." : `진행중 (${dlCounts.진행중}건)`}
+                        {dlBusy === "close" ? "처리 중..." : `진행중 ${dlCounts.진행중}건`}
                       </button>
-                      <span className="px-3 py-1.5 text-[12px] font-bold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                      <span className="px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] flex items-center justify-center text-center whitespace-nowrap text-[11px] lg:text-[12px] font-bold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
                         마감 {dlCounts.마감}건
                       </span>
                       <button
                         onClick={openScheduleModal}
-                        className="px-3 py-1.5 text-[12px] font-medium rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 flex items-center gap-1"
+                        className="px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] flex items-center justify-center text-center whitespace-nowrap text-[11px] lg:text-[12px] font-medium rounded-lg border border-gray-200 text-gray-500 hover:border-gray-400 hover:text-gray-700 flex items-center gap-1"
                       >
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5" />
@@ -434,7 +457,7 @@ export default function NoticesPreviewPage() {
               <div className={`border rounded-xl overflow-hidden transition-colors ${showRegister ? "bg-orange-50 border-orange-200" : "bg-white border-orange-200"}`}>
                 <button
                   onClick={() => setShowRegister((v) => !v)}
-                  className={`w-full flex items-center justify-between px-5 py-3.5 transition-colors ${showRegister ? "hover:bg-orange-100" : "hover:bg-orange-50"}`}
+                  className={`w-full flex items-center justify-between px-4 lg:px-5 py-3.5 min-h-[44px] transition-colors ${showRegister ? "hover:bg-orange-100" : "hover:bg-orange-50"}`}
                 >
                   <span className="text-sm font-bold text-orange-700">
                     {showRegister ? "등록 닫기" : "+ 새 공지 등록"}
@@ -442,7 +465,7 @@ export default function NoticesPreviewPage() {
                   <span className="text-orange-400 text-base">{showRegister ? "▲" : "▼"}</span>
                 </button>
                 {showRegister && (
-                  <div className="border-t border-orange-200 p-5">
+                  <div className="border-t border-orange-200 p-3 lg:p-5">
                     <NoticeProductPicker onCreated={handleNoticeCreated} />
                   </div>
                 )}
@@ -457,25 +480,25 @@ export default function NoticesPreviewPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     {/* 빠른 선택 */}
                     <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden">
-                      {(["month", "today"] as const).map((m) => (
+                      {(["today", "month"] as const).map((m) => (
                         <button
                           key={m}
                           onClick={() => { setListFilterMode(m); setSelectedNoticeId(null); }}
-                          className={`px-3 py-1.5 text-sm font-medium transition-colors ${listFilterMode === m ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
+                          className={`px-3 max-lg:px-2.5 py-1.5 max-lg:min-h-[44px] text-sm max-lg:text-[13px] font-medium transition-colors ${listFilterMode === m ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
                         >
                           {m === "month" ? "이번 달" : "오늘"}
                         </button>
                       ))}
                     </div>
                     {/* 날짜 범위 */}
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1 lg:gap-1.5 max-lg:flex-1 max-lg:min-w-[170px]">
                       <input
                         type="date"
                         value={listFilterFrom}
                         max={listFilterTo}
                         onFocus={() => { setListFilterMode("range"); setSelectedNoticeId(null); }}
                         onChange={(e) => { setListFilterMode("range"); setListFilterFrom(e.target.value); setSelectedNoticeId(null); }}
-                        className={`px-3 py-1.5 border rounded-lg text-sm focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
+                        className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] min-w-0 flex-1 lg:flex-none border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
                       />
                       <span className="text-gray-400 text-sm">~</span>
                       <input
@@ -485,14 +508,14 @@ export default function NoticesPreviewPage() {
                         max={todayKst()}
                         onFocus={() => { setListFilterMode("range"); setSelectedNoticeId(null); }}
                         onChange={(e) => { setListFilterMode("range"); setListFilterTo(e.target.value); setSelectedNoticeId(null); }}
-                        className={`px-3 py-1.5 border rounded-lg text-sm focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
+                        className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] min-w-0 flex-1 lg:flex-none border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
                       />
                     </div>
-                    <div className="ml-auto flex items-center gap-2">
+                    <div className="w-full lg:w-auto lg:ml-auto flex items-center gap-2">
                       <select
                         value={excelDate}
                         onChange={(e) => setExcelDate(e.target.value)}
-                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-[#303236]"
+                        className="border border-gray-200 rounded-lg px-3 py-1.5 max-lg:min-h-[44px] text-sm bg-white focus:outline-none focus:border-[#303236]"
                       >
                         {uniqueDates.map((d) => (
                           <option key={d} value={d}>{fmtNoticeDate(d)}</option>
@@ -501,7 +524,7 @@ export default function NoticesPreviewPage() {
                       <button
                         onClick={downloadDateExcel}
                         disabled={excelDownloading || !excelDate || uniqueDates.length === 0}
-                        className="px-3 py-1.5 text-sm font-semibold border border-gray-200 rounded-lg hover:border-[#303236] disabled:opacity-50"
+                        className="px-3 py-1.5 max-lg:min-h-[44px] text-sm font-semibold border border-gray-200 rounded-lg hover:border-[#303236] disabled:opacity-50 flex-1 lg:flex-none"
                       >
                         {excelDownloading ? "다운로드 중..." : "선택 일자 엑셀 다운로드"}
                       </button>
@@ -513,7 +536,112 @@ export default function NoticesPreviewPage() {
                     </div>
                   )}
                   {displayedNotices.length > 0 && <div className="flex gap-5 items-start">
-                  <div className="w-[70%] min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  {/* 모바일/태블릿: 카드 목록 — 선택한 카드 바로 아래에 지점별 패스 현황을 펼친다 */}
+                  <div className="lg:hidden w-full min-w-0 space-y-3">
+                    {displayedNotices.map((n, i) => {
+                      const prev = displayedNotices[i - 1];
+                      const newDate = !prev || prev.notice_date !== n.notice_date;
+                      const selected = selectedNoticeId === n.id;
+                      return (
+                        <div key={n.id}>
+                          {newDate && (
+                            <div className="flex items-center justify-between gap-2 px-1 pt-2 pb-1.5">
+                              <span className="text-sm text-gray-500 font-mono">{fmtNoticeDate(n.notice_date)}</span>
+                              {displayedNotices.some((x) => x.notice_date === n.notice_date && x.status === "진행중") && (
+                                <button
+                                  onClick={() => handleCloseByDate(n.notice_date)}
+                                  disabled={closingDate === n.notice_date}
+                                  className="px-3 min-h-[44px] text-[12px] font-bold rounded-lg bg-amber-50 text-amber-700 border border-amber-200 disabled:opacity-50 whitespace-nowrap"
+                                >
+                                  {closingDate === n.notice_date ? "처리 중..." : "마감 처리"}
+                                </button>
+                              )}
+                            </div>
+                          )}
+                          <div className={`bg-white border rounded-xl overflow-hidden ${selected ? "border-[#303236]" : "border-gray-200"}`}>
+                            <div className="p-3 cursor-pointer" onClick={() => setSelectedNoticeId(selected ? null : n.id)}>
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className={`flex-shrink-0 rounded-md overflow-hidden border border-gray-100 bg-gray-50 ${n.temp_image_portrait ? "h-14" : "w-[72px]"}`}
+                                  style={{ aspectRatio: noticeCoverAspect(n.temp_image_portrait) }}
+                                >
+                                  {noticeImage(n) && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={noticeImage(n)!}
+                                      alt={noticeName(n)}
+                                      loading="lazy"
+                                      className={`w-full h-full ${n.temp_image_portrait ? "object-contain" : "object-cover"}`}
+                                    />
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-gray-900 break-words">{noticeName(n)}</p>
+                                  <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                                    <NoticeStatusSelect
+                                      noticeId={n.id}
+                                      status={n.status}
+                                      onChanged={(status, data) =>
+                                        setNotices((prev) => prev.map((x) => (x.id === n.id ? { ...x, status, ...data } : x)))
+                                      }
+                                    />
+                                    {n.store_total ? (
+                                      <span className="text-[12px] font-semibold text-gray-500 whitespace-nowrap">
+                                        패스율 {Math.round(((n.pass_count ?? 0) / n.store_total) * 100)}%
+                                      </span>
+                                    ) : null}
+                                    {n.status === "진행중" && isPastClose && (
+                                      <span className="text-[11px] font-semibold text-amber-600 whitespace-nowrap">마감 시각 경과</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-3 grid grid-cols-3 gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  onClick={() => openReregister(n)}
+                                  className="min-h-[44px] text-[13px] font-semibold text-orange-600 border border-orange-200 rounded-lg active:bg-orange-50"
+                                >
+                                  재등록
+                                </button>
+                                <button
+                                  onClick={() => setEditingTempNotice(n)}
+                                  className="min-h-[44px] text-[13px] font-semibold text-gray-600 border border-gray-300 rounded-lg active:bg-gray-50"
+                                >
+                                  공지 수정
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(n.id, noticeName(n))}
+                                  disabled={deletingId === n.id || n.status !== "마감"}
+                                  className="min-h-[44px] text-[13px] font-semibold text-red-500 border border-red-200 rounded-lg active:bg-red-50 disabled:opacity-40"
+                                >
+                                  {deletingId === n.id ? "삭제 중..." : "삭제"}
+                                </button>
+                              </div>
+                              {!selected && <p className="mt-2 text-center text-[11.5px] text-gray-400">카드를 누르면 지점별 출고·패스 현황이 펼쳐집니다.</p>}
+                            </div>
+                            {selected && (
+                              <div className="border-t border-gray-100 p-3 space-y-3 bg-gray-50">
+                                <NoticeStatusLine
+                                  noticeId={n.id}
+                                  productName={noticeName(n)}
+                                  status={n.status}
+                                  openedAt={n.opened_at}
+                                  closedAt={n.closed_at}
+                                  pastCloseHint={isPastClose}
+                                  onChanged={(status, data) =>
+                                    setNotices((prev) => prev.map((x) => (x.id === n.id ? { ...x, status, ...data } : x)))
+                                  }
+                                />
+                                <PassEntriesTable noticeId={n.id} noticeDate={n.notice_date} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden lg:block w-[70%] min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden">
                     <table className="w-full">
                       <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
@@ -609,17 +737,7 @@ export default function NoticesPreviewPage() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setReregisterSource(n);
-                                    setReregBadge("재공지");
-                                    setReregShowCustom(false);
-                                    setReregName(n.temp_name ?? n.products?.name ?? "");
-                                    setReregCover(n.temp_image_url ?? "");
-                                    setReregPortrait(n.temp_image_portrait ?? false);
-                                    setReregTagline(n.temp_tagline ?? "");
-                                    setReregExtraImages(n.extra_images ?? []);
-                                    setReregDesc(n.description ?? "");
-                                    setReregError("");
-                                    setReregInfo("");
+                                    openReregister(n);
                                   }}
                                   className="px-2.5 py-1.5 text-[12px] font-semibold text-orange-600 border border-orange-200 rounded-lg hover:bg-orange-50"
                                 >
@@ -655,7 +773,7 @@ export default function NoticesPreviewPage() {
                     </table>
                   </div>
 
-                  <div className="w-[30%] min-w-0 space-y-3">
+                  <div className="hidden lg:block w-[30%] min-w-0 space-y-3">
                     {selectedNotice ? (
                       <>
                         <NoticeStatusLine

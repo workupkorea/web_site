@@ -1,6 +1,5 @@
 "use client";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 
 type HistoryRow = { summary: string; actor_name: string; created_at: string };
 
@@ -10,6 +9,7 @@ function fmtHistoryTime(iso: string) {
   });
 }
 import StatsCalendar from "../_components/StatsCalendar";
+import { stripBranchPrefix } from "@/lib/ih/influencer-shared";
 
 type StoreStat = { store_id: number; store_name: string; total: number; outbound: number; pass: number };
 type DailyProduct = { id: string; name: string };
@@ -69,10 +69,10 @@ function StoreFilterDropdown({
   const label = selected.size === 0 ? "전체 지점" : `${selected.size}개 지점 선택`;
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative max-lg:w-full">
       <button
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-1.5 px-3.5 py-2 text-sm font-medium border rounded-lg transition-colors ${open || selected.size > 0 ? "border-[#303236] text-[#303236] bg-gray-50" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}
+        className={`flex items-center gap-1.5 px-3.5 py-2 max-lg:min-h-[44px] max-lg:w-full text-sm font-medium border rounded-lg transition-colors ${open || selected.size > 0 ? "border-[#303236] text-[#303236] bg-gray-50" : "border-gray-200 text-gray-600 hover:border-gray-400"}`}
       >
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h18M7 8h10M11 12h4" />
@@ -87,10 +87,10 @@ function StoreFilterDropdown({
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[340px] py-1.5 max-h-80 overflow-y-auto">
+        <div className="absolute top-full left-0 mt-1 z-30 bg-white border border-gray-200 rounded-xl shadow-lg min-w-[340px] max-lg:min-w-0 max-lg:w-full py-1.5 max-h-80 overflow-y-auto">
           <button
             onClick={() => onChange(new Set())}
-            className={`w-full text-left px-4 py-2 text-sm transition-colors ${selected.size === 0 ? "font-semibold text-[#303236]" : "text-gray-600 hover:bg-gray-50"}`}
+            className={`w-full text-left px-4 py-2 max-lg:min-h-[44px] text-sm transition-colors ${selected.size === 0 ? "font-semibold text-[#303236]" : "text-gray-600 hover:bg-gray-50"}`}
           >
             전체 지점
           </button>
@@ -99,7 +99,7 @@ function StoreFilterDropdown({
               <button
                 key={s.store_id}
                 onClick={() => toggle(s.store_id)}
-                className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2.5 transition-colors ${selected.has(s.store_id) ? "text-[#303236] font-semibold bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`}
+                className={`w-full text-left px-4 py-2 max-lg:min-h-[44px] text-sm flex items-center gap-2.5 transition-colors ${selected.has(s.store_id) ? "text-[#303236] font-semibold bg-gray-50" : "text-gray-600 hover:bg-gray-50"}`}
               >
                 <span className={`flex-shrink-0 w-4 h-4 border rounded flex items-center justify-center ${selected.has(s.store_id) ? "bg-[#303236] border-[#303236]" : "border-gray-300"}`}>
                   {selected.has(s.store_id) && (
@@ -108,7 +108,7 @@ function StoreFilterDropdown({
                     </svg>
                   )}
                 </span>
-                {s.store_name}
+                {stripBranchPrefix(s.store_name)}
               </button>
             ))}
           </div>
@@ -120,11 +120,18 @@ function StoreFilterDropdown({
 
 // ── 지점별 품목 상세 (펼침) ────────────────────────────────────────
 function StoreNoticeDetail({
-  storeId, matrixParams,
+  storeId, matrixParams, block,
 }: {
   storeId: number;
   matrixParams: { date?: string; from?: string; to?: string };
+  block?: boolean; // true: 표(tr/td)가 아니라 div로 렌더링 — 모바일 카드용
 }) {
+  const Wrap = ({ className, children }: { className: string; children: React.ReactNode }) =>
+    block ? <div className={className}>{children}</div> : (
+      <tr>
+        <td colSpan={6} className={className}>{children}</td>
+      </tr>
+    );
   const [notices, setNotices] = useState<MatrixNotice[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -155,28 +162,21 @@ function StoreNoticeDetail({
 
   if (loading) {
     return (
-      <tr>
-        <td colSpan={6} className="px-5 py-4 bg-gray-50">
-          <div className="flex items-center gap-2 text-xs text-gray-400">
-            <div className="w-3 h-3 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
-            불러오는 중...
-          </div>
-        </td>
-      </tr>
+      <Wrap className="px-5 py-4 bg-gray-50">
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="w-3 h-3 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
+          불러오는 중...
+        </div>
+      </Wrap>
     );
   }
 
   if (notices.length === 0) {
-    return (
-      <tr>
-        <td colSpan={6} className="px-5 py-4 bg-gray-50 text-xs text-gray-400">이 기간에 공지가 없습니다.</td>
-      </tr>
-    );
+    return <Wrap className="px-5 py-4 bg-gray-50 text-xs text-gray-400">이 기간에 공지가 없습니다.</Wrap>;
   }
 
   return (
-    <tr>
-      <td colSpan={6} className="px-0 py-0 bg-gray-50 border-b border-gray-100">
+    <Wrap className="px-0 py-0 bg-gray-50 border-b border-gray-100">
         <div className="px-5 py-3">
           <div className="flex flex-wrap gap-2">
             {notices.map((n) => {
@@ -197,8 +197,7 @@ function StoreNoticeDetail({
             })}
           </div>
         </div>
-      </td>
-    </tr>
+    </Wrap>
   );
 }
 
@@ -226,7 +225,34 @@ function StoreStatsTable({
     );
   }
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+    <>
+    {/* 모바일/태블릿: 1줄 지점명, 2줄 수치 — 가로 스크롤 없이 한눈에 */}
+    <div className="lg:hidden bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100">
+      {visible.map((row) => {
+        const passRate = row.total > 0 ? Math.round((row.pass / row.total) * 100) : 0;
+        return (
+          <div key={row.store_id}>
+            <div className="px-4 py-3">
+              <p className="text-sm font-bold text-gray-900">{stripBranchPrefix(row.store_name)}</p>
+              <div className="mt-1.5 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]">
+                <span className="text-gray-500">전체 <b className="font-semibold">{row.total}건</b></span>
+                <span className="text-emerald-600">출고 <b className="font-semibold">{row.outbound}건</b></span>
+                <span className="text-amber-600">패스 <b className="font-semibold">{row.pass}건</b></span>
+                <div className="flex items-center gap-2 flex-1 min-w-[110px]">
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-400 rounded-full" style={{ width: `${passRate}%` }} />
+                  </div>
+                  <span className="text-[12px] font-semibold text-gray-500 w-9 text-right whitespace-nowrap">{passRate}%</span>
+                </div>
+              </div>
+            </div>
+            {showAllDetail && matrixParams && <StoreNoticeDetail storeId={row.store_id} matrixParams={matrixParams} block />}
+          </div>
+        );
+      })}
+    </div>
+
+    <div className="hidden lg:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
       <table className="w-full">
         <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
           <tr>
@@ -243,7 +269,7 @@ function StoreStatsTable({
             return (
               <Fragment key={row.store_id}>
                 <tr className="border-b border-gray-100">
-                  <td className="px-5 py-3 text-sm font-semibold text-gray-900">{row.store_name}</td>
+                  <td className="px-5 py-3 text-sm font-semibold text-gray-900">{stripBranchPrefix(row.store_name)}</td>
                   <td className="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{row.total}건</td>
                   <td className="px-5 py-3 text-sm text-emerald-600 whitespace-nowrap">{row.outbound}건</td>
                   <td className="px-5 py-3 text-sm text-amber-600 whitespace-nowrap">{row.pass}건</td>
@@ -265,95 +291,7 @@ function StoreStatsTable({
         </tbody>
       </table>
     </div>
-  );
-}
-
-// ── 상세현황 매트릭스 (날짜별 지점×품목) ───────────────────────────
-const NOTICE_STATUS_STYLE: Record<string, string> = {
-  "대기": "bg-gray-100 text-gray-500",
-  "진행중": "bg-blue-50 text-blue-600",
-  "마감": "bg-gray-100 text-gray-400",
-};
-
-function DetailMatrix({ date, storeFilter }: { date: string; storeFilter: Set<number> }) {
-  const [matrix, setMatrix] = useState<MatrixData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setLoading(true);
-    fetch(`/api/admin/stores/pass-matrix?date=${date}`)
-      .then((r) => (r.ok ? r.json() : { stores: [], dates: [] }))
-      .then(setMatrix)
-      .finally(() => setLoading(false));
-  }, [date]);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center gap-2 py-10 text-gray-400">
-        <div className="w-4 h-4 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
-        불러오는 중...
-      </div>
-    );
-  }
-
-  if (!matrix || matrix.dates.length === 0) {
-    return <p className="py-8 text-center text-sm text-gray-400">이 날짜에 공지 데이터가 없습니다.</p>;
-  }
-
-  const notices = matrix.dates[0]?.notices ?? [];
-  const visibleStores = storeFilter.size === 0
-    ? matrix.stores
-    : matrix.stores.filter((s) => storeFilter.has(s.id));
-
-  return (
-    <div className="overflow-x-auto">
-      <table className="text-sm border-collapse w-full">
-        <thead>
-          <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 border-r border-gray-200 min-w-[200px]">상품명</th>
-            {visibleStores.map((s) => (
-              <th key={s.id} className="px-3 py-3 text-center text-xs font-semibold text-gray-500 whitespace-nowrap min-w-[80px]">
-                {s.name}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {notices.map((n) => (
-            <tr key={n.notice_id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3 border-r border-gray-100">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded ${NOTICE_STATUS_STYLE[n.notice_status] ?? "bg-gray-100 text-gray-500"}`}>
-                    {n.notice_status}
-                  </span>
-                  <span className="text-gray-800 text-xs font-medium truncate max-w-[200px]">{n.product_name}</span>
-                </div>
-              </td>
-              {visibleStores.map((s) => {
-                const e = n.entries[s.id];
-                const status = e?.status ?? null;
-                return (
-                  <td key={s.id} className="px-3 py-3 text-center">
-                    {status === "패스" ? (
-                      <span className="inline-block px-2 py-0.5 text-[11px] font-bold bg-orange-50 text-orange-600 border border-orange-200 rounded">패스</span>
-                    ) : status === "출고" ? (
-                      <span className="inline-block px-2 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 rounded">출고</span>
-                    ) : (
-                      <span className="text-[11px] text-gray-300">—</span>
-                    )}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="px-4 py-2.5 flex gap-4 text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
-        <span><span className="inline-block px-1.5 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded font-bold mr-1">출고</span>출고 확정</span>
-        <span><span className="inline-block px-1.5 py-0.5 bg-orange-50 text-orange-600 border border-orange-200 rounded font-bold mr-1">패스</span>패스 선택</span>
-        <span>— 미응답(기본 출고)</span>
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -417,7 +355,57 @@ function ProductStatsTable({
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+    <>
+    {/* 모바일/태블릿: 1줄 상품명, 2줄 공지일·출고·패스·패스율 */}
+    <div className="lg:hidden bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100">
+      {rows.map((r) => {
+        const rate = r.total > 0 ? Math.round((r.pass / r.total) * 100) : 0;
+        const open = openId === r.notice_id;
+        return (
+          <div key={r.notice_id}>
+            <button
+              type="button"
+              onClick={() => setOpenId(open ? null : r.notice_id)}
+              className="w-full text-left px-4 py-3 active:bg-gray-50"
+              aria-expanded={open}
+            >
+              <p className="text-sm font-bold text-gray-900 break-words">
+                <span className="mr-1.5 text-gray-400 text-xs">{open ? "▲" : "▼"}</span>
+                {r.name}
+              </p>
+              <div className="mt-1.5 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]">
+                <span className="text-gray-500 font-mono text-[12px]">{fmtDate(r.date)}</span>
+                <span className="text-emerald-600">출고 <b className="font-semibold">{r.outbound}건</b></span>
+                <span className="text-amber-600">패스 <b className="font-semibold">{r.pass}건</b></span>
+                <div className="flex items-center gap-2 flex-1 min-w-[110px]">
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-amber-400 rounded-full" style={{ width: `${rate}%` }} />
+                  </div>
+                  <span className="text-[12px] font-semibold text-gray-500 w-9 text-right whitespace-nowrap">{rate}%</span>
+                </div>
+              </div>
+            </button>
+            {open && (
+              <div className="px-4 py-3 bg-gray-50 border-t border-gray-100">
+                {r.passStores.length === 0 ? (
+                  <p className="text-xs text-gray-400">패스한 지점이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {r.passStores.map((s) => (
+                      <span key={s.id} className="px-2 py-1 text-[11px] font-semibold bg-orange-50 text-orange-600 border border-orange-200 rounded">
+                        {stripBranchPrefix(s.name)}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+
+    <div className="hidden lg:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
       <table className="w-full">
         <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
           <tr>
@@ -443,8 +431,8 @@ function ProductStatsTable({
                     {r.name}
                   </td>
                   <td className="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(r.date)}</td>
-                  <td className="px-5 py-3 text-sm text-emerald-600 whitespace-nowrap">{r.outbound}개 지점</td>
-                  <td className="px-5 py-3 text-sm text-amber-600 whitespace-nowrap">{r.pass}개 지점</td>
+                  <td className="px-5 py-3 text-sm text-emerald-600 whitespace-nowrap">{r.outbound}건</td>
+                  <td className="px-5 py-3 text-sm text-amber-600 whitespace-nowrap">{r.pass}건</td>
                   <td className="px-5 py-3">
                     <div className="flex items-center gap-2 min-w-[120px]">
                       <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -463,7 +451,7 @@ function ProductStatsTable({
                         <div className="flex flex-wrap gap-1.5">
                           {r.passStores.map((s) => (
                             <span key={s.id} className="px-2 py-1 text-[11px] font-semibold bg-orange-50 text-orange-600 border border-orange-200 rounded">
-                              {s.name}
+                              {stripBranchPrefix(s.name)}
                             </span>
                           ))}
                         </div>
@@ -477,17 +465,74 @@ function ProductStatsTable({
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
 // ── 일별 패스율 추이 그래프 (직접 SVG — 별도 차트 라이브러리 없이) ──────────
 // 기간 필터와 지점 필터가 적용된 daily 로 그린다. 패스율 = 패스 건수 / (공지 × 지점) 전체 건수.
-const CHART = { w: 640, h: 220, left: 40, right: 16, top: 16, bottom: 36 };
-const MAX_X_LABELS = 8;
+// 컨테이너 실제 폭을 재서 1:1 픽셀로 그린다(viewBox 확대 시 글자·선이 폭에 따라 뚱뚱해지는 문제 방지).
+const CHART_COLOR = "#E5541B";
+const CHART_MARGIN = { left: 44, right: 22, top: 30, bottom: 34 };
+const X_LABEL_MIN_GAP = 64; // x축 날짜 라벨 사이 최소 간격(px)
+
+// 단조(monotone) 3차 보간 — 꺾은선을 부드러운 곡선으로, 값이 튀어 오르내리는 오버슈트 없이.
+function smoothPath(pts: { x: number; y: number }[]): string {
+  const n = pts.length;
+  if (n === 0) return "";
+  if (n === 1) return `M${pts[0].x},${pts[0].y}`;
+  const dx: number[] = [];
+  const slope: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1].x - pts[i].x);
+    slope.push((pts[i + 1].y - pts[i].y) / (dx[i] || 1));
+  }
+  const m: number[] = [slope[0]];
+  for (let i = 1; i < n - 1; i++) {
+    m.push(slope[i - 1] * slope[i] <= 0 ? 0 : (slope[i - 1] + slope[i]) / 2);
+  }
+  m.push(slope[n - 2]);
+  for (let i = 0; i < n - 1; i++) {
+    if (slope[i] === 0) {
+      m[i] = 0;
+      m[i + 1] = 0;
+      continue;
+    }
+    const a = m[i] / slope[i];
+    const b = m[i + 1] / slope[i];
+    const h = Math.hypot(a, b);
+    if (h > 3) {
+      m[i] = (3 * a * slope[i]) / h;
+      m[i + 1] = (3 * b * slope[i]) / h;
+    }
+  }
+  let d = `M${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < n - 1; i++) {
+    const c1x = pts[i].x + dx[i] / 3;
+    const c1y = pts[i].y + (m[i] * dx[i]) / 3;
+    const c2x = pts[i + 1].x - dx[i] / 3;
+    const c2y = pts[i + 1].y - (m[i + 1] * dx[i]) / 3;
+    d += ` C${c1x},${c1y} ${c2x},${c2y} ${pts[i + 1].x},${pts[i + 1].y}`;
+  }
+  return d;
+}
 
 function DailyPassRateChart({ daily, storeFilter }: { daily: DailyRow[]; storeFilter: Set<number> }) {
   const [open, setOpen] = useState(false); // 리스트 하단에 접힌 채로 시작
   const [active, setActive] = useState<number | null>(null);
+  const [width, setWidth] = useState(640);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  // 컨테이너 폭 추적 — 펼칠 때(open)마다 다시 붙인다.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setWidth(Math.max(280, Math.round(el.clientWidth)));
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [open]);
 
   const points = useMemo(
     () =>
@@ -505,15 +550,42 @@ function DailyPassRateChart({ daily, storeFilter }: { daily: DailyRow[]; storeFi
   const sumPass = points.reduce((a, p) => a + p.pass, 0);
   const sumTotal = points.reduce((a, p) => a + p.total, 0);
   const overallRate = sumTotal > 0 ? Math.round((sumPass / sumTotal) * 100) : 0;
+  const best = points.length ? points.reduce((a, p) => (p.rate > a.rate ? p : a)) : null;
+  const worst = points.length ? points.reduce((a, p) => (p.rate < a.rate ? p : a)) : null;
 
-  const plotW = CHART.w - CHART.left - CHART.right;
-  const plotH = CHART.h - CHART.top - CHART.bottom;
-  const yMax = Math.max(10, Math.ceil(Math.max(0, ...points.map((p) => p.rate)) / 10) * 10);
-  const xAt = (i: number) => (points.length === 1 ? CHART.left + plotW / 2 : CHART.left + (i * plotW) / (points.length - 1));
-  const yAt = (v: number) => CHART.top + plotH * (1 - v / yMax);
-  const labelStep = Math.ceil(points.length / MAX_X_LABELS);
+  const H = width < 520 ? 230 : 280;
+  const { left, right, top, bottom } = CHART_MARGIN;
+  const plotW = width - left - right;
+  const plotH = H - top - bottom;
+  const yMax = Math.max(20, Math.ceil(Math.max(0, ...points.map((p) => p.rate)) / 20) * 20);
+  const xAt = (i: number) => (points.length === 1 ? left + plotW / 2 : left + (i * plotW) / (points.length - 1));
+  const yAt = (v: number) => top + plotH * (1 - v / yMax);
+  const labelStep = Math.max(1, Math.ceil(points.length / Math.max(1, Math.floor(plotW / X_LABEL_MIN_GAP))));
+  const showValues = points.length <= Math.floor(plotW / 44); // 점이 듬성할 때만 값 라벨 표시
+  const coords = points.map((p, i) => ({ x: xAt(i), y: yAt(p.rate) }));
+  const linePath = smoothPath(coords);
+  const areaPath = points.length > 1 ? `${linePath} L${coords[coords.length - 1].x},${yAt(0)} L${coords[0].x},${yAt(0)} Z` : "";
+  const ticks = [0, 1, 2, 3, 4].map((k) => (yMax * k) / 4);
+  const lastIdx = points.length - 1;
+  const focus = active ?? (lastIdx >= 0 ? lastIdx : null);
   const cur = active !== null ? points[active] : undefined;
-  const line = points.map((p, i) => `${xAt(i)},${yAt(p.rate)}`).join(" ");
+
+  // 포인터 위치 → 가장 가까운 날짜 인덱스 (마우스·터치 공용)
+  const pickIndex = (e: React.PointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    if (points.length === 1) return 0;
+    const idx = Math.round(((x - left) / plotW) * (points.length - 1));
+    return Math.min(points.length - 1, Math.max(0, idx));
+  };
+
+  const stat = (label: string, value: string, sub?: string, accent?: boolean) => (
+    <div className="rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-3 min-w-0">
+      <p className="text-[11px] font-semibold text-gray-400 tracking-wide">{label}</p>
+      <p className={`mt-0.5 text-xl font-black leading-tight ${accent ? "text-[#E5541B]" : "text-gray-900"}`}>{value}</p>
+      {sub && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{sub}</p>}
+    </div>
+  );
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -521,73 +593,137 @@ function DailyPassRateChart({ daily, storeFilter }: { daily: DailyRow[]; storeFi
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between gap-2 px-4 lg:px-5 py-3.5 min-h-[44px] text-left text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
       >
         <span>일별 패스율 추이 그래프</span>
         <span className="text-gray-400 text-base">{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-      <div className="border-t border-gray-100 p-5">
-      <div className="flex flex-wrap items-baseline justify-end gap-2 mb-3">
-        <span className="text-[12px] text-gray-500">
-          기간 패스율 <span className="font-bold text-amber-600">{overallRate}%</span> (패스 {sumPass}건 / 전체 {sumTotal}건)
-        </span>
-      </div>
+        <div className="border-t border-gray-100 p-4 lg:p-5">
+          {points.length === 0 ? (
+            <div className="py-10 text-center text-sm text-gray-400">선택한 기간에 오픈된 공지가 없습니다.</div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4">
+                {stat("기간 패스율", `${overallRate}%`, `패스 ${sumPass}건 / 전체 ${sumTotal}건`, true)}
+                {best && stat("최고", `${Math.round(best.rate)}%`, fmtDate(best.date))}
+                {worst && stat("최저", `${Math.round(worst.rate)}%`, fmtDate(worst.date))}
+                {stat("집계 일수", `${points.length}일`, `오픈 상품 ${points.reduce((a, p) => a + p.products, 0)}개`)}
+              </div>
 
-      {points.length === 0 ? (
-        <div className="py-10 text-center text-sm text-gray-400">선택한 기간에 오픈된 공지가 없습니다.</div>
-      ) : (
-        <div className="relative">
-          {cur && (
-            <div
-              className="absolute z-10 -translate-x-1/2 pointer-events-none bg-[#303236] text-white rounded-lg px-3 py-2 text-[12px] leading-snug whitespace-nowrap shadow-lg"
-              style={{ left: `${Math.min(85, Math.max(15, (xAt(active as number) / CHART.w) * 100))}%`, top: 0 }}
-            >
-              <div className="font-semibold">{fmtDate(cur.date)}</div>
-              <div>패스율 {Math.round(cur.rate)}% · 패스 {cur.pass}건 / 출고 {cur.total - cur.pass}건</div>
-              <div className="text-gray-300">오픈 상품 {cur.products}개</div>
-            </div>
-          )}
-          <svg
-            viewBox={`0 0 ${CHART.w} ${CHART.h}`}
-            className="w-full h-auto"
-            role="img"
-            aria-label={`일별 패스율 추이 그래프. 기간 패스율 ${overallRate}퍼센트`}
-            onMouseLeave={() => setActive(null)}
-          >
-            {[0, 0.5, 1].map((r) => (
-              <g key={r}>
-                <line x1={CHART.left} x2={CHART.w - CHART.right} y1={yAt(yMax * r)} y2={yAt(yMax * r)} stroke="#E5E7EB" strokeWidth={1} />
-                <text x={CHART.left - 6} y={yAt(yMax * r) + 4} textAnchor="end" fontSize={11} fill="#9CA3AF">
-                  {Math.round(yMax * r)}%
-                </text>
-              </g>
-            ))}
-            {points.length > 1 && <polyline points={line} fill="none" stroke="#F59E0B" strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />}
-            {points.map((p, i) => (
-              <g key={p.date}>
-                <circle cx={xAt(i)} cy={yAt(p.rate)} r={active === i ? 6 : 3.5} fill="#F59E0B" stroke="#fff" strokeWidth={1.5} />
-                {i % labelStep === 0 && (
-                  <text x={xAt(i)} y={CHART.h - 12} textAnchor="middle" fontSize={11} fill="#6B7280">
-                    {p.date.slice(5, 7)}/{p.date.slice(8, 10)}
-                  </text>
+              <div ref={wrapRef} className="relative select-none">
+                {cur && (
+                  <div
+                    className="absolute z-10 pointer-events-none bg-[#1f2124]/95 text-white rounded-xl px-3.5 py-2.5 text-[12px] leading-snug whitespace-nowrap shadow-xl"
+                    style={{
+                      left: Math.min(width - 12, Math.max(12, xAt(active as number))),
+                      top: Math.max(0, yAt(cur.rate) - 86),
+                      transform: "translateX(-50%)",
+                    }}
+                  >
+                    <div className="text-[11px] text-gray-300">{fmtDate(cur.date)}</div>
+                    <div className="mt-0.5 flex items-baseline gap-1.5">
+                      <span className="text-lg font-black text-[#FF8A5B]">{Math.round(cur.rate)}%</span>
+                      <span className="text-[11px] text-gray-300">패스율</span>
+                    </div>
+                    <div className="text-[11px] text-gray-300">
+                      패스 {cur.pass}건 · 출고 {cur.total - cur.pass}건 · 상품 {cur.products}개
+                    </div>
+                  </div>
                 )}
-                {/* 터치·마우스 모두 잡히는 넓은 투명 영역 */}
-                <rect
-                  x={xAt(i) - plotW / Math.max(points.length, 1) / 2}
-                  y={CHART.top}
-                  width={plotW / Math.max(points.length, 1)}
-                  height={plotH}
-                  fill="transparent"
-                  onMouseEnter={() => setActive(i)}
-                  onClick={() => setActive(i)}
-                />
-              </g>
-            ))}
-          </svg>
+                <svg
+                  width={width}
+                  height={H}
+                  viewBox={`0 0 ${width} ${H}`}
+                  className="block w-full touch-pan-y"
+                  role="img"
+                  aria-label={`일별 패스율 추이 그래프. 기간 패스율 ${overallRate}퍼센트`}
+                  onPointerMove={(e) => setActive(pickIndex(e))}
+                  onPointerDown={(e) => setActive(pickIndex(e))}
+                  onPointerLeave={() => setActive(null)}
+                >
+                  <defs>
+                    <linearGradient id="passRateArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={CHART_COLOR} stopOpacity={0.28} />
+                      <stop offset="100%" stopColor={CHART_COLOR} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="passRateLine" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#F59E0B" />
+                      <stop offset="100%" stopColor={CHART_COLOR} />
+                    </linearGradient>
+                  </defs>
+
+                  {/* 눈금선 + Y축 라벨 */}
+                  {ticks.map((v, k) => (
+                    <g key={k}>
+                      <line
+                        x1={left}
+                        x2={width - right}
+                        y1={yAt(v)}
+                        y2={yAt(v)}
+                        stroke={k === 0 ? "#D1D5DB" : "#EEF0F3"}
+                        strokeWidth={1}
+                        strokeDasharray={k === 0 ? undefined : "4 4"}
+                      />
+                      <text x={left - 10} y={yAt(v) + 4} textAnchor="end" fontSize={11} fill="#9CA3AF">
+                        {Math.round(v)}%
+                      </text>
+                    </g>
+                  ))}
+
+                  {/* 기간 평균선 */}
+                  {points.length > 1 && (
+                    <g>
+                      <line x1={left} x2={width - right} y1={yAt(overallRate)} y2={yAt(overallRate)} stroke="#9CA3AF" strokeWidth={1} strokeDasharray="2 4" />
+                      <text x={width - right} y={yAt(overallRate) - 5} textAnchor="end" fontSize={10} fontWeight={600} fill="#9CA3AF">
+                        평균 {overallRate}%
+                      </text>
+                    </g>
+                  )}
+
+                  {/* 선택한 날짜 세로 가이드 */}
+                  {active !== null && (
+                    <line x1={xAt(active)} x2={xAt(active)} y1={top} y2={yAt(0)} stroke={CHART_COLOR} strokeOpacity={0.35} strokeWidth={1} strokeDasharray="3 3" />
+                  )}
+
+                  {/* 면 + 선 */}
+                  {areaPath && <path d={areaPath} fill="url(#passRateArea)" />}
+                  {points.length > 1 && <path d={linePath} fill="none" stroke="url(#passRateLine)" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />}
+
+                  {/* 점 + 값 라벨 + X축 날짜 */}
+                  {points.map((p, i) => {
+                    const isFocus = focus === i;
+                    return (
+                      <g key={p.date}>
+                        {isFocus && <circle cx={coords[i].x} cy={coords[i].y} r={11} fill={CHART_COLOR} fillOpacity={0.15} />}
+                        <circle cx={coords[i].x} cy={coords[i].y} r={isFocus ? 5.5 : 4} fill={isFocus ? CHART_COLOR : "#fff"} stroke={CHART_COLOR} strokeWidth={2.5} />
+                        {showValues && !(active !== null && active === i) && (
+                          <text x={coords[i].x} y={coords[i].y - 12} textAnchor="middle" fontSize={11} fontWeight={700} fill={isFocus ? CHART_COLOR : "#6B7280"}>
+                            {Math.round(p.rate)}%
+                          </text>
+                        )}
+                        {(i % labelStep === 0 || i === lastIdx) && (i === lastIdx || lastIdx - i >= labelStep) && (
+                          <text
+                            x={coords[i].x}
+                            y={H - 10}
+                            textAnchor={i === 0 && points.length > 1 ? "start" : i === lastIdx && points.length > 1 ? "end" : "middle"}
+                            dx={i === 0 && points.length > 1 ? -6 : i === lastIdx && points.length > 1 ? 6 : 0}
+                            fontSize={11}
+                            fontWeight={isFocus ? 700 : 400}
+                            fill={isFocus ? "#303236" : "#9CA3AF"}
+                          >
+                            {p.date.slice(5, 7)}/{p.date.slice(8, 10)}
+                          </text>
+                        )}
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+              <p className="mt-2 text-[11px] text-gray-400 text-center">그래프를 누르거나 올리면 날짜별 상세가 보입니다.</p>
+            </>
+          )}
         </div>
-      )}
-      </div>
       )}
     </div>
   );
@@ -623,10 +759,9 @@ export default function NoticeStatsPage() {
     return new Date(d.getFullYear(), d.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [showDetail, setShowDetail] = useState(false);
 
   // 필터 상태
-  const [filterMode, setFilterMode] = useState<FilterMode>("month");
+  const [filterMode, setFilterMode] = useState<FilterMode>("today");
   const [filterFrom, setFilterFrom] = useState(() => {
     const d = new Date();
     d.setDate(1);
@@ -648,10 +783,8 @@ export default function NoticeStatsPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // 날짜 선택 시 상세현황 초기화
   const handleSelectDate = (date: string | null) => {
     setSelectedDate(date);
-    setShowDetail(false);
   };
 
   // 기간 필터링된 daily
@@ -727,14 +860,14 @@ export default function NoticeStatsPage() {
       </div>
 
       {/* 기간 필터 */}
-      <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+      <div className="bg-white border border-gray-200 rounded-xl px-3 lg:px-4 py-3 flex flex-wrap items-center gap-2 lg:gap-3">
         {/* 빠른 선택 */}
         <div className="flex gap-1 border border-gray-200 rounded-lg overflow-hidden">
-          {(["month", "today"] as const).map((m) => (
+          {(["today", "month"] as const).map((m) => (
             <button
               key={m}
-              onClick={() => { setFilterMode(m); setSelectedDate(null); setShowDetail(false); }}
-              className={`px-3 py-1.5 text-sm font-medium transition-colors ${filterMode === m ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
+              onClick={() => { setFilterMode(m); setSelectedDate(null); }}
+              className={`px-3 max-lg:px-2.5 py-1.5 max-lg:min-h-[44px] text-sm max-lg:text-[13px] font-medium transition-colors ${filterMode === m ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
             >
               {m === "month" ? "이번 달" : "오늘"}
             </button>
@@ -742,14 +875,14 @@ export default function NoticeStatsPage() {
         </div>
 
         {/* 날짜 범위 인라인 */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1 lg:gap-1.5 max-lg:flex-1 max-lg:min-w-[170px]">
           <input
             type="date"
             value={filterFrom}
             max={filterTo}
-            onFocus={() => { setFilterMode("range"); setSelectedDate(null); setShowDetail(false); }}
-            onChange={(e) => { setFilterMode("range"); setFilterFrom(e.target.value); setSelectedDate(null); setShowDetail(false); }}
-            className={`px-3 py-1.5 border rounded-lg text-sm focus:outline-none transition-colors ${filterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
+            onFocus={() => { setFilterMode("range"); setSelectedDate(null); }}
+            onChange={(e) => { setFilterMode("range"); setFilterFrom(e.target.value); setSelectedDate(null); }}
+            className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] max-lg:flex-1 min-w-0 border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${filterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
           />
           <span className="text-gray-400 text-sm">~</span>
           <input
@@ -757,9 +890,9 @@ export default function NoticeStatsPage() {
             value={filterTo}
             min={filterFrom}
             max={todayKst()}
-            onFocus={() => { setFilterMode("range"); setSelectedDate(null); setShowDetail(false); }}
-            onChange={(e) => { setFilterMode("range"); setFilterTo(e.target.value); setSelectedDate(null); setShowDetail(false); }}
-            className={`px-3 py-1.5 border rounded-lg text-sm focus:outline-none transition-colors ${filterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
+            onFocus={() => { setFilterMode("range"); setSelectedDate(null); }}
+            onChange={(e) => { setFilterMode("range"); setFilterTo(e.target.value); setSelectedDate(null); }}
+            className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] max-lg:flex-1 min-w-0 border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${filterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
           />
         </div>
 
@@ -774,20 +907,20 @@ export default function NoticeStatsPage() {
 
         {/* 지점명 검색 — 입력하는 즉시 아래 표들이 걸러진다 */}
         {byStore.length > 0 && (
-          <div className="relative">
+          <div className="relative max-lg:w-full">
             <input
               value={storeQuery}
               onChange={(e) => setStoreQuery(e.target.value)}
               placeholder="지점명 검색"
               aria-label="지점명 검색"
-              className="w-48 pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#303236]"
+              className="w-48 max-lg:w-full max-lg:min-h-[44px] pl-3 pr-8 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:border-[#303236]"
             />
             {storeQuery && (
               <button
                 type="button"
                 onClick={() => setStoreQuery("")}
                 aria-label="검색어 지우기"
-                className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 text-gray-400 hover:text-gray-700"
+                className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 max-lg:w-11 max-lg:h-11 text-gray-400 hover:text-gray-700"
               >
                 ×
               </button>
@@ -795,13 +928,13 @@ export default function NoticeStatsPage() {
           </div>
         )}
 
-        <span className="ml-auto text-xs text-gray-400">{filterLabel}</span>
+        <span className="lg:ml-auto text-xs text-gray-400">{filterLabel}</span>
       </div>
 
       {/* 캘린더 + 지점별 현황 나란히 */}
-      <div className="flex gap-5 items-start">
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-5 items-stretch lg:items-start">
         {/* 캘린더 */}
-        <div className="flex-shrink-0">
+        <div className="lg:flex-shrink-0">
           <StatsCalendar
             viewMonth={viewMonth}
             onViewMonthChange={setViewMonth}
@@ -814,12 +947,12 @@ export default function NoticeStatsPage() {
         {/* 지점별 현황 */}
         <div className="flex-1 min-w-0">
           {/* 탭: 지점별 / 상품별 */}
-          <div className="flex gap-1 mb-3 border border-gray-200 rounded-lg overflow-hidden w-fit">
+          <div className="flex gap-1 mb-3 border border-gray-200 rounded-lg overflow-hidden lg:w-fit">
             {([["store", "지점별 출고/패스 현황"], ["product", "상품별 출고/패스 현황"]] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => setStatsTab(k)}
-                className={`px-3.5 py-1.5 text-sm font-semibold transition-colors ${statsTab === k ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
+                className={`px-3.5 py-1.5 max-lg:min-h-[44px] max-lg:flex-1 max-lg:text-[13px] text-sm font-semibold transition-colors ${statsTab === k ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
               >
                 {label}
               </button>
@@ -828,8 +961,8 @@ export default function NoticeStatsPage() {
 
           {statsTab === "store" ? (
             <>
-              <div className="flex items-center gap-2 mb-3">
-                <h2 className="text-sm font-bold text-gray-700 flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <h2 className="text-sm font-bold text-gray-700 flex-1 max-lg:basis-full">
                   {selectedDay
                     ? `${fmtDate(selectedDay.notice_date)} 지점별 출고/패스 현황`
                     : `지점별 출고/패스 현황 (${filterLabel})`}
@@ -841,7 +974,7 @@ export default function NoticeStatsPage() {
                 </h2>
                 <button
                   onClick={() => setShowAllDetail((v) => !v)}
-                  className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 text-[12px] font-medium rounded-lg border transition-colors ${showAllDetail ? "border-[#303236] bg-[#303236] text-white" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
+                  className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-1 max-lg:min-h-[44px] text-[12px] font-medium rounded-lg border transition-colors ${showAllDetail ? "border-[#303236] bg-[#303236] text-white" : "border-gray-200 text-gray-500 hover:border-gray-400"}`}
                 >
                   전체 자세히 {showAllDetail ? "▲" : "▼"}
                 </button>
@@ -862,7 +995,7 @@ export default function NoticeStatsPage() {
                     XLSX.utils.book_append_sheet(wb, ws, "지점별현황");
                     XLSX.writeFile(wb, `지점별현황_${filterLabel}.xlsx`);
                   }}
-                  className="flex-shrink-0 px-2.5 py-1 text-[12px] font-medium border border-gray-200 rounded-lg hover:border-[#303236] text-gray-500"
+                  className="flex-shrink-0 px-2.5 py-1 max-lg:min-h-[44px] text-[12px] font-medium border border-gray-200 rounded-lg hover:border-[#303236] text-gray-500"
                 >
                   엑셀
                 </button>
@@ -889,47 +1022,6 @@ export default function NoticeStatsPage() {
         </div>
       </div>
 
-      {/* 날짜 선택된 경우: 오픈 목록 + 상세 매트릭스 */}
-      {selectedDay && (
-        <div className="space-y-4">
-          <section>
-            <h2 className="text-sm font-bold text-gray-700 mb-3">
-              {fmtDate(selectedDay.notice_date)} 오픈 목록{" "}
-              <span className="font-normal text-gray-400">({selectedDay.count}건)</span>
-            </h2>
-            <div className="bg-white border border-gray-200 rounded-xl shadow-sm divide-y divide-gray-100">
-              {selectedDay.products.map((p, i) => (
-                <Link
-                  key={`${p.id}-${i}`}
-                  href={`/admin/products/${p.id}/edit`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-50 hover:text-[#303236] transition-colors"
-                >
-                  {p.name}
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          {/* 상세현황 (품목별 지점 매트릭스) */}
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <button
-              onClick={() => setShowDetail((v) => !v)}
-              className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              <span>품목별 상세현황 — 어떤 지점이 어떤 품목을 패스했는지</span>
-              <span className="text-gray-400 text-base">{showDetail ? "▲" : "▼"}</span>
-            </button>
-            {showDetail && (
-              <div className="border-t border-gray-100">
-                <DetailMatrix date={selectedDay.notice_date} storeFilter={effectiveStoreFilter} />
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* 일별 패스율 추이 그래프 — 리스트 하단, 기본 접힘 */}
       <DailyPassRateChart daily={filteredDaily} storeFilter={effectiveStoreFilter} />
 
@@ -943,7 +1035,7 @@ export default function NoticeStatsPage() {
           <span className="text-gray-400 text-base">{showHistory ? "▲" : "▼"}</span>
         </button>
         {showHistory && (
-          <div className="border-t border-gray-100 px-5 py-3">
+          <div className="border-t border-gray-100 px-4 lg:px-5 py-3">
             {historyLoading ? (
               <p className="text-[13px] text-gray-400 py-3">불러오는 중...</p>
             ) : history.length === 0 ? (

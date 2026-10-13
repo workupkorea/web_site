@@ -139,7 +139,7 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
         <div className="px-4 py-3 bg-red-50 border border-red-200 text-red-600 text-sm rounded-lg">{error}</div>
       )}
 
-      <div className="flex gap-5 items-stretch">
+      <div className="flex flex-col lg:flex-row gap-5 items-stretch">
         <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-800">공지 상품 등록</h2>
@@ -151,8 +151,8 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
               {qSaving ? "등록 중..." : "공지용으로 등록"}
             </button>
           </div>
-          <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm p-5 flex flex-col">
-            <div className="flex gap-5 items-stretch flex-1 min-h-0">
+          <div className="flex-1 bg-white border border-gray-200 rounded-xl shadow-sm p-3 lg:p-5 flex flex-col">
+            <div className="flex flex-col sm:flex-row gap-5 items-stretch flex-1 min-h-0">
               <div className="flex-shrink-0">
                 <CoverAndDetailImagesField
                   cover={qCover}
@@ -169,7 +169,7 @@ export default function NoticeProductPicker({ onCreated }: { onCreated?: (id: st
                   coverButtonPosition="below"
                 />
               </div>
-              <div className="flex-1 min-w-[200px] flex flex-col gap-4 min-h-0">
+              <div className="flex-1 sm:min-w-[200px] flex flex-col gap-4 min-h-0">
                 <div className="flex-shrink-0">
                   <label className="block text-sm font-semibold text-gray-600 mb-1.5">상품명</label>
                   <input

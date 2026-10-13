@@ -186,12 +186,12 @@ export default function PassLinksPage() {
   return (
     <>
       <div className="space-y-5 lg:pr-[32vw]">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col lg:flex-row items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-gray-900">지점 링크 관리</h1>
             <p className="text-sm text-gray-500 mt-1">링크 토큰이 지점코드 역할을 합니다. 유출이 의심되면 즉시 재발급하세요.</p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center lg:justify-end gap-2">
             {lastSync?.syncedAt && (
               <span className="text-[12px] text-gray-500 text-right leading-tight whitespace-nowrap">
                 마지막 동기화{lastSync.syncedBy ? ` ${lastSync.syncedBy}` : ""}
@@ -202,14 +202,14 @@ export default function PassLinksPage() {
             <button
               type="button"
               onClick={() => setShowSync(true)}
-              className="px-4 py-2 text-sm font-semibold bg-[#303236] text-white rounded-lg hover:bg-[#1f2124]"
+              className="px-4 py-2 max-lg:min-h-[44px] text-sm font-semibold bg-[#303236] text-white rounded-lg hover:bg-[#1f2124]"
             >
               wjumun 동기화
             </button>
             <button
               type="button"
               onClick={() => setShowStatus(true)}
-              className="px-4 py-2 text-sm font-semibold border border-gray-300 rounded-lg text-gray-600 hover:border-[#303236] hover:text-[#303236]"
+              className="px-4 py-2 max-lg:min-h-[44px] text-sm font-semibold border border-gray-300 rounded-lg text-gray-600 hover:border-[#303236] hover:text-[#303236]"
             >
               지점 현황
             </button>
@@ -223,13 +223,13 @@ export default function PassLinksPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="지점명 또는 지점코드 검색"
-            className="w-full max-w-sm border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-[#303236]"
+            className="w-full lg:max-w-sm border border-gray-200 rounded-lg px-4 py-2.5 max-lg:min-h-[44px] text-sm focus:outline-none focus:border-[#303236]"
           />
           <button
             type="button"
             onClick={() => setBulkOnly((v) => !v)}
             aria-pressed={bulkOnly}
-            className={`px-4 py-2.5 text-sm font-semibold rounded-lg border ${
+            className={`px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border ${
               bulkOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
             }`}
           >
@@ -240,7 +240,7 @@ export default function PassLinksPage() {
               type="button"
               onClick={() => setPushOnly((v) => !v)}
               aria-pressed={pushOnly}
-              className={`px-4 py-2.5 text-sm font-semibold rounded-lg border ${
+              className={`px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border ${
                 pushOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
               }`}
             >
@@ -252,7 +252,84 @@ export default function PassLinksPage() {
         {loading ? (
           <div className="py-20 text-center text-sm text-gray-400">불러오는 중...</div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: "80vh" }}>
+          <>
+            {/* 모바일/태블릿: 지점 카드 목록 */}
+            <div className="lg:hidden space-y-2.5">
+              {filteredStores.length === 0 && (
+                <div className="py-10 text-center text-sm text-gray-400 bg-white border border-gray-200 rounded-xl">조건에 맞는 지점이 없습니다.</div>
+              )}
+              {filteredStores.map((s) => (
+                <div
+                  key={s.id}
+                  className={`border rounded-xl p-3.5 space-y-3 ${!s.pass_link_token ? "bg-amber-50/60 border-amber-200" : "bg-white border-gray-200"}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[12px] text-gray-400 font-mono">{s.store_code || "-"}</p>
+                      <p className="text-[15px] font-bold text-gray-900 break-words">{s.name}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        {bulkIds.has(s.id) && (
+                          <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold">일괄출고금지</span>
+                        )}
+                        {push?.available && (
+                          push.stores[s.id] ? (
+                            <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-50 text-emerald-700">
+                              알림 설정 ({push.stores[s.id].count}대)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-gray-100 text-gray-500">알림 미설정</span>
+                          )
+                        )}
+                      </div>
+                    </div>
+                    {!s.pass_link_token && (
+                      <span className="flex-shrink-0 px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-amber-100 text-amber-700">발급 필요</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={drafts[s.id] ?? ""}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [s.id]: e.target.value }))}
+                      placeholder="담당자명"
+                      className="flex-1 min-w-0 min-h-[44px] border border-gray-200 rounded-lg px-3 text-sm focus:outline-none focus:border-[#303236]"
+                    />
+                    <button
+                      onClick={() => saveManager(s.id)}
+                      disabled={savingId === s.id}
+                      className="min-h-[44px] px-4 text-[13px] font-semibold whitespace-nowrap border border-gray-200 rounded-lg active:bg-gray-50 disabled:opacity-50"
+                    >
+                      저장
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {s.pass_link_token ? (
+                      <button
+                        onClick={() => copyLink(s.id, s.pass_link_token)}
+                        className="min-h-[44px] text-[13px] font-semibold text-[#3A6DF0] border border-[#3A6DF0]/30 rounded-lg active:bg-blue-50"
+                      >
+                        링크 복사
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => regenerate(s.id, s.name)}
+                        disabled={regenId === s.id}
+                        className="min-h-[44px] text-[13px] font-semibold text-red-600 border border-red-200 rounded-lg active:bg-red-50 disabled:opacity-50"
+                      >
+                        {regenId === s.id ? "처리 중..." : "링크 발급"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setPreviewStoreId(s.id)}
+                      className="min-h-[44px] text-[13px] font-semibold border border-gray-300 text-gray-600 rounded-lg active:bg-gray-50"
+                    >
+                      화면 확인
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          <div className="hidden lg:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: "80vh" }}>
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
@@ -339,11 +416,12 @@ export default function PassLinksPage() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
-      {/* 오른쪽 화면 확인 패널 */}
-      <div className="fixed top-0 right-0 h-screen w-full sm:w-[32vw] bg-white border-l border-gray-200 shadow-2xl z-40 flex flex-col">
+      {/* 화면 확인 패널 — PC: 오른쪽 고정, 모바일: 지점을 선택했을 때만 전체 화면으로 열림 */}
+      <div className={`${previewStore ? "flex" : "hidden lg:flex"} fixed top-0 right-0 h-dvh w-full lg:w-[32vw] bg-white border-l border-gray-200 shadow-2xl z-40 flex-col`}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0 gap-3">
           <span className="text-sm font-semibold text-gray-900 truncate">
             {previewStore ? `${previewStore.name} 화면 확인` : "화면 확인"}
@@ -354,7 +432,7 @@ export default function PassLinksPage() {
                 <button
                   type="button"
                   onClick={() => openLinkModal(previewStore.id)}
-                  className="px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap text-gray-600 border border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-800"
+                  className="px-2.5 py-1 max-lg:min-h-[44px] text-[12px] font-semibold whitespace-nowrap text-gray-600 border border-gray-300 rounded-lg hover:border-gray-500 hover:text-gray-800"
                 >
                   히스토리
                 </button>
@@ -363,14 +441,14 @@ export default function PassLinksPage() {
                 type="button"
                 onClick={() => regenerate(previewStore.id, previewStore.name)}
                 disabled={regenId === previewStore.id}
-                className="px-2.5 py-1 text-[12px] font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
+                className="px-2.5 py-1 max-lg:min-h-[44px] text-[12px] font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50"
               >
                 {regenId === previewStore.id ? "처리 중..." : previewStore.pass_link_token ? "재발급" : "발급"}
               </button>
               <button
                 type="button"
                 onClick={() => setPreviewStoreId(null)}
-                className="text-gray-400 hover:text-gray-700 text-2xl leading-none"
+                className="text-gray-400 hover:text-gray-700 text-2xl leading-none max-lg:min-w-[44px] max-lg:min-h-[44px]"
                 aria-label="선택 해제"
               >
                 ×

@@ -195,12 +195,12 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
   ] as const;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-2 lg:p-4" onClick={onClose}>
       <div
         className="bg-white rounded-2xl w-full max-w-6xl max-h-[88vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 lg:px-5 py-3 lg:py-4 border-b border-gray-100 flex-shrink-0">
           <div>
             <span className="font-bold text-[16px] text-gray-900">지점 현황</span>
             <p className="text-xs text-gray-400 mt-0.5">
@@ -262,7 +262,7 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
           <span className="ml-2 text-[11px] text-gray-400">일괄출고금지은 공지 &amp; 현황·통계에서 제외됩니다.</span>
         </div>
 
-        <div className="flex-1 overflow-auto p-5">
+        <div className="flex-1 overflow-auto p-3 lg:p-5">
           {loading ? (
             <div className="py-16 text-center text-sm text-gray-400">불러오는 중...</div>
           ) : merged.length === 0 ? (

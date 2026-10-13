@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { stripBranchPrefix } from "@/lib/ih/influencer-shared";
 
 type PassRow = { store_id: number; store_name: string; store_code: string | null; status: "출고" | "패스"; updated_at: string | null };
 
@@ -89,20 +90,20 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
           />
         </div>
       </div>
-      <div className="overflow-auto max-h-[calc(100vh-420px)]">
+      <div className="overflow-y-auto overflow-x-hidden max-h-[calc(100vh-420px)]">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
             <tr>
-              <th className="px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">지점명</th>
-              <th className="px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">상태</th>
-              <th className="px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">변경 시각</th>
+              <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">지점명</th>
+              <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">상태</th>
+              <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">변경 시각</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {filteredRows.map((r) => (
               <tr key={r.store_id}>
-                <td className="px-3 py-3 text-sm text-gray-900 whitespace-nowrap">{r.store_name}</td>
-                <td className="px-3 py-3 whitespace-nowrap">
+                <td className="px-2 lg:px-3 py-3 text-sm text-gray-900 break-keep">{stripBranchPrefix(r.store_name)}</td>
+                <td className="px-2 lg:px-3 py-3 whitespace-nowrap">
                   <span
                     className={`inline-block whitespace-nowrap px-2.5 py-0.5 text-[12px] font-semibold rounded-full ${
                       r.status === "패스" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"
@@ -111,7 +112,7 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
                     {r.status}
                   </span>
                 </td>
-                <td className="px-3 py-3 text-sm text-gray-400 font-mono whitespace-nowrap">{fmtTime(r.updated_at)}</td>
+                <td className="px-2 lg:px-3 py-3 text-[12px] lg:text-sm text-gray-400 font-mono whitespace-nowrap">{fmtTime(r.updated_at)}</td>
               </tr>
             ))}
           </tbody>
