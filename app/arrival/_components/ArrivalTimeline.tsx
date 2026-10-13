@@ -468,27 +468,32 @@ type GroupMode = "date" | "month" | "category" | "brand";
 // 이미지·타임라인·캘린더 뷰가 같은 가로폭을 쓰도록 상단 바와 본문이 공유하는 좌우 여백
 const PAGE_X_PAD = "px-3 sm:px-5";
 
-// 관리자 전용: 주문율·판매율(시트 값)을 판매가 아래 한 줄로, 그 아래 재고수량을 표기
-function RateLine({ product }: { product: ArrivalProduct }) {
+// 관리자 전용: 주문율·판매율(시트 값)·재고수량 표기. inline이면 PC(sm+)에서 한 줄로, 모바일은 줄 나눔
+function RateLine({ product, inline }: { product: ArrivalProduct; inline?: boolean }) {
   const o = orderRateOf(product);
   const s = salesRateOf(product);
   const stock = product.stockQuantity;
   if (o == null && s == null && stock == null) return null;
+  const sep = <span className="hidden sm:inline mx-1 text-gray-300">|</span>;
+  const txt = "text-[12px] text-gray-500 whitespace-nowrap tabular-nums";
   return (
-    <>
+    <div className={inline ? "flex flex-col items-end sm:flex-row sm:items-center sm:justify-end" : "flex flex-col"}>
       {(o != null || s != null) && (
-        <p className="text-[12px] text-gray-500 whitespace-nowrap tabular-nums">
+        <p className={txt}>
           주문 <span className="font-bold text-blue-600">{o != null ? `${o}%` : "—"}</span>
           <span className="mx-1 text-gray-300">|</span>
           판매 <span className="font-bold text-green-600">{s != null ? `${s}%` : "—"}</span>
         </p>
       )}
       {stock != null && (
-        <p className="text-[12px] text-gray-500 whitespace-nowrap tabular-nums">
-          재고 <span className="font-bold text-[#1a1a1a]">{stock.toLocaleString("ko-KR")}</span>
-        </p>
+        <>
+          {inline && (o != null || s != null) && sep}
+          <p className={txt}>
+            재고 <span className="font-bold text-[#1a1a1a]">{stock.toLocaleString("ko-KR")}</span>
+          </p>
+        </>
       )}
-    </>
+    </div>
   );
 }
 
@@ -534,7 +539,7 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates }: 
         ) : (
           <p className="text-[13px] text-gray-600 font-medium text-right mt-auto">{fmtPrice(product.price)}</p>
         )}
-        {showRates && <div className="flex flex-col items-end"><RateLine product={product} /></div>}
+        {showRates && <RateLine product={product} inline />}
       </div>
     </button>
   );
