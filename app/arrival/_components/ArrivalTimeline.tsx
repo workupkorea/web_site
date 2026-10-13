@@ -468,6 +468,30 @@ type GroupMode = "date" | "month" | "category" | "brand";
 // 이미지·타임라인·캘린더 뷰가 같은 가로폭을 쓰도록 상단 바와 본문이 공유하는 좌우 여백
 const PAGE_X_PAD = "px-3 sm:px-5";
 
+// 관리자 전용: 주문율·판매율(시트 값)을 판매가 아래 한 줄로, 그 아래 재고수량을 표기
+function RateLine({ product }: { product: ArrivalProduct }) {
+  const o = orderRateOf(product);
+  const s = salesRateOf(product);
+  const stock = product.stockQuantity;
+  if (o == null && s == null && stock == null) return null;
+  return (
+    <>
+      {(o != null || s != null) && (
+        <p className="text-[12px] text-gray-500 whitespace-nowrap tabular-nums">
+          주문 <span className="font-bold text-blue-600">{o != null ? `${o}%` : "—"}</span>
+          <span className="mx-1 text-gray-300">|</span>
+          판매 <span className="font-bold text-green-600">{s != null ? `${s}%` : "—"}</span>
+        </p>
+      )}
+      {stock != null && (
+        <p className="text-[12px] text-gray-500 whitespace-nowrap tabular-nums">
+          재고 <span className="font-bold text-[#1a1a1a]">{stock.toLocaleString("ko-KR")}</span>
+        </p>
+      )}
+    </>
+  );
+}
+
 // 마케팅 체크 시 이미지 하단에 얹는 용도 뱃지 (관리자 전용 — 호출 측에서 showMarketing으로 게이트)
 function MarketingBadge({ usage }: { usage?: string }) {
   if (!usage) return null;
@@ -477,7 +501,7 @@ function MarketingBadge({ usage }: { usage?: string }) {
     </span>
   );
 }
-function ProductCard({ product, onSelect, showDate, showMarketing }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean }) {
+function ProductCard({ product, onSelect, showDate, showMarketing, showRates }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean; showRates?: boolean }) {
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const { full } = fmtDate(product.arrivalDate);
   return (
@@ -510,6 +534,7 @@ function ProductCard({ product, onSelect, showDate, showMarketing }: { product: 
         ) : (
           <p className="text-[13px] text-gray-600 font-medium text-right mt-auto">{fmtPrice(product.price)}</p>
         )}
+        {showRates && <div className="flex flex-col items-end"><RateLine product={product} /></div>}
       </div>
     </button>
   );
@@ -595,8 +620,8 @@ function GroupHeader({ groupKey, groupMode, count }: { groupKey: string; groupMo
 }
 
 // ─── 그리드 뷰 ───────────────────────────────────────────────────────────────
-function GridView({ grouped, groupMode, onSelect, showMarketing }: {
-  grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
+function GridView({ grouped, groupMode, onSelect, showMarketing, showRates }: {
+  grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean; showRates?: boolean;
 }) {
   const collapsible = groupMode === "category" || groupMode === "brand";
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -623,7 +648,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing }: {
             )}
             {!isCollapsed && (
               <div className={GRID_COLS}>
-                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} />)}
+                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} showRates={showRates} />)}
               </div>
             )}
           </div>
@@ -1112,42 +1137,29 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
               </div>
             ) : (
               <>
-                {/* ── 모바일: 텍스트 전용 ─────────────────────────────────── */}
-                <div className="sm:hidden">
-                  <div className="grid grid-cols-5 gap-px bg-gray-200 rounded-xl overflow-hidden border border-gray-200">
-                    {WEEKDAY_KO.map(d => (
-                      <div key={d} className="bg-gray-100 text-center text-[12px] text-gray-500 py-1.5 font-bold">{d}</div>
-                    ))}
-                    {cells.map((day, idx) => {
-                      if (!day) return <div key={idx} className="bg-[#fafaf8] min-h-[3.5rem]" />;
-                      const isoKey = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-                      const items  = dateMap.get(isoKey) ?? [];
-                      const hasItems = items.length > 0;
-                      const completedAll = hasItems && items.every(p => p.status === "입고완료");
-                      const isToday = year === thisYear && month === thisMonth && day === today.getDate();
+                {/* ── 모바일: 날짜별 이미지 카드 (2열) ─────────────────────── */}
+                <div className="sm:hidden space-y-4">
+                  {allDates
+                    .filter(d => { const dd = parseDate(d); return dd && dd.getFullYear() === year && dd.getMonth() === month; })
+                    .map(d => {
+                      const items = dateMap.get(d) ?? [];
+                      const dd = parseDate(d)!;
+                      const isToday = year === thisYear && month === thisMonth && dd.getDate() === today.getDate();
+                      const isThisWeek = thisWeekRange ? isInWeekRange(d, thisWeekRange) : false;
                       return (
-                        <div key={idx} data-cal-today={isToday ? "true" : undefined} className="bg-white p-1 min-h-[3.5rem]">
-                          <span className={`block text-[13px] font-black mb-0.5 ${hasItems && !completedAll ? "text-[#1a1a1a]" : "text-gray-300"}`}>
-                            {day}
-                          </span>
-                          <div className="space-y-0.5">
-                            {items.map(p => {
-                              const isThisWeek = thisWeekRange ? isInWeekRange(p.arrivalDate, thisWeekRange) : false;
-                              return (
-                              <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
-                                className={`w-full text-left transition-opacity hover:opacity-70 ${isThisWeek ? "border-l-2 border-orange-500 pl-1" : ""}`}>
-                                <p className="text-[8px] text-gray-400 leading-none font-mono truncate">{p.productCode}</p>
-                                <p className="text-[9px] text-gray-800 leading-normal font-semibold line-clamp-2 mt-px">{p.productName}</p>
-                                <p className="text-[8px] text-gray-400 leading-none mt-px">{p.brand}</p>
-                                {p.price > 0 && <p className="text-[8px] text-gray-500 leading-none mt-px">₩{p.price.toLocaleString("ko-KR")}</p>}
-                              </button>
-                              );
-                            })}
+                        <div key={d} data-cal-today={isToday ? "true" : undefined}>
+                          <div className={`mb-2 flex items-center gap-2 border-b-2 border-gray-300 px-1 pb-1 ${isThisWeek ? "bg-orange-100" : ""}`}>
+                            <span className="text-[15px] font-black text-[#1a1a1a]">{month + 1}/{dd.getDate()}({DAY_KO[dd.getDay()]})</span>
+                            <span className="text-[13px] text-gray-500">{items.length}개</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+                            {items.map(p => (
+                              <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}`} product={p} onSelect={() => onSelect(p)} showMarketing={showMarketing} />
+                            ))}
                           </div>
                         </div>
                       );
                     })}
-                  </div>
                 </div>
 
                 {/* ── PC: 이미지 + 텍스트 (좌우 스크롤) ──────────────────── */}
@@ -1397,8 +1409,8 @@ function GanttView({ products, onSelect, showMarketing }: {
 }
 
 // ─── 타임라인 뷰 ─────────────────────────────────────────────────────────────
-function TimelineView({ products, onSelect, showMarketing }: {
-  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
+function TimelineView({ products, onSelect, showMarketing, showRates }: {
+  products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean; showRates?: boolean;
 }) {
   // 월별 → 날짜별 2단 그룹
   const byMonth = useMemo(() => {
@@ -1497,12 +1509,12 @@ function TimelineView({ products, onSelect, showMarketing }: {
                 {/* 세로 연결선: 날짜열(3.5rem) + 도트열(1.5rem) 절반 */}
                 <div className="absolute left-[3.25rem] sm:left-[5rem] top-2 bottom-2 w-px bg-gray-200 pointer-events-none" />
 
-                <div className="space-y-5">
+                <div>
                   {dates.map(([dateKey, items]) => {
                     const { mm, dd, dayKo } = fmtDate(dateKey);
                     const isToday = dateKey === toIsoDate(today);
                     return (
-                      <div key={dateKey} id={isToday ? "timeline-today" : undefined} data-timeline-date={dateKey} className="flex items-start gap-0">
+                      <div key={dateKey} id={isToday ? "timeline-today" : undefined} data-timeline-date={dateKey} className="flex items-start gap-0 mt-4 pt-4 border-t border-gray-300 first:mt-0 first:pt-0 first:border-t-0">
                         {/* 날짜 레이블 열 */}
                         <div className="w-[2.5rem] sm:w-[4rem] shrink-0 flex flex-col items-end pr-1.5 pt-0.5">
                           <span className="text-[9px] sm:text-[18px] font-black text-[#1a1a1a] leading-none">{mm}.{dd}</span>
@@ -1528,7 +1540,7 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                 >
                                   <div className={`w-[130px] sm:w-[145px] aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
                                     <div className="relative w-full h-full overflow-hidden bg-white">
-                                      <MiniThumb product={p} />
+                                      <MiniThumb product={p} fit="contain" />
                                       <span className={`absolute top-1 left-1 text-[11px] font-bold px-1 py-0.5 rounded leading-none ${meta.cls}`}>
                                         {meta.label}
                                       </span>
@@ -1554,6 +1566,7 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                     {p.price > 0 && (
                                       <p className="text-[14px] text-gray-500">판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></p>
                                     )}
+                                    {showRates && <RateLine product={p} />}
                                   </div>
                                 </button>
                               );
@@ -2176,9 +2189,9 @@ export default function ArrivalTimeline() {
             <button onClick={resetFilters} className="mt-3 text-[14px] text-[#1a1a1a] underline underline-offset-2">필터 초기화</button>
           </div>
         ) : viewMode === "grid" ? (
-          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
+          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} />
         ) : viewMode === "timeline" ? (
-          <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
+          <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} />
         ) : viewMode === "gantt" ? (
           <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
         ) : (
