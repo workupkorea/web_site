@@ -101,6 +101,12 @@ function parseArrivalDate(dateCell: string, _unused?: string): [string, ArrivalS
   }
 }
 
+// "58%" → 58, 빈 칸/비숫자 → null
+function parseRate(s: string): number | null {
+  const n = parseFloat((s ?? "").replace(/[%,\s]/g, ""));
+  return isNaN(n) ? null : n;
+}
+
 function parsePrice(s: string): number {
   const n = parseInt(s.replace(/,/g, "").trim(), 10);
   return isNaN(n) ? 0 : n;
@@ -131,6 +137,8 @@ const EXPECTED_HEADERS: Record<string, { idx: number; keywords: string[] }> = {
   "총주문 수량":     { idx: 45, keywords: ["수량"] },
   "총판매 수량":     { idx: 49, keywords: ["수량"] },
   "총재고 수량":     { idx: 54, keywords: ["수량"] },
+  "주문율":          { idx: 48, keywords: ["주문율"] },
+  "판매율":          { idx: 52, keywords: ["판매율"] },
 };
 
 type HeaderMismatch = { label: string; idx: number; expected: string; actual: string };
@@ -182,6 +190,8 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
     orderQty: 45,       // 총주문 수량
     salesQty: 49,       // 총판매 수량
     stockQty: 54,       // 총재고 수량
+    orderRate: 48,      // 주문율 (시트 값 그대로 — 수기 보정 포함)
+    salesRate: 52,      // 판매율 (시트 값 그대로)
   } as const;
 
   // 입고 수량: 총입고(사입) 수량이 0이 아니면 그 값, 아니면 공급 수량으로 폴백
@@ -196,6 +206,8 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   const groups = new Map<GroupKey, ArrivalProduct>();
   const groupColors = new Map<GroupKey, string[]>();
   const groupStamps = new Map<GroupKey, string>(); // 그룹 내 행들의 최신 수정시각(ISO)
+  // 시트 주문율/판매율은 색상(행) 단위 값이라, 상품 단위로는 입고수량 가중평균으로 합친다(행이 1개면 시트 값 그대로).
+  const groupRates = new Map<GroupKey, { oSum: number; oW: number; sSum: number; sW: number }>();
 
   for (const row of rows.slice(4)) {
     const noVal = (row[IDX.no] ?? "").trim();
@@ -250,6 +262,16 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
       existing.stockQuantity = (existing.stockQuantity ?? 0) + parsePrice(row[IDX.stockQty] ?? "");
     }
 
+    {
+      const w = rowQty(row);
+      const oRate = parseRate(row[IDX.orderRate] ?? "");
+      const sRate = parseRate(row[IDX.salesRate] ?? "");
+      const acc = groupRates.get(key) ?? { oSum: 0, oW: 0, sSum: 0, sW: 0 };
+      if (oRate != null && w > 0) { acc.oSum += oRate * w; acc.oW += w; }
+      if (sRate != null && w > 0) { acc.sSum += sRate * w; acc.sW += w; }
+      groupRates.set(key, acc);
+    }
+
     if (color) {
       const colors = groupColors.get(key) ?? [];
       if (!colors.includes(color)) colors.push(color);
@@ -267,6 +289,9 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   for (const [key, product] of groups) {
     product.color = (groupColors.get(key) ?? []).join(",");
     product.sheetEditedAt = groupStamps.get(key) || undefined;
+    const rates = groupRates.get(key);
+    if (rates?.oW) product.orderRate = Math.round(rates.oSum / rates.oW);
+    if (rates?.sW) product.salesRate = Math.round(rates.sSum / rates.sW);
     products.push(product);
   }
 

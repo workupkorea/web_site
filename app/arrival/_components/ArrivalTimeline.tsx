@@ -98,6 +98,19 @@ function getThisWeekRange(today: Date) {
   const friday = new Date(monday); friday.setDate(monday.getDate() + 4);
   return { start: toIsoDate(monday), end: toIsoDate(friday), startFmt: fmtDate(toIsoDate(monday)).full, endFmt: fmtDate(toIsoDate(friday)).full };
 }
+// "10월 셋째주" 형태의 주차 라벨. 표시 중인 주(월~금)의 목요일 기준으로 월/주차를 정하고,
+// 주는 일요일 시작(그 달 1일이 속한 주 = 첫째주)으로 센다.
+const WEEK_ORDINALS = ["첫째", "둘째", "셋째", "넷째", "다섯째", "여섯째"];
+function getWeekLabel(mondayIso: string) {
+  const monday = parseDate(mondayIso);
+  if (!monday) return "";
+  const thu = new Date(monday); thu.setDate(monday.getDate() + 3);
+  const firstDow = new Date(thu.getFullYear(), thu.getMonth(), 1).getDay();
+  const week = Math.ceil((thu.getDate() + firstDow) / 7);
+  return `${thu.getMonth() + 1}월 ${WEEK_ORDINALS[week - 1] ?? ""}주`;
+}
+// 관리자 등급: "관리자" 또는 "S관리자" (lib/admin-auth.ts 와 동일 기준 — 서버 전용이라 클라이언트에 별도 정의)
+const isAdminGrade = (grade?: string) => grade === "관리자" || grade === "S관리자";
 function isInWeekRange(iso: string | undefined, range: { start: string; end: string }) {
   if (!iso) return false;
   return iso >= range.start && iso <= range.end;
@@ -452,6 +465,18 @@ type ViewMode  = "grid" | "calendar" | "timeline" | "gantt";
 type GroupMode = "date" | "month" | "category" | "brand";
 
 // ─── 상품 카드 (그리드용) ─────────────────────────────────────────────────────
+// 이미지·타임라인·캘린더 뷰가 같은 가로폭을 쓰도록 상단 바와 본문이 공유하는 좌우 여백
+const PAGE_X_PAD = "px-3 sm:px-5";
+
+// 마케팅 체크 시 이미지 하단에 얹는 용도 뱃지 (관리자 전용 — 호출 측에서 showMarketing으로 게이트)
+function MarketingBadge({ usage }: { usage?: string }) {
+  if (!usage) return null;
+  return (
+    <span className="absolute bottom-1 left-1 right-1 z-10 max-w-[calc(100%-8px)] truncate rounded bg-blue-500/95 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm w-fit" title={usage}>
+      {usage}
+    </span>
+  );
+}
 function ProductCard({ product, onSelect, showDate, showMarketing }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean }) {
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const { full } = fmtDate(product.arrivalDate);
@@ -468,6 +493,7 @@ function ProductCard({ product, onSelect, showDate, showMarketing }: { product: 
             R
           </span>
         )}
+        {showMarketing && <MarketingBadge usage={product.marketingUsage} />}
       </div>
       <div className="pt-2 flex flex-col gap-1 flex-1">
         <div className="flex items-center justify-between gap-1">
@@ -877,7 +903,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
   useEffect(() => {
     fetch("/api/member/me")
       .then(r => r.json())
-      .then(data => setIsAdmin(data?.grade === "관리자"))
+      .then(data => setIsAdmin(isAdminGrade(data?.grade)))
       .catch(() => setIsAdmin(false));
   }, []);
 
@@ -1167,6 +1193,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
                                           </div>
+                                          {showMarketing && <MarketingBadge usage={p.marketingUsage} />}
                                         </div>
                                         <div className="px-1.5">
                                           <div className="mt-1 flex flex-col gap-1">
@@ -1508,6 +1535,7 @@ function TimelineView({ products, onSelect, showMarketing }: {
                                       {p.newArrivalType === "재진행" && (
                                         <span className="absolute top-1 right-1 z-10 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[11px] font-bold flex items-center justify-center leading-none shadow" title="재진행 상품">R</span>
                                       )}
+                                      {showMarketing && <MarketingBadge usage={p.marketingUsage} />}
                                     </div>
                                   </div>
                                   <div className="mt-2 space-y-1">
@@ -1553,6 +1581,10 @@ function pct(n?: number, d?: number) {
   return Math.round((n / d) * 100);
 }
 
+// 시트의 주문율/판매율(수기 보정 포함)을 우선 사용하고, 없으면(재동기화 전 데이터) 수량으로 계산
+const orderRateOf = (p: ArrivalProduct) => p.orderRate ?? pct(p.orderQuantity, p.quantity);
+const salesRateOf = (p: ArrivalProduct) => p.salesRate ?? pct(p.salesQuantity, p.quantity);
+
 function OrderRankModal({ products, onClose, onSelect }: {
   products: ArrivalProduct[]; onClose: () => void; onSelect: (p: ArrivalProduct) => void;
 }) {
@@ -1564,8 +1596,8 @@ function OrderRankModal({ products, onClose, onSelect }: {
   const rows = useMemo(() => {
     const val = (p: ArrivalProduct): number => {
       switch (sortKey) {
-        case "orderRate": return pct(p.orderQuantity, p.quantity) ?? -1;
-        case "salesRate": return pct(p.salesQuantity, p.quantity) ?? -1;
+        case "orderRate": return orderRateOf(p) ?? -1;
+        case "salesRate": return salesRateOf(p) ?? -1;
         case "orderQty":  return p.orderQuantity ?? -1;
         case "stockQty":  return p.stockQuantity ?? -1;
         case "salesQty":  return p.salesQuantity ?? -1;
@@ -1639,8 +1671,8 @@ function OrderRankModal({ products, onClose, onSelect }: {
             </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.map((p, i) => {
-                const oRate = pct(p.orderQuantity, p.quantity);
-                const sRate = pct(p.salesQuantity, p.quantity);
+                const oRate = orderRateOf(p);
+                const sRate = salesRateOf(p);
                 return (
                   <tr key={`${p.productCode}_${p.arrivalDate || "none"}`}
                     onClick={() => onSelect(p)}
@@ -1691,12 +1723,40 @@ export default function ArrivalTimeline() {
   const [showRank, setShowRank] = useState(false);
   // 주문순위는 관리자 로그인 상태에서만 노출
   const [isAdmin, setIsAdmin] = useState(false);
+  // 이 페이지는 사이트 헤더가 없어 별도 로그인 진입점이 필요 — 이미지 뷰 우측 상단의 작은 로그인 버튼
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPw, setLoginPw] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
   useEffect(() => {
     fetch("/api/member/me")
       .then(r => r.json())
-      .then(data => setIsAdmin(data?.grade === "관리자"))
-      .catch(() => setIsAdmin(false));
+      .then(data => { setLoggedIn(!!data); setIsAdmin(isAdminGrade(data?.grade)); })
+      .catch(() => { setLoggedIn(false); setIsAdmin(false); });
   }, []);
+  const submitLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginBusy) return;
+    setLoginBusy(true); setLoginError("");
+    try {
+      const res = await fetch("/api/member/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPw }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setLoginError(data?.error ?? "로그인에 실패했습니다."); return; }
+      setLoggedIn(true);
+      setIsAdmin(isAdminGrade(data?.member?.grade));
+      setLoginOpen(false); setLoginPw("");
+    } catch { setLoginError("오류가 발생했습니다."); }
+    finally { setLoginBusy(false); }
+  };
+  const doLogout = async () => {
+    try { await fetch("/api/member/logout", { method: "POST" }); } catch { /* noop */ }
+    setLoggedIn(false); setIsAdmin(false);
+  };
 
   // 팝업(iframe)으로 삽입된 상태인지 여부. 이 경우 "주문하기"를 매번 새 탭으로 열면
   // 클릭할 때마다 창이 계속 쌓이므로, 고정된 이름의 창 하나를 재사용해 열어준다.
@@ -1714,6 +1774,12 @@ export default function ArrivalTimeline() {
       window.open(url, "wjumun_order");
     }
   }, [isEmbedded]);
+
+  // ?popup=1: W주문 팝업(iframe) 전용 — 상단에 이번 주차 띠("10월 셋째주")를 자동 표시
+  const [isPopup] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("popup") === "1";
+  });
 
   // ?view=calendar 같은 링크로 접속하면 해당 뷰로 바로 진입 (캘린더뷰 전용 공유 링크)
   const [viewMode,  setViewMode]  = useState<ViewMode>(() => {
@@ -1905,8 +1971,13 @@ export default function ArrivalTimeline() {
           원인). position:fixed는 조상의 스크롤 컨테이너 여부와 무관하게 항상 뷰포트 기준으로
           고정되므로 이 문제를 확실하게 피해간다. 대신 fixed는 문서 흐름에서 빠지므로, 위 wrapper에
           그 높이만큼 padding-top을 줘서 본문이 가려지지 않게 한다. */}
-      <div ref={topBarRef} className={`fixed top-0 left-0 right-0 z-30 ${viewMode === "calendar" ? "px-3 sm:px-5" : "px-3 sm:px-8 lg:px-14"} pt-3 pb-1.5 bg-[#fafaf8]`}>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 px-3 py-2">
+      <div ref={topBarRef} className={`fixed top-0 left-0 right-0 z-30 ${PAGE_X_PAD} pt-3 pb-1.5 bg-[#fafaf8]`}>
+        {isPopup && (
+          <div className="mb-2 rounded-xl border border-[#ffe08a] bg-[#fff3cd] py-2 text-center text-[13px] font-semibold text-[#7a5c00]">
+            {getWeekLabel(thisWeekRange.start)}
+          </div>
+        )}
+        <div className="relative bg-white rounded-xl shadow-sm border border-gray-100 px-3 py-2">
 
           {/* ── Row 1: 타이틀 / 검색 / 필터토글(모바일) / 뷰버튼 / 개수 ── */}
           <div className="flex items-center gap-1.5 sm:flex-wrap sm:gap-y-1.5">
@@ -2025,6 +2096,30 @@ export default function ArrivalTimeline() {
             </div>
           </div>
 
+          {/* 로그인/로그아웃 — 이미지 뷰 우측 상단에 아주 작게 */}
+          {viewMode === "grid" && (
+            <div className="absolute right-3 -top-0.5 -translate-y-full sm:translate-y-0 sm:top-0.5">
+              <button type="button"
+                onClick={() => loggedIn ? doLogout() : setLoginOpen(v => !v)}
+                className="text-[10px] leading-none px-1 py-0.5 text-gray-300 hover:text-gray-600 transition-colors">
+                {loggedIn ? "로그아웃" : "로그인"}
+              </button>
+              {loginOpen && !loggedIn && (
+                <form onSubmit={submitLogin} className="absolute right-0 top-full mt-1 w-56 bg-white border border-gray-200 rounded-lg shadow-lg p-2.5 flex flex-col gap-1.5 z-40">
+                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="이메일" autoComplete="username"
+                    className="border border-gray-200 rounded-md px-2 py-1.5 text-[14px] focus:outline-none focus:border-[#1a1a1a]" />
+                  <input type="password" value={loginPw} onChange={e => setLoginPw(e.target.value)} placeholder="비밀번호" autoComplete="current-password"
+                    className="border border-gray-200 rounded-md px-2 py-1.5 text-[14px] focus:outline-none focus:border-[#1a1a1a]" />
+                  {loginError && <p className="text-[12px] text-red-500">{loginError}</p>}
+                  <button type="submit" disabled={loginBusy}
+                    className="bg-[#1a1a1a] text-white text-[13px] font-semibold rounded-md py-1.5 disabled:opacity-50">
+                    {loginBusy ? "확인 중…" : "로그인"}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
           {/* ── 모바일: 마케팅/이번주 체크박스는 필터 펼치기와 무관하게 항상 노출 ── */}
           <div className="sm:hidden mt-2 flex items-center gap-2 flex-wrap">
             {isAdmin && <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
@@ -2074,7 +2169,7 @@ export default function ArrivalTimeline() {
       </div>
 
       {/* ── 본문 ── */}
-      <div className={viewMode === "calendar" ? "px-3 sm:px-5 py-4" : "px-3 sm:px-8 lg:px-14 py-4"}>
+      <div className={`${PAGE_X_PAD} py-4`}>
         {filtered.length === 0 ? (
           <div className="py-32 text-center">
             <p className="text-[15px] text-gray-400">조건에 맞는 상품이 없습니다.</p>

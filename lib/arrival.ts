@@ -21,6 +21,10 @@ export interface ArrivalProduct {
   size?: string;
   /** 총주문 수량 (시트 "총주문 수량" 열). 주문율 = orderQuantity / quantity */
   orderQuantity?: number;
+  /** 시트 "주문율" 열 값(%) — 수기 보정이 반영된 값이라 계산값 대신 그대로 사용. 없으면 orderQuantity/quantity로 계산 */
+  orderRate?: number;
+  /** 시트 "판매율" 열 값(%) — 시트 기준 분모가 달라 계산값과 다를 수 있어 그대로 사용 */
+  salesRate?: number;
   /** 총판매 수량 (시트 "총판매 수량" 열) */
   salesQuantity?: number;
   /** 총재고 수량 (시트 "총재고 수량" 열) */
@@ -65,6 +69,8 @@ function rowToProduct(row: any): ArrivalProduct {
     size:           row.size ?? undefined,
     orderQuantity:  row.order_quantity ?? undefined,
     salesQuantity:  row.sales_quantity ?? undefined,
+    orderRate:      row.order_rate ?? undefined,
+    salesRate:      row.sales_rate ?? undefined,
     stockQuantity:  row.stock_quantity ?? undefined,
     syncedAt:       row.synced_at ?? undefined,
     supplyPrice:    row.supply_price ?? undefined,
@@ -415,6 +421,8 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
     size:             p.size ?? null,
     order_quantity:   p.orderQuantity ?? null,
     sales_quantity:   p.salesQuantity ?? null,
+    order_rate:       p.orderRate ?? null,
+    sales_rate:       p.salesRate ?? null,
     stock_quantity:   p.stockQuantity ?? null,
     supply_price:     p.supplyPrice ?? 0,
     price:            p.price,
