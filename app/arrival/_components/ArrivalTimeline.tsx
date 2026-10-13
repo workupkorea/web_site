@@ -1913,6 +1913,7 @@ export default function ArrivalTimeline() {
         if (filterCategory !== "all" && p.category !== filterCategory) return false;
         if (filterStatus   !== "all" && p.status   !== filterStatus)   return false;
         if (filterNewArrival !== "all" && (p.newArrivalType ?? "") !== filterNewArrival) return false;
+        if (isAdmin && filterMarketing && !p.marketingUsage) return false;
         if (viewMode === "calendar" && filterThisWeek && !isInWeekRange(p.arrivalDate, thisWeekRange)) return false;
         if (q && !p.productName.toLowerCase().includes(q) && !p.productCode.toLowerCase().includes(q)) return false;
         return true;
@@ -1923,7 +1924,7 @@ export default function ArrivalTimeline() {
         if (da !== db) return da.localeCompare(db);
         return (a.brand || "").localeCompare(b.brand || "");
       });
-  }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
+  }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterMarketing, isAdmin, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
 
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
