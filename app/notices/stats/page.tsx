@@ -9,14 +9,15 @@ function fmtHistoryTime(iso: string) {
   });
 }
 import StatsCalendar from "../_components/StatsCalendar";
-import { stripBranchPrefix } from "@/lib/ih/influencer-shared";
+import { getShipName } from "@/data/store-ship-names";
+import { useShipNameMode, ShipNameToggleButton } from "@/lib/useShipNameMode";
 
-type StoreStat = { store_id: number; store_name: string; total: number; outbound: number; pass: number };
+type StoreStat = { store_id: number; store_name: string; store_code: string | null; total: number; outbound: number; pass: number };
 type DailyProduct = { id: string; name: string };
 type DailyRow = { notice_date: string; count: number; products: DailyProduct[]; byStore: StoreStat[] };
 
 // 패스 매트릭스 타입 (상세현황)
-type MatrixStore = { id: number; name: string };
+type MatrixStore = { id: number; name: string; store_code?: string | null };
 type MatrixEntry = { status: string; updated_at: string | null } | null;
 type MatrixNotice = {
   notice_id: string;
@@ -45,12 +46,13 @@ const currentMonthKst = () => todayKst().slice(0, 7);
 function StoreFilterDropdown({
   stores, selected, onChange,
 }: {
-  stores: { store_id: number; store_name: string }[];
+  stores: { store_id: number; store_name: string; store_code: string | null }[];
   selected: Set<number>;
   onChange: (next: Set<number>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const { displayName } = useShipNameMode();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -108,7 +110,7 @@ function StoreFilterDropdown({
                     </svg>
                   )}
                 </span>
-                {stripBranchPrefix(s.store_name)}
+                {displayName(s.store_name, s.store_code)}
               </button>
             ))}
           </div>
@@ -211,6 +213,7 @@ function StoreStatsTable({
   matrixParams?: { date?: string; from?: string; to?: string };
   showAllDetail?: boolean;
 }) {
+  const { showShip, toggle, displayName } = useShipNameMode();
   const visible = (storeFilter.size === 0 ? rows : rows.filter((r) => storeFilter.has(r.store_id)))
     .slice()
     .sort((a, b) => {
@@ -233,7 +236,7 @@ function StoreStatsTable({
         return (
           <div key={row.store_id}>
             <div className="px-4 py-3">
-              <p className="text-sm font-bold text-gray-900">{stripBranchPrefix(row.store_name)}</p>
+              <p className="text-sm font-bold text-gray-900">{displayName(row.store_name, row.store_code)}</p>
               <div className="mt-1.5 flex items-center gap-x-3 gap-y-1 flex-wrap text-[13px]">
                 <span className="text-gray-500">전체 <b className="font-semibold">{row.total}건</b></span>
                 <span className="text-emerald-600">출고 <b className="font-semibold">{row.outbound}건</b></span>
@@ -256,7 +259,7 @@ function StoreStatsTable({
       <table className="w-full">
         <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
           <tr>
-            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">지점명</th>
+            <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase"><ShipNameToggleButton showShip={showShip} onToggle={toggle} /></th>
             <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">전체</th>
             <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">출고</th>
             <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">패스</th>
@@ -269,7 +272,7 @@ function StoreStatsTable({
             return (
               <Fragment key={row.store_id}>
                 <tr className="border-b border-gray-100">
-                  <td className="px-5 py-3 text-sm font-semibold text-gray-900">{stripBranchPrefix(row.store_name)}</td>
+                  <td className="px-5 py-3 text-sm font-semibold text-gray-900">{displayName(row.store_name, row.store_code)}</td>
                   <td className="px-5 py-3 text-sm text-gray-500 whitespace-nowrap">{row.total}건</td>
                   <td className="px-5 py-3 text-sm text-emerald-600 whitespace-nowrap">{row.outbound}건</td>
                   <td className="px-5 py-3 text-sm text-amber-600 whitespace-nowrap">{row.pass}건</td>
@@ -304,6 +307,7 @@ function ProductStatsTable({
   matrixParams: { date?: string; from?: string; to?: string };
   storeFilter: Set<number>;
 }) {
+  const { displayName } = useShipNameMode();
   const [data, setData] = useState<MatrixData | null>(null);
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -393,7 +397,7 @@ function ProductStatsTable({
                   <div className="flex flex-wrap gap-1.5">
                     {r.passStores.map((s) => (
                       <span key={s.id} className="px-2 py-1 text-[11px] font-semibold bg-orange-50 text-orange-600 border border-orange-200 rounded">
-                        {stripBranchPrefix(s.name)}
+                        {displayName(s.name, s.store_code)}
                       </span>
                     ))}
                   </div>
@@ -451,7 +455,7 @@ function ProductStatsTable({
                         <div className="flex flex-wrap gap-1.5">
                           {r.passStores.map((s) => (
                             <span key={s.id} className="px-2 py-1 text-[11px] font-semibold bg-orange-50 text-orange-600 border border-orange-200 rounded">
-                              {stripBranchPrefix(s.name)}
+                              {displayName(s.name, s.store_code)}
                             </span>
                           ))}
                         </div>
@@ -734,7 +738,7 @@ function aggregateByStore(filtered: DailyRow[]): StoreStat[] {
   const map = new Map<number, StoreStat>();
   for (const d of filtered) {
     for (const s of d.byStore) {
-      const cur = map.get(s.store_id) ?? { store_id: s.store_id, store_name: s.store_name, total: 0, outbound: 0, pass: 0 };
+      const cur = map.get(s.store_id) ?? { store_id: s.store_id, store_name: s.store_name, store_code: s.store_code, total: 0, outbound: 0, pass: 0 };
       cur.total += s.total;
       cur.outbound += s.outbound;
       cur.pass += s.pass;
@@ -749,6 +753,7 @@ export default function NoticeStatsPage() {
   const [daily, setDaily] = useState<DailyRow[]>([]);
   const [byStore, setByStore] = useState<StoreStat[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showShip, toggle: toggleShip } = useShipNameMode();
   const [showAllDetail, setShowAllDetail] = useState(false);
   const [statsTab, setStatsTab] = useState<"store" | "product">("store");
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -899,7 +904,7 @@ export default function NoticeStatsPage() {
         {/* 지점 선택 */}
         {byStore.length > 0 && (
           <StoreFilterDropdown
-            stores={byStore.map((s) => ({ store_id: s.store_id, store_name: s.store_name }))}
+            stores={byStore.map((s) => ({ store_id: s.store_id, store_name: s.store_name, store_code: s.store_code }))}
             selected={storeFilter}
             onChange={setStoreFilter}
           />
@@ -927,6 +932,15 @@ export default function NoticeStatsPage() {
             )}
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={toggleShip}
+          title="지점명 ⇄ W지점명 전환"
+          className="flex-shrink-0 px-2.5 py-1 max-lg:min-h-[44px] text-[12px] font-medium border border-gray-200 rounded-lg hover:border-[#303236] text-gray-500"
+        >
+          {showShip ? "W지점명" : "지점명"} ⇄
+        </button>
 
         <span className="lg:ml-auto text-xs text-gray-400">{filterLabel}</span>
       </div>
@@ -984,7 +998,9 @@ export default function NoticeStatsPage() {
                     if (rows.length === 0) return;
                     const XLSX = await import("xlsx");
                     const sheetRows = rows.map((r) => ({
+                      "지점코드": r.store_code ?? "",
                       "지점명": r.store_name,
+                      "W지점명": getShipName(r.store_code, r.store_name),
                       "전체": r.total,
                       "출고": r.outbound,
                       "패스": r.pass,

@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { isBulkShip } from "@/lib/bulk-ship";
+import { getShipName } from "@/data/store-ship-names";
+import { useShipNameMode, ShipNameToggleButton } from "@/lib/useShipNameMode";
 
 // 코드·매장명·주소는 항상 스토어관리(stores 테이블)를 그대로 보여준다 — 이 화면에서 수정 불가,
 // 매장 추가/삭제도 스토어관리에서만. 담당자·연락처·출고안내번호·이메일·오픈일은 stores에 없는
@@ -66,6 +68,7 @@ function parseExcelRows(file: ArrayBuffer): ExcelSupplementaryRow[] {
 }
 
 export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
+  const { showShip, toggle: toggleShip } = useShipNameMode();
   const [merged, setMerged] = useState<MergedRow[]>([]);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -277,7 +280,7 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
                     관리
                   </th>
                   <th className="px-2 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">코드</th>
-                  <th className="px-2 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">매장명</th>
+                  <th className="px-2 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><ShipNameToggleButton showShip={showShip} onToggle={toggleShip} /></th>
                   {SUPPLEMENTARY_COLUMNS.map((c) => (
                     <th key={c.key} className="px-2 py-2 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">
                       {c.label}
@@ -323,7 +326,7 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap font-mono text-gray-500">{r.code || "-"}</td>
                       <td className="px-2 py-1.5 whitespace-nowrap text-gray-900 font-semibold">
-                        {r.name}
+                        {showShip ? getShipName(r.code, r.name) : r.name}
                         {isBulkShip(r.openedAt) && (
                           <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-semibold align-middle">일괄출고금지</span>
                         )}

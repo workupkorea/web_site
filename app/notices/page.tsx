@@ -10,6 +10,7 @@ import NoticeProductPicker from "./_components/NoticeProductPicker";
 import CoverAndDetailImagesField from "./_components/CoverAndDetailImagesField";
 import DescriptionField from "./_components/DescriptionField";
 import { useIsPastClose } from "@/lib/hooks/useIsPastClose";
+import { getShipName } from "@/data/store-ship-names";
 
 const DEFAULT_CLOSE_TIME = "14:00";
 
@@ -321,7 +322,7 @@ export default function NoticesPreviewPage() {
               "공지일자": excelDate,
               "상품명": noticeName(n),
               "지점코드": r.store_code ?? "",
-              "지점명": r.store_name,
+              "지점명": getShipName(r.store_code, r.store_name),
               "상태": r.status,
               "변경 시각": r.updated_at ? new Date(r.updated_at).toLocaleString("ko-KR") : "",
             });

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import StoreStatusModal from "../_components/StoreStatusModal";
 import WjumunSyncPanel from "../_components/WjumunSyncPanel";
 import { isBulkShip } from "@/lib/bulk-ship";
+import { getShipName } from "@/data/store-ship-names";
+import { useShipNameMode, ShipNameToggleButton } from "@/lib/useShipNameMode";
 
 type StoreRow = {
   id: number;
@@ -25,6 +27,9 @@ function fmtHistTime(iso: string) {
 }
 
 export default function PassLinksPage() {
+  const { showShip, toggle: toggleShip } = useShipNameMode();
+  // 이 화면은 접두어("워크업")까지 포함한 전체 이름을 보여주므로 W지점명만 교체한다
+  const shownName = (s: StoreRow) => (showShip ? getShipName(s.store_code, s.name) : s.name);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -227,6 +232,14 @@ export default function PassLinksPage() {
           />
           <button
             type="button"
+            onClick={toggleShip}
+            title="지점명 ⇄ W지점명 전환"
+            className="px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
+          >
+            {showShip ? "W지점명" : "지점명"} ⇄
+          </button>
+          <button
+            type="button"
             onClick={() => setBulkOnly((v) => !v)}
             aria-pressed={bulkOnly}
             className={`px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border ${
@@ -266,7 +279,7 @@ export default function PassLinksPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[12px] text-gray-400 font-mono">{s.store_code || "-"}</p>
-                      <p className="text-[15px] font-bold text-gray-900 break-words">{s.name}</p>
+                      <p className="text-[15px] font-bold text-gray-900 break-words">{shownName(s)}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
                         {bulkIds.has(s.id) && (
                           <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold">일괄출고금지</span>
@@ -334,7 +347,7 @@ export default function PassLinksPage() {
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr>
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">지점코드</th>
-                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">지점명</th>
+                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase"><ShipNameToggleButton showShip={showShip} onToggle={toggleShip} /></th>
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">담당자명</th>
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">링크</th>
                   <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">알림</th>
@@ -349,7 +362,7 @@ export default function PassLinksPage() {
                   >
                     <td className="px-5 py-3 text-sm text-gray-500 font-mono">{s.store_code || "-"}</td>
                     <td className="px-5 py-3 text-sm font-semibold text-gray-900">
-                      {s.name}
+                      {shownName(s)}
                       {bulkIds.has(s.id) && (
                         <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold align-middle">일괄출고금지</span>
                       )}

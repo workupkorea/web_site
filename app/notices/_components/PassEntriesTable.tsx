@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { stripBranchPrefix } from "@/lib/ih/influencer-shared";
+import { useShipNameMode, ShipNameToggleButton } from "@/lib/useShipNameMode";
 
 type PassRow = { store_id: number; store_name: string; store_code: string | null; status: "출고" | "패스"; updated_at: string | null };
 
@@ -19,6 +19,9 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"전체" | "출고" | "패스">("전체");
+  // 제목줄 클릭 시 택배 기준 이름(W지점명)으로 전환 — 지점코드로 지점.xlsx 가맹점명과 매칭
+  const { showShip, toggle, displayName: dn } = useShipNameMode();
+  const displayName = useCallback((r: PassRow) => dn(r.store_name, r.store_code), [dn]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,14 +50,14 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
   const filteredRows = useMemo(() => {
     let list = rows;
     if (filter !== "전체") list = list.filter((r) => r.status === filter);
-    if (query.trim()) list = list.filter((r) => r.store_name.includes(query.trim()));
+    if (query.trim()) list = list.filter((r) => r.store_name.includes(query.trim()) || displayName(r).includes(query.trim()));
     // 패스 우선 → 가나다순
     return [...list].sort((a, b) => {
       if (a.status === "패스" && b.status !== "패스") return -1;
       if (a.status !== "패스" && b.status === "패스") return 1;
       return a.store_name.localeCompare(b.store_name, "ko");
     });
-  }, [rows, filter, query]);
+  }, [rows, filter, query, displayName]);
 
   if (loading) return <div className="py-16 text-center text-sm text-gray-400">불러오는 중...</div>;
 
@@ -94,7 +97,9 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
             <tr>
-              <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">지점명</th>
+              <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">
+                <ShipNameToggleButton showShip={showShip} onToggle={toggle} />
+              </th>
               <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">상태</th>
               <th className="px-2 lg:px-3 py-3 text-left whitespace-nowrap text-[12px] font-bold text-gray-500 uppercase">변경 시각</th>
             </tr>
@@ -102,7 +107,7 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
           <tbody className="divide-y divide-gray-100">
             {filteredRows.map((r) => (
               <tr key={r.store_id}>
-                <td className="px-2 lg:px-3 py-3 text-sm text-gray-900 break-keep">{stripBranchPrefix(r.store_name)}</td>
+                <td className="px-2 lg:px-3 py-3 text-sm text-gray-900 break-keep">{displayName(r)}</td>
                 <td className="px-2 lg:px-3 py-3 whitespace-nowrap">
                   <span
                     className={`inline-block whitespace-nowrap px-2.5 py-0.5 text-[12px] font-semibold rounded-full ${
