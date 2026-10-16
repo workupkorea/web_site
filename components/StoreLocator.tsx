@@ -808,7 +808,7 @@ export default function StoreLocator({
                         </div>
 
                         {/* 판매제품 — PC: 라벨 | 박스 가로 / 모바일: 라벨 위, 번호 세로 리스트 */}
-                        {store.products && store.products.length > 0 && (
+                        {hasStorePage && store.products && store.products.length > 0 && (
                           <div className="md:flex-1 md:min-w-0 md:flex md:justify-end md:pr-4">
                             {/* 모바일: 라벨~3위 전체 영역을 그레이 음영 패널로. PC: 투명 가로 레이아웃 */}
                             <div className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-2 bg-gray-100 md:bg-transparent p-3 md:p-0 md:overflow-x-auto" style={{ scrollbarWidth: "none" }}>
