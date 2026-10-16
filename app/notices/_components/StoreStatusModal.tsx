@@ -16,8 +16,8 @@ type Supplementary = {
   openedAt: string;
 };
 type SavedRow = Supplementary & { storeId: number; code?: string; name?: string };
-type StoreLite = { id: number; name: string; store_code: string | null; address: string | null };
-type MergedRow = Supplementary & { storeId: number; code: string; name: string; address: string };
+type StoreLite = { id: number; name: string; store_code: string | null; ship_name?: string | null; address: string | null };
+type MergedRow = Supplementary & { storeId: number; code: string; name: string; shipName?: string; address: string };
 
 const SUPPLEMENTARY_COLUMNS: { key: keyof Supplementary; label: string }[] = [
   { key: "manager", label: "담당자" },
@@ -37,6 +37,7 @@ function buildMerged(stores: StoreLite[], saved: SavedRow[]): MergedRow[] {
       storeId: s.id,
       code: s.store_code ?? "",
       name: s.name,
+      shipName: s.ship_name ?? "",
       address: s.address ?? "",
       manager: match?.manager ?? "",
       contact: match?.contact ?? "",
@@ -326,7 +327,7 @@ export default function StoreStatusModal({ onClose }: { onClose: () => void }) {
                       </td>
                       <td className="px-2 py-1.5 whitespace-nowrap font-mono text-gray-500">{r.code || "-"}</td>
                       <td className="px-2 py-1.5 whitespace-nowrap text-gray-900 font-semibold">
-                        {showShip ? getShipName(r.code, r.name) : r.name}
+                        {showShip ? getShipName(r.code, r.name, r.shipName) : r.name}
                         {isBulkShip(r.openedAt) && (
                           <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[10px] font-semibold align-middle">일괄출고금지</span>
                         )}

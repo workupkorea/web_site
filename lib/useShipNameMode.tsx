@@ -39,9 +39,9 @@ export function useShipNameMode() {
 
   /** 지점코드로 W지점명을 찾아 현재 모드에 맞는 이름을 돌려준다. 화면 모드에서는 "워크업" 접두어를 뗀 기존 이름. */
   const displayName = useCallback(
-    (name: string, code?: string | null) => {
+    (name: string, code?: string | null, shipName?: string | null) => {
       const base = stripBranchPrefix(name);
-      return showShip ? getShipName(code, base) : base;
+      return showShip ? getShipName(code, base, shipName) : base;
     },
     [showShip]
   );

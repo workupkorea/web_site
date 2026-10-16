@@ -10,6 +10,7 @@ type StoreRow = {
   id: number;
   name: string;
   store_code: string | null;
+  ship_name?: string | null;
   manager_name: string | null;
   pass_link_token: string | null;
   is_active?: boolean;
@@ -29,7 +30,7 @@ function fmtHistTime(iso: string) {
 export default function PassLinksPage() {
   const { showShip, toggle: toggleShip } = useShipNameMode();
   // 이 화면은 접두어("워크업")까지 포함한 전체 이름을 보여주므로 W지점명만 교체한다
-  const shownName = (s: StoreRow) => (showShip ? getShipName(s.store_code, s.name) : s.name);
+  const shownName = (s: StoreRow) => (showShip ? getShipName(s.store_code, s.name, s.ship_name) : s.name);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);

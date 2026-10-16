@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const [{ data: allStores, error: storesErr }, bulkIds] = await Promise.all([
     sb
       .from("stores")
-      .select("id, name, store_code")
+      .select("id, name, store_code, ship_name")
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true }),
@@ -77,7 +77,7 @@ export async function GET(req: Request) {
     byDate.set(n.notice_date, list);
   }
 
-  const storeList = (stores ?? []) as { id: number; name: string; store_code: string | null }[];
+  const storeList = (stores ?? []) as { id: number; name: string; store_code: string | null; ship_name: string | null }[];
 
   const dates = [...byDate.entries()]
     .map(([date, dateNotices]) => ({

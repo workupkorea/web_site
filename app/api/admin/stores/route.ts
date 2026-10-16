@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     .insert({
       name: body.name,
       store_code: body.store_code || null,
+      ship_name: body.ship_name?.trim() || null,
       region: body.region ?? "",
       address: body.address,
       lat,

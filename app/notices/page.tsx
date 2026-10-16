@@ -317,12 +317,12 @@ export default function NoticesPreviewPage() {
         const res = await fetch(`/api/admin/notices/${n.id}/pass-entries`);
         const data = await res.json();
         if (Array.isArray(data)) {
-          for (const r of data as { store_name: string; store_code: string | null; status: string; updated_at: string | null }[]) {
+          for (const r of data as { store_name: string; store_code: string | null; ship_name?: string | null; status: string; updated_at: string | null }[]) {
             allRows.push({
               "공지일자": excelDate,
               "상품명": noticeName(n),
               "지점코드": r.store_code ?? "",
-              "지점명": getShipName(r.store_code, r.store_name),
+              "지점명": getShipName(r.store_code, r.store_name, r.ship_name),
               "상태": r.status,
               "변경 시각": r.updated_at ? new Date(r.updated_at).toLocaleString("ko-KR") : "",
             });

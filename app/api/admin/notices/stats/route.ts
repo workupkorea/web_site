@@ -4,11 +4,11 @@ import { isAdmin } from "@/lib/admin-auth";
 import { getBulkShipStoreIds } from "@/lib/wjumun-sync";
 
 type StoreAgg = { name: string; pass: number; outbound: number };
-type StoreStat = { store_id: number; store_name: string; store_code: string | null; total: number; outbound: number; pass: number };
+type StoreStat = { store_id: number; store_name: string; store_code: string | null; ship_name: string | null; total: number; outbound: number; pass: number };
 
-function toRows(m: Map<number, StoreAgg>, codeById: Map<number, string | null>): StoreStat[] {
+function toRows(m: Map<number, StoreAgg>, codeById: Map<number, { code: string | null; ship: string | null }>): StoreStat[] {
   return [...m.entries()]
-    .map(([store_id, v]) => ({ store_id, store_name: v.name, store_code: codeById.get(store_id) ?? null, total: v.pass + v.outbound, outbound: v.outbound, pass: v.pass }))
+    .map(([store_id, v]) => ({ store_id, store_name: v.name, store_code: codeById.get(store_id)?.code ?? null, ship_name: codeById.get(store_id)?.ship ?? null, total: v.pass + v.outbound, outbound: v.outbound, pass: v.pass }))
     .sort((a, b) => b.total - a.total);
 }
 
@@ -50,15 +50,15 @@ export async function GET(req: Request) {
 
   // 전체 활성 지점 목록 — 미응답 지점도 통계에 포함하기 위해 필요. 일괄출고금지점은 통계에서 완전히 제외.
   const [{ data: allStores }, bulkIds] = await Promise.all([
-    sb.from("stores").select("id, name, store_code").eq("is_active", true),
+    sb.from("stores").select("id, name, store_code, ship_name").eq("is_active", true),
     getBulkShipStoreIds(sb),
   ]);
   const storeNameById = new Map<number, string>(
     (allStores ?? []).filter((s) => !bulkIds.has(s.id)).map((s) => [s.id, s.name]),
   );
 
-  const storeCodeById = new Map<number, string | null>(
-    (allStores ?? []).map((s) => [s.id, s.store_code ?? null]),
+  const storeCodeById = new Map<number, { code: string | null; ship: string | null }>(
+    (allStores ?? []).map((s) => [s.id, { code: s.store_code ?? null, ship: s.ship_name ?? null }]),
   );
 
   // 조회된 notices 범위의 ID만 필터링

@@ -55,6 +55,7 @@ export async function PUT(req: Request, { params }: Params) {
       ...(reactivated ? { activated_at: new Date().toISOString() } : {}),
       name: body.name,
       store_code: body.store_code || null,
+      ship_name: body.ship_name?.trim() || null,
       region: body.region ?? "",
       address: body.address,
       lat,

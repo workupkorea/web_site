@@ -14,7 +14,7 @@ export async function GET(_req: Request, { params }: Params) {
   const [{ data: allStores, error: storesErr }, bulkIds] = await Promise.all([
     sb
       .from("stores")
-      .select("id, name, store_code")
+      .select("id, name, store_code, ship_name")
       .eq("is_active", true)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true }),
@@ -37,6 +37,7 @@ export async function GET(_req: Request, { params }: Params) {
       store_id: s.id,
       store_name: s.name,
       store_code: s.store_code ?? null,
+      ship_name: s.ship_name ?? null,
       status: e?.status ?? "출고",
       updated_at: e?.updated_at ?? null,
     };

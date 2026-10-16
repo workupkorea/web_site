@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 export type StoreFormData = {
   name: string;
   store_code: string;
+  ship_name: string;
   region: string;
   address: string;
   hoursWeekday: string;
@@ -118,7 +119,7 @@ function ProductSearchSlot({
 }
 
 type InitialData = Partial<{
-  name: string; store_code: string; region: string; address: string; hours: string; phone: string;
+  name: string; store_code: string; ship_name: string | null; region: string; address: string; hours: string; phone: string;
   store_type: string; description: string; brands: string[] | string;
   parking: boolean; kakao_channel_url: string; store_url: string;
   is_active: boolean; page_active: boolean; sort_order: number | string; image_urls: string[];
@@ -141,6 +142,7 @@ export default function StoreForm({
       form: {
         name: d?.name ?? "",
         store_code: d?.store_code ?? "",
+        ship_name: d?.ship_name ?? "",
         region: d?.region ?? "",
         address: d?.address ?? "",
         hoursWeekday: parsed.weekday,
@@ -285,6 +287,17 @@ export default function StoreForm({
               placeholder="WUP001"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-[#303236]"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">W지점명</label>
+            <input
+              type="text"
+              value={form.ship_name}
+              onChange={(e) => set("ship_name", e.target.value)}
+              placeholder="포천직영점 (택배 발송 기준 가맹점명)"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+            <p className="mt-1 text-[12px] text-gray-400">출고·패스 현황의 W지점명 표시와 엑셀에 쓰입니다. 본사(wjumun)의 가맹점명과 같게 입력하세요.</p>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">지역</label>

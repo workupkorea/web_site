@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useShipNameMode, ShipNameToggleButton } from "@/lib/useShipNameMode";
 
-type PassRow = { store_id: number; store_name: string; store_code: string | null; status: "출고" | "패스"; updated_at: string | null };
+type PassRow = { store_id: number; store_name: string; store_code: string | null; ship_name?: string | null; status: "출고" | "패스"; updated_at: string | null };
 
 function fmtTime(iso: string | null) {
   if (!iso) return "—";
@@ -21,7 +21,7 @@ export default function PassEntriesTable({ noticeId, noticeDate }: { noticeId: s
   const [filter, setFilter] = useState<"전체" | "출고" | "패스">("전체");
   // 제목줄 클릭 시 택배 기준 이름(W지점명)으로 전환 — 지점코드로 지점.xlsx 가맹점명과 매칭
   const { showShip, toggle, displayName: dn } = useShipNameMode();
-  const displayName = useCallback((r: PassRow) => dn(r.store_name, r.store_code), [dn]);
+  const displayName = useCallback((r: PassRow) => dn(r.store_name, r.store_code, r.ship_name), [dn]);
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -177,7 +177,7 @@ export const STORE_SHIP_NAMES: Record<string, string> = {
   "WUP001": "포천직영점"
 };
 
-/** 지점코드로 W지점명을 찾고, 없으면 fallback(기존 지점명)을 돌려준다. */
-export function getShipName(code: string | null | undefined, fallback: string): string {
-  return (code && STORE_SHIP_NAMES[code.trim()]) || fallback;
+/** W지점명 결정 순서: DB(stores.ship_name) → 이 파일의 코드 매핑(예비) → fallback(기존 지점명). */
+export function getShipName(code: string | null | undefined, fallback: string, shipName?: string | null): string {
+  return shipName?.trim() || (code && STORE_SHIP_NAMES[code.trim()]) || fallback;
 }
