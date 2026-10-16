@@ -121,8 +121,9 @@ export async function getPassContextByToken(token: string, date?: string): Promi
     .order("created_at", { ascending: true });
 
   if (date) {
-    // 캘린더로 특정 날짜를 선택한 경우 — 그날 등록된 공지를 상태와 무관하게 그대로 보여준다(이력 조회).
-    query = query.eq("notice_date", date);
+    // 캘린더로 특정 날짜를 선택한 경우 — 그날 등록된 공지를 보여준다(이력 조회).
+    // "대기"는 오픈된 적 없어 지점이 패스할 기회가 없었으므로 제외한다(패스현황과 동일 기준).
+    query = query.eq("notice_date", date).neq("status", "대기");
   } else {
     // 기본(실시간) 화면 — "진행중"인 공지는 날짜와 무관하게 보여준다(마감 처리가 하루를 넘겨 늦어지는
     // 경우 누락 방지). "마감"된 공지는 오늘 것만 보여준다. "대기" 상태는 아직 오픈 전이므로 노출하지 않는다.
@@ -299,7 +300,8 @@ export async function getNoticeDateCounts(storeId: number): Promise<DatePassCoun
   const sb = createAdminClient();
 
   // 전체 공지 날짜 목록
-  const { data: notices } = await sb.from("notices").select("id, notice_date");
+  // "대기"(오픈 전) 공지는 지점 화면에 노출되지 않으므로 건수에서도 제외한다.
+  const { data: notices } = await sb.from("notices").select("id, notice_date").neq("status", "대기");
   // 이 지점의 pass_entries (패스한 것만)
   const { data: entries } = await sb
     .from("pass_entries")
