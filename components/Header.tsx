@@ -86,7 +86,6 @@ export default function Header({
       document.removeEventListener("keydown", handleKey);
       document.removeEventListener("mousedown", handleClick);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [brandsOpen]);
 
 
@@ -98,16 +97,16 @@ export default function Header({
 
   // ── 로고 / 내비게이션 / 가맹·제휴문의 / 로그인 행 ──
   const topRow = (
-    <div className="px-[15px] md:px-[70px]">
+    <div className="px-[15px] md:px-[24px] xl:px-[70px]">
       <div className="flex items-center gap-3 h-14 md:h-16">
 
         {/* 로고 */}
         <Link href="/" className="flex-shrink-0 py-2 active:opacity-50 active:scale-95 transition-[opacity,transform] duration-150">
-          <Image src={logo.src} alt={logo.alt} width={130} height={18} className={`h-[14px] w-[100px] md:h-[18px] md:w-[130px] transition-[filter] ${white ? "brightness-0 invert" : ""}`} priority />
+          <Image src={logo.src} alt={logo.alt} width={130} height={18} className={`h-[14px] w-[100px] xl:h-[18px] xl:w-[130px] transition-[filter] ${white ? "brightness-0 invert" : ""}`} priority />
         </Link>
 
         {/* 데스크탑 내비게이션 — navItems 순서 그대로 렌더링, BRANDS 위치에서 메가메뉴 트리거로 교체 */}
-        <nav className="hidden md:flex items-center gap-7 flex-1 justify-start ml-[60px]">
+        <nav className="hidden md:flex items-center gap-2 xl:gap-7 flex-1 justify-start ml-3 xl:ml-[60px]">
           {navItems.map((item) => {
             const isBrands = item.label.toUpperCase() === "BRANDS";
             if (isBrands && hasBrandsMega) {
@@ -247,14 +246,14 @@ export default function Header({
         {memberSession ? (
           <Link
             href="/mypage"
-            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-3 py-1.5 rounded-md bg-[#303236] text-white text-[11px] font-semibold tracking-wide whitespace-nowrap hover:bg-[#243d5e] transition-colors"
+            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-2 xl:px-3 py-1.5 rounded-md bg-[#303236] text-white text-[11px] font-semibold tracking-wide whitespace-nowrap hover:bg-[#243d5e] transition-colors"
           >
             마이페이지
           </Link>
         ) : (
           <button
             onClick={() => router.push("/member/login")}
-            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-3 py-1.5 rounded-md bg-[#303236] text-white text-[11px] font-semibold tracking-wide whitespace-nowrap hover:bg-[#243d5e] transition-colors"
+            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-2 xl:px-3 py-1.5 rounded-md bg-[#303236] text-white text-[11px] font-semibold tracking-wide whitespace-nowrap hover:bg-[#243d5e] transition-colors"
           >
             로그인 / 회원가입
           </button>

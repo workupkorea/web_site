@@ -108,7 +108,7 @@ export default function Footer({ config, logo }: { config?: FooterConfig | null;
             </svg>
             TOP
           </button>
-          <div className="flex items-center gap-x-4 md:gap-x-7">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 md:gap-x-7">
             <Link href="/story" className="text-[11px] md:text-[12px] text-gray-600 hover:text-[#303236] transition-colors whitespace-nowrap">
               About WORKUP
             </Link>
