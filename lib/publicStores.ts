@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase-server";
+import { activateDueStores } from "@/lib/store-changes";
 import { stores as staticStores, type Store } from "@/data/stores";
 
 // 주소 정규화(공백 제거) — 1차 정확 매칭 키
@@ -47,6 +48,7 @@ export async function getActiveStoreCount(): Promise<number> {
 export async function getPublicStores(region?: string): Promise<Store[]> {
   try {
     const supabase = createAdminClient();
+    await activateDueStores(supabase); // 오픈일 도래 지점 자동 공개
     let query = supabase
       .from("stores")
       .select("*")

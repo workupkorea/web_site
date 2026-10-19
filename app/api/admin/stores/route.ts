@@ -3,10 +3,12 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
 import { geocodeAddress } from "@/lib/geocode";
+import { activateDueStores, isOpenPending } from "@/lib/store-changes";
 
 export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const supabase = createAdminClient();
+  await activateDueStores(supabase); // 오픈일 도래 지점 자동 공개
   const { data, error } = await supabase
     .from("stores")
     .select("*")
@@ -29,9 +31,11 @@ export async function POST(req: Request) {
     if (geo) { lat = geo.lat; lng = geo.lng; }
   }
 
+  const openDate: string | null = body.open_date || null;
   const { data, error } = await supabase
     .from("stores")
     .insert({
+      open_date: openDate,
       name: body.name,
       store_code: body.store_code || null,
       ship_name: body.ship_name?.trim() || null,
@@ -45,7 +49,7 @@ export async function POST(req: Request) {
       image_urls: body.image_urls ?? [],
       brands: body.brands ?? [],
       parking: body.parking ?? false,
-      is_active: body.is_active ?? true,
+      is_active: isOpenPending(openDate) ? false : (body.is_active ?? true),
       page_active: body.page_active ?? true,
       store_type: body.store_type ?? "직영점",
       kakao_channel_url: body.kakao_channel_url ?? "",

@@ -19,6 +19,7 @@ export type StoreFormData = {
   store_url: string;
   is_active: boolean;
   page_active: boolean;
+  open_date: string;
   sort_order: string;
   image_urls: string[];
   product_ids: string[];
@@ -122,7 +123,7 @@ type InitialData = Partial<{
   name: string; store_code: string; ship_name: string | null; region: string; address: string; hours: string; phone: string;
   store_type: string; description: string; brands: string[] | string;
   parking: boolean; kakao_channel_url: string; store_url: string;
-  is_active: boolean; page_active: boolean; sort_order: number | string; image_urls: string[];
+  is_active: boolean; page_active: boolean; open_date: string | null; sort_order: number | string; image_urls: string[];
   product_ids: string[]; lat: unknown; lng: unknown;
 }>;
 
@@ -156,6 +157,7 @@ export default function StoreForm({
         store_url: d?.store_url ?? "",
         is_active: d?.is_active ?? true,
         page_active: d?.page_active ?? true,
+        open_date: d?.open_date ?? "",
         sort_order: String(d?.sort_order ?? "0"),
         image_urls: Array.isArray(d?.image_urls) ? d.image_urls : [],
         product_ids: Array.isArray(d?.product_ids) ? d.product_ids : [],
@@ -170,6 +172,8 @@ export default function StoreForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
+  const [productsOpen, setProductsOpen] = useState(false);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -235,6 +239,7 @@ export default function StoreForm({
       ...rest,
       hours: buildHours(hoursWeekday, hoursWeekend, hoursSame),
       sort_order: Number(form.sort_order) || 0,
+      open_date: form.open_date || null,
       brands: form.brands.split(";").map((b) => b.trim()).filter(Boolean),
     };
     const url = isEdit ? `/api/admin/stores/${storeId}` : "/api/admin/stores";
@@ -255,71 +260,79 @@ export default function StoreForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-3xl">
+    <form onSubmit={handleSubmit} className="space-y-8 max-w-7xl">
       {error && (
         <div className="px-5 py-3.5 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl">
           {error}
         </div>
       )}
 
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
       {/* 기본 정보 */}
       <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
         <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">기본 정보</h2>
         <div className="grid grid-cols-2 gap-5">
-          <div className="col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-              매장명 <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => set("name", e.target.value)}
-              placeholder="워크업 포천직영점"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
-            />
+          {/* 매장명 · W지점명 */}
+          <div className="col-span-2 grid grid-cols-2 gap-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+                매장명 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={form.name}
+                onChange={(e) => set("name", e.target.value)}
+                placeholder="워크업 포천직영점"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">W지점명</label>
+              <input
+                type="text"
+                value={form.ship_name}
+                onChange={(e) => set("ship_name", e.target.value)}
+                placeholder="포천직영점 (택배 발송 기준 가맹점명)"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+              />
+              <p className="mt-1 text-[12px] text-gray-400">wjumun 가맹점명과 같게 입력. 출고패스에 활용됨.</p>
+            </div>
           </div>
+          {/* 지점코드 · 지역 · 매장유형 */}
+          <div className="col-span-2 grid grid-cols-3 gap-5">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">지점코드</label>
+              <input
+                type="text"
+                value={form.store_code}
+                onChange={(e) => set("store_code", e.target.value)}
+                placeholder="WUP001"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-[#303236]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">지역</label>
+              <input
+                type="text"
+                value={form.region}
+                onChange={(e) => set("region", e.target.value)}
+                placeholder="경기 / 서울 / 부산 등"
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1.5">매장 유형</label>
+              <select
+                value={form.store_type}
+                onChange={(e) => set("store_type", e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+              >
+                {STORE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="col-span-2 grid grid-cols-[1fr_200px] gap-5">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">지점코드</label>
-            <input
-              type="text"
-              value={form.store_code}
-              onChange={(e) => set("store_code", e.target.value)}
-              placeholder="WUP001"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm font-mono focus:outline-none focus:border-[#303236]"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">W지점명</label>
-            <input
-              type="text"
-              value={form.ship_name}
-              onChange={(e) => set("ship_name", e.target.value)}
-              placeholder="포천직영점 (택배 발송 기준 가맹점명)"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
-            />
-            <p className="mt-1 text-[12px] text-gray-400">출고·패스 현황의 W지점명 표시와 엑셀에 쓰입니다. 본사(wjumun)의 가맹점명과 같게 입력하세요.</p>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">지역</label>
-            <input
-              type="text"
-              value={form.region}
-              onChange={(e) => set("region", e.target.value)}
-              placeholder="경기 / 서울 / 부산 등"
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1.5">매장 유형</label>
-            <select
-              value={form.store_type}
-              onChange={(e) => set("store_type", e.target.value)}
-              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
-            >
-              {STORE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="col-span-2">
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               주소 <span className="text-red-500">*</span>
             </label>
@@ -340,6 +353,7 @@ export default function StoreForm({
               placeholder="031-000-0000"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
             />
+          </div>
           </div>
         </div>
 
@@ -389,20 +403,30 @@ export default function StoreForm({
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-1.5">매장 소개</label>
-          <textarea
-            rows={3}
+          <input
+            type="text"
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             placeholder="매장 소개 및 특징을 입력하세요."
-            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236] resize-none"
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
           />
         </div>
       </section>
 
+        {/* 오른쪽 열: 추가 정보 · 판매제품 */}
+        <div className="space-y-8">
       {/* 추가 정보 */}
       <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
-        <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">추가 정보</h2>
-        <div className="grid grid-cols-2 gap-5">
+        <button
+          type="button"
+          onClick={() => setExtraOpen((v) => !v)}
+          aria-expanded={extraOpen}
+          className="w-full flex items-center justify-between text-left text-base font-bold text-gray-900 border-b border-gray-100 pb-3"
+        >
+          추가 정보
+          <span className="text-xs font-normal text-gray-400">{extraOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+        </button>
+        <div className={`grid grid-cols-2 gap-5 ${extraOpen ? "" : "hidden"}`}>
           <div className="col-span-2">
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">
               취급 브랜드 <span className="text-xs font-normal text-gray-400">(세미콜론으로 구분: 나이키;아디다스;워크업)</span>
@@ -444,6 +468,18 @@ export default function StoreForm({
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
             />
           </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">오픈 예정일 (선택)</label>
+            <input
+              type="date"
+              value={form.open_date}
+              onChange={(e) => set("open_date", e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+          </div>
+          <p className="text-xs text-gray-400 self-end pb-3">
+            미리 등록하면 비공개로 저장되고, 오픈일 당일에 자동으로 공개(활성)됩니다.
+          </p>
           <div className="flex items-center gap-6 pt-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -476,16 +512,70 @@ export default function StoreForm({
           <p className="col-span-2 text-xs text-gray-400 -mt-2">
             "활성 (공개)"는 매장 자체의 공개 여부이고, "스토어 페이지 노출"은 이 매장의 상세 페이지(/store/{"{id}"})만 별도로 켜고 끕니다. 둘 다 켜져 있어야 상세 페이지를 볼 수 있습니다.
           </p>
+          {/* 매장 사진 */}
+          <div className="col-span-2 space-y-2">
+            <label className="block text-sm font-semibold text-gray-700">매장 사진</label>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
+            />
+            <div className="flex flex-wrap gap-3">
+              {form.image_urls.map((url, i) => (
+                <div key={i} className="relative w-32 h-32 rounded-lg overflow-hidden border border-gray-200 group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-[#303236] hover:text-[#303236] transition-colors"
+              >
+                {uploading ? (
+                  <div className="w-5 h-5 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-xs">이미지 추가</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
       {/* 판매제품 (공개 매장에서만 노출) */}
       {form.is_active && (
         <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-          <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">
-            판매제품 <span className="text-xs font-normal text-gray-400">(최대 3개, 매장 상세 공개 페이지에 노출)</span>
-          </h2>
-          <div className="grid grid-cols-3 gap-4">
+          <button
+            type="button"
+            onClick={() => setProductsOpen((v) => !v)}
+            aria-expanded={productsOpen}
+            className="w-full flex items-center justify-between text-left text-base font-bold text-gray-900 border-b border-gray-100 pb-3"
+          >
+            <span>
+              판매제품{" "}
+              <span className="text-xs font-normal text-gray-400">
+                (최대 3개, 매장 상세 공개 페이지에 노출 · {form.product_ids.filter(Boolean).length}개 지정)
+              </span>
+            </span>
+            <span className="text-xs font-normal text-gray-400">{productsOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+          </button>
+          <div className={`grid grid-cols-3 gap-4 ${productsOpen ? "" : "hidden"}`}>
             {[0, 1, 2].map((slot) => (
               <ProductSearchSlot
                 key={slot}
@@ -498,50 +588,8 @@ export default function StoreForm({
           </div>
         </section>
       )}
-
-      {/* 매장 이미지 */}
-      <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-4">
-        <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">매장 사진</h2>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = ""; }}
-        />
-        <div className="flex flex-wrap gap-3">
-          {form.image_urls.map((url, i) => (
-            <div key={i} className="relative w-32 h-32 rounded-lg overflow-hidden border border-gray-200 group">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="w-full h-full object-cover" />
-              <button
-                type="button"
-                onClick={() => removeImage(i)}
-                className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold"
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-            className="w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-[#303236] hover:text-[#303236] transition-colors"
-          >
-            {uploading ? (
-              <div className="w-5 h-5 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
-            ) : (
-              <>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                <span className="text-xs">이미지 추가</span>
-              </>
-            )}
-          </button>
         </div>
-      </section>
+      </div>
 
       {/* 저장 */}
       <div className="flex items-center gap-4">

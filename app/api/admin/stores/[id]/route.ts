@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
-import { isAdmin } from "@/lib/admin-auth";
+import { isAdmin, getAdminMember } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
 import { geocodeAddress } from "@/lib/geocode";
+import { appendHistory, diffStore, isOpenPending } from "@/lib/store-changes";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -44,36 +45,49 @@ export async function PUT(req: Request, { params }: Params) {
   }
 
   // 비활성 → 활성 전환 시각을 기록해 '신규(NEW)' 뱃지 기준에 반영한다.
-  // (activated_at 컬럼은 전환 시에만 쓰므로, 일반 수정은 컬럼 유무와 무관하게 동작)
-  const nextActive = body.is_active ?? true;
-  const { data: prev } = await supabase.from("stores").select("is_active").eq("id", id).single();
+  // 오픈 예정일이 미래면 비공개로 저장하고, 오픈일 당일에 자동 활성화된다(activateDueStores).
+  const openDate: string | null = body.open_date || null;
+  const nextActive = isOpenPending(openDate) ? false : (body.is_active ?? true);
+  const { data: prev } = await supabase.from("stores").select("*").eq("id", id).single();
   const reactivated = prev?.is_active === false && nextActive === true;
+
+  const nowIso = new Date().toISOString();
+  const fields = {
+    name: body.name,
+    store_code: body.store_code || null,
+    ship_name: body.ship_name?.trim() || null,
+    region: body.region ?? "",
+    address: body.address,
+    hours: body.hours ?? "",
+    phone: body.phone ?? "",
+    description: body.description ?? "",
+    image_urls: body.image_urls ?? [],
+    brands: body.brands ?? [],
+    parking: body.parking ?? false,
+    is_active: nextActive,
+    page_active: body.page_active ?? true,
+    store_type: body.store_type ?? "직영점",
+    kakao_channel_url: body.kakao_channel_url ?? "",
+    store_url: body.store_url ?? "",
+    sort_order: body.sort_order ?? 0,
+    product_ids: body.product_ids ?? [],
+    open_date: openDate,
+  };
+  // 수정 내역(무엇이 바뀌었는지) 기록 — 변경이 있을 때만, 최근 20건 유지
+  const changes = prev ? diffStore(prev, fields) : [];
+  const admin = changes.length > 0 ? await getAdminMember() : null;
 
   const { data, error } = await supabase
     .from("stores")
     .update({
-      ...(reactivated ? { activated_at: new Date().toISOString() } : {}),
-      name: body.name,
-      store_code: body.store_code || null,
-      ship_name: body.ship_name?.trim() || null,
-      region: body.region ?? "",
-      address: body.address,
+      ...(reactivated ? { activated_at: nowIso } : {}),
+      ...fields,
       lat,
       lng,
-      hours: body.hours ?? "",
-      phone: body.phone ?? "",
-      description: body.description ?? "",
-      image_urls: body.image_urls ?? [],
-      brands: body.brands ?? [],
-      parking: body.parking ?? false,
-      is_active: body.is_active ?? true,
-      page_active: body.page_active ?? true,
-      store_type: body.store_type ?? "직영점",
-      kakao_channel_url: body.kakao_channel_url ?? "",
-      store_url: body.store_url ?? "",
-      sort_order: body.sort_order ?? 0,
-      product_ids: body.product_ids ?? [],
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
+      ...(changes.length > 0
+        ? { change_history: appendHistory(prev?.change_history, { at: nowIso, by: admin?.name ?? "알 수 없음", changes }) }
+        : {}),
     })
     .eq("id", id)
     .select()

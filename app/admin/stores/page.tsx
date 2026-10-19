@@ -26,6 +26,17 @@ type StoreRow = {
   sort_order: number;
   product_ids: string[] | null;
   created_at: string;
+  updated_at: string | null;
+  open_date: string | null;
+  change_history: { at: string; by: string; changes: { field: string; label: string; from: string; to: string }[] }[] | null;
+};
+
+// 'YY/M/D HH:mm' (한국시간) 표기. 예: 26/8/5 09:51
+const fmtDateTime = (iso?: string | null) => {
+  if (!iso) return "-";
+  const [date, time] = new Date(iso).toLocaleString("sv-SE", { timeZone: "Asia/Seoul" }).split(" ");
+  const [y, m, d] = date.split("-");
+  return `${y.slice(2)}/${Number(m)}/${Number(d)} ${time.slice(0, 5)}`;
 };
 
 const TYPE_COLOR: Record<string, string> = {
@@ -45,6 +56,7 @@ export default function AdminStoresPage() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState<number | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -354,12 +366,14 @@ export default function AdminStoresPage() {
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">상태</th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">스토어 페이지</th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">상세보기</th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">등록일</th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">수정일 / 수정내역</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="px-5 py-16 text-center text-gray-400">
+                  <td colSpan={13} className="px-5 py-16 text-center text-gray-400">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-5 h-5 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
                       불러오는 중...
@@ -368,7 +382,7 @@ export default function AdminStoresPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-5 py-16 text-center text-gray-400">
+                  <td colSpan={13} className="px-5 py-16 text-center text-gray-400">
                     {stores.length === 0
                       ? <div>
                           <p className="text-base font-medium mb-2">등록된 매장이 없습니다.</p>
@@ -425,6 +439,11 @@ export default function AdminStoresPage() {
                       >
                         {store.is_active ? "활성" : "비활성"}
                       </button>
+                      {store.open_date && (
+                        <p className="mt-1 text-[11px] font-semibold text-[#E5541B] whitespace-nowrap">
+                          {store.open_date.slice(5).replace("-", "/")} 오픈예정
+                        </p>
+                      )}
                     </td>
                     <td className="px-3 py-2.5">
                       <button
@@ -445,6 +464,35 @@ export default function AdminStoresPage() {
                         </Link>
                       ) : (
                         <span className="text-[11px] text-gray-300">페이지 비노출</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 text-gray-500 text-[11px] font-mono whitespace-nowrap">{fmtDateTime(store.created_at)}</td>
+                    <td className="px-3 py-2.5 text-[11px] align-top">
+                      <p className="text-gray-500 font-mono whitespace-nowrap">{fmtDateTime(store.updated_at)}</p>
+                      {(store.change_history?.length ?? 0) > 0 && (
+                        <>
+                          <button
+                            onClick={() => setHistoryOpen(historyOpen === store.id ? null : store.id)}
+                            className="mt-0.5 text-blue-600 hover:underline"
+                          >
+                            수정내역 ({store.change_history!.length}) {historyOpen === store.id ? "▲" : "▼"}
+                          </button>
+                          {historyOpen === store.id && (
+                            <ul className="mt-1.5 space-y-2 min-w-[260px] max-w-[340px]">
+                              {store.change_history!.map((h, i) => (
+                                <li key={i} className="border-l-2 border-gray-200 pl-2">
+                                  <p className="text-gray-400 font-mono">{fmtDateTime(h.at)} · {h.by}</p>
+                                  {h.changes.map((c, j) => (
+                                    <p key={j} className="text-gray-700 break-all">
+                                      <span className="font-semibold">{c.label}</span>
+                                      {c.from ? `: ${c.from} → ${c.to}` : ` ${c.to}`}
+                                    </p>
+                                  ))}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>
