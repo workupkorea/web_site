@@ -10,9 +10,9 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
   const detail = product.cardDetail;
   const images = detail?.images?.length ? detail.images : (product.imageUrl ? [product.imageUrl] : []);
   const [selectedColorId, setSelectedColorId] = useState<string | null>(detail?.colors?.[0]?.id ?? null);
-  const [openSection, setOpenSection] = useState<"detail" | "material" | "essential" | null>(null);
+  const [openSection, setOpenSection] = useState<"detail" | null>("detail"); // 기본 펼침
 
-  const toggle = (key: "detail" | "material" | "essential") =>
+  const toggle = (key: "detail") =>
     setOpenSection((cur) => (cur === key ? null : key));
 
   const selectedColor = detail?.colors?.find((c) => c.id === selectedColorId);
@@ -22,8 +22,6 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
 
   const accordions = [
     { key: "detail" as const, label: "상품 상세정보", text: detail?.detailText },
-    { key: "material" as const, label: "소재", text: detail?.materialText },
-    { key: "essential" as const, label: "상품 필수 정보", text: detail?.essentialText },
   ];
 
   return (
@@ -32,7 +30,7 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
       {displayImages.length > 0 ? (
         <div className={displayImages.length > 1 ? "grid grid-cols-2 gap-2 content-start" : ""}>
           {displayImages.map((url, i) => (
-            <div key={url + i} className="aspect-square bg-gray-100 overflow-hidden">
+            <div key={url + i} className="aspect-square bg-gray-100 overflow-hidden border border-gray-200">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ikSrc(url, 800)} alt={product.name} className="w-full h-full object-cover" />
             </div>
@@ -44,6 +42,7 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
 
       {/* 우: 정보 */}
       <div className="flex flex-col">
+        {detail?.brand && <p className="text-xs font-bold tracking-wider text-gray-500 mb-1">{detail.brand}</p>}
         <h3 className="text-xl md:text-2xl font-bold text-[#303236] mb-5">{product.name}</h3>
 
         {!!detail?.colors?.length && (
@@ -104,7 +103,7 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
         )}
 
         {/* 아코디언 — 위 정보 영역과는 굵은 선으로 구분 */}
-        <div className="border-t-2 border-[#303236] mt-auto">
+        <div className="border-t-2 border-[#303236] mt-2">
           {accordions.map((a) => (
             <div key={a.key} className="border-b-2 border-[#303236]">
               <button type="button" onClick={() => toggle(a.key)}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin, getAdminMember } from "@/lib/admin-auth";
+import { hashPassword } from "@/lib/password";
 import { logAudit } from "@/lib/audit-server";
 import { geocodeAddress } from "@/lib/geocode";
 import { appendHistory, diffStore, isOpenPending } from "@/lib/store-changes";
@@ -106,10 +107,19 @@ export async function PUT(req: Request, { params }: Params) {
   return NextResponse.json(data);
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
-  if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export async function DELETE(req: Request, { params }: Params) {
+  const admin = await getAdminMember();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const supabase = createAdminClient();
+
+  // 삭제는 로그인한 관리자 본인의 비밀번호 확인 후에만 허용
+  const { password } = await req.json().catch(() => ({ password: "" }));
+  if (!password) return NextResponse.json({ error: "비밀번호를 입력하세요." }, { status: 400 });
+  const { data: me } = await supabase.from("members").select("password_hash").eq("id", admin.id).maybeSingle();
+  if (!me || me.password_hash !== hashPassword(password)) {
+    return NextResponse.json({ error: "비밀번호가 일치하지 않습니다." }, { status: 403 });
+  }
   const { error } = await supabase.from("stores").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await logAudit({

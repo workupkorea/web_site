@@ -24,8 +24,8 @@ export default async function HomeBrandLogos() {
     <div className="bg-white py-4 md:py-7">
       <div className="px-[15px] md:px-[70px]">
         <div className="rounded-xl border-2 border-[#303236] bg-white px-5 py-5 shadow-md md:px-8 md:py-7">
-          <p className="text-xs tracking-widest text-[#E5541B] uppercase mb-1">BRANDS</p>
-          <h2 className="text-lg font-bold text-[#303236] md:text-xl mb-4 md:mb-5">{title}</h2>
+          <h2 className="text-lg font-bold text-[#303236] md:text-xl">{title}</h2>
+          <p className="mt-1 mb-4 text-xs text-gray-500 md:mb-5">로고를 클릭하면 브랜드 카탈로그로 이동합니다</p>
           <BrandMarqueeClient items={items} />
         </div>
       </div>

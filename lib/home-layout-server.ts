@@ -21,7 +21,8 @@ const getHomeLayoutCached = unstable_cache(
 
 export async function getHomeLayout(): Promise<HomeLayoutConfig> {
   try {
-    return await getHomeLayoutCached();
+    // 캐시된 값이 구버전이어도 새로 추가된 섹션이 바로 보이도록 반환 시점에 한 번 더 정규화한다.
+    return normalizeHomeLayout(await getHomeLayoutCached());
   } catch {
     return normalizeHomeLayout(null);
   }

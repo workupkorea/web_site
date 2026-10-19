@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { BRANDS } from "@/lib/brands-data";
 
 // ── 타입 정의 ──────────────────────────────────────────────
 // 기획전 상세페이지의 "카드형" 제품 위젯(이미지 페이징+컬러+사이즈+아코디언) 전용 데이터.
@@ -12,6 +13,7 @@ type ProductCardDetail = {
   colors: ProductCardColor[];
   sizes: ProductCardSize[];
   styleNo?: string;
+  brand?: string;
   detailText: string;
   materialText: string;
   essentialText: string;
@@ -738,10 +740,14 @@ function CardDetailEditor({ detail, onChange }: {
   };
   const set = <K extends keyof ProductCardDetail>(k: K, v: ProductCardDetail[K]) => onChange({ ...d, [k]: v });
 
-  async function addImage(file: File) {
-    const resized = await resizeImage(file);
-    const url = await uploadImage(resized);
-    set("images", [...d.images, url]);
+  // 여러 장을 한 번에 선택 가능 — 선택 순서(파일명 순)대로 업로드 후 한 번에 반영
+  async function addImages(files: File[]) {
+    const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    const urls: string[] = [];
+    for (const f of sorted) {
+      urls.push(await uploadImage(await resizeImage(f)));
+    }
+    set("images", [...d.images, ...urls]);
   }
   function removeImage(idx: number) {
     const nextImages = d.images.filter((_, i) => i !== idx);
@@ -750,6 +756,21 @@ function CardDetailEditor({ detail, onChange }: {
       ...c,
       imageIndexes: c.imageIndexes.filter((n) => n !== idx).map((n) => (n > idx ? n - 1 : n)),
     }));
+    onChange({ ...d, images: nextImages, colors: nextColors });
+  }
+  // 이미지 순서 변경 — 컬러에 체크된 이미지 번호도 함께 따라가도록 재매핑
+  function moveImage(from: number, to: number) {
+    if (from === to || to < 0 || to >= d.images.length) return;
+    const nextImages = [...d.images];
+    const [moved] = nextImages.splice(from, 1);
+    nextImages.splice(to, 0, moved);
+    const remap = (n: number) => {
+      if (n === from) return to;
+      if (from < to && n > from && n <= to) return n - 1;
+      if (from > to && n >= to && n < from) return n + 1;
+      return n;
+    };
+    const nextColors = d.colors.map((c) => ({ ...c, imageIndexes: c.imageIndexes.map(remap).sort((a, b) => a - b) }));
     onChange({ ...d, images: nextImages, colors: nextColors });
   }
   function addColor() {
@@ -797,19 +818,30 @@ function CardDetailEditor({ detail, onChange }: {
           {/* 이미지 그리드 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">이미지 (등록한 순서대로 2열 그리드에 이어서 노출)</label>
+            <p className="text-[11px] text-gray-400 mb-1.5">드래그하거나 ◀ ▶로 순서 변경 · 1:1 정사각형으로 노출 (가운데 기준 잘림) · 권장 1200×1200px (최소 800×800px) · 2열 그리드에서는 한 장이 약 270px로 보임</p>
             <div className="flex flex-wrap gap-2">
               {d.images.map((url, i) => (
-                <div key={i} className="relative w-16 h-16 flex-shrink-0">
-                  <img src={url} alt="" className="w-full h-full object-cover rounded border border-gray-200" />
+                <div key={i} className="relative w-16 h-16 flex-shrink-0 cursor-grab"
+                  draggable
+                  onDragStart={(e) => e.dataTransfer.setData("text/plain", String(i))}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.preventDefault(); moveImage(Number(e.dataTransfer.getData("text/plain")), i); }}>
+                  <img src={url} alt="" draggable={false} className="w-full h-full object-cover rounded border border-gray-200" />
                   <span className="absolute top-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded">{i}</span>
+                  <div className="absolute bottom-0.5 inset-x-0.5 flex justify-between">
+                    <button type="button" disabled={i === 0} onClick={() => moveImage(i, i - 1)}
+                      className="w-4 h-4 bg-black/60 text-white rounded text-[9px] leading-none disabled:opacity-30" title="앞으로">◀</button>
+                    <button type="button" disabled={i === d.images.length - 1} onClick={() => moveImage(i, i + 1)}
+                      className="w-4 h-4 bg-black/60 text-white rounded text-[9px] leading-none disabled:opacity-30" title="뒤로">▶</button>
+                  </div>
                   <button type="button" onClick={() => removeImage(i)}
                     className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none flex items-center justify-center">×</button>
                 </div>
               ))}
               <label className="w-16 h-16 flex-shrink-0 border-2 border-dashed border-gray-300 rounded flex items-center justify-center cursor-pointer hover:border-[#303236] text-gray-400 text-xl">
                 +
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={(e) => { const f = e.target.files?.[0]; if (f) addImage(f); e.target.value = ""; }} />
+                <input type="file" accept="image/*" multiple className="hidden"
+                  onChange={(e) => { const fs = Array.from(e.target.files ?? []); if (fs.length) addImages(fs); e.target.value = ""; }} />
               </label>
             </div>
           </div>
@@ -910,8 +942,6 @@ function CardDetailEditor({ detail, onChange }: {
 
           {/* 아코디언 내용 */}
           <Field label="상품 상세정보" value={d.detailText} onChange={(v) => set("detailText", v)} multiline placeholder="제품 상세 설명을 입력하세요." />
-          <Field label="소재" value={d.materialText} onChange={(v) => set("materialText", v)} multiline placeholder="예: 폴리에스터 100%" />
-          <Field label="상품 필수 정보" value={d.essentialText} onChange={(v) => set("essentialText", v)} multiline placeholder="제조사, 취급주의, 원산지 등" />
         </div>
       )}
     </div>
@@ -1077,21 +1107,20 @@ function SlotItemEditor({ item, onChange }: {
 }) {
   return (
     <div>
-      <div className="flex gap-4">
-        {/* 상품 대표 이미지 */}
-        <div className="flex-shrink-0" style={{ width: "110px" }}>
-          <ImageField
-            label="대표 이미지"
-            hint=""
-            value={item.image_url}
-            onChange={(url) => onChange({ image_url: url })}
-            compact
-            aspectRatio="1/1"
-          />
+      {/* 브랜드(제품명 위에 표시) + 상품명 한 줄 */}
+      <div className="flex gap-3 items-end">
+        <div className="w-40 flex-shrink-0">
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">브랜드</label>
+          <select
+            value={item.card_detail?.brand ?? ""}
+            onChange={(e) => onChange({ card_detail: { ...(item.card_detail ?? emptyCardDetail()), brand: e.target.value || undefined } })}
+            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 bg-white"
+          >
+            <option value="">선택 안 함</option>
+            {BRANDS.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+          </select>
         </div>
-
-        {/* 필드 */}
-        <div className="flex-1 min-w-0 space-y-3">
+        <div className="flex-1 min-w-0">
           <Field label="상품명" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
         </div>
       </div>
@@ -1113,12 +1142,25 @@ function BannerEditor({ banner, label, onChange, products }: {
 }) {
   const [itemTab, setItemTab] = useState(0);
 
-  // 항상 3개 슬롯 고정
+  // 앞 3개는 메인 카드 슬롯(고정), 4번째부터는 상세페이지 전용 추가 상품(detail_items)
   const items3: ProductItem[] = [0, 1, 2].map((i) => banner.items[i] ?? emptyItem());
+  const extraItems = banner.detail_items ?? [];
+  const allItems: ProductItem[] = [...items3, ...extraItems];
 
   function updateItem(idx: number, patch: Partial<ProductItem>) {
-    const next = items3.map((item, i) => (i === idx ? { ...item, ...patch } : item));
-    onChange({ items: next });
+    if (idx < 3) {
+      onChange({ items: items3.map((item, i) => (i === idx ? { ...item, ...patch } : item)) });
+    } else {
+      onChange({ detail_items: extraItems.map((item, i) => (i === idx - 3 ? { ...item, ...patch } : item)) });
+    }
+  }
+  function addExtraItem() {
+    onChange({ detail_items: [...extraItems, emptyItem()] });
+    setItemTab(allItems.length);
+  }
+  function removeExtraItem(idx: number) {
+    onChange({ detail_items: extraItems.filter((_, i) => i !== idx - 3) });
+    setItemTab(idx - 1);
   }
 
   return (
@@ -1216,8 +1258,8 @@ function BannerEditor({ banner, label, onChange, products }: {
         {/* 우: 연결상품 3개 탭 */}
         <div className="flex-1 min-w-0">
           {/* 탭 바 — 좌측 정렬, 자연 너비 */}
-          <div className="flex border border-gray-200 rounded-t-xl overflow-hidden">
-            {[0, 1, 2].map((i) => (
+          <div className="flex flex-wrap border border-gray-200 rounded-t-xl overflow-hidden">
+            {allItems.map((_, i) => (
               <button
                 key={i}
                 onClick={() => setItemTab(i)}
@@ -1228,19 +1270,30 @@ function BannerEditor({ banner, label, onChange, products }: {
                 }`}
               >
                 상품{i + 1}
-                {items3[i].name && (
+                {allItems[i].name && (
                   <span className={`ml-1.5 text-[10px] font-normal ${itemTab === i ? "text-white/70" : "text-gray-400"}`}>
-                    · {items3[i].name}
+                    · {allItems[i].name}
                   </span>
                 )}
               </button>
             ))}
+            <button type="button" onClick={addExtraItem}
+              className="px-4 py-2.5 text-sm font-semibold text-[#303236] bg-white hover:bg-gray-50 whitespace-nowrap">
+              + 상품 추가
+            </button>
           </div>
           {/* 탭 콘텐츠 */}
           <div className="border border-t-0 border-gray-200 rounded-b-xl p-4">
+            {itemTab >= 3 && (
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-[11px] text-gray-400">상세페이지 전용 상품 (메인 카드에는 노출되지 않음)</span>
+                <button type="button" onClick={() => removeExtraItem(itemTab)}
+                  className="text-[11px] text-red-500 hover:text-red-700 font-medium">이 상품 삭제</button>
+              </div>
+            )}
             <SlotItemEditor
               key={itemTab}
-              item={items3[itemTab]}
+              item={allItems[itemTab] ?? allItems[0]}
               onChange={(patch) => updateItem(itemTab, patch)}
             />
           </div>
@@ -1255,14 +1308,45 @@ function BannerEditor({ banner, label, onChange, products }: {
 
 
 // ── 서브 컴포넌트: 메인 기획전 에디터 ──────────────────────
-// 확대/축소·상품 태그 편집 기능은 제거했다(공개 렌더러도 스케일은 애초에 반영하지 않았고,
-// 태그는 여기서 새로 추가/편집만 못 할 뿐 기존에 저장된 값은 그대로 노출된다).
-// 이미지 위치(크롭 기준점) 드래그 조정만 남기고 미리보기를 크게 키웠다.
-function HeroEditor({ hero, onChange }: {
+// 확대/축소 기능은 제거했다(공개 렌더러도 스케일은 애초에 반영하지 않았다).
+// 이미지 위치(크롭 기준점) 드래그 조정만 남기고 미리보기를 크게 키웠다. 제품 태그는 HeroTagEditor가 담당.
+function HeroEditor({ hero, onChange, products }: {
   hero: EditorialBlock["hero"];
   onChange: (patch: Partial<EditorialBlock["hero"]>) => void;
+  products: SearchProduct[];
 }) {
   const [posView, setPosView] = useState<"pc" | "mobile">("pc");
+  // 미리보기 편집 모드: 이미지 위치(드래그로 크롭 이동) / 제품 태그(클릭 추가·드래그 이동)
+  const [editMode, setEditMode] = useState<"position" | "tag">("position");
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
+  const wasDraggingRef = useRef(false);
+  const tags = hero.tags ?? [];
+  const setTags = (next: HeroTag[]) => onChange({ tags: next });
+  const tagXY = (t: HeroTag) => (posView === "pc" ? { x: t.pc_x ?? t.x, y: t.pc_y ?? t.y } : { x: t.x, y: t.y });
+  const pctOf = (e: { clientX: number; clientY: number }, min: number, max: number) => {
+    const rect = posPreviewRef.current!.getBoundingClientRect();
+    return {
+      x: Math.round(Math.min(max, Math.max(min, ((e.clientX - rect.left) / rect.width) * 100))),
+      y: Math.round(Math.min(max, Math.max(min, ((e.clientY - rect.top) / rect.height) * 100))),
+    };
+  };
+  const updateTag = (idx: number, patch: Partial<HeroTag>) => setTags(tags.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
+  function handleTagAreaClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (editMode !== "tag" || !hero.image_url) return;
+    if (wasDraggingRef.current) { wasDraggingRef.current = false; return; }
+    const { x, y } = pctOf(e, 0, 100);
+    const next = [...tags, { id: uid(), x, y, pc_x: x, pc_y: y, name: "", price: "", product_id: "", image_url: "", bg: "#303236" }];
+    setTags(next);
+    setSelectedIdx(next.length - 1);
+  }
+  function handleTagMove(e: React.PointerEvent<HTMLButtonElement>) {
+    if (draggingIdx === null || !posPreviewRef.current) return;
+    wasDraggingRef.current = true;
+    const { x, y } = pctOf(e, 1, 99);
+    updateTag(draggingIdx, posView === "pc" ? { pc_x: x, pc_y: y } : { x, y });
+  }
+  const selectedTag = selectedIdx !== null ? tags[selectedIdx] : null;
   const [isDraggingPos, setIsDraggingPos] = useState(false);
   const posPreviewRef = useRef<HTMLDivElement>(null);
   const posDragRef = useRef<{ startX: number; startY: number; startPx: number; startPy: number } | null>(null);
@@ -1277,7 +1361,7 @@ function HeroEditor({ hero, onChange }: {
   const currPy = posView === "pc" ? pcPy : mobilePy;
 
   function handlePosDragStart(e: React.PointerEvent<HTMLDivElement>) {
-    if (!hero.image_url) return;
+    if (!hero.image_url || editMode !== "position") return;
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
     posDragRef.current = { startX: e.clientX, startY: e.clientY, startPx: currPx, startPy: currPy };
@@ -1353,33 +1437,108 @@ function HeroEditor({ hero, onChange }: {
                 </button>
               ))}
             </div>
-            <button type="button"
-              onClick={() => {
-                if (posView === "pc") onChange({ image_position: "50% 0%" });
-                else onChange({ image_position_mobile: "50% 50%" });
-              }}
-              className="text-[11px] text-gray-400 hover:text-gray-600">위치 초기화</button>
+            <div className="flex gap-1">
+              {([["position", "↔ 이미지 위치"], ["tag", "📍 제품 태그"]] as const).map(([m, label]) => (
+                <button key={m} type="button" onClick={() => setEditMode(m)}
+                  className={`text-[11px] font-semibold px-3 py-1 rounded border transition-colors ${
+                    editMode === m ? "bg-[#E5541B] text-white border-[#E5541B]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                  }`}>{label}</button>
+              ))}
+            </div>
+            {editMode === "position" ? (
+              <button type="button"
+                onClick={() => {
+                  if (posView === "pc") onChange({ image_position: "50% 0%" });
+                  else onChange({ image_position_mobile: "50% 50%" });
+                }}
+                className="text-[11px] text-gray-400 hover:text-gray-600">위치 초기화</button>
+            ) : (
+              tags.length > 0 ? (
+                <button type="button" onClick={() => { setTags([]); setSelectedIdx(null); }}
+                  className="text-[11px] text-red-400 hover:text-red-600">태그 전체 삭제</button>
+              ) : <span />
+            )}
           </div>
+          <p className="text-[10px] text-gray-400">
+            {editMode === "position"
+              ? "이미지를 드래그해 노출 위치를 조정합니다."
+              : "이미지를 클릭하면 태그가 추가되고, 드래그하면 위치가 이동합니다. PC/모바일 위치는 각각 조정하세요."}
+          </p>
           <div
             ref={posPreviewRef}
             onPointerDown={handlePosDragStart}
             onPointerMove={handlePosDragMove}
             onPointerUp={handlePosDragEnd}
+            onClick={handleTagAreaClick}
             className="relative overflow-hidden rounded-lg border border-gray-200 select-none mx-auto"
             style={{
               aspectRatio: posView === "pc" ? "8/9" : "3/4",
               maxWidth: posView === "pc" ? 480 : 380,
-              cursor: isDraggingPos ? "grabbing" : "grab",
+              cursor: editMode === "tag" ? "crosshair" : (isDraggingPos ? "grabbing" : "grab"),
               touchAction: "none",
             }}
           >
             <img
               src={posView === "pc" ? (hero.image_url_pc || hero.image_url) : hero.image_url} alt=""
               draggable={false}
-              className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+              className={`absolute inset-0 w-full h-full pointer-events-none select-none ${editMode === "tag" && posView === "mobile" ? "object-contain" : "object-cover"}`}
               style={{ objectPosition: `${currPx}% ${currPy}%` }}
             />
+            {editMode === "tag" && tags.map((tag, idx) => {
+              const { x, y } = tagXY(tag);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onPointerDown={(e) => {
+                    e.stopPropagation(); e.preventDefault();
+                    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                    wasDraggingRef.current = false;
+                    setDraggingIdx(idx); setSelectedIdx(idx);
+                  }}
+                  onPointerMove={handleTagMove}
+                  onPointerUp={() => setDraggingIdx(null)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute"
+                  style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%,-50%)", cursor: draggingIdx === idx ? "grabbing" : "grab", touchAction: "none" }}
+                  title={tag.name || `태그 ${idx + 1}`}
+                >
+                  <span className={`flex items-center justify-center rounded-full ${
+                    selectedIdx === idx ? "w-7 h-7 bg-[#E5541B]/90 border-2 border-white shadow-lg" : "w-6 h-6 bg-white/85 border-2 border-white shadow-md"
+                  }`}>
+                    <span className="text-[10px] font-bold text-[#303236]">{idx + 1}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
+
+          {/* 태그 편집 — 선택한 태그의 제품 지정 */}
+          {editMode === "tag" && (
+            <div className="space-y-2">
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((tag, idx) => (
+                    <button key={tag.id} type="button" onClick={() => setSelectedIdx(selectedIdx === idx ? null : idx)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] transition-colors ${
+                        selectedIdx === idx ? "bg-[#E5541B] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}>{idx + 1}. {tag.name || "제품 미선택"}</button>
+                  ))}
+                </div>
+              )}
+              {selectedTag && selectedIdx !== null && (
+                <div className="border-2 border-[#E5541B]/30 rounded-xl p-3 bg-orange-50/30 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-[#E5541B]">태그 {selectedIdx + 1} 제품 선택 <span className="text-gray-400 font-normal">(브랜드·제품명 자동 표시)</span></span>
+                    <button type="button" onClick={() => { setTags(tags.filter((_, i) => i !== selectedIdx)); setSelectedIdx(null); }}
+                      className="text-[11px] text-red-500 hover:text-red-700 font-medium">삭제</button>
+                  </div>
+                  <ProductPicker products={products} value={selectedTag.name}
+                    onSelect={(p) => updateTag(selectedIdx, { product_id: p.id, name: p.name, price: p.price, image_url: p.imageUrl ?? "" })} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1563,6 +1722,7 @@ function BlockCard({
             {tab === "hero" && (
               <HeroEditor
                 hero={block.hero}
+                products={products}
                 onChange={(patch) => onUpdate({ hero: { ...block.hero, ...patch } })}
               />
             )}

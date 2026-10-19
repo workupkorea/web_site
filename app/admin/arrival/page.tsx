@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from "react";
 import type { ArrivalProduct, ArrivalStatus } from "@/lib/arrival";
+import { seasonOf } from "@/lib/arrival-season";
+import Link from "next/link";
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 function fmtDate(iso: string) {
@@ -21,16 +23,6 @@ function fmtArrivalShort(iso: string) {
   return m ? `${+m[2]}/${+m[3]}` : (iso || "—");
 }
 
-// 입고일 → 시즌 코드. SS: 2~7월 / FW: 8~12월·익년 1월(1월은 전년도 FW).
-// 시즌 경계 조정이 필요하면 이 함수만 고치면 됨.
-function seasonOf(iso: string) {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso ?? "");
-  if (!m) return "";
-  const y = +m[1], mo = +m[2];
-  if (mo === 1)           return `${String(y - 1).slice(2)}FW`;
-  if (mo >= 2 && mo <= 7) return `${String(y).slice(2)}SS`;
-  return `${String(y).slice(2)}FW`;
-}
 
 // 목록 테이블에서 토글 가능한 열의 localStorage 키
 const ARRIVAL_HIDDEN_COLS_KEY = "arrival_table_hidden_cols";
@@ -1406,6 +1398,13 @@ export default function AdminArrivalPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Link
+            href="/admin/arrival/stats"
+            className="px-4 py-2 border border-gray-300 bg-white text-gray-700 text-[13px] font-bold rounded-lg hover:bg-gray-50 whitespace-nowrap"
+          >
+            시즌별 판매 통계
+          </Link>
+
           {/* 구글 시트 동기화 */}
           <div className="flex items-center gap-3">
             {/* 완료 정보 고정 영역 — 항상 렌더링 */}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { ikSrc } from "@/lib/imageSrc";
 import type { BrandLogoItem } from "@/lib/brand-marquee";
 
@@ -59,27 +60,38 @@ export default function BrandMarqueeClient({ items }: { items: BrandLogoItem[] }
     >
       <div className="overflow-hidden">
         <div ref={trackRef} className="flex w-max items-center will-change-transform">
-          {track.map((b, i) => (
-            <div
-              key={`${b.id}-${i}`}
-              aria-hidden={i >= items.length}
-              className="flex h-16 flex-shrink-0 items-center justify-center px-6 md:h-20 md:px-8"
-            >
-              {b.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={ikSrc(b.logoUrl, 240)}
-                  alt={i < items.length ? b.name : ""}
-                  className="h-[52%] w-auto max-w-[180px] object-contain grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100"
-                />
-              ) : (
-                // 로고 이미지가 없는 브랜드는 브랜드명을 텍스트로
-                <span className="whitespace-nowrap text-lg font-black tracking-[0.08em] text-gray-400 transition-colors hover:text-gray-900 md:text-xl">
-                  {b.name}
-                </span>
-              )}
-            </div>
-          ))}
+          {track.map((b, i) => {
+            const isCopy = i >= items.length;
+            const logo = b.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={ikSrc(b.logoUrl, 240)}
+                alt={isCopy ? "" : b.name}
+                className="h-[52%] w-auto max-w-[180px] object-contain grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100"
+              />
+            ) : (
+              // 로고 이미지가 없는 브랜드는 브랜드명을 텍스트로
+              <span className="whitespace-nowrap text-lg font-black tracking-[0.08em] text-gray-400 transition-colors hover:text-gray-900 md:text-xl">
+                {b.name}
+              </span>
+            );
+            const boxClass = "flex h-16 min-w-[44px] flex-shrink-0 items-center justify-center rounded-md px-6 md:h-20 md:px-8";
+
+            return (
+              <Link
+                key={`${b.id}-${i}`}
+                href={b.href}
+                aria-hidden={isCopy}
+                tabIndex={isCopy ? -1 : undefined}
+                aria-label={`${b.name} 카탈로그 보기`}
+                onFocus={() => { pausedRef.current = true; }}
+                onBlur={() => { pausedRef.current = false; }}
+                className={`${boxClass} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#E5541B]`}
+              >
+                {logo}
+              </Link>
+            );
+          })}
         </div>
       </div>
 

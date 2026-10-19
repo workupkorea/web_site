@@ -30,6 +30,7 @@ const RESOURCES: { value: string; label: string }[] = [
   { value: "inquiries",      label: "문의" },
   { value: "jobs",           label: "채용공고" },
   { value: "analytics",      label: "분석/픽셀" },
+  { value: "fix-logs",       label: "오류 수정 내역" },
 ];
 const RESOURCE_LABEL: Record<string, string> = Object.fromEntries(RESOURCES.map(r => [r.value, r.label]));
 

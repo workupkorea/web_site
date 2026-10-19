@@ -158,7 +158,7 @@ export default async function BrandPage({ params }: Props) {
         <div className="flex flex-col items-center justify-center text-center py-24 border border-dashed border-gray-200 rounded-xl bg-gray-50">
           <p className="text-[10px] tracking-[0.28em] uppercase text-gray-300 mb-3">Coming Soon</p>
           <p className="text-gray-400 text-sm">{brandName} 카탈로그를 준비 중입니다.</p>
-          <Link href="/catalog" className="mt-6 text-xs text-gray-400 underline underline-offset-2 hover:text-gray-700 transition-colors">
+          <Link href="/brands" className="mt-6 inline-flex min-h-[44px] items-center text-xs text-gray-400 underline underline-offset-2 hover:text-gray-700 transition-colors">
             전체 카탈로그 보기
           </Link>
         </div>

@@ -10,6 +10,9 @@ export type EditorialTag = {
   productId: string;
   bg: string;
   imageUrl?: string;
+  href?: string;    // 클릭 이동 주소 — 제품이 속한 기획전 배너 상세(?product=). 없으면 제품 상세
+  brandLogo?: string; // 브랜드 카탈로그(brands 테이블)에 등록된 로고 — 있으면 브랜드 텍스트 대신 표시
+  brand?: string;   // 제품 DB의 브랜드 — 서버(enrichEditorialBrands)가 채워 태그 라벨에 표시
 };
 
 // 기획전 상세페이지의 "카드형" 제품 위젯(이미지 페이징+컬러+사이즈+아코디언) 전용 데이터.
@@ -20,6 +23,7 @@ export type EditorialCardDetail = {
   colors: EditorialCardColor[];
   sizes: EditorialCardSize[];
   styleNo?: string;      // 품번(Style No.) — 입고 스케쥴에서 가져오거나 직접 입력
+  brand?: string;        // 카드 제품명 위에 표시할 브랜드명 (BRANDS 중 선택)
   detailText: string;
   materialText: string;
   essentialText: string;

@@ -8,6 +8,7 @@ export type HomeSectionKey =
   | "category"
   | "editorial"
   | "people"
+  | "youtube"
   | "instagram";
 
 export type HomeSectionMeta = {
@@ -26,6 +27,7 @@ export const HOME_SECTIONS: HomeSectionMeta[] = [
   { key: "category", label: "카테고리", description: "카테고리 그리드", editHref: "/admin/main/categories" },
   { key: "editorial", label: "기획전", description: "기획전(에디토리얼) 블록", editHref: "/admin/main/editorial" },
   { key: "people", label: "일하는 사람들 이야기", description: "MATE 인터뷰 티저", editHref: "/admin/main/people" },
+  { key: "youtube", label: "유튜브 롱폼", description: "@WorkUp_official 채널 최신 롱폼 영상(쇼츠 제외)" },
   { key: "instagram", label: "인스타그램 피드", description: "@workup_official_kr 실시간 피드" },
 ];
 

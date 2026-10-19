@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { ArrivalStatus, ArrivalProduct } from "@/lib/arrival";
-import { replaceAllProducts, cleanupOrphanOverrides, getArrivalProducts } from "@/lib/arrival";
+import { replaceAllProducts, archiveSalesSnapshot, archiveWeeklySales, cleanupOrphanOverrides, getArrivalProducts } from "@/lib/arrival";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +112,46 @@ function parsePrice(s: string): number {
   return isNaN(n) ? 0 : n;
 }
 
+// ─── 주차별 주문·판매 열 ──────────────────────────────────────────────────────
+// 시트 3행에 "8/10~8/16" 같은 주 라벨이 (주문 열, 판매 열) 한 쌍의 첫 칸에 있다. 주마다 오른쪽에 열이 추가된다.
+// 값은 그 주의 증분이며, 최신 주는 수식 오류("#REF!")일 수 있어 숫자가 아니면 건너뛴다.
+const WEEK_COL_START = 57;
+const WEEK_LABEL = /^(\d{1,2})\/(\d{1,2})\s*~\s*(\d{1,2})\/(\d{1,2})$/;
+
+interface WeekCol { orderIdx: number; salesIdx: number; startMD: [number, number]; endMD: [number, number] }
+
+function findWeekCols(rows: string[][]): WeekCol[] {
+  const labelRow = rows[2] ?? [];
+  const headerRow = rows[3] ?? [];
+  const cols: WeekCol[] = [];
+  for (let c = WEEK_COL_START; c < labelRow.length; c++) {
+    const m = WEEK_LABEL.exec((labelRow[c] ?? "").trim());
+    if (!m) continue;
+    // 헤더가 "주문/판매" 쌍인지 확인 — 열 구조가 바뀌었으면 잘못된 값을 읽지 않도록 건너뛴다
+    if (!(headerRow[c] ?? "").includes("주문") || !(headerRow[c + 1] ?? "").includes("판매")) continue;
+    cols.push({ orderIdx: c, salesIdx: c + 1, startMD: [+m[1], +m[2]], endMD: [+m[3], +m[4]] });
+  }
+  return cols;
+}
+
+// 월/일에 연도를 붙인다. 입고일(YYYY-MM-DD)과 가장 가까운 연도를 고른다 (FW는 연말~익년 초에 걸치므로)
+function resolveWeekDate([m, d]: [number, number], refIso: string): string {
+  const refYear = /^\d{4}/.test(refIso) ? +refIso.slice(0, 4) : new Date().getFullYear();
+  const ref = /^\d{4}-\d{2}-\d{2}$/.test(refIso) ? Date.parse(refIso) : Date.now();
+  let best = refYear, bestGap = Infinity;
+  for (const y of [refYear - 1, refYear, refYear + 1]) {
+    const gap = Math.abs(Date.UTC(y, m - 1, d) - ref);
+    if (gap < bestGap) { best = y; bestGap = gap; }
+  }
+  return `${best}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+function parseCount(s: string): number | null {
+  const t = (s ?? "").replace(/,/g, "").trim();
+  if (!/^-?\d+(\.\d+)?$/.test(t)) return null; // 빈 칸·"#REF!" 등은 값 없음
+  return Math.round(Number(t));
+}
+
 // 실제 데이터 파싱에 쓰이는 열들이 기대하는 헤더 텍스트를 담고 있는지 검증한다.
 // 시트에서 열이 추가/삭제/이동되면 IDX 인덱스가 엉뚱한 열을 가리키게 되어
 // 판매가/공급가가 뒤바뀌는 등 조용한 데이터 오염이 발생했던 전례가 있다 (2026-09-14).
@@ -201,6 +241,9 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   }
 
   const stampIdx = findStampIdx(rows);
+  const weekCols = findWeekCols(rows);
+  // 그룹(상품) 단위 주차 합계 — 색상 행들을 합산. key: 주 시작 열 인덱스
+  const groupWeekly = new Map<string, Map<number, { order: number | null; sales: number | null }>>();
 
   type GroupKey = string; // `${baseCode}::${arrDate}`
   const groups = new Map<GroupKey, ArrivalProduct>();
@@ -272,6 +315,20 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
       groupRates.set(key, acc);
     }
 
+    if (weekCols.length > 0) {
+      const wmap = groupWeekly.get(key) ?? new Map<number, { order: number | null; sales: number | null }>();
+      for (const wc of weekCols) {
+        const o = parseCount(row[wc.orderIdx] ?? "");
+        const s = parseCount(row[wc.salesIdx] ?? "");
+        if (o == null && s == null) continue;
+        const cur = wmap.get(wc.orderIdx) ?? { order: null, sales: null };
+        if (o != null) cur.order = (cur.order ?? 0) + o;
+        if (s != null) cur.sales = (cur.sales ?? 0) + s;
+        wmap.set(wc.orderIdx, cur);
+      }
+      groupWeekly.set(key, wmap);
+    }
+
     if (color) {
       const colors = groupColors.get(key) ?? [];
       if (!colors.includes(color)) colors.push(color);
@@ -292,6 +349,23 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
     const rates = groupRates.get(key);
     if (rates?.oW) product.orderRate = Math.round(rates.oSum / rates.oW);
     if (rates?.sW) product.salesRate = Math.round(rates.sSum / rates.sW);
+
+    // 주차별 주문·판매: 값이 하나라도 있는 주만 담는다 (한쪽만 숫자면 나머지는 0)
+    const wmap = groupWeekly.get(key);
+    if (wmap && wmap.size > 0) {
+      const weekly: NonNullable<ArrivalProduct["weekly"]> = [];
+      for (const wc of weekCols) {
+        const v = wmap.get(wc.orderIdx);
+        if (!v) continue;
+        weekly.push({
+          weekStart: resolveWeekDate(wc.startMD, product.arrivalDate),
+          weekEnd: resolveWeekDate(wc.endMD, product.arrivalDate),
+          order: v.order ?? 0,
+          sales: v.sales ?? 0,
+        });
+      }
+      if (weekly.length > 0) product.weekly = weekly;
+    }
     products.push(product);
   }
 
@@ -371,6 +445,12 @@ export async function POST() {
 
     // 3. DB에 상품 전체 교체 저장 (신규 삽입 성공 후에만 기존 데이터 삭제 — 실패 시 기존 데이터 보존)
     await replaceAllProducts(products);
+
+    // 3-1. 시즌별 판매 비교용 영구 아카이브 (테이블 미생성 등 실패해도 동기화는 계속)
+    const archive = await archiveSalesSnapshot(products);
+    if (!archive.ok) console.warn("[arrival_sales_archive]", archive.error);
+    const weekly = await archiveWeeklySales(products);
+    if (!weekly.ok) console.warn("[arrival_weekly_sales]", weekly.error);
 
     // 4. 삭제된 상품 코드의 오버라이드 정리
     const newCodes = new Set(products.map(p => p.productCode));

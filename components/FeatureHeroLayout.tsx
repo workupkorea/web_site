@@ -2,8 +2,90 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import type { Editorial, EditorialSection, EditorialSectionTag } from "@/data/editorial";
+import type { Editorial, EditorialSection, EditorialSectionTag, EditorialTag } from "@/data/editorial";
 import { ikSrc } from "@/lib/imageSrc";
+
+// 메인 배너 이미지 위 제품 태그 — 이미지 속 착용 제품 위에 "브랜드(작게, 위 오른쪽) + 제품명 박스"로 항상 노출.
+// 점 좌표가 라벨의 중심이며, 클릭 시 제품 상세로 이동한다.
+function TagChip({ tag, x, y, compact, px }: { tag: EditorialTag; x: number; y: number; compact?: boolean; px?: boolean }) {
+  const unit = px ? "px" : "%";
+  return (
+    <Link
+      href={tag.href ?? `/products/${tag.productId}`}
+      aria-label={`${tag.brand ? tag.brand + " " : ""}${tag.name}`}
+      className="absolute z-10 flex flex-col items-end min-h-[44px] justify-center group"
+      style={{ left: `${x}${unit}`, top: `${y}${unit}`, transform: "translate(-50%, -50%)" }}
+    >
+      {tag.brandLogo ? (
+        // 브랜드 로고 — 배경 없이 흰색으로 표시 (어떤 색 로고든 brightness(0) invert(1)로 흰색 변환, 가독성용 그림자)
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={ikSrc(tag.brandLogo, 200)}
+          alt={tag.brand ?? ""}
+          className={`object-contain mb-1 ${compact ? "h-[10px]" : "h-[14px]"}`}
+          style={{ filter: "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))" }}
+        />
+      ) : tag.brand ? (
+        <span
+          className={`font-bold uppercase text-white leading-none tracking-wide mb-1 ${compact ? "text-[9px]" : "text-[12px]"}`}
+          style={{ fontFamily: "Georgia, 'Times New Roman', serif", textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}
+        >
+          {tag.brand}
+        </span>
+      ) : null}
+      <span
+        className={`whitespace-nowrap text-[#303236] border border-[#303236]/25 bg-[#f4f1ea]/45 backdrop-blur-[2px] group-hover:bg-[#f4f1ea]/70 transition-colors leading-tight ${
+          compact ? "px-2.5 py-0.5 text-[16px]" : "px-5 py-1.5 text-[24px]"
+        }`}
+        // 사이트 폰트(Noto Sans KR)는 400/700/900만 로드되어 중간 굵기(500~600)가 없다.
+        // 700은 너무 굵어, 400 + 얇은 외곽선(text-stroke)으로 중간 굵기를 낸다. (폰트 추가 로드 없음)
+        style={{ fontWeight: 400, WebkitTextStroke: "0.6px currentColor" }}
+      >
+        {tag.name}
+      </span>
+    </Link>
+  );
+}
+
+// PC 히어로 패널용 태그 레이어 — 패널은 화면 높이에 따라 비율이 바뀌고 이미지는 object-cover로 잘리므로,
+// 태그 좌표(%)를 "컨테이너"가 아니라 "이미지 자체" 기준으로 보고 실제 렌더된 이미지 영역(px)으로 환산한다.
+function PcTagLayer({ tags, imageUrl, position }: { tags: EditorialTag[]; imageUrl: string; position: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState<{ w: number; h: number } | null>(null);
+  const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const img = new window.Image();
+    img.onload = () => setNat({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = imageUrl;
+  }, [imageUrl]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setBox({ w: el.clientWidth, h: el.clientHeight });
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  let content: React.ReactNode = null;
+  if (box && nat && box.w > 0 && nat.w > 0) {
+    const scale = Math.max(box.w / nat.w, box.h / nat.h);
+    const rw = nat.w * scale;
+    const rh = nat.h * scale;
+    const [pxStr, pyStr] = position.split(" ");
+    const posX = (parseFloat(pxStr) || 50) / 100;
+    const posY = (parseFloat(pyStr) || 0) / 100;
+    const offX = (box.w - rw) * posX;
+    const offY = (box.h - rh) * posY;
+    content = tags.map((tag, i) => (
+      <TagChip key={i} tag={tag} px x={offX + (rw * (tag.pcX ?? tag.x)) / 100} y={offY + (rh * (tag.pcY ?? tag.y)) / 100} />
+    ));
+  }
+  return <div ref={ref} className="absolute inset-0 z-10 pointer-events-none [&>*]:pointer-events-auto">{content}</div>;
+}
 
 // 섹션 이미지 위 상품 핫스팟 — 클릭 시 제품 상세로 이동 (PC는 hover 라벨)
 function SectionTags({ tags }: { tags?: EditorialSectionTag[] }) {
@@ -196,7 +278,6 @@ export default function FeatureHeroLayout({
   editorial: Editorial;
   reversed?: boolean;
 }) {
-  const [hoveredTag, setHoveredTag] = useState<number | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   // PC 히어로(고정 패널) 높이 — 콘텐츠가 짧을 때 100vh가 섹션을 늘려 생기는 하단 공백을 방지.
@@ -250,43 +331,7 @@ export default function FeatureHeroLayout({
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
         {/* 태그 — PC는 pcX/pcY 우선, 없으면 x/y 사용 */}
-        {tags.map((tag, i) => (
-          <div
-            key={i}
-            className="absolute z-10"
-            style={{ left: `${tag.pcX ?? tag.x}%`, top: `${tag.pcY ?? tag.y}%`, transform: "translate(-50%, -50%)" }}
-            onMouseEnter={() => setHoveredTag(i)}
-            onMouseLeave={() => setHoveredTag(null)}
-          >
-            <button
-              style={{
-                width: "22px",
-                height: "22px",
-                borderRadius: "50%",
-                border: "4px solid rgba(255,255,255,0.92)",
-                backgroundColor: "transparent",
-                cursor: "pointer",
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.12)",
-                transform: hoveredTag === i ? "scale(1.35)" : "scale(1)",
-                transition: "transform 200ms ease",
-              }}
-            />
-            {hoveredTag === i && (
-              <div className="absolute left-8 top-1/2 -translate-y-1/2 bg-white shadow-xl z-20 w-[220px] p-4">
-                <p className="text-[13px] text-[#303236] font-medium mb-4 leading-snug">{tag.name}</p>
-                <Link
-                  href={`/products/${tag.productId}`}
-                  className="flex items-center justify-between border border-gray-300 px-3 py-2 text-[12px] text-[#303236] hover:bg-gray-50 transition-colors"
-                >
-                  상품 보러가기
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </div>
-            )}
-          </div>
-        ))}
+        {heroImageUrlPc && <PcTagLayer tags={tags} imageUrl={ikSrc(heroImageUrlPc, 1600)} position={imgPos} />}
 
         <div className="absolute bottom-10 left-8 z-[2] text-white">
           <p className="text-sm mb-2 opacity-80 tracking-wide">{editorial.heroSubtitle}</p>
@@ -370,23 +415,7 @@ export default function FeatureHeroLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
           {tags.map((tag, i) => (
-            <button
-              key={i}
-              className="absolute z-10"
-              style={{
-                left: `${tag.x}%`,
-                top: `${tag.y}%`,
-                transform: "translate(-50%, -50%)",
-                width: "22px",
-                height: "22px",
-                borderRadius: "50%",
-                border: "4px solid rgba(255,255,255,0.92)",
-                backgroundColor: "transparent",
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.25)",
-              }}
-              onClick={() => setSheetOpen(true)}
-              aria-label={tag.name}
-            />
+            <TagChip key={i} tag={tag} x={tag.x} y={tag.y} compact />
           ))}
 
           <div className="absolute bottom-[39px] left-4 z-[2] text-white">
@@ -522,23 +551,7 @@ export default function FeatureHeroLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
           {tags.map((tag, i) => (
-            <button
-              key={i}
-              className="absolute z-10"
-              style={{
-                left: `${tag.x}%`,
-                top: `${tag.y}%`,
-                transform: "translate(-50%, -50%)",
-                width: "22px",
-                height: "22px",
-                borderRadius: "50%",
-                border: "4px solid rgba(255,255,255,0.92)",
-                backgroundColor: "transparent",
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.25)",
-              }}
-              onClick={() => setSheetOpen(true)}
-              aria-label={tag.name}
-            />
+            <TagChip key={i} tag={tag} x={tag.x} y={tag.y} compact />
           ))}
 
           <div className="absolute bottom-[39px] left-4 z-[2] text-white">

@@ -1,5 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-server";
+import { BRANDS } from "@/lib/brands-data";
+import { brandSlug } from "@/lib/brandCatalog-server";
 
 // 메인 페이지 "브랜드 로고" 무한 마퀴 — 브랜드 자체 정보(이름·로고)는
 // brands 테이블(=/admin/catalog/brands)이 유일한 소스이며, 여기서는
@@ -16,7 +18,16 @@ export const DEFAULT_BRAND_MARQUEE_CONFIG: BrandMarqueeConfig = {
 };
 
 // logoUrl이 비어 있으면 마퀴에서 브랜드명을 텍스트로 표시한다
-export type BrandLogoItem = { id: string; name: string; logoUrl: string };
+// href: 브랜드 카탈로그 주소. 카탈로그가 없으면 해당 페이지가 /brands/[id] 허브로 redirect한다.
+export type BrandLogoItem = { id: string; name: string; logoUrl: string; href: string };
+
+// 메가메뉴와 같은 규칙: 정적 BRANDS는 고정 id, DB 전용 브랜드는 brandSlug(name)
+function brandCatalogHref(name: string): string {
+  const staticBrand = BRANDS.find((s) => s.name.toLowerCase() === name?.toLowerCase());
+  return `${staticBrand?.href ?? `/brands/${brandSlug(name)}`}/catalog`;
+}
+
+type BrandRow = { id: string | number; name: string; logo_url: string | null };
 
 export async function getBrandMarquee(): Promise<{ title: string; items: BrandLogoItem[] }> {
   // brands 테이블은 /admin/catalog/brands에서 수시로 바뀌므로(로고 교체 등) 캐시하지 않고 매 요청 조회한다.
@@ -32,11 +43,11 @@ export async function getBrandMarquee(): Promise<{ title: string; items: BrandLo
     const title = config.title || DEFAULT_BRAND_MARQUEE_CONFIG.title;
     const brandIds = Array.isArray(config.brandIds) ? config.brandIds : [];
 
-    const byId = new Map((brands ?? []).map((b) => [String(b.id), b as { id: string | number; name: string; logo_url: string | null }]));
+    const byId = new Map((brands ?? []).map((b) => [String(b.id), b as BrandRow]));
     const items: BrandLogoItem[] = brandIds
       .map((id) => byId.get(String(id)))
-      .filter((b): b is { id: string | number; name: string; logo_url: string | null } => !!b)
-      .map((b) => ({ id: String(b.id), name: b.name, logoUrl: b.logo_url ?? "" }));
+      .filter((b): b is BrandRow => !!b)
+      .map((b) => ({ id: String(b.id), name: b.name, logoUrl: b.logo_url ?? "", href: brandCatalogHref(b.name) }));
 
     return { title, items };
   } catch {

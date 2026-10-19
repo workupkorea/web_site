@@ -1,4 +1,5 @@
 import { createAdminClient } from "./supabase-server";
+import { seasonOf } from "./arrival-season";
 
 export type ArrivalStatus = "입고완료" | "입고예정" | "입고지연" | "일정미정" | "대기" | "일정미표기";
 
@@ -7,6 +8,14 @@ export interface ChangeHistoryEntry {
   previousDate: string;
   newDate: string;
   reason: string;
+}
+
+/** 시트 주차별 주문·판매 열 한 주분 (주간 증분 값). 날짜는 YYYY-MM-DD */
+export interface WeeklySales {
+  weekStart: string;
+  weekEnd: string;
+  order: number;
+  sales: number;
 }
 
 export interface ArrivalProduct {
@@ -44,6 +53,8 @@ export interface ArrivalProduct {
   marketingUsage?: string;
   /** 구글 시트에서 이 상품의 행이 마지막으로 수정된 시각 (ISO). 시트에 "행최종수정일시" 열이 있을 때만 채워짐 */
   sheetEditedAt?: string;
+  /** 시트의 주차별 주문·판매. 판매 통계 아카이브용이라 arrival_products에는 저장하지 않는다 */
+  weekly?: WeeklySales[];
 }
 
 export interface ArrivalOverride {
@@ -453,6 +464,93 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
   if (staleIds.length > 0) {
     const { error: delError } = await supabase.from("arrival_products").delete().in("id", staleIds);
     if (delError) throw new Error(`[arrival_products DELETE stale] ${delError.message}`);
+  }
+}
+
+// 시즌별 판매 비교용 영구 아카이브. arrival_products와 달리 시트에서 빠진 상품도 지우지 않는다.
+// 부가 기능이므로 실패해도 동기화 본 흐름을 막지 않도록 예외를 삼키고 결과만 반환한다.
+export async function archiveSalesSnapshot(products: ArrivalProduct[]): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = createAdminClient();
+    const now = new Date().toISOString();
+    const rows = products
+      .filter(p => p.arrivalDate)
+      .map(p => ({
+        product_code:   p.productCode,
+        arrival_date:   p.arrivalDate,
+        season:         seasonOf(p.arrivalDate),
+        product_name:   p.productName,
+        brand:          p.brand,
+        category:       p.category,
+        quantity:       p.quantity ?? 0,
+        order_quantity: p.orderQuantity ?? null,
+        sales_quantity: p.salesQuantity ?? null,
+        stock_quantity: p.stockQuantity ?? null,
+        order_rate:     p.orderRate ?? null,
+        sales_rate:     p.salesRate ?? null,
+        supply_price:   p.supplyPrice ?? 0,
+        price:          p.price,
+        updated_at:     now,
+      }));
+
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await supabase
+        .from("arrival_sales_archive")
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: "product_code,arrival_date" });
+      if (error) return { ok: false, error: error.message };
+    }
+
+    // 제품 이미지: 시트에는 없고 오버라이드(관리자 등록)에 있다. 시트에서 빠진 제품의 오버라이드는
+    // 이후 정리되므로 지금 아카이브에 복사해 둔다. image 컬럼 미생성이어도 본 저장은 이미 끝났으니 실패는 무시한다.
+    // 이미지가 있는 제품만, 이미지 컬럼만 upsert해서 이미 저장된 이미지를 빈 값으로 덮지 않는다.
+    try {
+      const merged = await getArrivalProducts();
+      const imgRows = merged
+        .filter(p => p.arrivalDate && p.image)
+        .map(p => ({ product_code: p.productCode, arrival_date: p.arrivalDate, image: p.image }));
+      for (let i = 0; i < imgRows.length; i += CHUNK) {
+        await supabase
+          .from("arrival_sales_archive")
+          .upsert(imgRows.slice(i, i + CHUNK), { onConflict: "product_code,arrival_date" });
+      }
+    } catch { /* 이미지는 부가 정보 */ }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+// 시트의 주차별 주문·판매를 영구 보관한다. 시트에서 지난 주 열이나 상품이 사라져도 지우지 않는다.
+// 주문·판매가 모두 0인 주는 저장하지 않는다(없으면 0으로 해석). 실패해도 동기화는 막지 않는다.
+export async function archiveWeeklySales(products: ArrivalProduct[]): Promise<{ ok: boolean; rows: number; error?: string }> {
+  try {
+    const supabase = createAdminClient();
+    const now = new Date().toISOString();
+    const rows = products
+      .filter(p => p.arrivalDate && p.weekly?.length)
+      .flatMap(p => p.weekly!
+        .filter(w => w.order > 0 || w.sales > 0)
+        .map(w => ({
+          product_code: p.productCode,
+          arrival_date: p.arrivalDate,
+          week_start:   w.weekStart,
+          week_end:     w.weekEnd,
+          order_qty:    w.order,
+          sales_qty:    w.sales,
+          updated_at:   now,
+        })));
+
+    const CHUNK = 500;
+    for (let i = 0; i < rows.length; i += CHUNK) {
+      const { error } = await supabase
+        .from("arrival_weekly_sales")
+        .upsert(rows.slice(i, i + CHUNK), { onConflict: "product_code,arrival_date,week_start" });
+      if (error) return { ok: false, rows: 0, error: error.message };
+    }
+    return { ok: true, rows: rows.length };
+  } catch (e) {
+    return { ok: false, rows: 0, error: e instanceof Error ? e.message : String(e) };
   }
 }
 

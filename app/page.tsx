@@ -7,6 +7,7 @@ import HomeCategoryGrid from "@/components/HomeCategoryGrid";
 import HomeEditorial from "@/components/HomeEditorial";
 import HomePeopleTeaser from "@/components/HomePeopleTeaser";
 import HomeInstagramFeed from "@/components/HomeInstagramFeed";
+import HomeYoutubeLongform from "@/components/HomeYoutubeLongform";
 import PopupBanner from "@/components/PopupBanner";
 import StoreSearchBar from "@/components/StoreSearchBar";
 import { getHomeLayout } from "@/lib/home-layout-server";
@@ -39,6 +40,7 @@ const SECTION_RENDERERS: Record<HomeSectionKey, () => ReactNode> = {
   category: () => <HomeCategoryGrid />,
   editorial: () => <HomeEditorial />,
   people: () => <HomePeopleTeaser />,
+  youtube: () => <HomeYoutubeLongform />,
   instagram: () => <HomeInstagramFeed />,
 };
 

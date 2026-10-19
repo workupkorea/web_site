@@ -172,7 +172,7 @@ export default function StoreForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [extraOpen, setExtraOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(true); // 추가 정보는 펼친 상태가 기본
   const [productsOpen, setProductsOpen] = useState(false);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -228,16 +228,29 @@ export default function StoreForm({
   const removeImage = (idx: number) =>
     setForm((prev) => ({ ...prev, image_urls: prev.image_urls.filter((_, i) => i !== idx) }));
 
-  const handleDelete = async () => {
-    if (!confirm(`"${form.name}"을(를) 삭제합니다. 채용공고도 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+  // 삭제 확인 팝업 → 관리자 비밀번호 검증 후 삭제
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePw, setDeletePw] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+
+  const closeDelete = () => { setDeleteOpen(false); setDeletePw(""); setDeleteError(""); };
+
+  const handleDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!deletePw) return setDeleteError("비밀번호를 입력하세요.");
     setSaving(true);
-    const res = await fetch(`/api/admin/stores/${storeId}`, { method: "DELETE" });
+    setDeleteError("");
+    const res = await fetch(`/api/admin/stores/${storeId}`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: deletePw }),
+    });
     if (res.ok) {
       router.push("/admin/stores");
       router.refresh();
     } else {
       const d = await res.json().catch(() => ({}));
-      setError("삭제 실패: " + (d.error ?? "알 수 없는 오류"));
+      setDeleteError(d.error ?? "삭제 실패");
       setSaving(false);
     }
   };
@@ -281,7 +294,30 @@ export default function StoreForm({
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 items-start">
+      {/* 저장 · 취소 (우측 상단) */}
+      <div className="flex items-center justify-end gap-3">
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-8 py-3 bg-[#E5541B] text-white text-base font-semibold hover:bg-[#e04500] transition-colors disabled:opacity-50 rounded"
+        >
+          {saving ? (
+            <span className="flex items-center gap-2">
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              저장 중...
+            </span>
+          ) : isEdit ? "수정 완료" : "매장 등록"}
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/admin/stores")}
+          className="px-6 py-3 border-2 border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition-colors rounded"
+        >
+          취소
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
       {/* 기본 정보 */}
       <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
         <h2 className="text-base font-bold text-gray-900 border-b border-gray-100 pb-3">기본 정보</h2>
@@ -427,8 +463,6 @@ export default function StoreForm({
         </div>
       </section>
 
-        {/* 오른쪽 열: 추가 정보 · 판매제품 */}
-        <div className="space-y-8">
       {/* 추가 정보 */}
       <section className="bg-white border border-gray-200 rounded-xl p-6 space-y-5">
         <button
@@ -491,10 +525,7 @@ export default function StoreForm({
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
             />
           </div>
-          <p className="text-xs text-gray-400 self-end pb-3">
-            미리 등록하면 비공개로 저장되고, 오픈일 당일에 자동으로 공개(활성)됩니다.
-          </p>
-          <div className="flex items-center gap-6 pt-2">
+          <div className="col-span-2 flex flex-nowrap items-center gap-6 whitespace-nowrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -523,9 +554,6 @@ export default function StoreForm({
               <span className="text-sm font-medium text-gray-700">스토어 페이지 노출</span>
             </label>
           </div>
-          <p className="col-span-2 text-xs text-gray-400 -mt-2">
-            "활성 (공개)"는 매장 자체의 공개 여부이고, "스토어 페이지 노출"은 이 매장의 상세 페이지(/store/{"{id}"})만 별도로 켜고 끕니다. 둘 다 켜져 있어야 상세 페이지를 볼 수 있습니다.
-          </p>
           {/* 매장 사진 */}
           <div className="col-span-2 space-y-2">
             <label className="block text-sm font-semibold text-gray-700">매장 사진</label>
@@ -571,6 +599,30 @@ export default function StoreForm({
           </div>
         </div>
       </section>
+      {/* 삭제 (수정 화면에서만) — 좌측 하단, 모바일에서는 맨 아래 */}
+      <div className="order-last xl:order-none -mt-5">
+        {isEdit && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(true)}
+              className="px-6 py-3 border-2 border-red-300 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors rounded"
+            >
+              매장 삭제
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 오른쪽 하단: 세부 설명 · 판매제품 */}
+      <div className="space-y-8">
+
+      {/* 추가 정보 세부 설명 (박스 바깥) */}
+      <div className="-mt-5 px-1 space-y-1 text-xs text-gray-400">
+        <p>· 오픈 예정일: 미리 등록하면 비공개로 저장되고, 오픈일 당일에 자동으로 공개(활성)됩니다.</p>
+        <p>· 활성 (공개): 켜면 매장 찾기 목록과 지도에 이 매장이 보입니다. 끄면 고객에게 아예 안 보입니다.</p>
+        <p>· 스토어 페이지 노출: 켜면 이 매장의 상세 페이지를 고객이 열어볼 수 있습니다. 활성(공개)도 같이 켜져 있어야 합니다.</p>
+      </div>
 
       {/* 판매제품 (공개 매장에서만 노출) */}
       {form.is_active && (
@@ -605,38 +657,31 @@ export default function StoreForm({
         </div>
       </div>
 
-      {/* 저장 */}
-      <div className="flex items-center gap-4">
-        <button
-          type="submit"
-          disabled={saving}
-          className="px-8 py-3 bg-[#E5541B] text-white text-base font-semibold hover:bg-[#e04500] transition-colors disabled:opacity-50 rounded"
-        >
-          {saving ? (
-            <span className="flex items-center gap-2">
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              저장 중...
-            </span>
-          ) : isEdit ? "수정 완료" : "매장 등록"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push("/admin/stores")}
-          className="px-6 py-3 border-2 border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 transition-colors rounded"
-        >
-          취소
-        </button>
-        {isEdit && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={saving}
-            className="ml-auto px-6 py-3 border-2 border-red-300 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors rounded disabled:opacity-50"
-          >
-            매장 삭제
-          </button>
-        )}
-      </div>
+
+      {/* 삭제 확인(비밀번호) 팝업 */}
+      {deleteOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeDelete} role="dialog" aria-modal="true" aria-label="매장 삭제 확인">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">&quot;{form.name}&quot; 삭제</h3>
+            <p className="mt-2 text-sm text-gray-500">채용공고도 함께 삭제되며 되돌릴 수 없습니다. 내 비밀번호를 입력하면 삭제됩니다.</p>
+            <input
+              type="password"
+              value={deletePw}
+              onChange={(e) => setDeletePw(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleDelete(e); }}
+              placeholder="비밀번호"
+              autoFocus
+              autoComplete="current-password"
+              className="mt-4 w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+            {deleteError && <p className="mt-2 text-sm text-red-600">{deleteError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={closeDelete} className="px-5 py-2.5 border-2 border-gray-200 text-sm font-semibold text-gray-600 hover:border-gray-400 rounded">취소</button>
+              <button type="button" onClick={handleDelete} disabled={saving} className="px-5 py-2.5 bg-red-600 text-white text-sm font-semibold hover:bg-red-700 rounded disabled:opacity-50">삭제</button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

@@ -80,10 +80,22 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
 
 // 기획전 상세페이지 내용이 아직 테스트/미완성이라 배포본(Vercel)에서는 꺼두고,
 // 로컬(`next dev`)에서만 확인할 수 있게 한다 — 내용 준비되면 항상 true로 바꿀 것.
+// (단, 서브배너 1·2는 blockToEditorial에서 운영에도 활성화)
 const FEATURE_DETAIL_LINKS_ENABLED = process.env.NODE_ENV === "development";
 
+// 메인 배너 태그 클릭 이동 주소 — 제품이 들어 있는 첫 배너(1~4)의 상세페이지 + ?product=<id> (그 제품 탭이 열림).
+// 상세페이지 링크가 꺼져 있거나 어느 배너에도 없으면 undefined → 제품 상세로 이동.
+function tagHref(block: DBBlock, productId: string, href: (n: number) => string | undefined): string | undefined {
+  if (!productId) return undefined;
+  const banners = [block.banner1, block.banner2, block.banner3, block.banner4];
+  const n = banners.findIndex((b) => b && [...(b.items ?? []), ...(b.detail_items ?? [])].some((i) => i.product_id === productId));
+  const base = n >= 0 ? href(n + 1) : undefined;
+  return base ? `${base}?product=${encodeURIComponent(productId)}` : undefined;
+}
+
 export function blockToEditorial(block: DBBlock): Editorial {
-  const href = (n: number) => (FEATURE_DETAIL_LINKS_ENABLED ? `/products/feature/${block.id}/${n}` : undefined);
+  // 서브배너 1·2는 운영에서도 상세페이지 링크 활성, 3·4는 아직 로컬(dev)에서만
+  const href = (n: number) => (FEATURE_DETAIL_LINKS_ENABLED || n <= 2 ? `/products/feature/${block.id}/${n}` : undefined);
   const s1 = makeSection(block.banner1, href(1));
   const s2 = makeSection(block.banner2, href(2));
   const s3 = block.banner3 ? makeSection(block.banner3, href(3)) : s1;
@@ -103,6 +115,7 @@ export function blockToEditorial(block: DBBlock): Editorial {
     heroSubtitle: block.hero?.hero_subtitle || "",
     tags: (block.hero?.tags ?? []).map((t) => ({
       x: t.x, y: t.y, pcX: t.pc_x, pcY: t.pc_y,
+      href: tagHref(block, t.product_id, href),
       name: t.name, price: t.price, productId: t.product_id,
       bg: t.bg || "#303236", imageUrl: t.image_url || undefined,
     })),
@@ -119,9 +132,19 @@ async function enrichEditorialBrands(
   for (const { editorial } of list)
     for (const s of editorial.sections)
       for (const it of s.items) if (it.productId) ids.add(it.productId);
+  // 메인 배너 이미지 위 태그도 브랜드 표시를 위해 함께 조회
+  for (const { editorial } of list)
+    for (const t of editorial.tags) if (t.productId) ids.add(t.productId);
   if (ids.size === 0) return list;
 
   const brandMap = await fetchBrandMap([...ids]);
+  // 브랜드 로고 — /admin/catalog/brands 에 등록된 brands.logo_url (이름 대소문자 무시 매칭)
+  const logoMap = await fetchBrandLogoMap();
+  for (const { editorial } of list)
+    for (const t of editorial.tags) {
+      t.brand = brandMap[t.productId]?.brand;
+      t.brandLogo = t.brand ? logoMap[t.brand.toLowerCase()] : undefined;
+    }
   for (const { editorial } of list)
     for (const s of editorial.sections)
       for (const it of s.items) {
@@ -130,6 +153,19 @@ async function enrichEditorialBrands(
         it.displayName = productDisplayName({ name: it.name, brand: b?.brand, hideBrandPrefix: b?.hide });
       }
   return list;
+}
+
+async function fetchBrandLogoMap(): Promise<Record<string, string>> {
+  const map: Record<string, string> = {};
+  try {
+    const supabase = createAdminClient();
+    const { data } = await supabase.from("brands").select("name, logo_url");
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (data ?? []).forEach((r: any) => { if (r.name && r.logo_url) map[String(r.name).toLowerCase()] = r.logo_url; });
+  } catch {
+    // 로고 조회 실패 시 브랜드 텍스트로 대체
+  }
+  return map;
 }
 
 // ── 홈 에디토리얼 목록 ────────────────────────────────────────

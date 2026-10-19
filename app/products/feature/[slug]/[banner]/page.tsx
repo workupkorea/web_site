@@ -5,7 +5,7 @@ import { getBannerDetail } from "@/lib/editorial-blocks";
 import { ikSrc } from "@/lib/imageSrc";
 import ProductFeatureTabs from "@/components/ProductFeatureTabs";
 
-type Props = { params: Promise<{ slug: string; banner: string }> };
+type Props = { params: Promise<{ slug: string; banner: string }>; searchParams: Promise<{ product?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, banner } = await params;
@@ -22,8 +22,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function BannerDetailPage({ params }: Props) {
+export default async function BannerDetailPage({ params, searchParams }: Props) {
   const { slug, banner } = await params;
+  const { product: initialProductId } = await searchParams;
   const detail = await getBannerDetail(slug, Number(banner));
   if (!detail) notFound();
 
@@ -32,10 +33,10 @@ export default async function BannerDetailPage({ params }: Props) {
   return (
     <main className="bg-[#FAFAF8]">
       {/* ── 상단: 좌 텍스트 / 우 섹션이미지 ───────────────────── */}
-      <section className="max-w-screen-xl mx-auto px-6 md:px-10 py-10 md:py-16">
-        <div className="flex flex-col md:flex-row md:items-stretch gap-5 md:gap-8">
+      <section className="max-w-screen-xl mx-auto px-6 md:px-10 py-6 md:py-8">
+        <div className="flex flex-col md:flex-row md:items-stretch gap-4 md:gap-6">
           {/* 좌: 기획전 타이틀 + 설명 — 오른쪽 이미지와 동일한 높이의 흰색 패널 */}
-          <div className="md:flex-1 md:min-w-0 order-2 md:order-1 bg-white flex flex-col justify-center px-6 py-8 md:px-10 md:py-12">
+          <div className="md:flex-1 md:min-w-0 order-2 md:order-1 bg-white flex flex-col justify-center px-6 py-6 md:px-10 md:py-8">
             {detail.label && (
               <p className="text-[11px] tracking-[0.25em] text-[#E5541B] uppercase mb-4">
                 {detail.label}
@@ -51,8 +52,8 @@ export default async function BannerDetailPage({ params }: Props) {
             )}
           </div>
 
-          {/* 우: 배너 섹션 이미지 (8:9) */}
-          <div className="md:flex-1 md:min-w-0 order-1 md:order-2">
+          {/* 우: 배너 섹션 이미지 (8:9) — PC에서는 폭을 줄여 하단 제품 리스트가 빨리 보이게 */}
+          <div className="md:flex-none md:w-[300px] lg:w-[340px] order-1 md:order-2 max-md:max-w-[320px] max-md:mx-auto max-md:w-full">
             <div
               className="relative w-full overflow-hidden bg-gray-100 flex items-center justify-center"
               style={{ aspectRatio: "440 / 495" }}
@@ -71,7 +72,7 @@ export default async function BannerDetailPage({ params }: Props) {
       {/* ── 하단: 제품 탭(제품명 클릭 시 이미지·컬러·사이즈·아코디언 전환) ─── */}
       {products.length > 0 && (
         <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24">
-          <ProductFeatureTabs products={products} />
+          <ProductFeatureTabs products={products} initialProductId={initialProductId} />
         </section>
       )}
 
