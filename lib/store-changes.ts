@@ -9,7 +9,7 @@ const VALUE_MAX_LEN = 40;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 // 비교 대상 필드. long=true 는 값이 길어 "변경됨"만 기록한다.
-const TRACKED_FIELDS: { key: string; label: string; long?: boolean }[] = [
+const TRACKED_FIELDS: { key: string; label: string; long?: boolean; bool?: boolean }[] = [
   { key: "name", label: "매장명" },
   { key: "store_code", label: "지점코드" },
   { key: "ship_name", label: "W지점명" },
@@ -23,6 +23,7 @@ const TRACKED_FIELDS: { key: string; label: string; long?: boolean }[] = [
   { key: "is_active", label: "활성" },
   { key: "page_active", label: "스토어 페이지 노출" },
   { key: "open_date", label: "오픈 예정일" },
+  { key: "closed_at", label: "폐업", bool: true },
   { key: "sort_order", label: "정렬순서" },
   { key: "kakao_channel_url", label: "카카오채널URL" },
   { key: "store_url", label: "스토어URL" },
@@ -57,8 +58,9 @@ function short(s: string): string {
 export function diffStore(prev: Record<string, unknown>, next: Record<string, unknown>): StoreChange[] {
   const changes: StoreChange[] = [];
   for (const f of TRACKED_FIELDS) {
-    const a = norm(prev[f.key]);
-    const b = norm(next[f.key]);
+    // bool: 값 유무만 상태(예/아니오)로 비교·표기 (예: 폐업일 → 폐업 여부)
+    const a = f.bool ? (prev[f.key] ? "예" : "아니오") : norm(prev[f.key]);
+    const b = f.bool ? (next[f.key] ? "예" : "아니오") : norm(next[f.key]);
     if (a === b) continue;
     changes.push(
       f.long
@@ -86,6 +88,7 @@ export async function activateDueStores(supabase: SupabaseClient): Promise<void>
       .from("stores")
       .select("id, change_history")
       .eq("is_active", false)
+      .is("closed_at", null)
       .not("open_date", "is", null)
       .lte("open_date", todayKST());
     if (!due || due.length === 0) return;

@@ -37,7 +37,7 @@ export async function POST(req: Request) {
 
   // ID 있는 행 → 수정(upsert), 없는 행 → 신규(insert)
   const updates = rows.filter(hasId).map((r: Record<string, unknown>, i: number) => ({ id: Number(r.id), ...toRow(r, i) }));
-  const inserts = rows.filter((r: Record<string, unknown>) => !hasId(r)).map((r: Record<string, unknown>, i: number) => toRow(r, i));
+  const inserts = rows.filter((r: Record<string, unknown>) => !hasId(r)).map((r: Record<string, unknown>, i: number) => ({ ...toRow(r, i), page_active: false })); // 신규 지점은 스토어 페이지 비노출이 기본
 
   if (updates.length > 0) {
     const { error } = await supabase.from("stores").upsert(updates, { onConflict: "id" });

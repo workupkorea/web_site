@@ -156,7 +156,7 @@ export default function StoreForm({
         kakao_channel_url: d?.kakao_channel_url ?? "",
         store_url: d?.store_url ?? "",
         is_active: d?.is_active ?? true,
-        page_active: d?.page_active ?? true,
+        page_active: d?.page_active ?? (storeId ? true : false), // 신규 등록은 비노출이 기본
         open_date: d?.open_date ?? "",
         sort_order: String(d?.sort_order ?? "0"),
         image_urls: Array.isArray(d?.image_urls) ? d.image_urls : [],
@@ -227,6 +227,20 @@ export default function StoreForm({
 
   const removeImage = (idx: number) =>
     setForm((prev) => ({ ...prev, image_urls: prev.image_urls.filter((_, i) => i !== idx) }));
+
+  const handleDelete = async () => {
+    if (!confirm(`"${form.name}"을(를) 삭제합니다. 채용공고도 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+    setSaving(true);
+    const res = await fetch(`/api/admin/stores/${storeId}`, { method: "DELETE" });
+    if (res.ok) {
+      router.push("/admin/stores");
+      router.refresh();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError("삭제 실패: " + (d.error ?? "알 수 없는 오류"));
+      setSaving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -612,6 +626,16 @@ export default function StoreForm({
         >
           취소
         </button>
+        {isEdit && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={saving}
+            className="ml-auto px-6 py-3 border-2 border-red-300 text-sm font-semibold text-red-600 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors rounded disabled:opacity-50"
+          >
+            매장 삭제
+          </button>
+        )}
       </div>
     </form>
   );

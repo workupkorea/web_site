@@ -47,8 +47,10 @@ export async function PUT(req: Request, { params }: Params) {
   // 비활성 → 활성 전환 시각을 기록해 '신규(NEW)' 뱃지 기준에 반영한다.
   // 오픈 예정일이 미래면 비공개로 저장하고, 오픈일 당일에 자동 활성화된다(activateDueStores).
   const openDate: string | null = body.open_date || null;
-  const nextActive = isOpenPending(openDate) ? false : (body.is_active ?? true);
   const { data: prev } = await supabase.from("stores").select("*").eq("id", id).single();
+  // 폐업 처리: closed_at 이 오면 그 값(null 이면 해제), 안 오면(수정 폼 등) 기존 값 유지. 폐업 지점은 항상 비활성.
+  const closedAt: string | null = body.closed_at !== undefined ? (body.closed_at || null) : (prev?.closed_at ?? null);
+  const nextActive = closedAt || isOpenPending(openDate) ? false : (body.is_active ?? true);
   const reactivated = prev?.is_active === false && nextActive === true;
 
   const nowIso = new Date().toISOString();
@@ -72,6 +74,7 @@ export async function PUT(req: Request, { params }: Params) {
     sort_order: body.sort_order ?? 0,
     product_ids: body.product_ids ?? [],
     open_date: openDate,
+    closed_at: closedAt,
   };
   // 수정 내역(무엇이 바뀌었는지) 기록 — 변경이 있을 때만, 최근 20건 유지
   const changes = prev ? diffStore(prev, fields) : [];

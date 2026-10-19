@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       brands: body.brands ?? [],
       parking: body.parking ?? false,
       is_active: isOpenPending(openDate) ? false : (body.is_active ?? true),
-      page_active: body.page_active ?? true,
+      page_active: body.page_active ?? false, // 신규 지점은 스토어 페이지 비노출이 기본
       store_type: body.store_type ?? "직영점",
       kakao_channel_url: body.kakao_channel_url ?? "",
       store_url: body.store_url ?? "",
