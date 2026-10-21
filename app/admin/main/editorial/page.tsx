@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { BRANDS } from "@/lib/brands-data";
+import { HERO_PANEL_WIDTH_RATIO, heroPanelHeight } from "@/lib/heroPanel";
 
 // ── 타입 정의 ──────────────────────────────────────────────
 // 기획전 상세페이지의 "카드형" 제품 위젯(이미지 페이징+컬러+사이즈+아코디언) 전용 데이터.
@@ -40,6 +41,7 @@ type HeroTag = {
   product_id: string;
   image_url: string;
   bg: string;
+  item_id?: string;   // 연결된 배너 제품(ProductItem.id) — 메인 이미지 태그는 배너 제품 기준
 };
 
 type Banner = {
@@ -81,7 +83,7 @@ type EditorialBlock = {
   banner4: Banner;
 };
 
-type SearchProduct = { id: string; name: string; price: string; imageUrl?: string };
+type SearchProduct = { id: string; name: string; price: string; imageUrl?: string; brand?: string };
 
 // ── 기본값 ──────────────────────────────────────────────────
 function emptyBanner(): Banner {
@@ -195,7 +197,7 @@ function ProductPicker({ products, value, onSelect }: {
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-medium text-gray-800 truncate">{p.name}</p>
+                <p className="text-[12px] font-medium text-gray-800 truncate">{p.brand ? `[${p.brand}] ` : ""}{p.name}</p>
                 <p className="text-[11px] text-gray-500">{p.price}</p>
               </div>
             </button>
@@ -639,10 +641,10 @@ function ImageField({
 
 // ── 서브 컴포넌트: 텍스트 입력 ─────────────────────────────
 function Field({
-  label, value, onChange, placeholder = "", multiline = false, showCount = false,
+  label, value, onChange, placeholder = "", multiline = false, showCount = false, rows = 3,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  placeholder?: string; multiline?: boolean; showCount?: boolean;
+  placeholder?: string; multiline?: boolean; showCount?: boolean; rows?: number;
 }) {
   const cls = "w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#303236]/30";
   return (
@@ -655,7 +657,7 @@ function Field({
       </div>
       {multiline ? (
         <textarea value={value} onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder} rows={3} className={cls} />
+          placeholder={placeholder} rows={rows} className={cls} />
       ) : (
         <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder} className={cls} />
@@ -704,14 +706,14 @@ function StyleNoField({ value, onChange }: { value: string; onChange: (v: string
 
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">품번 (Style No.)</label>
+      <label className="block text-xs font-medium text-gray-600 mb-1.5">품번 (Style No.)</label>
       <input
         list="arrival-style-no-list"
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="입고 스케쥴에서 검색하거나 직접 입력"
-        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#303236]/30"
+        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#303236]/30"
       />
       <datalist id="arrival-style-no-list">
         {codes.map((c) => (
@@ -722,12 +724,43 @@ function StyleNoField({ value, onChange }: { value: string; onChange: (v: string
   );
 }
 
+// ── 서브 컴포넌트: 컬러별 이미지 선택 — 번호 배지만 클릭해 토글 (표시는 1부터, 저장은 0부터) ──
+function ColorImageNumbers({ indexes, total, onChange }: {
+  indexes: number[];
+  total: number;
+  onChange: (next: number[]) => void;
+}) {
+  function toggle(idx: number) {
+    onChange(indexes.includes(idx) ? indexes.filter((n) => n !== idx) : [...indexes, idx].sort((a, b) => a - b));
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1 pl-1 flex-1 min-w-0">
+      {Array.from({ length: total }, (_, idx) => {
+        const checked = indexes.includes(idx);
+        return (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => toggle(idx)}
+            className={`w-7 h-7 flex-shrink-0 rounded text-xs font-semibold border transition-colors ${
+              checked ? "bg-[#303236] text-white border-[#303236]" : "bg-white text-gray-400 border-gray-300 hover:border-gray-400"
+            }`}
+            title={`이미지 ${idx + 1}`}
+          >
+            {idx + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── 서브 컴포넌트: 카드형 상세(이미지 페이징+컬러+사이즈+아코디언 내용) 편집 ──
 function CardDetailEditor({ detail, onChange }: {
   detail: ProductCardDetail | undefined;
   onChange: (detail: ProductCardDetail) => void;
 }) {
-  const [open, setOpen] = useState(true);
   const [sizeCsv, setSizeCsv] = useState("");
   // 예전 저장분(단일 imageIndex)을 배열로 자동 이관 — 저장된 데이터가 없어도 항상 배열을 보장한다.
   const raw = detail ?? emptyCardDetail();
@@ -776,11 +809,6 @@ function CardDetailEditor({ detail, onChange }: {
   function addColor() {
     set("colors", [...d.colors, { id: uid(), name: "", hex: "#303236", imageIndexes: [] }]);
   }
-  function toggleColorImage(idx: number, imageIdx: number) {
-    const c = d.colors[idx];
-    const has = c.imageIndexes.includes(imageIdx);
-    updateColor(idx, { imageIndexes: has ? c.imageIndexes.filter((n) => n !== imageIdx) : [...c.imageIndexes, imageIdx].sort((a, b) => a - b) });
-  }
   function updateColor(idx: number, patch: Partial<ProductCardColor>) {
     set("colors", d.colors.map((c, i) => (i === idx ? { ...c, ...patch } : c)));
   }
@@ -805,16 +833,7 @@ function CardDetailEditor({ detail, onChange }: {
 
   return (
     <div className="mt-3 border-t border-gray-200 pt-3">
-      <button type="button" onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1.5 text-[11px] font-semibold text-[#303236] hover:opacity-70">
-        <svg className={`w-3 h-3 transition-transform ${open ? "rotate-90" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-        </svg>
-        카드 상세 편집 (이미지 페이징 · 컬러 · 사이즈 · 아코디언)
-      </button>
-
-      {open && (
-        <div className="mt-3 space-y-4 bg-white border border-gray-200 rounded-xl p-3">
+      <div className="space-y-4 bg-white border border-gray-200 rounded-xl p-3">
           {/* 이미지 그리드 */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">이미지 (등록한 순서대로 2열 그리드에 이어서 노출)</label>
@@ -827,7 +846,7 @@ function CardDetailEditor({ detail, onChange }: {
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); moveImage(Number(e.dataTransfer.getData("text/plain")), i); }}>
                   <img src={url} alt="" draggable={false} className="w-full h-full object-cover rounded border border-gray-200" />
-                  <span className="absolute top-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded">{i}</span>
+                  <span className="absolute top-0.5 left-0.5 bg-black/60 text-white text-[9px] px-1 rounded">{i + 1}</span>
                   <div className="absolute bottom-0.5 inset-x-0.5 flex justify-between">
                     <button type="button" disabled={i === 0} onClick={() => moveImage(i, i - 1)}
                       className="w-4 h-4 bg-black/60 text-white rounded text-[9px] leading-none disabled:opacity-30" title="앞으로">◀</button>
@@ -849,46 +868,26 @@ function CardDetailEditor({ detail, onChange }: {
           {/* 컬러 */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-medium text-gray-600">컬러 (선택 시 체크한 이미지들만 표시 — 여러 장 가능)</label>
+              <label className="text-xs font-medium text-gray-600">컬러 (선택 시 번호를 체크한 이미지만 표시 — 여러 장 가능)</label>
               <button type="button" onClick={addColor} className="text-[11px] text-[#303236] hover:underline">+ 컬러 추가</button>
             </div>
-            <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-2">
               {d.colors.map((c, i) => (
-                <div key={c.id} className="bg-gray-50 border border-gray-200 rounded-lg p-1.5 space-y-1.5">
-                  <div className="flex items-center gap-1.5">
+                <div key={c.id} className="bg-gray-50 border border-gray-200 rounded-lg p-1.5 flex items-start gap-1.5 min-w-0">
                     <input type="color" value={c.hex} onChange={(e) => updateColor(i, { hex: e.target.value })}
                       className="w-7 h-7 rounded border border-gray-300 cursor-pointer flex-shrink-0" />
                     <input type="text" value={c.name} onChange={(e) => updateColor(i, { name: e.target.value })}
-                      placeholder="색상명" className="w-20 text-xs border border-gray-300 rounded px-2 py-1.5" />
-                    <label className="flex items-center gap-1 text-[10px] text-gray-500 flex-shrink-0">
-                      <input type="checkbox" checked={!!c.soldOut} onChange={(e) => updateColor(i, { soldOut: e.target.checked })} className="w-3 h-3" />
-                      품절
-                    </label>
-                    <button type="button" onClick={() => removeColor(i)} className="ml-auto text-[11px] text-red-400 hover:text-red-600 flex-shrink-0">삭제</button>
-                  </div>
+                      placeholder="색상명" className="w-24 flex-shrink-0 text-xs border border-gray-300 rounded px-2 py-1.5" />
                   {d.images.length === 0 ? (
-                    <p className="text-[10px] text-gray-400 pl-1">위에 이미지를 먼저 등록하세요.</p>
+                    <p className="text-[10px] text-gray-400 pl-1 flex-1">위에 이미지를 먼저 등록하세요.</p>
                   ) : (
-                    <div className="flex flex-wrap gap-1.5 pl-1">
-                      {d.images.map((url, imgIdx) => {
-                        const checked = c.imageIndexes.includes(imgIdx);
-                        return (
-                          <button
-                            key={imgIdx}
-                            type="button"
-                            onClick={() => toggleColorImage(i, imgIdx)}
-                            className={`relative w-10 h-10 flex-shrink-0 rounded border-2 overflow-hidden ${checked ? "border-[#303236]" : "border-transparent opacity-50"}`}
-                            title={`이미지 ${imgIdx}`}
-                          >
-                            <img src={url} alt="" className="w-full h-full object-cover" />
-                            {checked && (
-                              <span className="absolute inset-0 bg-black/30 flex items-center justify-center text-white text-xs font-bold">✓</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <ColorImageNumbers
+                      indexes={c.imageIndexes}
+                      total={d.images.length}
+                      onChange={(next) => updateColor(i, { imageIndexes: next })}
+                    />
                   )}
+                  <button type="button" onClick={() => removeColor(i)} className="text-[11px] text-red-400 hover:text-red-600 flex-shrink-0">삭제</button>
                 </div>
               ))}
             </div>
@@ -900,7 +899,8 @@ function CardDetailEditor({ detail, onChange }: {
               <label className="text-xs font-medium text-gray-600">사이즈</label>
               <button type="button" onClick={addSize} className="text-[11px] text-[#303236] hover:underline">+ 사이즈 추가</button>
             </div>
-            <div className="flex items-center gap-1.5 mb-2">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              <div className="flex items-center gap-1.5 flex-shrink-0 w-72">
               <input
                 type="text"
                 value={sizeCsv}
@@ -921,29 +921,20 @@ function CardDetailEditor({ detail, onChange }: {
               >
                 일괄 추가
               </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
+              </div>
               {d.sizes.map((s, i) => (
-                <div key={s.id} className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg p-1">
+                <div key={s.id} className="flex items-center gap-1 flex-shrink-0 bg-gray-50 border border-gray-200 rounded-lg p-1">
                   <input type="text" value={s.label} onChange={(e) => updateSize(i, { label: e.target.value })}
                     placeholder="S" className="w-12 text-xs border border-gray-300 rounded px-1.5 py-1 text-center" />
-                  <label className="flex items-center gap-0.5 text-[10px] text-gray-500">
-                    <input type="checkbox" checked={!!s.soldOut} onChange={(e) => updateSize(i, { soldOut: e.target.checked })} className="w-3 h-3" />
-                    품절
-                  </label>
                   <button type="button" onClick={() => removeSize(i)} className="text-[10px] text-red-400 hover:text-red-600">×</button>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 품번 — 입고 스케쥴에서 검색해 가져오거나 직접 입력 */}
-          <StyleNoField value={d.styleNo ?? ""} onChange={(v) => set("styleNo", v)} />
-
           {/* 아코디언 내용 */}
-          <Field label="상품 상세정보" value={d.detailText} onChange={(v) => set("detailText", v)} multiline placeholder="제품 상세 설명을 입력하세요." />
-        </div>
-      )}
+          <Field label="상품 상세정보" value={d.detailText} onChange={(v) => set("detailText", v)} multiline rows={10} placeholder="제품 상세 설명을 입력하세요." />
+      </div>
     </div>
   );
 }
@@ -1105,9 +1096,24 @@ function SlotItemEditor({ item, onChange }: {
   item: ProductItem;
   onChange: (patch: Partial<ProductItem>) => void;
 }) {
+  // 입고 스케쥴에 등록된 브랜드만 노출 (중복 제거). 불러오기 실패 시 정적 BRANDS로 대체
+  const [brandNames, setBrandNames] = useState<string[]>(BRANDS.map((b) => b.name));
+  useEffect(() => {
+    fetch("/api/admin/arrival")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: unknown) => {
+        if (!Array.isArray(data)) return;
+        const names = [...new Set(data.map((p: { brand?: string }) => (p.brand ?? "").trim()).filter(Boolean))]
+          .sort((a, b) => a.localeCompare(b));
+        if (names.length) setBrandNames(names);
+      })
+      .catch(() => {});
+  }, []);
+  const currentBrand = item.card_detail?.brand;
+
   return (
     <div>
-      {/* 브랜드(제품명 위에 표시) + 상품명 한 줄 */}
+      {/* 브랜드(제품명 위에 표시) + 품번 + 상품명 한 줄 */}
       <div className="flex gap-3 items-end">
         <div className="w-40 flex-shrink-0">
           <label className="block text-xs font-medium text-gray-600 mb-1.5">브랜드</label>
@@ -1117,8 +1123,15 @@ function SlotItemEditor({ item, onChange }: {
             className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 bg-white"
           >
             <option value="">선택 안 함</option>
-            {BRANDS.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
+            {brandNames.map((n) => <option key={n} value={n}>{n}</option>)}
+            {currentBrand && !brandNames.includes(currentBrand) && <option value={currentBrand}>{currentBrand}</option>}
           </select>
+        </div>
+        <div className="w-48 flex-shrink-0">
+          <StyleNoField
+            value={item.card_detail?.styleNo ?? ""}
+            onChange={(v) => onChange({ card_detail: { ...(item.card_detail ?? emptyCardDetail()), styleNo: v } })}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <Field label="상품명" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
@@ -1165,30 +1178,6 @@ function BannerEditor({ banner, label, onChange, products }: {
 
   return (
     <div className="space-y-4">
-      {/* 카드 타입 — 상품형(기본) / 통이미지형 */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-[13px] font-semibold text-[#303236]">카드 타입</span>
-        <div className="flex rounded-lg overflow-hidden border border-gray-200">
-          {(["product", "image"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => onChange({ card_type: t })}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                (banner.card_type ?? "product") === t ? "bg-[#303236] text-white" : "bg-white text-gray-500 hover:bg-gray-50"
-              }`}
-            >
-              {t === "product" ? "상품형 (기본)" : "통이미지형"}
-            </button>
-          ))}
-        </div>
-        <span className="text-[11px] text-gray-400">
-          {(banner.card_type ?? "product") === "image"
-            ? "제목·설명·썸네일 없이 이미지 한 장으로 노출 (PR 소식 등)"
-            : "상단이미지 + 제목 + 설명 + 썸네일"}
-        </span>
-      </div>
-
       {(banner.card_type ?? "product") === "image" ? (
         /* ── 통이미지형 — 이미지 한 장 + 링크 ── */
         <div className="flex gap-4 items-start">
@@ -1219,16 +1208,17 @@ function BannerEditor({ banner, label, onChange, products }: {
       ) : (
       <>
       {/* 상단 라벨 (상세페이지 상단 기획전명 — 배너별로 개별 노출) */}
-      <Field
-        label="상단 라벨 (상세페이지 기획전명)"
-        value={banner.label ?? ""}
-        onChange={(v) => onChange({ label: v })}
-        placeholder="그대 이름은 바람 바람 바람"
-      />
-
-      {/* 타이틀 + 설명 한 줄 (single-line inputs) */}
+      {/* 라벨 + 타이틀 + 설명 한 줄 (single-line inputs) */}
       <div className="flex gap-3 items-end">
-        <div className="flex-shrink-0" style={{ width: "220px" }}>
+        <div className="flex-shrink-0" style={{ width: "200px" }}>
+          <Field
+            label="상단 라벨 (관리용 · 미노출)"
+            value={banner.label ?? ""}
+            onChange={(v) => onChange({ label: v })}
+            placeholder="그대 이름은 바람 바람 바람"
+          />
+        </div>
+        <div className="flex-shrink-0" style={{ width: "200px" }}>
           <Field label="타이틀" value={banner.title} onChange={(v) => onChange({ title: v })}
             placeholder="자외선을 막는 기능성 상의" />
         </div>
@@ -1269,9 +1259,9 @@ function BannerEditor({ banner, label, onChange, products }: {
                     : "bg-gray-50 text-gray-500 hover:bg-gray-100"
                 }`}
               >
-                상품{i + 1}
+                {i + 1}
                 {allItems[i].name && (
-                  <span className={`ml-1.5 text-[10px] font-normal ${itemTab === i ? "text-white/70" : "text-gray-400"}`}>
+                  <span className={`ml-1.5 text-xs font-normal ${itemTab === i ? "text-white/70" : "text-gray-400"}`}>
                     · {allItems[i].name}
                   </span>
                 )}
@@ -1316,6 +1306,22 @@ function HeroEditor({ hero, onChange, products }: {
   products: SearchProduct[];
 }) {
   const [posView, setPosView] = useState<"pc" | "mobile">("pc");
+  // 실제 PC 히어로 패널은 "화면 폭의 약 절반 × 화면 높이"(FeatureHeroLayout)라 object-cover로 아래가 잘린다.
+  // 미리보기도 현재 브라우저 창 기준 같은 비율로 맞춰, 보이는 그대로 노출 위치를 조정하게 한다.
+  const [pcPanelRatio, setPcPanelRatio] = useState("1/1");
+  const [pcRatioNum, setPcRatioNum] = useState(1);
+  useEffect(() => {
+    const update = () => {
+      const w = document.documentElement.clientWidth;
+      const pw = w * HERO_PANEL_WIDTH_RATIO;
+      const ph = heroPanelHeight(w, window.innerHeight);
+      setPcPanelRatio(`${pw} / ${ph}`);
+      setPcRatioNum(pw / ph);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
   // 미리보기 편집 모드: 이미지 위치(드래그로 크롭 이동) / 제품 태그(클릭 추가·드래그 이동)
   const [editMode, setEditMode] = useState<"position" | "tag">("position");
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
@@ -1324,11 +1330,40 @@ function HeroEditor({ hero, onChange, products }: {
   const tags = hero.tags ?? [];
   const setTags = (next: HeroTag[]) => onChange({ tags: next });
   const tagXY = (t: HeroTag) => (posView === "pc" ? { x: t.pc_x ?? t.x, y: t.pc_y ?? t.y } : { x: t.x, y: t.y });
+  // PC 태그 좌표는 사이트(PcTagLayer)와 같이 "이미지 자체" 기준 %다. 미리보기는 크롭(cover)된 박스라
+  // 박스 % ↔ 이미지 % 를 환산한다. (모바일은 3:4 박스에 이미지가 꽉 차므로 환산 불필요)
+  const pcImageUrl = hero.image_url_pc || hero.image_url;
+  const [pcNat, setPcNat] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    if (!pcImageUrl) { setPcNat(null); return; }
+    const img = new window.Image();
+    img.onload = () => setPcNat({ w: img.naturalWidth, h: img.naturalHeight });
+    img.src = pcImageUrl;
+  }, [pcImageUrl]);
+  // 박스를 너비 1 × 높이 1/ratio 로 정규화한 cover 배치
+  const pcGeom = () => {
+    if (!pcNat || !pcNat.w) return null;
+    const bh = 1 / pcRatioNum;
+    const scale = Math.max(1 / pcNat.w, bh / pcNat.h);
+    const rw = pcNat.w * scale, rh = pcNat.h * scale;
+    return { bh, rw, rh, offX: (1 - rw) * (pcPx / 100), offY: (bh - rh) * (pcPy / 100) };
+  };
+  const imgToBox = (x: number, y: number) => {
+    const g = posView === "pc" ? pcGeom() : null;
+    if (!g) return { x, y };
+    return { x: ((g.offX + (g.rw * x) / 100) / 1) * 100, y: ((g.offY + (g.rh * y) / 100) / g.bh) * 100 };
+  };
+  const boxToImg = (bx: number, by: number) => {
+    const g = posView === "pc" ? pcGeom() : null;
+    if (!g) return { x: bx, y: by };
+    return { x: ((bx / 100 - g.offX) / g.rw) * 100, y: ((by / 100) * g.bh - g.offY) / g.rh * 100 };
+  };
   const pctOf = (e: { clientX: number; clientY: number }, min: number, max: number) => {
     const rect = posPreviewRef.current!.getBoundingClientRect();
+    const b = boxToImg(((e.clientX - rect.left) / rect.width) * 100, ((e.clientY - rect.top) / rect.height) * 100);
     return {
-      x: Math.round(Math.min(max, Math.max(min, ((e.clientX - rect.left) / rect.width) * 100))),
-      y: Math.round(Math.min(max, Math.max(min, ((e.clientY - rect.top) / rect.height) * 100))),
+      x: Math.round(Math.min(max, Math.max(min, b.x))),
+      y: Math.round(Math.min(max, Math.max(min, b.y))),
     };
   };
   const updateTag = (idx: number, patch: Partial<HeroTag>) => setTags(tags.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
@@ -1405,10 +1440,14 @@ function HeroEditor({ hero, onChange, products }: {
           />
           PC 이미지 다르게 등록
         </label>
+        <p className="text-[10px] text-gray-400 leading-snug">
+          PC 화면은 가로형 패널(약 10:11~8:9)이라 모바일용 3:4 세로 이미지를 쓰면 위·아래가 잘립니다.
+          안 잘리게 하려면 PC 이미지를 <b className="text-gray-600">1600 × 1800px (8:9)</b>로 따로 등록하세요.
+        </p>
         {!!hero.image_url_pc && (
           <ImageField
             label="PC 이미지"
-            hint="1600 × 1800px (8:9)"
+            hint="1600 × 1800px (8:9) 권장 — 인물 전신은 하단 여백을 두고 중앙에 배치"
             value={hero.image_url_pc}
             onChange={(url) => onChange({ image_url_pc: url })}
             compact
@@ -1472,7 +1511,7 @@ function HeroEditor({ hero, onChange, products }: {
             onClick={handleTagAreaClick}
             className="relative overflow-hidden rounded-lg border border-gray-200 select-none mx-auto"
             style={{
-              aspectRatio: posView === "pc" ? "8/9" : "3/4",
+              aspectRatio: posView === "pc" ? pcPanelRatio : "3/4",
               maxWidth: posView === "pc" ? 480 : 380,
               cursor: editMode === "tag" ? "crosshair" : (isDraggingPos ? "grabbing" : "grab"),
               touchAction: "none",
@@ -1485,7 +1524,8 @@ function HeroEditor({ hero, onChange, products }: {
               style={{ objectPosition: `${currPx}% ${currPy}%` }}
             />
             {editMode === "tag" && tags.map((tag, idx) => {
-              const { x, y } = tagXY(tag);
+              const t0 = tagXY(tag);
+              const { x, y } = imgToBox(t0.x, t0.y);
               return (
                 <button
                   key={tag.id}
@@ -1534,7 +1574,10 @@ function HeroEditor({ hero, onChange, products }: {
                       className="text-[11px] text-red-500 hover:text-red-700 font-medium">삭제</button>
                   </div>
                   <ProductPicker products={products} value={selectedTag.name}
-                    onSelect={(p) => updateTag(selectedIdx, { product_id: p.id, name: p.name, price: p.price, image_url: p.imageUrl ?? "" })} />
+                    onSelect={(p) => updateTag(selectedIdx, { item_id: p.id, product_id: "", name: p.name, price: p.price, image_url: p.imageUrl ?? "" })} />
+                  {products.length === 0 && (
+                    <p className="text-[11px] text-red-500">우측 배너 1~4에 등록된 제품이 없습니다. 배너에 제품을 먼저 추가하세요.</p>
+                  )}
                 </div>
               )}
             </div>
@@ -1562,6 +1605,35 @@ function BlockCard({
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"hero" | "banner1" | "banner2" | "banner3" | "banner4">("hero");
   const isOpen = alwaysOpen || open;
+
+  type BannerKey = "banner1" | "banner2" | "banner3" | "banner4";
+  const BANNER_KEYS: BannerKey[] = ["banner1", "banner2", "banner3", "banner4"];
+
+  // 메인 이미지 태그 후보 — 우측 배너 1~4에 입력한 제품(메인+추가)만. 기존 제품 DB 목록은 쓰지 않는다.
+  // 후보 id는 배너 제품 id(ProductItem.id)이며, 태그 클릭 시 해당 배너 제품탭으로 이동한다.
+  const bannerProducts: SearchProduct[] = [];
+  for (const k of BANNER_KEYS) {
+    for (const it of [...(block[k]?.items ?? []), ...(block[k]?.detail_items ?? [])]) {
+      if (!it.name.trim()) continue;
+      const brand = it.card_detail?.brand;
+      bannerProducts.push({ id: it.id, name: it.name, brand, price: it.price, imageUrl: it.card_detail?.images?.[0] || it.image_url || undefined });
+    }
+  }
+
+  // 배너 위치 변경 — 배너 내용 전체가 함께 이동하고, 선택된 탭도 따라간다
+  function moveBanner(from: BannerKey, to: BannerKey) {
+    if (from === to) return;
+    const list = BANNER_KEYS.map((k) => block[k]);
+    const [moved] = list.splice(BANNER_KEYS.indexOf(from), 1);
+    list.splice(BANNER_KEYS.indexOf(to), 0, moved);
+    onUpdate({ banner1: list[0], banner2: list[1], banner3: list[2], banner4: list[3] });
+    if (tab === from) setTab(to);
+    else if (tab !== "hero") {
+      const fi = BANNER_KEYS.indexOf(from), ti = BANNER_KEYS.indexOf(to), ci = BANNER_KEYS.indexOf(tab as BannerKey);
+      if (fi < ti && ci > fi && ci <= ti) setTab(BANNER_KEYS[ci - 1]);
+      else if (fi > ti && ci >= ti && ci < fi) setTab(BANNER_KEYS[ci + 1]);
+    }
+  }
 
   const TABS = [
     { key: "hero" as const,    label: "메인 기획전" },
@@ -1687,34 +1759,74 @@ function BlockCard({
                 className="flex-1 min-w-0 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#303236]"
               />
             </div>
-            {/* 부제목 */}
-            <div className="flex items-center gap-1.5 flex-1 min-w-0">
-              <span className="text-xs text-gray-500 flex-shrink-0">부제목</span>
-              <input
-                type="text"
-                value={block.hero.subtitle}
-                onChange={(e) => onUpdate({ hero: { ...block.hero, subtitle: e.target.value, hero_subtitle: e.target.value } })}
-                placeholder="이미지 위 작은 문구"
-                className="flex-1 min-w-0 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#303236]"
-              />
-            </div>
+            {/* 카드 타입 — 선택된 배너 탭 기준 (메인 기획전 탭에서는 숨김) */}
+            {tab !== "hero" && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-xs text-gray-500">카드 타입</span>
+                <div className="flex rounded-lg overflow-hidden border border-gray-200">
+                  {(["product", "image"] as const).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => onUpdate({ [tab]: { ...block[tab], card_type: t } })}
+                      className={`text-xs px-3 py-1.5 transition-colors ${
+                        (block[tab].card_type ?? "product") === t ? "bg-[#303236] text-white" : "bg-white text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {t === "product" ? "상품형 (기본)" : "통이미지형"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* 탭 */}
           <div className="flex border-b border-gray-100">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${
-                  tab === t.key
-                    ? "text-[#303236] border-b-2 border-[#303236]"
-                    : "text-gray-400 hover:text-gray-600"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
+            {TABS.map((t) => {
+              const isBanner = t.key !== "hero";
+              return (
+                <div
+                  key={t.key}
+                  className="relative flex-1 flex"
+                  draggable={isBanner}
+                  onDragStart={(e) => { if (isBanner) e.dataTransfer.setData("text/plain", t.key); }}
+                  onDragOver={(e) => { if (isBanner) e.preventDefault(); }}
+                  onDrop={(e) => {
+                    if (!isBanner) return;
+                    e.preventDefault();
+                    const from = e.dataTransfer.getData("text/plain");
+                    if (BANNER_KEYS.includes(from as BannerKey)) moveBanner(from as BannerKey, t.key as BannerKey);
+                  }}
+                >
+                  <button
+                    onClick={() => setTab(t.key)}
+                    className={`flex-1 py-3 text-sm font-medium transition-colors ${isBanner ? "cursor-grab" : ""} ${
+                      tab === t.key
+                        ? "text-[#303236] border-b-2 border-[#303236]"
+                        : "text-gray-400 hover:text-gray-600"
+                    }`}
+                  >
+                    {t.label}
+                    {t.key !== "hero" && block[t.key].label && (
+                      <span className={`ml-1.5 text-xs font-normal ${tab === t.key ? "text-gray-500" : "text-gray-400"}`}>
+                        · {block[t.key].label}
+                      </span>
+                    )}
+                  </button>
+                  {isBanner && tab === t.key && (
+                    <div className="absolute right-1 top-1 flex gap-0.5">
+                      <button type="button" title="앞으로" disabled={t.key === "banner1"}
+                        onClick={() => moveBanner(t.key as BannerKey, BANNER_KEYS[BANNER_KEYS.indexOf(t.key as BannerKey) - 1])}
+                        className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 text-[10px] leading-none disabled:opacity-30">◀</button>
+                      <button type="button" title="뒤로" disabled={t.key === "banner4"}
+                        onClick={() => moveBanner(t.key as BannerKey, BANNER_KEYS[BANNER_KEYS.indexOf(t.key as BannerKey) + 1])}
+                        className="w-5 h-5 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 text-[10px] leading-none disabled:opacity-30">▶</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* 탭 콘텐츠 */}
@@ -1722,7 +1834,7 @@ function BlockCard({
             {tab === "hero" && (
               <HeroEditor
                 hero={block.hero}
-                products={products}
+                products={bannerProducts}
                 onChange={(patch) => onUpdate({ hero: { ...block.hero, ...patch } })}
               />
             )}

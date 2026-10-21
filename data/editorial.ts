@@ -12,7 +12,8 @@ export type EditorialTag = {
   imageUrl?: string;
   href?: string;    // 클릭 이동 주소 — 제품이 속한 기획전 배너 상세(?product=). 없으면 제품 상세
   brandLogo?: string; // 브랜드 카탈로그(brands 테이블)에 등록된 로고 — 있으면 브랜드 텍스트 대신 표시
-  brand?: string;   // 제품 DB의 브랜드 — 서버(enrichEditorialBrands)가 채워 태그 라벨에 표시
+  brand?: string;   // 태그 라벨에 표시할 브랜드 — itemId 태그는 배너 제품의 브랜드, 옛 태그는 제품 DB 브랜드
+  itemId?: string;  // 연결된 배너 제품(ProductItem.id) — 있으면 제품 DB 대신 배너 제품 기준
 };
 
 // 기획전 상세페이지의 "카드형" 제품 위젯(이미지 페이징+컬러+사이즈+아코디언) 전용 데이터.
@@ -30,6 +31,7 @@ export type EditorialCardDetail = {
 };
 
 export type EditorialSectionItem = {
+  itemId?: string;      // 관리자 배너 제품 id — 메인 태그가 연결하는 키 (productId는 비어 있을 수 있음)
   productId: string;
   name: string;
   price: string;

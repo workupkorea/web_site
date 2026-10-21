@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import type { Editorial, EditorialSection, EditorialSectionTag, EditorialTag } from "@/data/editorial";
 import { ikSrc } from "@/lib/imageSrc";
+import { heroPanelHeight } from "@/lib/heroPanel";
 
 // 메인 배너 이미지 위 제품 태그 — 이미지 속 착용 제품 위에 "브랜드(작게, 위 오른쪽) + 제품명 박스"로 항상 노출.
 // 점 좌표가 라벨의 중심이며, 클릭 시 제품 상세로 이동한다.
@@ -22,12 +23,12 @@ function TagChip({ tag, x, y, compact, px }: { tag: EditorialTag; x: number; y: 
         <img
           src={ikSrc(tag.brandLogo, 200)}
           alt={tag.brand ?? ""}
-          className={`object-contain mb-1 ${compact ? "h-[10px]" : "h-[14px]"}`}
+          className={`object-contain mb-1 ${compact ? "h-[8px]" : "h-[11px]"}`}
           style={{ filter: "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))" }}
         />
       ) : tag.brand ? (
         <span
-          className={`font-bold uppercase text-white leading-none tracking-wide mb-1 ${compact ? "text-[9px]" : "text-[12px]"}`}
+          className={`font-bold uppercase text-white leading-none tracking-wide mb-1 ${compact ? "text-[8px]" : "text-[10px]"}`}
           style={{ fontFamily: "Georgia, 'Times New Roman', serif", textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}
         >
           {tag.brand}
@@ -35,13 +36,14 @@ function TagChip({ tag, x, y, compact, px }: { tag: EditorialTag; x: number; y: 
       ) : null}
       <span
         className={`whitespace-nowrap text-[#303236] border border-[#303236]/25 bg-[#f4f1ea]/45 backdrop-blur-[2px] group-hover:bg-[#f4f1ea]/70 transition-colors leading-tight ${
-          compact ? "px-2.5 py-0.5 text-[16px]" : "px-5 py-1.5 text-[24px]"
+          compact ? "px-1.5 py-px text-[13px]" : "px-2.5 py-0.5 text-[18px]"
         }`}
         // 사이트 폰트(Noto Sans KR)는 400/700/900만 로드되어 중간 굵기(500~600)가 없다.
         // 700은 너무 굵어, 400 + 얇은 외곽선(text-stroke)으로 중간 굵기를 낸다. (폰트 추가 로드 없음)
-        style={{ fontWeight: 400, WebkitTextStroke: "0.6px currentColor" }}
+        // 자간 -0.05em + 장평 94%(scaleX) — scaleX는 레이아웃 폭을 줄이지 못해 음수 마진으로 박스를 같이 좁힌다
+        style={{ fontWeight: 400, WebkitTextStroke: "0.6px currentColor", letterSpacing: "-0.05em" }}
       >
-        {tag.name}
+        <span className="inline-block" style={{ transform: "scaleX(0.94)", margin: `0 -${(tag.name.length * 0.03).toFixed(2)}em` }}>{tag.name}</span>
       </span>
     </Link>
   );
@@ -217,11 +219,11 @@ function WhiteBox({
         {section.detailHref && (
           <Link
             href={section.detailHref}
-            aria-label={`${section.title} 기획전 보기`}
+            aria-label={`${section.title} 스타일 보기`}
             className="absolute inset-0 z-[2]"
           >
             <span className="absolute bottom-3 right-3 flex items-center gap-1 bg-white/95 text-[#303236] text-[11px] font-semibold px-2.5 py-1.5 shadow-md opacity-0 translate-y-1 group-hover/img:opacity-100 group-hover/img:translate-y-0 transition-all">
-              기획전 보기
+              스타일 보기
               <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
@@ -289,7 +291,7 @@ export default function FeatureHeroLayout({
   useEffect(() => {
     const el = contentRef.current;
     if (!el) return;
-    const update = () => setHeroHeight(Math.min(window.innerHeight, el.offsetHeight));
+    const update = () => setHeroHeight(heroPanelHeight(document.documentElement.clientWidth, window.innerHeight, el.offsetHeight));
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -597,11 +599,11 @@ export default function FeatureHeroLayout({
                 {section.detailHref && (
                   <Link
                     href={section.detailHref}
-                    aria-label={`${section.title} 기획전 보기`}
+                    aria-label={`${section.title} 스타일 보기`}
                     className="absolute inset-0 z-[2]"
                   >
                     <span className="absolute bottom-2.5 right-2.5 flex items-center gap-1 bg-white/95 text-[#303236] text-[11px] font-semibold px-2.5 py-1.5 shadow-md">
-                      기획전 보기
+                      스타일 보기
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>

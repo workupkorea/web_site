@@ -5,7 +5,7 @@ import { getBannerDetail } from "@/lib/editorial-blocks";
 import { ikSrc } from "@/lib/imageSrc";
 import ProductFeatureTabs from "@/components/ProductFeatureTabs";
 
-type Props = { params: Promise<{ slug: string; banner: string }>; searchParams: Promise<{ product?: string }> };
+type Props = { params: Promise<{ slug: string; banner: string }>; searchParams: Promise<{ product?: string; item?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, banner } = await params;
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BannerDetailPage({ params, searchParams }: Props) {
   const { slug, banner } = await params;
-  const { product: initialProductId } = await searchParams;
+  const { product: initialProductId, item: initialItemId } = await searchParams;
   const detail = await getBannerDetail(slug, Number(banner));
   if (!detail) notFound();
 
@@ -37,11 +37,6 @@ export default async function BannerDetailPage({ params, searchParams }: Props) 
         <div className="flex flex-col md:flex-row md:items-stretch gap-4 md:gap-6">
           {/* 좌: 기획전 타이틀 + 설명 — 오른쪽 이미지와 동일한 높이의 흰색 패널 */}
           <div className="md:flex-1 md:min-w-0 order-2 md:order-1 bg-white flex flex-col justify-center px-6 py-6 md:px-10 md:py-8">
-            {detail.label && (
-              <p className="text-[11px] tracking-[0.25em] text-[#E5541B] uppercase mb-4">
-                {detail.label}
-              </p>
-            )}
             <h1 className="text-2xl md:text-4xl font-bold text-[#303236] leading-snug mb-5 whitespace-pre-line">
               {detail.title}
             </h1>
@@ -72,7 +67,7 @@ export default async function BannerDetailPage({ params, searchParams }: Props) 
       {/* ── 하단: 제품 탭(제품명 클릭 시 이미지·컬러·사이즈·아코디언 전환) ─── */}
       {products.length > 0 && (
         <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24">
-          <ProductFeatureTabs products={products} initialProductId={initialProductId} />
+          <ProductFeatureTabs products={products} initialProductId={initialProductId} initialItemId={initialItemId} />
         </section>
       )}
 

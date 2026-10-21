@@ -49,23 +49,21 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
           <div className="mb-7">
             <p className="text-sm text-[#303236] mb-3 font-bold">
               Color{" "}
-              {selectedColor && !selectedColor.soldOut && <span>{selectedColor.name}</span>}
+              {selectedColor && <span>{selectedColor.name}</span>}
             </p>
             <div className="flex flex-wrap gap-3">
               {detail.colors.map((c) => (
                 <button
                   key={c.id}
                   type="button"
-                  disabled={c.soldOut}
                   onClick={() => setSelectedColorId(c.id)}
-                  className="flex flex-col items-center gap-1 disabled:opacity-40"
+                  className="flex flex-col items-center gap-1"
                   title={c.name}
                 >
                   <span
-                    className={`w-7 h-7 rounded-full border transition-shadow ${c.id === selectedColorId && !c.soldOut ? "ring-2 ring-offset-2 ring-[#303236]" : "border-gray-300"}`}
+                    className={`w-7 h-7 rounded-full border transition-shadow ${c.id === selectedColorId ? "ring-2 ring-offset-2 ring-[#303236]" : "border-gray-300"}`}
                     style={{ backgroundColor: c.hex }}
                   />
-                  {c.soldOut && <span className="text-[10px] text-gray-400">품절</span>}
                 </button>
               ))}
             </div>
@@ -79,17 +77,9 @@ export default function ProductFeatureCard({ product }: { product: DetailProduct
               {detail.sizes.map((s) => (
                 <span
                   key={s.id}
-                  className={`relative flex-1 min-w-[64px] overflow-hidden rounded-md px-3 py-4 text-sm font-bold text-center ${
-                    s.soldOut ? "bg-gray-50 text-gray-300" : "bg-gray-100 text-[#303236]"
-                  }`}
+                  className="relative flex-1 min-w-[64px] overflow-hidden rounded-md px-3 py-4 text-sm font-bold text-center bg-gray-100 text-[#303236]"
                 >
                   {s.label}
-                  {s.soldOut && (
-                    <span
-                      className="pointer-events-none absolute inset-0"
-                      style={{ background: "linear-gradient(to top right, transparent calc(50% - 1px), #d1d5db 50%, transparent calc(50% + 1px))" }}
-                    />
-                  )}
                 </span>
               ))}
             </div>

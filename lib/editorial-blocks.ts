@@ -4,7 +4,7 @@ import { productDisplayName } from "@/data/products";
 import type { Editorial, EditorialSection, EditorialSectionItem, EditorialCardDetail } from "@/data/editorial";
 
 // ── DB 원본 타입 ──────────────────────────────────────────────
-export type HeroTag = { id: string; x: number; y: number; pc_x?: number; pc_y?: number; name: string; price: string; product_id: string; image_url: string; bg: string };
+export type HeroTag = { id: string; x: number; y: number; pc_x?: number; pc_y?: number; name: string; price: string; product_id: string; image_url: string; bg: string; item_id?: string };
 export type ProductItem = { id: string; product_id: string; name: string; price: string; image_url: string; bg: string; card_detail?: EditorialCardDetail };
 export type Banner = {
   title: string; desc: string; section_bg: string; image_url: string;
@@ -47,6 +47,7 @@ function mapItems(items?: ProductItem[]): EditorialSectionItem[] {
   return (items ?? [])
     .filter((i) => i.product_id || i.name)
     .map((i) => ({
+      itemId: i.id,
       productId: i.product_id || "",
       name: i.name || "",
       price: i.price || "",
@@ -85,12 +86,26 @@ const FEATURE_DETAIL_LINKS_ENABLED = process.env.NODE_ENV === "development";
 
 // 메인 배너 태그 클릭 이동 주소 — 제품이 들어 있는 첫 배너(1~4)의 상세페이지 + ?product=<id> (그 제품 탭이 열림).
 // 상세페이지 링크가 꺼져 있거나 어느 배너에도 없으면 undefined → 제품 상세로 이동.
-function tagHref(block: DBBlock, productId: string, href: (n: number) => string | undefined): string | undefined {
-  if (!productId) return undefined;
+// 태그는 배너 제품에 연결된다. item_id가 없는 옛 태그는 같은 제품명의 배너 제품을 찾아 연결한다(제품 DB는 쓰지 않음).
+function findTagItem(block: DBBlock, t: HeroTag): { item?: ProductItem; n: number } {
   const banners = [block.banner1, block.banner2, block.banner3, block.banner4];
-  const n = banners.findIndex((b) => b && [...(b.items ?? []), ...(b.detail_items ?? [])].some((i) => i.product_id === productId));
-  const base = n >= 0 ? href(n + 1) : undefined;
-  return base ? `${base}?product=${encodeURIComponent(productId)}` : undefined;
+  const all = (b?: Banner) => [...(b?.items ?? []), ...(b?.detail_items ?? [])];
+  const norm = (v?: string) => (v ?? "").replace(/\s+/g, "").toLowerCase();
+  const matchers: ((i: ProductItem) => boolean)[] = t.item_id
+    ? [(i) => i.id === t.item_id]
+    : [(i) => !!t.name && norm(i.name) === norm(t.name)];
+  for (const m of matchers)
+    for (let n = 0; n < banners.length; n++) {
+      const item = all(banners[n]).find(m);
+      if (item) return { item, n };
+    }
+  return { n: -1 };
+}
+
+function tagHref(block: DBBlock, t: HeroTag, href: (n: number) => string | undefined): string | undefined {
+  const { item, n } = findTagItem(block, t);
+  const base = item && n >= 0 ? href(n + 1) : undefined;
+  return base && item ? `${base}?item=${encodeURIComponent(item.id)}` : undefined;
 }
 
 export function blockToEditorial(block: DBBlock): Editorial {
@@ -113,12 +128,18 @@ export function blockToEditorial(block: DBBlock): Editorial {
     heroImagePosition: block.hero?.image_position || undefined,
     textAccent: "#E5541B",
     heroSubtitle: block.hero?.hero_subtitle || "",
-    tags: (block.hero?.tags ?? []).map((t) => ({
-      x: t.x, y: t.y, pcX: t.pc_x, pcY: t.pc_y,
-      href: tagHref(block, t.product_id, href),
-      name: t.name, price: t.price, productId: t.product_id,
-      bg: t.bg || "#303236", imageUrl: t.image_url || undefined,
-    })),
+    tags: (block.hero?.tags ?? []).map((t) => {
+      // 배너 제품에 연결된 태그는 그 제품의 현재 이름·브랜드(배너에 입력한 값)를 쓴다
+      const item = findTagItem(block, t).item;
+      return {
+        x: t.x, y: t.y, pcX: t.pc_x, pcY: t.pc_y,
+        href: tagHref(block, t, href),
+        name: item?.name || t.name, price: t.price, productId: t.product_id,
+        bg: t.bg || "#303236", imageUrl: t.image_url || undefined,
+        itemId: item?.id,
+        brand: item?.card_detail?.brand,
+      };
+    }),
     sections: [s1, s2, s3, s4],
   };
 }
@@ -135,15 +156,15 @@ async function enrichEditorialBrands(
   // 메인 배너 이미지 위 태그도 브랜드 표시를 위해 함께 조회
   for (const { editorial } of list)
     for (const t of editorial.tags) if (t.productId) ids.add(t.productId);
-  if (ids.size === 0) return list;
 
   const brandMap = await fetchBrandMap([...ids]);
   // 브랜드 로고 — /admin/catalog/brands 에 등록된 brands.logo_url (이름 대소문자 무시 매칭)
   const logoMap = await fetchBrandLogoMap();
   for (const { editorial } of list)
     for (const t of editorial.tags) {
-      t.brand = brandMap[t.productId]?.brand;
-      t.brandLogo = t.brand ? logoMap[t.brand.toLowerCase()] : undefined;
+      // 배너 제품(itemId)에 연결된 태그는 배너에 입력한 브랜드를 그대로 쓰고, 옛 태그만 제품 DB 브랜드를 쓴다
+      if (!t.itemId) t.brand = brandMap[t.productId]?.brand;
+      t.brandLogo = t.brand ? logoMap[brandKey(t.brand)] : undefined;
     }
   for (const { editorial } of list)
     for (const s of editorial.sections)
@@ -155,13 +176,20 @@ async function enrichEditorialBrands(
   return list;
 }
 
+// 브랜드명 비교용 키 — 대소문자·공백·특수문자 무시
+const brandKey = (n: string) => n.toLowerCase().replace(/[\s.\-_]+/g, "");
+
 async function fetchBrandLogoMap(): Promise<Record<string, string>> {
   const map: Record<string, string> = {};
   try {
     const supabase = createAdminClient();
-    const { data } = await supabase.from("brands").select("name, logo_url");
+    const { data } = await supabase.from("brands").select("name, name_ko, logo_url");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (data ?? []).forEach((r: any) => { if (r.name && r.logo_url) map[String(r.name).toLowerCase()] = r.logo_url; });
+    (data ?? []).forEach((r: any) => {
+      if (!r.logo_url) return;
+      // 영문명·한글명(name_ko) 모두로 찾을 수 있게 등록 — 배너 제품 브랜드는 한글(예: 디트로잇)일 수 있다
+      for (const n of [r.name, r.name_ko]) if (n) map[brandKey(String(n))] = r.logo_url;
+    });
   } catch {
     // 로고 조회 실패 시 브랜드 텍스트로 대체
   }
