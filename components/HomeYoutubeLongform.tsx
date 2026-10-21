@@ -55,7 +55,7 @@ async function getVideos(): Promise<YoutubeVideo[]> {
 export default async function HomeYoutubeLongform() {
   const videos = await getVideos();
   if (videos.length === 0) return null;
-  // 모바일 하단 바로가기는 1개일 때 숨긴다(안내 패널의 "채널 구독하기"가 그 역할).
+  // 모바일 하단 바로가기는 1개일 때 숨긴다(안내 패널의 "구독하기"가 그 역할).
   const multiple = videos.length > 1;
 
   return (
@@ -90,10 +90,10 @@ export default async function HomeYoutubeLongform() {
               <p className="mt-3 text-sm text-gray-500 leading-relaxed">
                 영상 속 제품, 매장에서 직접 입어보고 비교해보세요.
               </p>
-              <div className="mt-6 flex flex-wrap gap-2">
+              <div className="mt-6 flex flex-nowrap gap-2">
                 <a
                   href="/store"
-                  className="inline-flex items-center justify-center min-h-[44px] px-6 bg-[#303236] text-white text-xs tracking-widest"
+                  className="inline-flex flex-1 md:flex-none items-center justify-center whitespace-nowrap min-h-[44px] px-3 md:px-6 bg-[#303236] text-white text-xs tracking-widest"
                 >
                   가까운 매장 찾기
                 </a>
@@ -101,9 +101,10 @@ export default async function HomeYoutubeLongform() {
                   href={CHANNEL_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center min-h-[44px] px-6 border border-[#303236] text-[#303236] text-xs tracking-widest"
+                  className="inline-flex flex-1 md:flex-none items-center justify-center whitespace-nowrap min-h-[44px] px-3 md:px-6 border border-[#303236] text-[#303236] text-xs tracking-widest"
                 >
-                  채널 구독하기
+                  <span className="md:hidden">구독하기</span>
+                  <span className="hidden md:inline">채널 구독하기</span>
                 </a>
               </div>
             </div>

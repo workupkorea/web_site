@@ -565,16 +565,27 @@ export default function StoreLocator({
               검색 초기화
             </button>
             <div className="grid grid-cols-2 gap-2 md:flex">
+              {/* 전체 매장 보기 ↔ 가까운 매장 찾기 전환 버튼 — 전체 보기 중에는 내 위치 기준 탐색으로 되돌아간다 */}
               <button
-                onClick={showAllStores}
-                className="inline-flex items-center justify-center border border-[#303236] text-[#303236] text-sm px-5 py-2.5 hover:bg-[#303236] hover:text-white transition-colors whitespace-nowrap"
+                onClick={showAll ? handleLocate : showAllStores}
+                disabled={locStatus === "loading"}
+                className="inline-flex items-center justify-center gap-1.5 border border-[#303236] text-[#303236] text-sm px-3 md:px-5 py-2.5 hover:bg-[#303236] hover:text-white transition-colors whitespace-nowrap disabled:opacity-60"
               >
-                전체 매장 보기
+                {locStatus === "loading" ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    위치 확인 중
+                  </>
+                ) : showAll ? (
+                  "가까운 매장 찾기"
+                ) : (
+                  "전체 매장 보기"
+                )}
               </button>
               {newStores.length > 0 && (
                 <button
                   onClick={showNewStores}
-                  className={`col-span-2 md:col-span-1 inline-flex items-center justify-center gap-1.5 border border-[#E5541B] text-sm px-5 py-2.5 transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center justify-center gap-1.5 border border-[#E5541B] text-sm px-3 md:px-5 py-2.5 transition-colors whitespace-nowrap ${
                     showNewList ? "bg-[#E5541B] text-white" : "text-[#E5541B] hover:bg-[#E5541B] hover:text-white"
                   }`}
                 >
@@ -582,26 +593,6 @@ export default function StoreLocator({
                   <span className="text-[11px] font-bold">{newStores.length}</span>
                 </button>
               )}
-              <button
-                onClick={handleLocate}
-                disabled={locStatus === "loading"}
-                className="inline-flex items-center justify-center gap-1.5 bg-[#303236] text-white text-sm px-5 py-2.5 hover:bg-[#243d5e] transition-colors disabled:opacity-60 whitespace-nowrap"
-              >
-                {locStatus === "loading" ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    위치 확인 중
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    가까운 매장 찾기
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>

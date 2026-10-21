@@ -27,7 +27,7 @@ export default function StoreSearchBar() {
               </svg>
             </span>
             <div className="min-w-0">
-              <p className="text-base font-bold leading-tight text-[#303236] md:text-xl">가까운 워크업 매장을 찾아보세요</p>
+              <p className="text-base font-bold leading-tight text-[#303236] md:text-xl"><span className="md:hidden">가까운 워크업 매장찾기</span><span className="hidden md:inline">가까운 워크업 매장을 찾아보세요</span></p>
               <p className="mt-1.5 text-[9px] leading-tight text-gray-500 md:text-[14px]">매장명, 지역, 도로명 등으로 검색할 수 있습니다.</p>
             </div>
           </div>
