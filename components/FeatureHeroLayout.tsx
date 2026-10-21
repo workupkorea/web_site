@@ -8,14 +8,15 @@ import { heroPanelHeight } from "@/lib/heroPanel";
 
 // 메인 배너 이미지 위 제품 태그 — 이미지 속 착용 제품 위에 "브랜드(작게, 위 오른쪽) + 제품명 박스"로 항상 노출.
 // 점 좌표가 라벨의 중심이며, 클릭 시 제품 상세로 이동한다.
-function TagChip({ tag, x, y, compact, px }: { tag: EditorialTag; x: number; y: number; compact?: boolean; px?: boolean }) {
+// inline=true(모바일·태블릿): 좌표 없이 목록 안에 일반 흐름으로 배치한다.
+function TagChip({ tag, x, y, compact, px, inline }: { tag: EditorialTag; x?: number; y?: number; compact?: boolean; px?: boolean; inline?: boolean }) {
   const unit = px ? "px" : "%";
   return (
     <Link
       href={tag.href ?? `/products/${tag.productId}`}
       aria-label={`${tag.brand ? tag.brand + " " : ""}${tag.name}`}
-      className="absolute z-10 flex flex-col items-end min-h-[44px] justify-center group"
-      style={{ left: `${x}${unit}`, top: `${y}${unit}`, transform: "translate(-50%, -50%)" }}
+      className={`${inline ? "relative items-start" : "absolute z-10 items-end"} flex flex-col min-h-[44px] justify-center group`}
+      style={inline ? undefined : { left: `${x}${unit}`, top: `${y}${unit}`, transform: "translate(-50%, -50%)" }}
     >
       {tag.brandLogo ? (
         // 브랜드 로고 — 배경 없이 흰색으로 표시 (어떤 색 로고든 brightness(0) invert(1)로 흰색 변환, 가독성용 그림자)
@@ -38,14 +39,25 @@ function TagChip({ tag, x, y, compact, px }: { tag: EditorialTag; x: number; y: 
         className={`whitespace-nowrap text-[#303236] border border-[#303236]/25 bg-[#f4f1ea]/45 backdrop-blur-[2px] group-hover:bg-[#f4f1ea]/70 transition-colors leading-tight ${
           compact ? "px-1.5 py-px text-[13px]" : "px-2.5 py-0.5 text-[18px]"
         }`}
-        // 사이트 폰트(Noto Sans KR)는 400/700/900만 로드되어 중간 굵기(500~600)가 없다.
-        // 700은 너무 굵어, 400 + 얇은 외곽선(text-stroke)으로 중간 굵기를 낸다. (폰트 추가 로드 없음)
+        // 제품명은 Pretendard(layout에서 CDN 로드, 전 굵기 제공) 500으로 표시
         // 자간 -0.05em + 장평 94%(scaleX) — scaleX는 레이아웃 폭을 줄이지 못해 음수 마진으로 박스를 같이 좁힌다
-        style={{ fontWeight: 400, WebkitTextStroke: "0.6px currentColor", letterSpacing: "-0.05em" }}
+        style={{ fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif", fontWeight: 500, letterSpacing: "-0.05em" }}
       >
         <span className="inline-block" style={{ transform: "scaleX(0.94)", margin: `0 -${(tag.name.length * 0.03).toFixed(2)}em` }}>{tag.name}</span>
       </span>
     </Link>
+  );
+}
+
+// 모바일·태블릿 태그 목록 — 이미지 위에 좌표로 흩뿌리면 위치 맞추기 어렵고 겹치므로, 제목 바로 위에 좌측 정렬로 모아 보여준다.
+function MobileTagList({ tags }: { tags: EditorialTag[] }) {
+  if (tags.length === 0) return null;
+  return (
+    <div className="flex flex-col items-start gap-1 mb-3">
+      {tags.map((tag, i) => (
+        <TagChip key={i} tag={tag} compact inline />
+      ))}
+    </div>
   );
 }
 
@@ -416,11 +428,8 @@ export default function FeatureHeroLayout({
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
-          {tags.map((tag, i) => (
-            <TagChip key={i} tag={tag} x={tag.x} y={tag.y} compact />
-          ))}
-
-          <div className="absolute bottom-[39px] left-4 z-[2] text-white">
+          <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
+            <MobileTagList tags={tags} />
             <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
             <h1 className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</h1>
           </div>
@@ -552,11 +561,8 @@ export default function FeatureHeroLayout({
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
-          {tags.map((tag, i) => (
-            <TagChip key={i} tag={tag} x={tag.x} y={tag.y} compact />
-          ))}
-
-          <div className="absolute bottom-[39px] left-4 z-[2] text-white">
+          <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
+            <MobileTagList tags={tags} />
             <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
             <h1 className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</h1>
           </div>

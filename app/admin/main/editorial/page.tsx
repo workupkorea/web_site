@@ -1501,7 +1501,9 @@ function HeroEditor({ hero, onChange, products }: {
           <p className="text-[10px] text-gray-400">
             {editMode === "position"
               ? "이미지를 드래그해 노출 위치를 조정합니다."
-              : "이미지를 클릭하면 태그가 추가되고, 드래그하면 위치가 이동합니다. PC/모바일 위치는 각각 조정하세요."}
+              : posView === "pc"
+              ? "이미지를 클릭하면 태그가 추가되고, 드래그하면 위치가 이동합니다. (PC 전용 위치)"
+              : "모바일·태블릿은 태그가 이미지 오른쪽 아래에 목록으로 자동 정렬됩니다. 위치 조정 없이 PC에서 추가한 태그 순서대로 나옵니다."}
           </p>
           <div
             ref={posPreviewRef}
