@@ -50,7 +50,7 @@ export async function GET(req: Request) {
 
   // 전체 활성 지점 목록 — 미응답 지점도 통계에 포함하기 위해 필요. 일괄출고금지점은 통계에서 완전히 제외.
   const [{ data: allStores }, bulkIds] = await Promise.all([
-    sb.from("stores").select("id, name, store_code, ship_name").eq("is_active", true),
+    sb.from("stores").select("id, name, store_code, ship_name").is("closed_at", null),
     getBulkShipStoreIds(sb),
   ]);
   const storeNameById = new Map<number, string>(

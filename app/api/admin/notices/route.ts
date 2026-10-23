@@ -20,7 +20,7 @@ export async function GET() {
   const ids = rows.map((r) => r.id);
   // 일괄출고금지점은 패스율 분모·분자 모두에서 제외한다.
   const [{ data: activeStores }, { data: passRows }, bulkIds] = await Promise.all([
-    sb.from("stores").select("id").eq("is_active", true),
+    sb.from("stores").select("id").is("closed_at", null),
     ids.length ? sb.from("pass_entries").select("notice_id, store_id").eq("status", "패스").in("notice_id", ids) : Promise.resolve({ data: [] as { notice_id: string; store_id: number }[] }),
     getBulkShipStoreIds(sb),
   ]);

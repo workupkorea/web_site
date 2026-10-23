@@ -13,7 +13,7 @@ type StoreRow = {
   ship_name?: string | null;
   manager_name: string | null;
   pass_link_token: string | null;
-  is_active?: boolean;
+  closed_at?: string | null;
 };
 
 type HistoryRow = { id: number; summary: string; actor_name: string; created_at: string };
@@ -58,7 +58,7 @@ export default function PassLinksPage() {
   const linkModalStore = stores.find((s) => s.id === linkModalStoreId) ?? null;
 
   const filteredStores = stores
-    .filter((s) => s.is_active !== false) // 비활성 지점은 목록에서 제외
+    .filter((s) => !s.closed_at) // 폐업 지점만 제외 (오픈예정 지점도 출고 처리 대상)
     .filter((s) => !bulkOnly || bulkIds.has(s.id))
     .filter((s) => !pushOnly || !!push?.stores[s.id])
     .filter((s) => {
@@ -258,7 +258,7 @@ export default function PassLinksPage() {
                 pushOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
               }`}
             >
-              알림 설정 {stores.filter((s) => s.is_active !== false && !!push.stores[s.id]).length}
+              알림 설정 {stores.filter((s) => !s.closed_at &&!!push.stores[s.id]).length}
             </button>
           )}
         </div>

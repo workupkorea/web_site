@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     sb
       .from("stores")
       .select("id, name, store_code, ship_name")
-      .eq("is_active", true)
+      .is("closed_at", null)
       .order("sort_order", { ascending: true })
       .order("id", { ascending: true }),
     getBulkShipStoreIds(sb),
