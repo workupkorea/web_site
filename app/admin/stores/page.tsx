@@ -8,6 +8,7 @@ type StoreRow = {
   id: number;
   name: string;
   store_code: string | null;
+  ship_name: string | null;
   region: string;
   address: string;
   lat: number | null;
@@ -120,6 +121,7 @@ export default function AdminStoresPage() {
         search &&
         !s.name.includes(search) &&
         !s.address.includes(search) &&
+        !(s.ship_name ?? "").includes(search) &&
         !(s.store_code ?? "").toLowerCase().includes(search.toLowerCase())
       )
         return false;
@@ -424,6 +426,7 @@ export default function AdminStoresPage() {
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("id")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">ID<span className={sortKey === "id" ? "text-gray-900" : "text-gray-300"}>{sortKey === "id" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("store_code")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">지점코드<span className={sortKey === "store_code" ? "text-gray-900" : "text-gray-300"}>{sortKey === "store_code" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("name")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">매장명<span className={sortKey === "name" ? "text-gray-900" : "text-gray-300"}>{sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
+                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap">W주문 지점명</th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("region")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">지역<span className={sortKey === "region" ? "text-gray-900" : "text-gray-300"}>{sortKey === "region" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("store_type")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">유형<span className={sortKey === "store_type" ? "text-gray-900" : "text-gray-300"}>{sortKey === "store_type" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("phone")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">전화<span className={sortKey === "phone" ? "text-gray-900" : "text-gray-300"}>{sortKey === "phone" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
@@ -436,7 +439,7 @@ export default function AdminStoresPage() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="px-5 py-16 text-center text-gray-400">
+                  <td colSpan={12} className="px-5 py-16 text-center text-gray-400">
                     <div className="flex items-center justify-center gap-2">
                       <div className="w-5 h-5 border-2 border-gray-300 border-t-[#303236] rounded-full animate-spin" />
                       불러오는 중...
@@ -445,7 +448,7 @@ export default function AdminStoresPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-5 py-16 text-center text-gray-400">
+                  <td colSpan={12} className="px-5 py-16 text-center text-gray-400">
                     {stores.length === 0
                       ? <div>
                           <p className="text-base font-medium mb-2">등록된 매장이 없습니다.</p>
@@ -473,6 +476,7 @@ export default function AdminStoresPage() {
                       <Link href={`/admin/stores/${store.id}/edit`} className="font-medium text-gray-900 hover:text-blue-600 hover:underline">{store.name}</Link>
                       <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[200px]">{store.address}</p>
                     </td>
+                    <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{store.ship_name || "-"}</td>
                     <td className="px-3 py-2.5 text-gray-600">{store.region || "-"}</td>
                     <td className="px-3 py-2.5">
                       <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-full ${TYPE_COLOR[store.store_type] ?? "bg-gray-100 text-gray-600"}`}>
