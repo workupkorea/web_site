@@ -467,6 +467,22 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
 
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 type ViewMode  = "grid" | "calendar" | "timeline" | "gantt";
+// 사이즈 문자열("S/M/L", "95,100,105" 등)을 낱개 사이즈로 분리
+function splitSizes(size?: string | null): string[] {
+  return (size ?? "").split(/[\s,/|·~\-]+/).map(t => t.trim().toUpperCase()).filter(Boolean);
+}
+const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "2XL", "XXL", "3XL", "XXXL", "4XL", "FREE", "F"];
+// 알파벳 사이즈는 S→XL 순, 숫자 사이즈는 오름차순, 그 외는 가나다순
+function compareSize(a: string, b: string): number {
+  const ia = SIZE_ORDER.indexOf(a), ib = SIZE_ORDER.indexOf(b);
+  if (ia >= 0 || ib >= 0) return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
+  const na = Number(a), nb = Number(b);
+  if (!isNaN(na) && !isNaN(nb)) return na - nb;
+  if (!isNaN(na)) return -1;
+  if (!isNaN(nb)) return 1;
+  return a.localeCompare(b);
+}
+
 type GroupMode = "date" | "month" | "category" | "brand";
 
 // ─── 상품 카드 (그리드용) ─────────────────────────────────────────────────────
@@ -1827,6 +1843,7 @@ export default function ArrivalTimeline() {
 
   const [filterBrand,     setFilterBrand]     = useState("all");
   const [filterCategory,  setFilterCategory]  = useState("all");
+  const [filterSize,      setFilterSize]      = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
   const [filterNewArrival, setFilterNewArrival] = useState("all"); // all / 신규 / 재진행
   const [searchQuery,     setSearchQuery]     = useState("");
@@ -1905,6 +1922,12 @@ export default function ArrivalTimeline() {
 
   const brands     = useMemo(() => Array.from(new Set(products.map(p => p.brand))).sort(),     [products]);
   const categories = useMemo(() => Array.from(new Set(products.map(p => p.category))).sort(), [products]);
+  // 사이즈 드롭다운 옵션: 상품별 사이즈 문자열("S/M/L", "95,100" 등)을 낱개로 쪼개 중복 제거 후 정렬
+  const sizes = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of products) splitSizes(p.size).forEach(s => set.add(s));
+    return Array.from(set).sort(compareSize);
+  }, [products]);
   const lastSync = useMemo(() => {
     const t = products.map(p => p.syncedAt).filter(Boolean) as string[];
     return t.length ? t.reduce((a, b) => (a > b ? a : b)) : null;
@@ -1916,6 +1939,7 @@ export default function ArrivalTimeline() {
       .filter(p => {
         if (filterBrand    !== "all" && p.brand    !== filterBrand)    return false;
         if (filterCategory !== "all" && p.category !== filterCategory) return false;
+        if (filterSize     !== "all" && !splitSizes(p.size).includes(filterSize)) return false;
         if (filterStatus   !== "all" && p.status   !== filterStatus)   return false;
         if (filterNewArrival !== "all" && (p.newArrivalType ?? "") !== filterNewArrival) return false;
         if (isAdmin && filterMarketing && !p.marketingUsage) return false;
@@ -1929,7 +1953,7 @@ export default function ArrivalTimeline() {
         if (da !== db) return da.localeCompare(db);
         return (a.brand || "").localeCompare(b.brand || "");
       });
-  }, [products, filterBrand, filterCategory, filterStatus, filterNewArrival, filterMarketing, isAdmin, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
+  }, [products, filterBrand, filterCategory, filterSize, filterStatus, filterNewArrival, filterMarketing, isAdmin, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
 
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
@@ -1969,10 +1993,10 @@ export default function ArrivalTimeline() {
   }), [products]);
 
   const resetFilters = useCallback(() => {
-    setFilterBrand("all"); setFilterCategory("all");
+    setFilterBrand("all"); setFilterCategory("all"); setFilterSize("all");
     setFilterStatus("all"); setFilterNewArrival("all"); setSearchQuery(""); setFilterMarketing(false); setFilterThisWeek(false);
   }, []);
-  const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterStatus !== "all" || filterNewArrival !== "all" || searchQuery !== "" || filterMarketing || (viewMode === "calendar" && filterThisWeek);
+  const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterSize !== "all" || filterStatus !== "all" || filterNewArrival !== "all" || searchQuery !== "" || filterMarketing || (viewMode === "calendar" && filterThisWeek);
 
   if (loadingData) {
     return (
@@ -2019,7 +2043,7 @@ export default function ArrivalTimeline() {
               className={`sm:hidden flex items-center gap-1 px-2.5 py-1 text-[14px] font-semibold rounded-lg border transition-all shrink-0 ${
                 filterOpen || hasFilter ? "bg-[#1a1a1a] text-white border-[#1a1a1a]" : "border-gray-200 text-gray-600"
               }`}>
-              필터{hasFilter ? ` (${[filterBrand!=="all",filterCategory!=="all",filterStatus!=="all",filterNewArrival!=="all",filterMarketing,viewMode==="calendar"&&filterThisWeek].filter(Boolean).length})` : ""}
+              필터{hasFilter ? ` (${[filterBrand!=="all",filterCategory!=="all",filterSize!=="all",filterStatus!=="all",filterNewArrival!=="all",filterMarketing,viewMode==="calendar"&&filterThisWeek].filter(Boolean).length})` : ""}
             </button>
 
             {/* 데스크탑 인라인 필터 */}
@@ -2033,6 +2057,11 @@ export default function ArrivalTimeline() {
                 className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
                 <option value="all">카테고리</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={filterSize} onChange={e => setFilterSize(e.target.value)}
+                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                <option value="all">사이즈</option>
+                {sizes.map(z => <option key={z} value={z}>{z}</option>)}
               </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
@@ -2174,6 +2203,11 @@ export default function ArrivalTimeline() {
                 className="border border-gray-200 px-2.5 py-1.5 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700 flex-1 min-w-[100px]">
                 <option value="all">카테고리</option>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={filterSize} onChange={e => setFilterSize(e.target.value)}
+                className="border border-gray-200 px-2.5 py-1.5 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700 flex-1 min-w-[100px]">
+                <option value="all">사이즈</option>
+                {sizes.map(z => <option key={z} value={z}>{z}</option>)}
               </select>
               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
                 className="border border-gray-200 px-2.5 py-1.5 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700 flex-1 min-w-[100px]">

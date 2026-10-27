@@ -1186,7 +1186,7 @@ export default function AdminArrivalPage() {
 
   const filtered = products.filter(p => {
     const qLow = q.toLowerCase();
-    if (qLow && !p.productName.toLowerCase().includes(qLow) && !p.productCode.toLowerCase().includes(qLow) && !p.brand.toLowerCase().includes(qLow)) return false;
+    if (qLow && !p.productName.toLowerCase().includes(qLow) && !p.productCode.toLowerCase().includes(qLow) && !p.brand.toLowerCase().includes(qLow) && !(p.size ?? "").toLowerCase().includes(qLow)) return false;
     if (filterBrand !== "all" && p.brand !== filterBrand) return false;
     if (filterCategory !== "all" && p.category !== filterCategory) return false;
     if (filterProductType !== "all" && (p.productType ?? "") !== filterProductType) return false;
@@ -1507,7 +1507,7 @@ export default function AdminArrivalPage() {
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
-          placeholder="상품명 / 코드 / 브랜드 검색"
+          placeholder="상품명 / 코드 / 브랜드 / 사이즈 검색"
           className="border border-gray-200 px-3 py-2 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a] w-52"
         />
         <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
