@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
     for (const file of files) {
       let filename    = toStorageKey(file.name.split("/").pop() ?? file.name);
-      let buffer      = Buffer.from(await file.arrayBuffer());
+      let buffer: Buffer = Buffer.from(await file.arrayBuffer());
       let contentType = file.type || "image/jpeg";
 
       // 로딩 속도를 위해 긴 변 MAX_EDGE 이하 WebP로 변환 (실패 시 원본 그대로 저장)
