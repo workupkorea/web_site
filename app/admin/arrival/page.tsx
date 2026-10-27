@@ -48,6 +48,9 @@ const STATUS_LABEL: Partial<Record<ArrivalStatus, string>> = {
 };
 const statusLabel = (s: ArrivalStatus) => STATUS_LABEL[s] ?? s;
 
+// 히스토리 패널에서 펼쳐서 보여줄 최신 기록 수 (나머지는 접힘)
+const HISTORY_OPEN_LIMIT = 10;
+
 // ─── 동기화 히스토리 타입 ──────────────────────────────────────────────────────
 interface ProductSnapshot {
   brand: string;
@@ -1097,6 +1100,8 @@ export default function AdminArrivalPage() {
   const [syncResult,     setSyncResult]    = useState<{ total: number; syncedAt: string; actor?: string } | null>(null);
   const [syncElapsed,    setSyncElapsed]   = useState<number | null>(null); // 초 단위
   const [syncHistory,    setSyncHistory]   = useState<SyncHistoryEntry[]>([]);
+  const [historyMonth,   setHistoryMonth]  = useState<string | null>(null);        // 히스토리 패널 월 선택 (null = 이번 달)
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());  // 접힌 기록 중 직접 펼친 항목
   const [showSyncHistory,setShowSyncHistory] = useState(false);
   const [adminName,      setAdminName]     = useState<string | null>(null);
   const syncTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1633,11 +1638,25 @@ export default function AdminArrivalPage() {
       {/* 동기화 히스토리 패널 */}
       {showSyncHistory && (() => {
         const today = new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\. /g,"-").replace(".","");
-        const todayEntries  = syncHistory.filter(e => {
+        // 월 단위 보기 — 목록에는 선택한 달의 기록만 표시 (기본: 이번 달)
+        const monthKey = (iso: string) => {
+          const d = new Date(iso);
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        };
+        const currentMonth = monthKey(new Date().toISOString());
+        const monthCounts: Record<string, number> = { [currentMonth]: 0 };
+        for (const e of syncHistory) monthCounts[monthKey(e.syncedAt)] = (monthCounts[monthKey(e.syncedAt)] ?? 0) + 1;
+        const months = Object.keys(monthCounts).sort().reverse();
+        const selectedMonth = historyMonth && monthCounts[historyMonth] !== undefined ? historyMonth : currentMonth;
+        const syncHistory_ = syncHistory.filter(e => monthKey(e.syncedAt) === selectedMonth);
+        const rankById = new Map(
+          [...syncHistory_].sort((a, b) => new Date(b.syncedAt).getTime() - new Date(a.syncedAt).getTime()).map((e, i) => [e.id, i])
+        );
+        const todayEntries  = syncHistory_.filter(e => {
           const d = new Date(e.syncedAt).toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\. /g,"-").replace(".","");
           return d === today;
         });
-        const pastEntries   = syncHistory.filter(e => {
+        const pastEntries   = syncHistory_.filter(e => {
           const d = new Date(e.syncedAt).toLocaleDateString("ko-KR", { year:"numeric", month:"2-digit", day:"2-digit" }).replace(/\. /g,"-").replace(".","");
           return d !== today;
         });
@@ -1654,8 +1673,10 @@ export default function AdminArrivalPage() {
                 const removed = entry.diff.filter(d => d.type === "removed");
                 const changed = entry.diff.filter(d => d.type === "changed");
                 const STATUS_ORDER = ["입고예정","입고완료","입고지연","일정미정","대기","일정미표기"];
+                // 선택한 달에서 최신 10건만 펼친 상태, 나머지는 요약만 (직접 펼치기 가능)
+                const open = (rankById.get(entry.id) ?? 0) < HISTORY_OPEN_LIMIT || expandedHistory.has(entry.id);
                 return (
-                  <div key={entry.id} className={`px-6 py-5 ${ei < total - 1 ? "border-b" : ""}`}>
+                  <div key={entry.id} className={`px-6 ${open ? "py-5" : "py-3"} ${ei < total - 1 ? "border-b" : ""}`}>
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div>
                         <span className="text-[13px] font-bold text-[#1a1a1a]">
@@ -1677,6 +1698,14 @@ export default function AdminArrivalPage() {
                         {entry.diff.length === 0 && !entry.error && <span className="text-[11px] text-gray-400">변경 없음</span>}
                       </div>
                     </div>
+                    {!open && (
+                      <button
+                        onClick={() => setExpandedHistory(prev => new Set(prev).add(entry.id))}
+                        className="text-[11px] text-blue-600 hover:underline"
+                      >상세 펼치기 ▾</button>
+                    )}
+                    {open && (
+                    <>
                     {entry.error && (
                       <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-[12px] text-red-700 font-mono mb-3 break-all whitespace-pre-line">{entry.error}</div>
                     )}
@@ -1795,6 +1824,8 @@ export default function AdminArrivalPage() {
                         </div>
                       </div>
                     )}
+                    </>
+                    )}
                   </div>
                 );
               };
@@ -1807,15 +1838,28 @@ export default function AdminArrivalPage() {
             <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
               <div>
                 <h2 className="text-[15px] font-bold text-[#1a1a1a]">동기화 히스토리</h2>
-                <p className="text-[11px] text-gray-400 mt-0.5">누적 기록 · {syncHistory.length}건</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">누적 기록 {syncHistory.length}건 · {selectedMonth} {syncHistory_.length}건</p>
               </div>
               <button onClick={() => setShowSyncHistory(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700">✕</button>
             </div>
 
+            {/* 월 선택 */}
+            <div className="flex gap-1.5 px-6 py-2.5 border-b shrink-0 overflow-x-auto">
+              {months.map(m => (
+                <button
+                  key={m}
+                  onClick={() => setHistoryMonth(m)}
+                  className={`px-3 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap min-h-[32px] ${m === selectedMonth ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                >
+                  {m.replace("-", ".")} <span className="opacity-60">{monthCounts[m]}</span>
+                </button>
+              ))}
+            </div>
+
             {/* 목록 */}
             <div className="overflow-y-auto flex-1">
-              {syncHistory.length === 0 && (
-                <div className="py-20 text-center text-[13px] text-gray-400">동기화 기록이 없습니다.</div>
+              {syncHistory_.length === 0 && (
+                <div className="py-20 text-center text-[13px] text-gray-400">{selectedMonth.replace("-", ".")} 동기화 기록이 없습니다.</div>
               )}
 
               {/* 오늘 */}

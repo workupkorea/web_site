@@ -79,11 +79,6 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
   };
 }
 
-// 기획전 상세페이지 내용이 아직 테스트/미완성이라 배포본(Vercel)에서는 꺼두고,
-// 로컬(`next dev`)에서만 확인할 수 있게 한다 — 내용 준비되면 항상 true로 바꿀 것.
-// (단, 서브배너 1·2는 blockToEditorial에서 운영에도 활성화)
-const FEATURE_DETAIL_LINKS_ENABLED = process.env.NODE_ENV === "development";
-
 // 메인 배너 태그 클릭 이동 주소 — 제품이 들어 있는 첫 배너(1~4)의 상세페이지 + ?product=<id> (그 제품 탭이 열림).
 // 상세페이지 링크가 꺼져 있거나 어느 배너에도 없으면 undefined → 제품 상세로 이동.
 // 태그는 배너 제품에 연결된다. item_id가 없는 옛 태그는 같은 제품명의 배너 제품을 찾아 연결한다(제품 DB는 쓰지 않음).
@@ -109,8 +104,8 @@ function tagHref(block: DBBlock, t: HeroTag, href: (n: number) => string | undef
 }
 
 export function blockToEditorial(block: DBBlock): Editorial {
-  // 서브배너 1·2는 운영에서도 상세페이지 링크 활성, 3·4는 아직 로컬(dev)에서만
-  const href = (n: number) => (FEATURE_DETAIL_LINKS_ENABLED || n <= 2 ? `/products/feature/${block.id}/${n}` : undefined);
+  // 서브배너 1~4 모두 상세페이지 링크 활성
+  const href = (n: number) => `/products/feature/${block.id}/${n}`;
   const s1 = makeSection(block.banner1, href(1));
   const s2 = makeSection(block.banner2, href(2));
   const s3 = block.banner3 ? makeSection(block.banner3, href(3)) : s1;
