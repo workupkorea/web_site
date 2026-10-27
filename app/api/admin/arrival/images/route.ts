@@ -1,11 +1,14 @@
 import { createHash } from "crypto";
+import sharp from "sharp";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 
 export const dynamic    = "force-dynamic";
 export const maxDuration = 60;
 
-const BUCKET = "arrival-images";
+const BUCKET       = "arrival-images";
+const MAX_EDGE     = 1200; // 긴 변 최대 px
+const WEBP_QUALITY = 80;
 
 /**
  * Supabase Storage는 ASCII 외 문자(한글 등)가 든 키를 거부한다("Invalid key").
@@ -49,13 +52,27 @@ export async function POST(req: NextRequest) {
     const errors: string[] = [];
 
     for (const file of files) {
-      const filename = toStorageKey(file.name.split("/").pop() ?? file.name);
-      const buffer   = Buffer.from(await file.arrayBuffer());
+      let filename    = toStorageKey(file.name.split("/").pop() ?? file.name);
+      let buffer      = Buffer.from(await file.arrayBuffer());
+      let contentType = file.type || "image/jpeg";
+
+      // 로딩 속도를 위해 긴 변 MAX_EDGE 이하 WebP로 변환 (실패 시 원본 그대로 저장)
+      try {
+        buffer = await sharp(buffer)
+          .rotate() // EXIF 회전 반영
+          .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+          .webp({ quality: WEBP_QUALITY })
+          .toBuffer();
+        filename    = filename.replace(/\.[^.]*$/, "") + ".webp";
+        contentType = "image/webp";
+      } catch (e) {
+        console.warn("[arrival/images] 리사이즈 실패, 원본 저장:", filename, e);
+      }
 
       const { error } = await sb.storage
         .from(BUCKET)
         .upload(filename, buffer, {
-          contentType: file.type || "image/jpeg",
+          contentType,
           upsert: true,
         });
 

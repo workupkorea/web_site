@@ -214,8 +214,13 @@ function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: Arriva
               src={images[index]}
               alt={`${product.productName} ${index + 1}`}
               className="w-full h-full object-contain"
+              decoding="async"
               onError={() => markFailed(index)}
             />
+          )}
+          {/* 다음 장 미리 받기 */}
+          {images.length > 1 && (
+            <img src={images[(index + 1) % images.length]} alt="" aria-hidden className="hidden" />
           )}
           {images.length > 1 && (
             <div className="absolute top-2 right-2 bg-black/40 text-white text-[13px] font-semibold px-2 py-0.5 rounded-full">
