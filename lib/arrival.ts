@@ -130,11 +130,13 @@ export async function getArrivalProducts(): Promise<ArrivalProduct[]> {
   // 기본 override(productCode)와 날짜별 override(productCode::arrivalDate)는
   // 서로 다른 시점에 독립적으로 저장될 수 있으므로(예: 이미지 등록 후 날짜만 수정)
   // 택일하지 않고 필드 단위로 겹쳐 적용한다 — 기본 → 날짜별 순.
-  function applyOverride(result: ArrivalProduct, ov: ArrivalOverride | undefined) {
+  // 이미지는 상품코드(기본) 키가 기준이다. 날짜별 키에 남은 예전 이미지가 최신 이미지를 가리지 않도록
+  // 날짜별 override의 image는 적용하지 않고, 기본 키에 이미지가 없을 때만 폴백으로 쓴다.
+  function applyOverride(result: ArrivalProduct, ov: ArrivalOverride | undefined, withImage: boolean) {
     if (!ov) return;
     if (ov.arrivalDate !== undefined) result.arrivalDate = ov.arrivalDate;
     if (ov.status !== undefined) result.status = ov.status;
-    if (ov.image !== undefined) result.image = ov.image;
+    if (withImage && ov.image !== undefined) result.image = ov.image;
     if (ov.detailUrl !== undefined) result.detailUrl = ov.detailUrl;
     if (ov.changeHistory !== undefined) result.changeHistory = ov.changeHistory;
   }
@@ -146,8 +148,9 @@ export async function getArrivalProducts(): Promise<ArrivalProduct[]> {
     const dateOv = compoundKey ? overrideMap.get(compoundKey) : undefined;
     if (!baseOv && !dateOv) return p;
     const result = { ...p };
-    applyOverride(result, baseOv);
-    applyOverride(result, dateOv);
+    applyOverride(result, baseOv, true);
+    applyOverride(result, dateOv, false);
+    if (!baseOv?.image && dateOv?.image) result.image = dateOv.image;
     return result;
   });
 }
@@ -197,6 +200,30 @@ export async function saveArrivalOverride(
   }
 
   const merged: ArrivalOverride = { ...prev, ...data, changeHistory };
+
+  // 이미지는 항상 상품코드(기본) 키에만 저장한다. 날짜별 키에 두면 다른 경로(빠른 업로드 등)로 바꾼
+  // 최신 이미지와 충돌하고, 입고일이 바뀌면 조회되지 않는 키에 저장되어 예전 이미지가 되살아난다.
+  if (originalDate) {
+    const newImage = data.image !== undefined ? data.image : prev.image; // 날짜 키에 남은 기존 이미지는 기본 키로 이전
+    if (newImage !== undefined) {
+      const { data: baseExisting } = await supabase
+        .from("arrival_overrides")
+        .select("*")
+        .eq("override_key", productCode)
+        .maybeSingle();
+      const base: ArrivalOverride = baseExisting ? rowToOverride(baseExisting) : {};
+      await supabase.from("arrival_overrides").upsert({
+        override_key:   productCode,
+        arrival_date:   base.arrivalDate ?? null,
+        status:         base.status ?? null,
+        image:          newImage ?? null,
+        detail_url:     base.detailUrl ?? null,
+        change_history: base.changeHistory ?? [],
+        updated_at:     new Date().toISOString(),
+      });
+    }
+    merged.image = undefined;
+  }
 
   await supabase.from("arrival_overrides").upsert({
     override_key:   key,
