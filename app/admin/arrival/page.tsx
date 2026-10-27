@@ -1101,7 +1101,7 @@ export default function AdminArrivalPage() {
   const [syncElapsed,    setSyncElapsed]   = useState<number | null>(null); // 초 단위
   const [syncHistory,    setSyncHistory]   = useState<SyncHistoryEntry[]>([]);
   const [historyMonth,   setHistoryMonth]  = useState<string | null>(null);        // 히스토리 패널 월 선택 (null = 이번 달)
-  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());  // 접힌 기록 중 직접 펼친 항목
+  const [historyOpen,    setHistoryOpen]   = useState<Record<string, boolean>>({});   // 기록별 직접 펼침/접힘 (없으면 기본 규칙: 최신 10건만 펼침)
   const [showSyncHistory,setShowSyncHistory] = useState(false);
   const [adminName,      setAdminName]     = useState<string | null>(null);
   const syncTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1674,7 +1674,8 @@ export default function AdminArrivalPage() {
                 const changed = entry.diff.filter(d => d.type === "changed");
                 const STATUS_ORDER = ["입고예정","입고완료","입고지연","일정미정","대기","일정미표기"];
                 // 선택한 달에서 최신 10건만 펼친 상태, 나머지는 요약만 (직접 펼치기 가능)
-                const open = (rankById.get(entry.id) ?? 0) < HISTORY_OPEN_LIMIT || expandedHistory.has(entry.id);
+                const open = historyOpen[entry.id] ?? (rankById.get(entry.id) ?? 0) < HISTORY_OPEN_LIMIT;
+                const toggleOpen = () => setHistoryOpen(prev => ({ ...prev, [entry.id]: !open }));
                 return (
                   <div key={entry.id} className={`px-6 ${open ? "py-5" : "py-3"} ${ei < total - 1 ? "border-b" : ""}`}>
                     <div className="flex items-start justify-between gap-2 mb-3">
@@ -1700,8 +1701,8 @@ export default function AdminArrivalPage() {
                     </div>
                     {!open && (
                       <button
-                        onClick={() => setExpandedHistory(prev => new Set(prev).add(entry.id))}
-                        className="text-[11px] text-blue-600 hover:underline"
+                        onClick={toggleOpen}
+                        className="text-[11px] text-blue-600 hover:underline min-h-[28px]"
                       >상세 펼치기 ▾</button>
                     )}
                     {open && (
@@ -1824,6 +1825,10 @@ export default function AdminArrivalPage() {
                         </div>
                       </div>
                     )}
+                    <button
+                      onClick={toggleOpen}
+                      className="mt-3 text-[11px] text-blue-600 hover:underline min-h-[28px]"
+                    >상세 접기 ▴</button>
                     </>
                     )}
                   </div>
@@ -1844,15 +1849,24 @@ export default function AdminArrivalPage() {
             </div>
 
             {/* 월 선택 */}
-            <div className="flex gap-1.5 px-6 py-2.5 border-b shrink-0 overflow-x-auto">
-              {months.map(m => (
+            <div className="flex items-center gap-1.5 px-6 py-2.5 border-b shrink-0">
+              <select
+                value={selectedMonth}
+                onChange={e => setHistoryMonth(e.target.value)}
+                aria-label="월 선택"
+                className="flex-1 min-w-0 min-h-[36px] px-3 rounded-lg border border-gray-200 bg-white text-[13px] font-semibold text-[#1a1a1a] focus:outline-none focus:ring-2 focus:ring-[#1a1a1a]"
+              >
+                {months.map(m => (
+                  <option key={m} value={m}>{m.replace("-", ".")} ({monthCounts[m]}건)</option>
+                ))}
+              </select>
+              {/* 선택한 달의 기록 전체 펼치기/접기 */}
+              {([["모두 펼치기", true], ["모두 접기", false]] as const).map(([label, value]) => (
                 <button
-                  key={m}
-                  onClick={() => setHistoryMonth(m)}
-                  className={`px-3 py-1.5 rounded-full text-[12px] font-semibold whitespace-nowrap min-h-[32px] ${m === selectedMonth ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
-                >
-                  {m.replace("-", ".")} <span className="opacity-60">{monthCounts[m]}</span>
-                </button>
+                  key={label}
+                  onClick={() => setHistoryOpen(prev => ({ ...prev, ...Object.fromEntries(syncHistory_.map(e => [e.id, value])) }))}
+                  className="shrink-0 px-3 py-1.5 rounded-lg border border-gray-200 text-[12px] font-semibold text-gray-600 hover:bg-gray-50 whitespace-nowrap min-h-[32px]"
+                >{label}</button>
               ))}
             </div>
 
