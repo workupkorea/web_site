@@ -24,10 +24,18 @@ export default async function HomeBrandLogos() {
     <div className="bg-white py-4 md:py-7">
       <div className="px-[15px] md:px-[70px]">
         <div className="rounded-xl border-2 border-[#303236] bg-white px-5 py-5 shadow-md md:px-8 md:py-7">
-          <h2 className="text-lg font-bold text-[#303236] md:text-xl">{title}</h2>
-          <p className="mt-1 mb-4 text-xs text-gray-500 md:mb-5">로고를 클릭하면 브랜드 카탈로그로 이동합니다</p>
-          <BrandMarqueeClient items={items} />
+          <div className="md:flex md:items-baseline md:justify-between md:gap-4">
+            <h2 className="text-center text-lg font-extrabold md:text-left tracking-[-0.06em] text-[#303236] md:text-xl md:tracking-[-0.03em]">{title}</h2>
+            {/* PC: 제목과 같은 줄 우측 */}
+            <p className="hidden text-xs text-gray-400 md:block">로고를 클릭하면 브랜드 카탈로그로 이동합니다</p>
+          </div>
+          <hr className="mt-3 border-0 border-t border-gray-200 md:mt-4" />
+          <div className="mt-3 md:mt-4">
+            <BrandMarqueeClient items={items} />
+          </div>
         </div>
+        {/* 모바일: 박스 바깥 하단 중앙에 작게 */}
+        <p className="mt-1.5 text-center text-[10px] text-gray-400 md:hidden">로고를 클릭하면 브랜드 카탈로그로 이동합니다</p>
       </div>
     </div>
   );

@@ -67,15 +67,15 @@ export default function BrandMarqueeClient({ items }: { items: BrandLogoItem[] }
               <img
                 src={ikSrc(b.logoUrl, 240)}
                 alt={isCopy ? "" : b.name}
-                className="h-[52%] w-auto max-w-[180px] object-contain grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100"
+                className="h-[46%] w-auto max-w-[110px] object-contain md:h-[52%] md:max-w-[180px] grayscale opacity-70 transition-all hover:grayscale-0 hover:opacity-100"
               />
             ) : (
               // 로고 이미지가 없는 브랜드는 브랜드명을 텍스트로
-              <span className="whitespace-nowrap text-lg font-black tracking-[0.08em] text-gray-400 transition-colors hover:text-gray-900 md:text-xl">
+              <span className="whitespace-nowrap text-sm font-black tracking-[0.08em] text-gray-400 transition-colors hover:text-gray-900 md:text-xl">
                 {b.name}
               </span>
             );
-            const boxClass = "flex h-16 min-w-[44px] flex-shrink-0 items-center justify-center rounded-md px-6 md:h-20 md:px-8";
+            const boxClass = "flex h-12 min-w-[44px] flex-shrink-0 items-center justify-center rounded-md px-4 md:h-20 md:px-8";
 
             return (
               <Link
@@ -84,7 +84,8 @@ export default function BrandMarqueeClient({ items }: { items: BrandLogoItem[] }
                 aria-hidden={isCopy}
                 tabIndex={isCopy ? -1 : undefined}
                 aria-label={`${b.name} 카탈로그 보기`}
-                onFocus={() => { pausedRef.current = true; }}
+                // 터치로 링크를 탭하면 포커스가 남아 마퀴가 멈추므로, 키보드 포커스(:focus-visible)일 때만 멈춘다.
+                onFocus={(e) => { if (e.currentTarget.matches(":focus-visible")) pausedRef.current = true; }}
                 onBlur={() => { pausedRef.current = false; }}
                 className={`${boxClass} focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#E5541B]`}
               >
