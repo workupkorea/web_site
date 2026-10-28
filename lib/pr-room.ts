@@ -5,8 +5,22 @@
 // 데이터는 기존 패턴(site_settings 테이블, section="pr_room")에 JSON 으로 저장한다.
 // 별도 테이블·마이그레이션 없이 footer/editorial 등과 동일하게 동작한다.
 
+// 게시글 분류 — 공개 페이지(/pr)의 탭(공지사항 · 보도자료)으로 구분된다.
+export type PrCategory = "notice" | "press";
+
+export const PR_CATEGORIES: { value: PrCategory; label: string }[] = [
+  { value: "press", label: "보도자료" },
+  { value: "notice", label: "공지사항" },
+];
+export const DEFAULT_PR_CATEGORY: PrCategory = "notice";
+
+export function prCategoryLabel(c: PrCategory): string {
+  return PR_CATEGORIES.find((x) => x.value === c)?.label ?? "공지사항";
+}
+
 export type PrPost = {
   id: string;
+  category: PrCategory; // 분류(없던 기존 글은 공지사항으로 간주)
   title: string;
   date: string;         // 표시용 날짜 문자열 (예: "2026.06.26")
   image_url: string;    // 대표 이미지 (이미지 안에는 텍스트를 넣지 않음 — 프로젝트 규칙)
@@ -17,17 +31,43 @@ export type PrPost = {
   sort_order: number;   // 정렬 순서(오름차순)
 };
 
+// 정렬 방식 — "date": 날짜 최신순 자동 정렬(기본), "manual": 관리자가 ↑↓로 직접 정한 순서(sort_order) 유지.
+export type PrOrderMode = "date" | "manual";
+
 export type PrRoomConfig = {
   title: string;        // 공개 페이지 헤더 제목
   subtitle: string;     // 공개 페이지 헤더 부제
+  order_mode: PrOrderMode;
   posts: PrPost[];
 };
 
 export const DEFAULT_PR_ROOM: PrRoomConfig = {
   title: "공지사항",
   subtitle: "워크업의 새로운 소식과 이야기를 전해드립니다.",
+  order_mode: "date",
   posts: [],
 };
+
+// "2026.10.23" · "2026. 09.04" 등 표시용 날짜 문자열 → 비교용 숫자(20261023). 해석 불가면 0(맨 뒤).
+export function dateRank(date: string): number {
+  const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})/.exec(date);
+  return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : 0;
+}
+
+// 날짜 문자열 ↔ <input type="date"> 값(YYYY-MM-DD) 변환
+export function dateToIso(date: string): string {
+  const m = /(\d{4})\D+(\d{1,2})\D+(\d{1,2})/.exec(date);
+  return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : "";
+}
+export function isoToDate(iso: string): string {
+  return iso ? iso.replace(/-/g, ".") : "";
+}
+
+// date 모드면 날짜 최신순(같은 날짜는 기존 순서 유지), manual 모드면 입력 순서 그대로.
+export function sortPosts(posts: PrPost[], mode: PrOrderMode): PrPost[] {
+  if (mode !== "date") return posts;
+  return [...posts].sort((a, b) => dateRank(b.date) - dateRank(a.date));
+}
 
 function str(v: unknown, fallback = ""): string {
   return typeof v === "string" ? v : fallback;
@@ -67,6 +107,7 @@ function normalizePost(raw: unknown, idx: number): PrPost | null {
   const p = raw as Record<string, unknown>;
   return {
     id: str(p.id) || `pr-${idx}`,
+    category: p.category === "press" ? "press" : DEFAULT_PR_CATEGORY,
     title: str(p.title),
     date: str(p.date),
     image_url: str(p.image_url),
@@ -81,15 +122,20 @@ function normalizePost(raw: unknown, idx: number): PrPost | null {
 // 저장 데이터가 일부 누락/구버전이어도 안전하게 동작하도록 항상 정규화한다.
 export function normalizePrRoom(raw: unknown): PrRoomConfig {
   const c = (raw ?? {}) as Record<string, unknown>;
+  const order_mode: PrOrderMode = c.order_mode === "manual" ? "manual" : "date";
   const posts = Array.isArray(c.posts)
-    ? c.posts
-        .map((p, i) => normalizePost(p, i))
-        .filter((p): p is PrPost => p !== null)
-        .sort((a, b) => a.sort_order - b.sort_order)
+    ? sortPosts(
+        c.posts
+          .map((p, i) => normalizePost(p, i))
+          .filter((p): p is PrPost => p !== null)
+          .sort((a, b) => a.sort_order - b.sort_order),
+        order_mode
+      )
     : [];
   return {
     title: str(c.title, DEFAULT_PR_ROOM.title),
     subtitle: str(c.subtitle, DEFAULT_PR_ROOM.subtitle),
+    order_mode,
     posts,
   };
 }

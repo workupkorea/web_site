@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getPrRoom } from "@/lib/pr-room-server";
-import { isHtmlBody } from "@/lib/pr-room";
+import { isHtmlBody, prCategoryLabel } from "@/lib/pr-room";
 import { getFooterConfig } from "@/lib/footer-server";
 import { ikSrc } from "@/lib/imageSrc";
 import NearestStoreCta from "@/components/NearestStoreCta";
@@ -49,11 +49,11 @@ export default async function PrPostDetailPage({ params }: Params) {
     <main className="bg-white">
       <article className="max-w-3xl mx-auto px-6 py-10 md:py-14">
         {/* 뒤로가기 */}
-        <Link href="/pr" className="inline-flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-[#303236] transition-colors mb-6">
+        <Link href={`/pr?tab=${post.category}`} className="inline-flex items-center gap-1.5 text-[13px] text-gray-500 hover:text-[#303236] transition-colors mb-6">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
           </svg>
-          공지사항 목록
+          {prCategoryLabel(post.category)} 목록
         </Link>
 
         {/* 헤더 */}

@@ -2,7 +2,9 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
-  DEFAULT_PR_ROOM, normalizePrRoom, type PrRoomConfig, type PrPost,
+  DEFAULT_PR_ROOM, DEFAULT_PR_CATEGORY, PR_CATEGORIES, prCategoryLabel, normalizePrRoom,
+  sortPosts, dateToIso, isoToDate,
+  type PrRoomConfig, type PrPost, type PrCategory,
 } from "@/lib/pr-room";
 
 const INPUT = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-400";
@@ -14,8 +16,9 @@ function uid() {
 function emptyPost(order: number): PrPost {
   return {
     id: uid(),
+    category: DEFAULT_PR_CATEGORY,
     title: "",
-    date: "",
+    date: isoToDate(new Date().toLocaleDateString("sv-SE")), // 새 글은 오늘 날짜로 시작(캘린더에서 변경)
     image_url: "",
     summary: "",
     body: "",
@@ -235,9 +238,10 @@ export default function PrRoomManagePage() {
 
   // 전체 config 를 서버에 저장(순서대로 sort_order 재부여). 성공 여부 반환.
   const persist = async (next: PrRoomConfig, okMsg: string): Promise<boolean> => {
+    // 날짜순 모드면 저장 시점에 날짜 최신순으로 재정렬(새 글·날짜 수정이 즉시 제자리를 찾음)
     const payload: PrRoomConfig = {
       ...next,
-      posts: next.posts.map((post, idx) => ({ ...post, sort_order: idx })),
+      posts: sortPosts(next.posts, next.order_mode).map((post, idx) => ({ ...post, sort_order: idx })),
     };
     setConfig(payload);
     setSaving(true);
@@ -268,8 +272,10 @@ export default function PrRoomManagePage() {
     if (j < 0 || j >= config.posts.length) return;
     const posts = [...config.posts];
     [posts[i], posts[j]] = [posts[j], posts[i]];
-    persist({ ...config, posts }, "순서를 변경했습니다.");
+    // 직접 순서를 바꾸면 수동 모드로 전환 — 이후 날짜와 무관하게 이 순서를 유지
+    persist({ ...config, order_mode: "manual", posts }, "순서를 변경했습니다. (수동 순서)");
   };
+  const resetToDateOrder = () => persist({ ...config, order_mode: "date" }, "날짜 최신순으로 정렬했습니다.");
   const removePost = (i: number) => {
     if (!window.confirm("이 소식을 삭제할까요? 되돌릴 수 없습니다.")) return;
     persist({ ...config, posts: config.posts.filter((_, idx) => idx !== i) }, "삭제했습니다.");
@@ -314,6 +320,20 @@ export default function PrRoomManagePage() {
               <ImageField value={draft.image_url} onChange={(url) => setDraftField({ image_url: url })} />
             </div>
             <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1.5">분류 (공개 페이지 탭)</label>
+                <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+                  {PR_CATEGORIES.map((c) => (
+                    <button key={c.value} type="button"
+                      onClick={() => setDraftField({ category: c.value as PrCategory })}
+                      className={`px-4 py-2 text-sm font-medium transition-colors ${
+                        draft.category === c.value ? "bg-[#303236] text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+                      }`}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_160px] gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5">제목</label>
@@ -323,8 +343,9 @@ export default function PrRoomManagePage() {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1.5">날짜</label>
                   <div className="flex gap-1.5">
-                    <input className={INPUT} value={draft.date} placeholder="2026.06.26"
-                      onChange={(e) => setDraftField({ date: e.target.value })} />
+                    {/* 캘린더 선택 — 저장 형식은 기존과 같은 "YYYY.MM.DD" */}
+                    <input type="date" className={INPUT} value={dateToIso(draft.date)}
+                      onChange={(e) => setDraftField({ date: isoToDate(e.target.value) })} />
                     <button type="button"
                       onClick={() => {
                         const d = new Date();
@@ -422,6 +443,17 @@ export default function PrRoomManagePage() {
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">소식 ({config.posts.length})</p>
           <span className="text-[11px] text-gray-400">공개 {config.posts.filter((p) => p.is_visible).length} · 숨김 {config.posts.filter((p) => !p.is_visible).length}</span>
         </div>
+        <div className="flex items-center justify-between -mt-3 text-[11px]">
+          <span className="text-gray-400">
+            {config.order_mode === "date"
+              ? "정렬: 날짜 최신순 자동 (↑↓로 순서를 바꾸면 수동 순서로 전환됩니다)"
+              : "정렬: 수동 순서 (날짜와 무관하게 아래 순서를 유지합니다)"}
+          </span>
+          {config.order_mode === "manual" && (
+            <button onClick={resetToDateOrder} disabled={saving}
+              className="font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50">날짜순으로 되돌리기</button>
+          )}
+        </div>
 
         {config.posts.length === 0 ? (
           <div className="bg-white rounded-xl border border-dashed border-slate-300 p-10 text-center">
@@ -450,7 +482,12 @@ export default function PrRoomManagePage() {
                   <p className={`text-sm font-semibold truncate group-hover:text-blue-600 transition-colors ${post.is_visible ? "text-gray-800" : "text-gray-400"}`}>
                     {post.title || "(제목 없음)"}
                   </p>
-                  <p className="text-[11px] text-gray-400 mt-0.5">{post.date || "날짜 미입력"}{post.link && " · 외부링크"}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">
+                    <span className={`inline-block mr-1.5 px-1.5 py-px rounded text-[10px] font-semibold ${
+                      post.category === "press" ? "bg-orange-50 text-[#E5541B]" : "bg-slate-100 text-slate-500"
+                    }`}>{prCategoryLabel(post.category)}</span>
+                    {post.date || "날짜 미입력"}{post.link && " · 외부링크"}
+                  </p>
                 </button>
 
                 {/* 노출 토글 */}
