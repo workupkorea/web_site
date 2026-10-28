@@ -21,9 +21,11 @@ interface Props {
 function NewBadge() {
   return (
     <span style={{
-      position: "absolute", top: -9, right: -14, zIndex: 1,
+      // 주황(선택)·어두운(비선택) 마커 어디서도 구분되도록 노란 배경 + 진한 글자, 마커 위쪽으로 살짝 띄움
+      position: "absolute", top: -12, right: -14, zIndex: 1,
       padding: "1px 5px", borderRadius: 8, fontSize: 9, fontWeight: 800, lineHeight: 1.4,
-      background: "#E5541B", color: "#fff", border: "1px solid #fff", whiteSpace: "nowrap",
+      background: "#FFD21F", color: "#303236", whiteSpace: "nowrap",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.3)",
     }}>NEW</span>
   );
 }
@@ -37,7 +39,7 @@ function CardMarker({ name, selected, isNew }: { name: string; selected: boolean
         padding: "5px 9px", borderRadius: "4px", fontSize: "11px", fontWeight: 700,
         whiteSpace: "nowrap", lineHeight: 1.4,
         background: selected ? "#E5541B" : "#303236",
-        color: selected ? "#303236" : "#fff",
+        color: "#fff",
         boxShadow: selected ? "0 3px 12px rgba(244,171,28,0.45)" : "0 2px 8px rgba(0,0,0,0.28)",
         transition: "background 0.15s,color 0.15s",
       }}>{name}</div>
@@ -61,7 +63,7 @@ function PinMarker({ selected, isNew }: { selected: boolean; isNew?: boolean }) 
         boxShadow: "0 3px 10px rgba(0,0,0,0.45)",
         display: "flex", alignItems: "center", justifyContent: "center",
         fontSize: 11, fontWeight: 900, fontFamily: "sans-serif",
-        color: selected ? "#E5541B" : "white",
+        color: "white",
         transition: "background 0.15s,color 0.15s",
       }}>W</div>
       <div style={{

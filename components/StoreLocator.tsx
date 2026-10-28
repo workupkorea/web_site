@@ -544,20 +544,32 @@ export default function StoreLocator({
                 type="text"
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="매장명 또는 지역 검색"
+                placeholder="매장명·지역 검색"
                 className="w-full pl-9 pr-8 py-2.5 border border-gray-300 bg-white text-sm text-[#303236] placeholder-gray-400 focus:outline-none focus:border-[#303236]"
               />
               {search && (
                 <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
               )}
             </div>
+
+            {/* 모바일: 검색 초기화를 검색창 바깥(오른쪽)의 작은 아이콘 버튼으로 — 세로 공간 절약, 터치 영역 44px */}
+            <button
+              onClick={resetSearch}
+              aria-label="검색 초기화"
+              title="검색 초기화"
+              className="md:hidden flex-shrink-0 w-11 border border-gray-300 bg-white text-gray-500 inline-flex items-center justify-center active:bg-gray-50 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M5.5 9a7 7 0 0111.9-2.1L20 9M18.5 15a7 7 0 01-11.9 2.1L4 15" />
+              </svg>
+            </button>
           </div>
 
           {/* 검색 초기화(위) + 액션 버튼(아래) */}
           <div className="flex flex-col gap-2 md:items-end md:flex-shrink-0">
             <button
               onClick={resetSearch}
-              className="self-end inline-flex items-center gap-1 text-xs text-gray-400 hover:text-[#303236] transition-colors"
+              className="hidden md:inline-flex self-end items-center gap-1 text-xs text-gray-400 hover:text-[#303236] transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M5.5 9a7 7 0 0111.9-2.1L20 9M18.5 15a7 7 0 01-11.9 2.1L4 15" />
