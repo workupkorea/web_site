@@ -130,7 +130,7 @@ export default function Header({
                 >
                   <span
                     style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                    className="text-[15px] leading-none tracking-tighter"
+                    className="text-[14px] leading-none tracking-tighter"
                   >
                     {item.labelKo ?? BRANDS_LABEL_KO}
                   </span>
@@ -151,7 +151,7 @@ export default function Header({
                 {item.labelKo ? (
                   <span
                     style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                    className="text-[15px] leading-none tracking-tighter"
+                    className="text-[14px] leading-none tracking-tighter"
                   >
                     {item.labelKo}
                   </span>
@@ -180,7 +180,7 @@ export default function Header({
             >
               <span
                 style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                className="text-[15px] leading-none tracking-tighter"
+                className="text-[14px] leading-none tracking-tighter"
               >
                 {BRANDS_LABEL_KO}
               </span>
@@ -202,7 +202,11 @@ export default function Header({
 
         {/* 가맹/제휴문의 — 기존 상단 탑배너를 없애고 로고 행에 통합 (모바일도 노출, nav가 없을 때는 ml-auto로 우측 정렬) */}
         {topbarItems.length > 0 && (
-          <div className={`flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0 text-[10px] md:text-[12px] font-semibold whitespace-nowrap ${white ? "text-white/90" : "text-gray-500"}`}>
+          // globals.css 가 .font-bold 를 500 으로 낮춰 두므로 굵기는 인라인으로 지정한다(다른 메뉴와 동일)
+          <div
+            style={{ fontWeight: 700 }}
+            className={`flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0 text-[10px] md:text-[12px] whitespace-nowrap ${white ? "text-white/90" : "text-gray-500"}`}
+          >
             {topbarItems.map((it, idx) => {
               const href = safeHref(it.href) || "/";
               const external = !href.startsWith("/") && !href.startsWith("#");
