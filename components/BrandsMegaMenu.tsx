@@ -66,7 +66,62 @@ export default function BrandsMegaMenu({
       className="w-full bg-[#0f0f0f] text-white"
       style={{ borderTop: "1px solid rgba(255,255,255,0.20)" }}
     >
-      <div className="flex" style={{ minHeight: "500px" }}>
+      {/* ── 좁은 화면(xl 미만): 이미지 없이 텍스트 전용 그리드 — 카드 찌그러짐·가로 스크롤 방지 ── */}
+      <div className="xl:hidden">
+        <div className="flex items-end justify-between gap-4 px-6 py-5" style={{ borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+          <div>
+            <p
+              className={`${oxanium.className} uppercase mb-[6px]`}
+              style={{ fontSize: "9px", letterSpacing: "0.42em", color: "#E5541B", fontWeight: 700 }}
+            >
+              {heading}
+            </p>
+            <h2 className="text-white whitespace-pre-line break-keep" style={{ fontSize: "15px", fontWeight: 600, lineHeight: 1.5 }}>
+              {body.replace(/\n/g, " ")}
+            </h2>
+          </div>
+          <Link
+            href={ctaUrl}
+            onClick={onLinkClick}
+            className="flex-shrink-0 hover:text-[#E5541B] transition-colors duration-200 break-keep"
+            style={{ fontSize: "12px", letterSpacing: "0.06em", color: "rgba(255,255,255,0.72)" }}
+          >
+            {ctaLabel}
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          {displayBrands.map((brand) => (
+            <Link
+              key={brand.id}
+              href={brand.href}
+              onClick={onLinkClick}
+              className="group flex flex-col justify-center hover:bg-white/[0.05] transition-colors duration-200"
+              style={{
+                minHeight: "96px",
+                padding: "18px 24px",
+                borderRight: "1px solid rgba(255,255,255,0.10)",
+                borderBottom: "1px solid rgba(255,255,255,0.10)",
+              }}
+            >
+              <h3
+                className={`${oxanium.className} text-white leading-tight group-hover:text-[#E5541B] transition-colors`}
+                style={{ fontSize: "15px", fontWeight: 700, letterSpacing: "0.06em", marginBottom: "6px" }}
+              >
+                {brand.name}
+              </h3>
+              <p className="uppercase leading-tight" style={{ fontSize: "10px", letterSpacing: "0.14em", color: "rgba(255,255,255,0.65)", marginBottom: "4px" }}>
+                {brand.positioning}
+              </p>
+              <p className="break-keep" style={{ fontSize: "12px", lineHeight: 1.6, color: "rgba(255,255,255,0.58)" }}>
+                {brand.descriptionKo}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* ── 넓은 화면(xl 이상): 기존 이미지 카드형 ── */}
+      <div className="hidden xl:flex" style={{ minHeight: "500px" }}>
 
         {/* ── 왼쪽 OUR BRANDS 패널 ── */}
         <div
@@ -90,7 +145,7 @@ export default function BrandsMegaMenu({
               {heading}
             </p>
             <h2
-              className="text-white whitespace-pre-line"
+              className="text-white whitespace-pre-line break-keep"
               style={{
                 fontSize: "15px",
                 fontWeight: 600,
@@ -117,20 +172,25 @@ export default function BrandsMegaMenu({
 
         {/* ── 브랜드 카드 ── */}
         {/* 태블릿·좁은 화면: 카드가 찌그러지지 않도록 최소 너비를 두고 가로 스크롤 */}
-        <div className="flex flex-1 min-w-0 overflow-x-auto overscroll-x-contain">
+        {/* 행(텍스트/이미지)을 모든 카드가 공유(subgrid) — 텍스트 줄 수가 달라도 이미지 시작선이 맞고, 불필요한 빈 간격이 없다 */}
+        <div
+          className="grid flex-1 min-w-0 overflow-x-auto overscroll-x-contain"
+          style={{ gridAutoFlow: "column", gridAutoColumns: "minmax(150px, 1fr)", gridTemplateRows: "auto 1fr" }}
+        >
           {displayBrands.map((brand, i) => (
             <Link
               key={brand.id}
               href={brand.href}
               onClick={onLinkClick}
-              className="group flex flex-col overflow-hidden hover:bg-white/[0.02] transition-colors duration-200"
+              className="group grid overflow-hidden hover:bg-white/[0.02] transition-colors duration-200"
               style={{
-                flex: "1 0 150px",
+                gridRow: "span 2",
+                gridTemplateRows: "subgrid",
                 borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.15)" : undefined,
               }}
             >
               {/* ── ① 브랜드명 ② 영문 포지셔닝 ③ 한글 설명 ── */}
-              <div style={{ padding: "26px 14px 18px" }}>
+              <div className="break-keep" style={{ padding: "26px 14px 18px" }}>
                 <h3
                   className={`${oxanium.className} text-white leading-tight`}
                   style={{

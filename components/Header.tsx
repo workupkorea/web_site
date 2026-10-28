@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Oxanium } from "next/font/google";
 import { useRouter, usePathname } from "next/navigation";
-import { DEFAULT_HEADER_NAV, type NavMenuItem } from "@/lib/header-nav";
+import { BRANDS_LABEL_KO, DEFAULT_HEADER_NAV, type NavMenuItem } from "@/lib/header-nav";
 import { DEFAULT_LOGO, type LogoConfig } from "@/lib/logo";
 import { DEFAULT_TOPBAR, safeHref, type TopbarItem } from "@/lib/topbar";
 import BrandsMegaMenu from "@/components/BrandsMegaMenu";
@@ -95,6 +95,13 @@ export default function Header({
   // 헤더 nav에 BRANDS 항목이 있으면 버튼으로 교체하고, 없으면 nav 끝에 자동 추가된다.
   const hasBrandsMega = !!megaBrandsConfig && megaBrandsConfig.settings?.enabled !== false;
 
+  // PC 메뉴 공통 스타일 — 메뉴 사이에 연한 회색 세로 바(::before)를 두고, 첫 메뉴 앞에는 숨긴다.
+  const navLinkBase =
+    `group relative grid place-items-center whitespace-nowrap px-3 xl:px-6 py-2 transition-colors ` +
+    `before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3 before:w-px first:before:hidden ` +
+    (white ? "before:bg-white/35" : "before:bg-gray-300");
+  const navLinkColor = white ? "text-white hover:text-white/70" : "text-[#303236] hover:text-[#E5541B]";
+
   // ── 로고 / 내비게이션 / 가맹·제휴문의 / 로그인 행 ──
   const topRow = (
     <div className="px-[15px] md:px-[24px] xl:px-[70px]">
@@ -106,7 +113,7 @@ export default function Header({
         </Link>
 
         {/* 데스크탑 내비게이션 — navItems 순서 그대로 렌더링, BRANDS 위치에서 메가메뉴 트리거로 교체 */}
-        <nav className="hidden md:flex items-center gap-2 xl:gap-7 flex-1 justify-start ml-3 xl:ml-[60px]">
+        <nav className="hidden md:flex items-center flex-1 justify-start ml-0 xl:ml-[36px]">
           {navItems.map((item) => {
             const isBrands = item.label.toUpperCase() === "BRANDS";
             if (isBrands && hasBrandsMega) {
@@ -116,28 +123,16 @@ export default function Header({
                   href="/brands"
                   onMouseEnter={openBrands}
                   onMouseLeave={closeBrandsDelayed}
-                  className={`group grid place-items-center whitespace-nowrap transition-colors ${
-                    brandsOpen ? "text-[#E5541B]" : white ? "text-white" : "text-[#303236]"
-                  }`}
+                  className={`${navLinkBase} ${brandsOpen ? "text-[#E5541B]" : navLinkColor}`}
                   style={{ fontWeight: 650 }}
                   aria-expanded={brandsOpen}
                   aria-haspopup="true"
                 >
                   <span
-                    style={{ gridArea: "1 / 1" }}
-                    className={`${oxanium.className} text-[17px] leading-none tracking-wide transition-opacity duration-200 group-hover:opacity-0 ${brandsOpen ? "opacity-0" : ""}`}
-                  >
-                    BRANDS
-                  </span>
-                  <span
                     style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                    className={`text-[14px] leading-none tracking-tighter transition-opacity duration-200 group-hover:opacity-100 ${
-                      brandsOpen
-                        ? "opacity-100 text-[#E5541B]"
-                        : `opacity-0 ${white ? "text-white/80" : "text-gray-500"}`
-                    }`}
+                    className="text-[15px] leading-none tracking-tighter"
                   >
-                    브랜드
+                    {item.labelKo ?? BRANDS_LABEL_KO}
                   </span>
                 </Link>
               );
@@ -149,21 +144,23 @@ export default function Header({
                 target={item.newTab ? "_blank" : undefined}
                 rel={item.newTab ? "noopener noreferrer" : undefined}
                 onMouseEnter={hasBrandsMega ? closeBrandsNow : undefined}
-                className={`group grid place-items-center whitespace-nowrap transition-colors ${white ? "text-white" : "text-[#303236]"}`}
+                className={`${navLinkBase} ${navLinkColor}`}
                 style={{ fontWeight: 650 }}
               >
-                <span
-                  style={{ gridArea: "1 / 1" }}
-                  className={`${oxanium.className} text-[17px] leading-none tracking-wide transition-opacity duration-200 ${item.labelKo ? "group-hover:opacity-0" : ""}`}
-                >
-                  {item.label}
-                </span>
-                {item.labelKo && (
+                {/* PC는 한글 메뉴명만 표시(모바일 메뉴는 영문 / 한글 병기) — 한글명이 없으면 영문으로 폴백 */}
+                {item.labelKo ? (
                   <span
                     style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                    className={`text-[14px] leading-none tracking-tighter opacity-0 transition-opacity duration-200 group-hover:opacity-100 ${white ? "text-white/80" : "text-gray-500"}`}
+                    className="text-[15px] leading-none tracking-tighter"
                   >
                     {item.labelKo}
+                  </span>
+                ) : (
+                  <span
+                    style={{ gridArea: "1 / 1" }}
+                    className={`${oxanium.className} text-[17px] leading-none tracking-wide`}
+                  >
+                    {item.label}
                   </span>
                 )}
               </Link>
@@ -176,26 +173,16 @@ export default function Header({
               href="/brands"
               onMouseEnter={openBrands}
               onMouseLeave={closeBrandsDelayed}
-              className={`group grid place-items-center whitespace-nowrap transition-colors ${
-                brandsOpen ? "text-[#E5541B]" : white ? "text-white" : "text-[#303236]"
-              }`}
+              className={`${navLinkBase} ${brandsOpen ? "text-[#E5541B]" : navLinkColor}`}
               style={{ fontWeight: 650 }}
               aria-expanded={brandsOpen}
               aria-haspopup="true"
             >
               <span
-                style={{ gridArea: "1 / 1" }}
-                className={`${oxanium.className} text-[17px] leading-none tracking-wide transition-opacity duration-200 group-hover:opacity-0 ${brandsOpen ? "opacity-0" : ""}`}
-              >
-                BRANDS
-              </span>
-              <span
                 style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                className={`text-[14px] leading-none tracking-tighter transition-opacity duration-200 group-hover:opacity-100 ${
-                  brandsOpen ? "opacity-100 text-[#E5541B]" : `opacity-0 ${white ? "text-white/80" : "text-gray-500"}`
-                }`}
+                className="text-[15px] leading-none tracking-tighter"
               >
-                브랜드
+                {BRANDS_LABEL_KO}
               </span>
             </Link>
           )}
@@ -204,7 +191,7 @@ export default function Header({
           {studioEnabled && (
             <Link
               href="/studio"
-              className={`${oxanium.className} flex items-center gap-1.5 text-[15px] text-white bg-[#E5541B] hover:brightness-95 px-3.5 py-1.5 rounded-full transition tracking-wide whitespace-nowrap shadow-sm`}
+              className={`${oxanium.className} ml-3 xl:ml-5 flex items-center gap-1.5 text-[15px] text-white bg-[#E5541B] hover:brightness-95 px-3.5 py-1.5 rounded-full transition tracking-wide whitespace-nowrap shadow-sm`}
               style={{ fontWeight: 650 }}
             >
               STUDIO

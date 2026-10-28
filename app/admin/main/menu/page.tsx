@@ -26,9 +26,16 @@ function DesktopPreview({ items }: { items: NavMenuItem[] }) {
           <span className="text-xs text-gray-300">메뉴 없음</span>
         ) : (
           items.filter((it) => it.isVisible !== false).map((it) => (
-            <span key={it.id} className={`${oxanium.className} text-[14px] text-[#303236] whitespace-nowrap`} style={{ fontWeight: 650 }}>
-              {it.label || "(빈 메뉴)"}
-            </span>
+            // 실제 PC 헤더와 동일: 한글 메뉴명만 표시, 없으면 영문으로 폴백
+            it.labelKo ? (
+              <span key={it.id} className="text-[13px] text-[#303236] whitespace-nowrap" style={{ fontWeight: 700 }}>
+                {it.labelKo}
+              </span>
+            ) : (
+              <span key={it.id} className={`${oxanium.className} text-[14px] text-[#303236] whitespace-nowrap`} style={{ fontWeight: 650 }}>
+                {it.label || "(빈 메뉴)"}
+              </span>
+            )
           ))
         )}
       </div>
@@ -50,7 +57,10 @@ function MobilePreview({ items }: { items: NavMenuItem[] }) {
         ) : (
           items.filter((it) => it.isVisible !== false).map((it) => (
             <div key={it.id} className="flex items-center justify-between py-3 text-[13px] font-semibold text-[#303236] tracking-[0.15em] border-b border-gray-100 last:border-0">
-              {it.label || "(빈 메뉴)"}
+              <span className="flex items-baseline gap-2">
+                <span>{it.label || "(빈 메뉴)"}</span>
+                {it.labelKo && <span className="text-[11px] font-normal tracking-normal text-gray-400">/ {it.labelKo}</span>}
+              </span>
               <svg className="w-3.5 h-3.5 text-gray-300" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
               </svg>
@@ -191,9 +201,15 @@ export default function HeaderMenuManagePage() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] text-gray-500 block mb-1">메뉴 텍스트</label>
+                    <label className="text-[11px] text-gray-500 block mb-1">메뉴 텍스트 (영문 · 모바일 메뉴)</label>
                     <input type="text" value={it.label} onChange={(e) => updateItem(it.id, { label: e.target.value })}
                       placeholder="PRODUCTS"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-gray-500 block mb-1">한글 메뉴명 (PC 표시 · 모바일 병기)</label>
+                    <input type="text" value={it.labelKo ?? ""} onChange={(e) => updateItem(it.id, { labelKo: e.target.value })}
+                      placeholder="전체 제품"
                       className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white" />
                   </div>
                   <div>
