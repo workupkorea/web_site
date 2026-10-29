@@ -103,7 +103,8 @@ const FORM_BASE = {
 
 const FRANCHISE_FORM: FormConfig = {
   ...FORM_BASE,
-  submit_text: "가맹 문의 접수하기 →",
+  submit_text: "문의 접수하기",
+  button_bg: "#1c1d1f", // 상단 소개 패널 배경과 동일
   fields: [
     { key: "name", label: "이름", placeholder: "홍길동", type: "text", required: true, full: false },
     { key: "phone", label: "연락처", placeholder: "01012345678", type: "tel", required: true, full: false },
@@ -115,12 +116,12 @@ const FRANCHISE_FORM: FormConfig = {
 
 const WHOLESALE_FORM: FormConfig = {
   ...FORM_BASE,
-  submit_text: "입점 문의 접수하기 →",
+  submit_text: "문의 접수하기",
+  footer_text: "", // 제휴 문의는 하단 안내 문구를 쓰지 않는다
   fields: [
     { key: "brand", label: "브랜드명", placeholder: "브랜드 이름", type: "text", required: true, full: false },
     { key: "manager", label: "담당자명", placeholder: "홍길동", type: "text", required: true, full: false },
     { key: "phone", label: "연락처", placeholder: "01012345678", type: "tel", required: true, full: false },
-    { key: "category", label: "취급 품목", placeholder: "예) 작업복, 안전용품, 잡화 등", type: "text", required: false, full: false },
     { key: "link", label: "브랜드 소개 링크", placeholder: "홈페이지, 인스타그램, 카탈로그 URL 등", type: "url", required: false, full: true },
     { key: "title", label: "문의 제목", placeholder: "문의 제목을 입력해주세요.", type: "text", required: true, full: true },
     { key: "message", label: "문의 내용", placeholder: "입점을 원하는 이유, 제품 특장점, 희망 조건 등을 자유롭게 적어주세요. (10자 이상)", type: "textarea", required: true, full: true },
@@ -129,32 +130,32 @@ const WHOLESALE_FORM: FormConfig = {
 
 export const DEFAULT_PARTNERSHIP: PartnershipConfig = {
   franchise: {
-    eyebrow: "Partnership",
+    eyebrow: "",
     panel_title: "가맹 창업 문의",
     panel_desc:
-      "WORKUP 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 안내입니다. 현장에서 검증된 제품 라인업과 본사의 운영 지원을 바탕으로 시작하세요.",
+      "워크업 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 안내입니다. 현장에서 검증된 제품 라인업과 본사의 운영 지원을 바탕으로 시작하세요.",
     benefits: [
       "본사 MD·운영 가이드 제공",
       "전용 POS·재고 관리 시스템",
       "오픈 전 현장 교육 1주",
       "마케팅 소재 무상 지원",
     ],
-    phone_label: "직통 전화",
+    phone_label: "문의 전화",
     phone: "02-0000-0000",
     hours: "평일 09:00 – 18:00",
-    form_title: "가맹 창업 문의하기",
+    form_title: "문의하기",
     form_desc: "",
-    panel_bg: "#303236",
+    panel_bg: "#1c1d1f",
     seo_title: "가맹·창업 문의 | WORKUP",
     seo_desc: "WORKUP 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 가맹·창업 문의 안내.",
     styles: BASE_STYLES,
     form: FRANCHISE_FORM,
   },
   wholesale: {
-    eyebrow: "Partnership",
+    eyebrow: "",
     panel_title: "제휴 문의",
     panel_desc:
-      "의류 브랜드를 운영 중이신가요? 내 브랜드 제품을 WORKUP 매장에 납품하고 싶다면 아래 폼을 통해 문의해 주세요. 작업복·캐주얼·안전용품·잡화 카테고리의 브랜드를 환영합니다.",
+      "의류 브랜드를 운영 중이신가요? 내 브랜드 제품을 워크업 매장에 납품하고 싶다면 아래 폼을 통해 문의해 주세요. 작업복·캐주얼·안전용품·잡화 카테고리의 브랜드를 환영합니다.",
     benefits: [
       "전국 WORKUP 매장 입점 기회",
       "현장 특화 고객층과의 직접 접점",
@@ -164,9 +165,9 @@ export const DEFAULT_PARTNERSHIP: PartnershipConfig = {
     phone_label: "직통 전화",
     phone: "02-0000-0001",
     hours: "평일 09:00 – 18:00",
-    form_title: "제휴 문의하기",
+    form_title: "문의하기",
     form_desc: "",
-    panel_bg: "#2d4f72",
+    panel_bg: "#081a2e",
     seo_title: "브랜드 입점·제휴 문의 | WORKUP",
     seo_desc: "내 브랜드 제품을 WORKUP 매장에 납품하고 싶은 분을 위한 입점·제휴 문의 안내.",
     styles: BASE_STYLES,
@@ -190,6 +191,8 @@ function normStyle(raw: unknown, def: TextStyle): TextStyle {
 function normField(raw: Record<string, unknown>, defByKey: Record<string, FormFieldText>): FormFieldText | null {
   const key = typeof raw.key === "string" ? raw.key.trim() : "";
   if (!key) return null; // key 없는 필드는 버린다(무결성 보호)
+  // 옛 저장본의 "취급 품목"(category)은 폐지됐다 — 라벨을 직접 고치지 않은 경우만 제외
+  if (key === "category" && raw.label === "취급 품목") return null;
   const d = defByKey[key];
   const type = FIELD_TYPES.includes(raw.type as FormFieldType) ? (raw.type as FormFieldType) : (d?.type ?? "text");
   return {
@@ -217,10 +220,12 @@ function normForm(raw: unknown, def: FormConfig): FormConfig {
     label_style: normStyle(r.label_style, def.label_style),
     input_size: typeof r.input_size === "number" && r.input_size > 0 ? r.input_size : def.input_size,
     input_color: str(r.input_color, def.input_color) || def.input_color,
-    submit_text: str(r.submit_text, def.submit_text),
+    // 옛 기본 문구("입점 문의 접수하기 →")가 저장돼 있으면 새 기본값으로 대체
+    submit_text: r.submit_text === "입점 문의 접수하기 →" ? def.submit_text : str(r.submit_text, def.submit_text),
     button_bg: str(r.button_bg, def.button_bg) || def.button_bg,
     button_color: str(r.button_color, def.button_color) || def.button_color,
-    footer_text: str(r.footer_text, def.footer_text),
+    // 하단 안내 문구를 쓰지 않는 폼(기본값 빈 문자열)은 옛 저장 문구도 비운다
+    footer_text: def.footer_text === "" ? "" : str(r.footer_text, def.footer_text),
     footer_style: normStyle(r.footer_style, def.footer_style),
     success_title: str(r.success_title, def.success_title),
     success_desc: str(r.success_desc, def.success_desc),
@@ -233,16 +238,23 @@ function normInfo(raw: unknown, def: PartnerInfo): PartnerInfo {
   const r = (raw ?? {}) as Record<string, unknown>;
   const rs = (r.styles ?? {}) as Record<string, unknown>;
   return {
-    eyebrow: str(r.eyebrow, def.eyebrow),
+    // 상단 영문 소제목("Partnership")은 폐지 — 옛 저장값은 비운다
+    eyebrow: r.eyebrow === "Partnership" ? "" : str(r.eyebrow, def.eyebrow),
     panel_title: str(r.panel_title, def.panel_title),
-    panel_desc: str(r.panel_desc, def.panel_desc),
+    // 패널 설명의 영문 브랜드명은 한글(워크업)로 표기
+    panel_desc: str(r.panel_desc, def.panel_desc)
+      .replace(/WORKUP/g, "워크업")
+      // 옛 안내 문장 → 새 문장
+      .replace("아래 내용을 참고하여 제안서를 접수해 주시면 담당자가 검토 후 순차적으로 연락드립니다.", "아래 내용을 참고하여 제안해 주시면 담당자가 검토 후 순차적으로 답변 드립니다."),
     benefits: Array.isArray(r.benefits) ? (r.benefits as unknown[]).map((b) => String(b)) : def.benefits,
     phone_label: str(r.phone_label, def.phone_label),
     phone: str(r.phone, def.phone),
     hours: str(r.hours, def.hours),
-    form_title: str(r.form_title, def.form_title),
+    // 옛 기본 문구("제휴 문의하기")가 저장돼 있으면 새 기본값으로 대체
+    form_title: r.form_title === "제휴 문의하기" ? def.form_title : str(r.form_title, def.form_title),
     form_desc: str(r.form_desc, def.form_desc),
-    panel_bg: str(r.panel_bg, def.panel_bg) || def.panel_bg,
+    // 옛 기본 배경(제휴 #2d4f72·슬레이트 #0f172a)이 저장돼 있으면 새 네이비 기본값으로 대체(가맹은 별도 기본값이라 제외)
+    panel_bg: def.panel_bg === "#081a2e" && ["#2d4f72", "#0f172a"].includes(String(r.panel_bg).toLowerCase()) ? def.panel_bg : str(r.panel_bg, def.panel_bg) || def.panel_bg,
     seo_title: str(r.seo_title, def.seo_title),
     seo_desc: str(r.seo_desc, def.seo_desc),
     styles: {

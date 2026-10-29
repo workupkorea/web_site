@@ -33,7 +33,7 @@ export default function ScrollToTopButton() {
       onClick={scrollTop}
       aria-label="맨 위로"
       className={`fixed bottom-24 right-4 sm:bottom-8 sm:right-6 z-50
-        w-11 h-11 rounded-full bg-[#1a1a1a]/80 hover:bg-[#1a1a1a] text-white
+        w-11 h-11 rounded-full bg-[#1a1a1a]/70 hover:bg-[#1a1a1a] text-white
         flex items-center justify-center shadow-lg backdrop-blur-sm
         transition-all duration-300
         ${visible ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-2 pointer-events-none"}`}

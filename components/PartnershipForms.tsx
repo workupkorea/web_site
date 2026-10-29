@@ -1,12 +1,20 @@
 "use client";
-import { useEffect, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { DEFAULT_PARTNERSHIP, type FormConfig } from "@/data/partnership";
 import type { FranchiseGuideConfig } from "@/data/franchise-guide";
+
+// 폼 글자 최소 크기(px) — 관리자 설정이 이보다 작아도 이 크기로 표시
+const MIN_LABEL_PX = 15;
+const MIN_INPUT_PX = 16; // 16px 미만이면 iOS 입력 시 자동 확대됨
+const MIN_NOTE_PX = 14;
 import FranchiseGuide from "./FranchiseGuide";
 import PasswordInput from "./PasswordInput";
 
 type FormState = Record<string, string>;
+
+// 한 줄 전체를 차지하는 항목인지(전체 폭 지정 또는 여러 줄 입력)
+const isFullField = (f: FormConfig["fields"][number]) => f.full || f.type === "textarea";
 
 // 연락처 입력을 010-0000-0000 형태로 자동 하이픈 포맷팅.
 function formatPhone(raw: string): string {
@@ -62,18 +70,22 @@ function Field({
   placeholder?: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   labelStyle: CSSProperties; inputStyle: CSSProperties;
 }) {
-  const cls = "w-full border border-gray-200 px-4 py-2.5 placeholder-gray-300 focus:outline-none focus:border-[#303236] transition-colors bg-white";
+  const cls = "w-full border border-gray-200 rounded-xl px-4 py-3.5 placeholder-gray-400 bg-gray-50/60 focus:bg-white focus:outline-none focus:border-[#E5541B] focus:ring-4 focus:ring-[#E5541B]/10 transition";
   return (
     <div>
-      <label htmlFor={`pf-${name}`} className="block mb-1.5" style={labelStyle}>
-        {label}{required && <span className="text-[#E5541B] ml-0.5">*</span>}
-      </label>
+      {/* 라벨 줄: 문의 내용(textarea)은 같은 줄 우측에 글자 수를 표시 */}
+      <div className="flex items-baseline justify-between gap-3 mb-2">
+        <label htmlFor={`pf-${name}`} className="block font-semibold" style={labelStyle}>
+          {label}{required && <span className="text-[#E5541B] ml-0.5">*</span>}
+        </label>
+        {type === "textarea" && <span className="text-sm text-gray-500" aria-live="polite">{value.length}자</span>}
+      </div>
       {type === "textarea" ? (
         <>
           <textarea
             id={`pf-${name}`}
             name={name}
-            rows={3}
+            rows={4}
             required={required}
             placeholder={placeholder}
             value={value}
@@ -81,7 +93,6 @@ function Field({
             style={inputStyle}
             className={cls + " resize-none"}
           />
-          <p className="mt-1 text-right text-[11px] text-gray-400">{value.length}자</p>
         </>
       ) : (
         <input
@@ -192,8 +203,8 @@ function ConsentModal({ onClose }: { onClose: () => void }) {
 
 // ── 개인정보 수집·이용 동의 (로그인 없이 접수하므로 필수) ──
 function PrivacyConsent({
-  checked, onChange, text, note,
-}: { checked: boolean; onChange: (v: boolean) => void; text: string; note: string }) {
+  checked, onChange, text,
+}: { checked: boolean; onChange: (v: boolean) => void; text: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -204,10 +215,11 @@ function PrivacyConsent({
           name="privacyAgree"
           checked={checked}
           onChange={(e) => onChange(e.target.checked)}
-          className="mt-0.5 w-4 h-4 flex-shrink-0 accent-[#303236]"
+          className="mt-0.5 w-5 h-5 flex-shrink-0 accent-[#303236]"
         />
-        <span className="text-xs text-gray-500 leading-relaxed">
-          <span className="text-[#E5541B] font-medium">[필수]</span> {text}{" "}
+        {/* 모바일은 한 줄로 표기(whitespace-nowrap) — 12.5px는 사이트 전역 글자 상향 규칙에 걸리지 않는 크기 */}
+        <span className="text-[clamp(11.5px,3.3vw,12.5px)] sm:text-sm text-[#303236] leading-relaxed whitespace-nowrap tracking-[-0.02em] sm:tracking-normal">
+          <span className="text-[#E5541B] font-semibold">[필수]</span> {text}{" "}
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -215,7 +227,6 @@ function PrivacyConsent({
           >
             내용 보기
           </button>
-          {note && <span className="block text-gray-400 mt-0.5">{note}</span>}
         </span>
       </label>
 
@@ -263,8 +274,9 @@ function InquiryForm({ type, config, consent, franchiseGuide }: {
     return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [guideOpen]);
 
-  const labelStyle: CSSProperties = { fontSize: config.label_style.size, color: config.label_style.color };
-  const inputStyle: CSSProperties = { fontSize: config.input_size, color: config.input_color };
+  // 관리자 편집값이 작아도 읽기 편하도록 최소 크기를 보장한다(시인성).
+  const labelStyle: CSSProperties = { fontSize: Math.max(config.label_style.size, MIN_LABEL_PX), color: config.label_style.color };
+  const inputStyle: CSSProperties = { fontSize: Math.max(config.input_size, MIN_INPUT_PX), color: config.input_color };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -349,58 +361,75 @@ function InquiryForm({ type, config, consent, franchiseGuide }: {
     );
   }
 
+  // 비밀번호 칸 위치 — 한 줄에 혼자 남은 반폭 항목 옆(빈 칸)에 두고, 없으면 항목 아래 전체 폭.
+  let col = 0;
+  let passwordSlot = -1;
+  for (let i = 0; i < config.fields.length; i++) {
+    if (isFullField(config.fields[i])) { col = 0; continue; }
+    const next = config.fields[i + 1];
+    if (col === 0 && (!next || isFullField(next))) { passwordSlot = i; break; }
+    col = col === 0 ? 1 : 0;
+  }
+
+  const passwordField = (
+    <div className="col-span-1">
+      <label className="block mb-2 font-semibold" style={labelStyle}>
+        비밀번호 <span className="text-gray-400">(문의글 확인용)</span>
+      </label>
+      <PasswordInput
+        mode="mask"
+        inputMode="numeric"
+        pattern="\d*"
+        maxLength={4}
+        value={password}
+        onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 4))}
+        placeholder="숫자 4자리 (예: 1234)"
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        style={inputStyle}
+        className="w-full border border-gray-200 rounded-xl px-4 py-3.5 placeholder-gray-400 bg-gray-50/60 focus:bg-white focus:outline-none focus:border-[#E5541B] focus:ring-4 focus:ring-[#E5541B]/10 transition"
+      />
+    </div>
+  );
+
   return (
     <>
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
-        {config.fields.map((fld) => (
-          <div key={fld.key} className={fld.full || fld.type === "textarea" ? "col-span-2" : "col-span-1"}>
-            <Field
-              label={fld.label}
-              name={fld.key}
-              type={fld.type}
-              required={fld.required}
-              placeholder={fld.placeholder}
-              value={form[fld.key] ?? ""}
-              onChange={handleChange}
-              labelStyle={labelStyle}
-              inputStyle={inputStyle}
-            />
-          </div>
+        {config.fields.map((fld, i) => (
+          <Fragment key={fld.key}>
+            <div className={isFullField(fld) ? "col-span-2" : "col-span-1"}>
+              <Field
+                label={fld.label}
+                name={fld.key}
+                type={fld.type}
+                required={fld.required}
+                placeholder={fld.placeholder}
+                value={form[fld.key] ?? ""}
+                onChange={handleChange}
+                labelStyle={labelStyle}
+                inputStyle={inputStyle}
+              />
+            </div>
+            {i === passwordSlot && passwordField}
+          </Fragment>
         ))}
+        {passwordSlot < 0 && <div className="col-span-2">{passwordField}</div>}
       </div>
-      <div>
-        <label className="block mb-1.5" style={labelStyle}>
-          비밀번호 <span className="text-gray-400">(문의글 확인용)</span>
-        </label>
-        <PasswordInput
-          mode="mask"
-          inputMode="numeric"
-          pattern="\d*"
-          maxLength={4}
-          value={password}
-          onChange={(e) => setPassword(e.target.value.replace(/\D/g, "").slice(0, 4))}
-          placeholder="숫자 4자리 (예: 1234)"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          style={inputStyle}
-          className="w-full border border-gray-200 px-4 py-2.5 placeholder-gray-300 focus:outline-none focus:border-[#303236] transition-colors bg-white"
-        />
-      </div>
-      {consent && <PrivacyConsent checked={agreed} onChange={setAgreed} text={config.consent_text} note={config.consent_note} />}
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {consent && <PrivacyConsent checked={agreed} onChange={setAgreed} text={config.consent_text} />}
+      {error && <p className="text-sm text-red-500">{error}</p>}
       <button
         type={franchiseGuide && !guideSeen ? "button" : "submit"}
         onClick={handleGuideIntercept}
         disabled={submitting || ((!franchiseGuide || guideSeen) && consent && !agreed)}
         style={{ backgroundColor: config.button_bg, color: config.button_color }}
-        className="w-full text-xs font-semibold tracking-widest py-3 transition-opacity hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full text-base font-bold py-4 rounded-xl shadow-sm transition hover:opacity-90 hover:shadow-md active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {submitting ? "접수 중..." : config.submit_text}
       </button>
-      <p className="text-center" style={{ fontSize: config.footer_style.size, color: config.footer_style.color }}>{config.footer_text}</p>
+      {config.footer_text && <p className="text-center" style={{ fontSize: Math.max(config.footer_style.size, MIN_NOTE_PX), color: config.footer_style.color }}>{config.footer_text}</p>}
     </form>
 
     {franchiseGuide && guideOpen && mounted && createPortal(

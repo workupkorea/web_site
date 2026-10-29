@@ -372,3 +372,19 @@ html {
   background-color: #94a3b8;
 }
 
+
+/* 문의 페이지 우측 패널용 얇은 스크롤바 — 다크(창업안내) / 라이트(문의현황) */
+.wu-scroll-dark,
+.wu-scroll-light {
+  scrollbar-width: thin; /* Firefox */
+}
+.wu-scroll-dark { scrollbar-color: rgba(255, 255, 255, 0.28) transparent; }
+.wu-scroll-light { scrollbar-color: #cfd2d6 transparent; }
+.wu-scroll-dark::-webkit-scrollbar,
+.wu-scroll-light::-webkit-scrollbar { width: 6px; }
+.wu-scroll-dark::-webkit-scrollbar-track,
+.wu-scroll-light::-webkit-scrollbar-track { background: transparent; }
+.wu-scroll-dark::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.28); border-radius: 999px; }
+.wu-scroll-light::-webkit-scrollbar-thumb { background: #cfd2d6; border-radius: 999px; }
+.wu-scroll-dark::-webkit-scrollbar-thumb:hover { background: #E5541B; }
+.wu-scroll-light::-webkit-scrollbar-thumb:hover { background: #E5541B; }

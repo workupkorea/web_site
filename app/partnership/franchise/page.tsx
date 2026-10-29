@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { FranchiseForm } from "@/components/PartnershipForms";
 import PartnershipLayout from "@/components/PartnershipLayout";
-import FranchiseGuide from "@/components/FranchiseGuide";
+import FranchiseGuideInline from "@/components/FranchiseGuideInline";
 import { normalizePartnership, type PartnershipConfig } from "@/data/partnership";
 import { normalizeFranchiseGuide, type FranchiseGuideConfig } from "@/data/franchise-guide";
 import { getSiteSection } from "@/lib/site-settings";
@@ -26,7 +26,7 @@ export default async function FranchisePage() {
     <PartnershipLayout
       info={info}
       boardType="franchise"
-      guide={<FranchiseGuide embedded config={guide} storeCount={storeCount} />}
+      guide={<FranchiseGuideInline config={guide} storeCount={storeCount} supports={info.benefits} />}
     >
       <FranchiseForm config={info.form} guideConfig={guide} storeCount={storeCount} />
     </PartnershipLayout>

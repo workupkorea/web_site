@@ -74,14 +74,51 @@ const fetchFeed = unstable_cache(
   { revalidate: 30 }
 );
 
+// 작성자 검색 — 목록엔 이름 마지막 글자가 마스킹(예: 신예*)되어 있어 실제 이름 전체(신예림)를
+// 입력해도 찾을 수 있도록, 마스킹되지 않은 앞부분만 일치하면 매치로 본다.
+function authorMatches(storedName: string, query: string): boolean {
+  const n = storedName.trim();
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  if (n.toLowerCase().includes(q)) return true;
+  if (n.endsWith("*")) {
+    const visible = n.slice(0, -1).toLowerCase();
+    if (visible && q.startsWith(visible)) return true;
+  }
+  return false;
+}
+
+const DEFAULT_LIMIT = 30; // 첫 로드·더보기 1회 분량
+const MAX_LIMIT = 100;
+
+// 페이징 + 검색은 서버에서 처리해 전송량을 줄인다(캐시된 전체 피드에서 잘라 응답).
+// 쿼리: type, limit, offset, q(제목), author(작성자), from/to(YYYY-MM-DD). 검색 시에는 실제 접수 건만 대상.
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const tp = searchParams.get("type");
     const t = tp === "franchise" || tp === "wholesale" ? tp : null; // 유형 필터(가맹/입점)
-    const result = await fetchFeed(t);
-    return NextResponse.json(result);
+    const limit = Math.min(Math.max(parseInt(searchParams.get("limit") ?? "", 10) || DEFAULT_LIMIT, 1), MAX_LIMIT);
+    const offset = Math.max(parseInt(searchParams.get("offset") ?? "", 10) || 0, 0);
+    const q = (searchParams.get("q") ?? "").trim().toLowerCase();
+    const author = (searchParams.get("author") ?? "").trim();
+    const from = searchParams.get("from") ?? "";
+    const to = searchParams.get("to") ?? "";
+    const searching = !!(q || author || from || to);
+
+    const { items: all, total } = await fetchFeed(t);
+    const matched = !searching ? all : all.filter((it) => {
+      if (it.source !== "real") return false;
+      if (q && !it.content.toLowerCase().includes(q)) return false;
+      if (author && !authorMatches(it.name, author)) return false;
+      const day = it.created_at.slice(0, 10);
+      if (from && day < from) return false;
+      if (to && day > to) return false;
+      return true;
+    });
+    const items = matched.slice(offset, offset + limit);
+    return NextResponse.json({ items, total, matched: matched.length, hasMore: offset + limit < matched.length });
   } catch {
-    return NextResponse.json({ items: [], total: 0 });
+    return NextResponse.json({ items: [], total: 0, matched: 0, hasMore: false });
   }
 }

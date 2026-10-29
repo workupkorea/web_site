@@ -4,14 +4,16 @@ import { useState } from "react";
 // 가맹 문의 페이지 우측 칼럼의 탭: '문의현황' ↔ '창업안내'.
 // 좌측 문의 폼은 항상 보이게 두고, 팝업 없이 같은 자리에서 창업안내를 볼 수 있게 한다.
 // 모든 패널을 렌더(hidden 토글)해 탭을 오가도 문의현황 검색값·스크롤이 유지된다.
-export type PartnershipTab = { key: string; label: string; content: React.ReactNode; scroll?: boolean };
+// mobile: 모바일(lg 미만)에서의 표시 방식 — "guide"=모바일 '창업안내' 탭을 선택했을 때만, "always"=항상(고정 높이 리스트).
+export type PartnershipTab = { key: string; label: string; content: React.ReactNode; scroll?: boolean; mobile?: "guide" | "always" };
 
 export default function PartnershipTabs({ tabs }: { tabs: PartnershipTab[] }) {
   const [active, setActive] = useState(tabs[0]?.key);
 
   return (
-    <div className="h-full flex flex-col bg-white border border-gray-200 overflow-hidden">
-      <div role="tablist" className="flex flex-shrink-0 border-b border-gray-200 bg-white">
+    <div className="lg:h-full flex flex-col bg-white border border-gray-200 overflow-hidden">
+      {/* 탭 바는 PC 전용 — 모바일은 좌측 영역의 '문의하기|창업안내' 탭이 대신한다 */}
+      <div role="tablist" className="max-lg:hidden flex flex-shrink-0 border-b border-gray-200 bg-white">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -36,32 +38,20 @@ export default function PartnershipTabs({ tabs }: { tabs: PartnershipTab[] }) {
           id={`pt-panel-${t.key}`}
           role="tabpanel"
           aria-labelledby={`pt-tab-${t.key}`}
-          hidden={active !== t.key}
+          // PC: 선택된 탭만 표시 / 모바일: mobile 설정에 따라 표시(보드는 항상, 안내는 모바일 탭 선택 시)
           // 내부 보드의 자체 테두리는 탭 컨테이너 테두리와 겹치지 않게 제거,
           // 안내 콘텐츠의 상단 고정 슬림바는 사이트 헤더와 겹치므로 일반 흐름으로
-          className={`flex-1 min-h-0 [&_.sticky]:!static [&>div]:!border-0 ${t.scroll ? "overflow-y-auto overscroll-contain" : ""}`}
+          className={[
+            "lg:flex-1 lg:min-h-0 [&_.sticky]:!static [&>div]:!border-0 [&>div]:min-h-full",
+            active !== t.key ? "lg:hidden" : "",
+            t.mobile === "guide" ? "max-lg:group-data-[mtab=form]/m:hidden" : "",
+            t.mobile === "always" ? "max-lg:h-[560px]" : "",
+            t.scroll ? "lg:overflow-y-auto lg:overscroll-contain wu-scroll-dark" : "",
+          ].join(" ")}
         >
           {t.content}
         </div>
       ))}
     </div>
-  );
-}
-
-// 창업안내 탭 하단 CTA — 문의 폼의 이름 입력란으로 스크롤·포커스
-export function FocusFormButton({ children }: { children: React.ReactNode }) {
-  const go = () => {
-    const nameInput = document.getElementById("pf-name");
-    nameInput?.scrollIntoView({ behavior: "smooth", block: "center" });
-    nameInput?.focus();
-  };
-  return (
-    <button
-      type="button"
-      onClick={go}
-      className="flex items-center justify-center w-full min-h-[56px] bg-[#E5541B] text-white text-sm font-extrabold hover:bg-[#c94716] transition-colors"
-    >
-      {children}
-    </button>
   );
 }
