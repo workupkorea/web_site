@@ -14,48 +14,54 @@ export default function StoreSearchBar() {
     router.push(q ? `/store?q=${encodeURIComponent(q)}` : "/store");
   };
 
+  // 어두운 전체 폭 띠 안에 입력+돋보기를 하나의 얇은 선 바로 묶는다. (모바일·PC 공통)
+  // PC는 화면이 넓어 바가 가로를 꽉 채우고 높이를 키워 여백이 비어 보이지 않게 한다.
   return (
-    <div className="bg-gray-50 py-4 md:py-7">
-      <div className="px-[15px] md:px-[70px]">
-        <div className="flex flex-col gap-4 rounded-xl border-2 border-[#E5541B] bg-white px-5 py-5 shadow-md md:flex-row md:items-center md:gap-7 md:px-8 md:py-7">
-          {/* 안내 문구 */}
-          <div className="flex items-center gap-4 md:flex-shrink-0">
-            <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-orange-50 text-[#E5541B] md:h-14 md:w-14">
-              <svg className="h-6 w-6 md:h-7 md:w-7" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </span>
-            <div className="min-w-0">
-              <p className="text-base font-bold leading-tight text-[#303236] md:text-xl"><span className="md:hidden">가까운 워크업 매장찾기</span><span className="hidden md:inline">가까운 워크업 매장을 찾아보세요</span></p>
-              <p className="mt-1.5 text-[9px] leading-tight text-gray-500 md:text-[14px]">매장명, 지역, 도로명 등으로 검색할 수 있습니다.</p>
-            </div>
-          </div>
-
-          {/* 검색 입력 + 버튼 */}
-          <div className="flex flex-1 items-stretch gap-2.5">
+    <div className="bg-[#303236]">
+      <div className="flex items-center gap-4 px-5 py-5 md:gap-8 md:px-[70px] md:py-10">
+        {/* 모바일 전용: 검색 바 앞 W 로고 마크 */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/images/logo_w_white.png" alt="WORKUP" width={34} height={26} className="h-[26px] w-auto flex-shrink-0 md:hidden" />
+        {/* PC 전용 안내: 좌측 제목, 우측 검색 바 (모바일은 바만) */}
+        <div className="hidden flex-shrink-0 md:block">
+          <p className="text-xl font-extrabold tracking-[-0.03em] text-white lg:text-2xl">가까운 워크업 매장을 찾아보세요</p>
+        </div>
+        <div className="flex flex-1 items-stretch border border-white/50 transition-colors focus-within:border-white">
+          <div className="relative min-w-0 flex-1">
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="매장명이나 지역명을 입력하세요"
+              placeholder=" "
               aria-label="매장 검색어 입력"
-              className="h-12 min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-5 text-sm text-gray-700 placeholder-gray-400 outline-none focus:border-[#303236] md:h-14 md:text-base"
+              lang="ko"
+              inputMode="text"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
+              className="h-12 w-full bg-transparent px-4 text-sm text-white outline-none md:h-16 md:px-7 md:text-base"
               onKeyDown={(e) => {
                 if (e.key === "Enter") handleSearch();
                 if (e.key === "Escape") { setQuery(""); e.currentTarget.blur(); }
               }}
             />
-            <button
-              onClick={handleSearch}
-              aria-label="매장 검색"
-              className="flex h-12 w-14 flex-shrink-0 items-center justify-center rounded-lg bg-[#303236] text-white transition-colors hover:bg-[#22365c] md:h-14 md:w-16"
-            >
-              <svg className="h-5 w-5 md:h-6 md:w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
-              </svg>
-            </button>
+            {/* 입력 전에만 보이는 안내 문구 (placeholder 대신 오버레이) */}
+            {!query && (
+              <span className="pointer-events-none absolute inset-y-0 left-4 right-2 flex items-center truncate text-sm text-white/60 md:left-7 md:text-base">
+                <span className="md:hidden">가까운 워크업 매장찾기</span>
+                <span className="hidden md:inline">매장명, 지역, 도로명 등으로 검색할 수 있습니다.</span>
+              </span>
+            )}
           </div>
+          <button
+            onClick={handleSearch}
+            aria-label="매장 검색"
+            className="flex h-12 w-12 flex-shrink-0 items-center justify-center text-white transition-colors hover:bg-white/10 md:h-16 md:w-20"
+          >
+            <svg className="h-6 w-6 md:h-7 md:w-7" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+          </button>
         </div>
       </div>
     </div>

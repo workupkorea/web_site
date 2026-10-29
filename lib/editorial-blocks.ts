@@ -8,7 +8,8 @@ export type HeroTag = { id: string; x: number; y: number; pc_x?: number; pc_y?: 
 export type ProductItem = { id: string; product_id: string; name: string; price: string; image_url: string; bg: string; card_detail?: EditorialCardDetail };
 export type Banner = {
   title: string; desc: string; section_bg: string; image_url: string;
-  label?: string;               // 상세페이지 상단 라벨 (배너별 기획전명)
+  image_urls?: string[];        // 랜덤 로테이션용 추가 이미지 (image_url과 함께 번갈아 노출)
+  label?: string;              // 상세페이지 상단 라벨 (배너별 기획전명)
   card_type?: "product" | "image"; // "image" = 통이미지 카드 (제목/설명/썸네일 없이 이미지 한 장)
   link?: string;                // 통이미지 카드 클릭 시 이동할 링크
   items: ProductItem[];
@@ -70,6 +71,7 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
     title: banner?.title || "",
     desc: banner?.desc || "",
     imageUrl: banner?.image_url || undefined,
+    imageUrls: [...new Set([banner?.image_url, ...(banner?.image_urls ?? [])].filter((u): u is string => !!u))],
     cardType: banner?.card_type === "image" ? "image" : "product",
     link: banner?.link || undefined,
     items: [items[0], items[1], items[2]],

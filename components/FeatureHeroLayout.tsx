@@ -142,6 +142,34 @@ function SectionTags({ tags }: { tags?: EditorialSectionTag[] }) {
   );
 }
 
+// 섹션 이미지 랜덤 로테이션 — 후보가 2장 이상이면 접속할 때마다 랜덤으로 시작하고 일정 간격으로 다른 이미지로 교체.
+// SSR/첫 렌더는 대표 이미지(0번)로 고정해 hydration 불일치를 막고, 마운트 후 랜덤 선택. 현재 노출 중인 이미지 1장만 로드(트래픽 최소화).
+const IMAGE_ROTATE_INTERVAL_MS = 8000;
+function RotatingImage({ urls, alt, className }: { urls: string[]; alt: string; className?: string }) {
+  const [idx, setIdx] = useState(0);
+  const count = urls.length;
+
+  useEffect(() => {
+    if (count < 2) return;
+    setIdx(Math.floor(Math.random() * count));
+    const timer = setInterval(() => {
+      setIdx((cur) => (cur + 1 + Math.floor(Math.random() * (count - 1))) % count); // 현재와 다른 이미지
+    }, IMAGE_ROTATE_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [count]);
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      key={idx}
+      src={ikSrc(urls[idx] ?? urls[0], 1200)}
+      alt={alt}
+      className={className}
+      style={count > 1 ? { animation: "imgFade 0.7s ease-out" } : undefined}
+    />
+  );
+}
+
 // 통이미지 카드 — 제목·설명·썸네일 없이 이미지 한 장 (PR 소식 등). link 지정 시 클릭 이동.
 // fill=true(PC): 카드(행) 전체 높이를 채움(하단까지·object-cover). fill=false(모바일): 원본 비율.
 function ImageOnlyCard({ imageUrl, link, title, fill = false }: { imageUrl?: string; link?: string; title?: string; fill?: boolean }) {
@@ -218,8 +246,8 @@ function WhiteBox({
       <div className="group/img relative w-full flex-shrink-0" style={{ paddingBottom: "112.5%" }}>
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
           {section.imageUrl ? (
-            <img
-              src={ikSrc(section.imageUrl, 1200)}
+            <RotatingImage
+              urls={section.imageUrls?.length ? section.imageUrls : [section.imageUrl]}
               alt={section.title}
               className="w-full h-full object-contain"
             />
@@ -593,8 +621,8 @@ export default function FeatureHeroLayout({
                 style={{ aspectRatio: "440 / 495" }}
               >
                 {section.imageUrl ? (
-                  <img
-                    src={ikSrc(section.imageUrl, 1200)}
+                  <RotatingImage
+                    urls={section.imageUrls?.length ? section.imageUrls : [section.imageUrl]}
                     alt={section.title}
                     className="w-full h-full object-contain"
                   />

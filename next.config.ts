@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
   transpilePackages: ["react-pdf", "pdfjs-dist"],
   // 응답 헤더에서 x-powered-by 제거 (불필요한 정보 노출 차단)
   poweredByHeader: false,
+  // 개발 서버(next dev)를 같은 와이파이의 폰에서 IP로 열 때 클라이언트 JS(/_next/*)가 차단되지 않도록 허용.
+  // 차단되면 hydration이 안 돼 마퀴 같은 JS 동작이 전부 멈춘다. 운영 빌드에는 영향 없음.
+  allowedDevOrigins: ["192.168.*.*", "172.16.*.*", "10.*.*.*"],
   // 동적 페이지의 클라이언트 라우터 캐시 비활성화
   // → 관리자에서 탑바 높이 저장 후 새로고침 한 번으로 즉시 반영됨
   experimental: {

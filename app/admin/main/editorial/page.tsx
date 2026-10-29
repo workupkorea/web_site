@@ -50,6 +50,7 @@ type Banner = {
   label?: string;     // 상세페이지 상단 라벨 (배너별 기획전명) — 예: "그대 이름은 바람 바람 바람"
   section_bg: string;
   image_url: string;
+  image_urls?: string[];  // 랜덤 로테이션용 추가 이미지 (대표 image_url과 번갈아 노출)
   card_type?: "product" | "image"; // "image" = 통이미지 카드 (제목/설명/썸네일 없이 이미지 한 장)
   link?: string;      // 통이미지 카드 클릭 시 이동할 링크 (PR 소식 등)
   items: ProductItem[];
@@ -1243,6 +1244,34 @@ function BannerEditor({ banner, label, onChange, products }: {
           <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
             이미지 배치 후 ChatGPT로 기획 이미지 생성
           </p>
+          {/* 랜덤 로테이션 — 추가 이미지를 등록하면 대표 이미지와 함께 접속할 때마다 랜덤·8초 간격으로 교체 노출 */}
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+            <p className="text-[11px] font-semibold text-gray-700">
+              랜덤 이미지 ({1 + (banner.image_urls?.length ?? 0)}장)
+            </p>
+            {(banner.image_urls ?? []).map((url, i) => (
+              <div key={`${url}-${i}`} className="relative rounded-lg overflow-hidden border border-gray-200" style={{ aspectRatio: "8/9" }}>
+                <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                <button
+                  type="button"
+                  aria-label="랜덤 이미지 삭제"
+                  onClick={() => onChange({ image_urls: (banner.image_urls ?? []).filter((_, j) => j !== i) })}
+                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs leading-none hover:bg-black/80"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <ImageField
+              label="추가"
+              hint="880 × 990px 이상 권장"
+              value=""
+              onChange={(url) => onChange({ image_urls: [...(banner.image_urls ?? []), url] })}
+              compact
+              aspectRatio="8/9"
+            />
+            <p className="text-[10px] text-gray-400 leading-snug">대표 이미지 + 추가 이미지가 번갈아 노출됩니다. (2장 이상일 때)</p>
+          </div>
         </div>
 
         {/* 우: 연결상품 3개 탭 */}

@@ -56,6 +56,7 @@ export type EditorialSection = {
   title: string;
   desc: string;
   imageUrl?: string;
+  imageUrls?: string[];  // 랜덤 로테이션 후보(대표 이미지 포함, 2장 이상일 때만 로테이션)
   // 카드 타입 — "product"(기본): 상단이미지+제목+설명+썸네일 / "image": 통이미지 한 장
   cardType?: "product" | "image";
   link?: string;                        // 통이미지 카드 클릭 시 이동할 링크 (PR 소식 등)

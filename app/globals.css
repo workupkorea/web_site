@@ -244,6 +244,10 @@ html {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes imgFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 /* 모션 최소화 선호 사용자: 흰색 배경 전환은 즉시 적용, 움직임만 제거 */
 @media (prefers-reduced-motion: reduce) {
   .store-cta { transition: none; }
