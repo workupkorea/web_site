@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { FranchiseForm } from "@/components/PartnershipForms";
 import PartnershipLayout from "@/components/PartnershipLayout";
-import FranchiseGuideModal from "@/components/FranchiseGuideModal";
+import FranchiseGuide from "@/components/FranchiseGuide";
 import { normalizePartnership, type PartnershipConfig } from "@/data/partnership";
 import { normalizeFranchiseGuide, type FranchiseGuideConfig } from "@/data/franchise-guide";
 import { getSiteSection } from "@/lib/site-settings";
@@ -26,9 +26,7 @@ export default async function FranchisePage() {
     <PartnershipLayout
       info={info}
       boardType="franchise"
-      guideButton={
-        <FranchiseGuideModal label="워크업 창업안내 한눈에 보기" config={guide} storeCount={storeCount} />
-      }
+      guide={<FranchiseGuide embedded config={guide} storeCount={storeCount} />}
     >
       <FranchiseForm config={info.form} guideConfig={guide} storeCount={storeCount} />
     </PartnershipLayout>

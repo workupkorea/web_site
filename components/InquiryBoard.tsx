@@ -75,7 +75,7 @@ function PostViewModal({ item, onClose }: { item: FeedItem; onClose: () => void 
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative bg-white w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="relative bg-white w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <button type="button" onClick={onClose} aria-label="닫기" className="absolute top-3 right-3 z-10 w-8 h-8 flex items-center justify-center text-gray-400 hover:text-[#303236]">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
@@ -84,7 +84,7 @@ function PostViewModal({ item, onClose }: { item: FeedItem; onClose: () => void 
           {!post ? (
             <form id="post-view-form" onSubmit={submit} className="px-5 pt-10 pb-6 space-y-4">
               <div className="flex flex-col items-center text-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <div className="w-10 h-10 bg-gray-100 flex items-center justify-center">
                   <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed">작성 시 설정한 <b>비밀번호</b>를 입력하면<br />내용과 답변을 볼 수 있어요.</p>
@@ -100,11 +100,11 @@ function PostViewModal({ item, onClose }: { item: FeedItem; onClose: () => void 
             <div className="px-5 pt-10 pb-5 space-y-4 text-sm">
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <span>{post.name}</span><span>·</span><span>{fmtDate(post.created_at)}</span>
-                <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-500">{STATUS_LABEL[post.status] ?? post.status}</span>
+                <span className="ml-auto text-[11px] px-2 py-0.5 bg-gray-100 text-gray-500">{STATUS_LABEL[post.status] ?? post.status}</span>
               </div>
-              <div className="text-[#303236] whitespace-pre-line break-words leading-relaxed border border-gray-100 rounded-lg p-3.5 bg-gray-50/40">{post.content || "(내용 없음)"}</div>
+              <div className="text-[#303236] whitespace-pre-line break-words leading-relaxed border border-gray-200 p-3.5 bg-gray-50/40">{post.content || "(내용 없음)"}</div>
               {post.reply ? (
-                <div className="border border-[#ffd9c4] bg-[#fff7f1] rounded-lg p-3.5">
+                <div className="border border-[#ffd9c4] bg-[#fff7f1] p-3.5">
                   <p className="text-xs font-bold text-[#E5541B] mb-1.5">답변{post.repliedAt ? ` · ${fmtDate(post.repliedAt)}` : ""}</p>
                   <p className="text-[#303236] whitespace-pre-line break-words leading-relaxed">{post.reply}</p>
                 </div>
@@ -122,7 +122,7 @@ function PostViewModal({ item, onClose }: { item: FeedItem; onClose: () => void 
               {loading ? "확인 중..." : "확인"}
             </button>
           ) : (
-            <button type="button" onClick={onClose} className="w-full border border-gray-200 text-gray-600 text-xs font-semibold py-2.5 rounded hover:bg-gray-50">닫기</button>
+            <button type="button" onClick={onClose} className="w-full border border-gray-200 text-gray-600 text-xs font-semibold py-2.5 hover:bg-gray-50">닫기</button>
           )}
         </div>
       </div>
@@ -161,6 +161,7 @@ export default function InquiryBoard({ type }: { type?: string }) {
   const [qFrom, setQFrom] = useState("");
   const [qTo, setQTo] = useState("");
   const searching = !!(qTitle.trim() || qAuthor.trim() || qFrom || qTo);
+  const [showSearch, setShowSearch] = useState(false); // 검색바 접이식 — 기본은 접힘
 
   const filtered = !searching ? items : items.filter((it) => {
     if (it.source !== "real") return false;
@@ -211,21 +212,26 @@ export default function InquiryBoard({ type }: { type?: string }) {
   return (
     <div className="bg-white border border-gray-200 h-full flex flex-col overflow-hidden">
       {/* 헤더 */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0" style={{ background: "linear-gradient(180deg,#fafbfc,#fff)" }}>
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="w-1 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: accent }} />
-          <h3 className="text-[15px] font-bold text-[#303236] truncate">{title}</h3>
-          <span className="flex items-center gap-1 text-[10px] text-green-600 flex-shrink-0">
-            <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />LIVE
-          </span>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-200 flex-shrink-0">
+        <div className="min-w-0">
+          <h3 className="text-base md:text-lg font-extrabold tracking-[-0.03em] text-[#303236] truncate">{title}</h3>
+          <p className="mt-0.5 text-xs text-gray-500">
+            누적 <b className="text-[#303236]">{total.toLocaleString()}</b>건
+            <span className="ml-2 inline-flex items-center gap-1" style={{ color: accent }}>
+              <span className="w-1.5 h-1.5 animate-pulse" style={{ backgroundColor: accent }} />LIVE
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-full px-3 py-1">
-            누적 <b className="text-[#303236]">{total.toLocaleString()}</b>건
-          </span>
+          <button type="button" onClick={() => setShowSearch((v) => !v)} aria-expanded={showSearch} aria-label="검색 열기"
+            className={`w-11 h-11 flex items-center justify-center border transition-colors ${showSearch || searching ? "border-[#303236] text-[#303236]" : "border-gray-200 text-gray-400 hover:text-[#303236]"}`}>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+            </svg>
+          </button>
           <button type="button" onClick={load} disabled={refreshing} title="새로고침" aria-label="새로고침"
-            className="w-7 h-7 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:text-[#303236] hover:border-gray-300 transition-colors disabled:opacity-50">
-            <svg className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            className="w-11 h-11 flex items-center justify-center border border-gray-200 text-gray-400 hover:text-[#303236] transition-colors disabled:opacity-50">
+            <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </button>
@@ -233,34 +239,36 @@ export default function InquiryBoard({ type }: { type?: string }) {
       </div>
 
       {/* 컬럼 헤더 */}
-      <div className="grid grid-cols-[1fr_70px_64px] px-5 py-2 text-[10px] font-medium text-gray-400 border-b border-gray-100 tracking-wider flex-shrink-0 bg-gray-50/50">
+      <div className="grid grid-cols-[1fr_72px_84px] px-5 py-2 text-xs font-medium text-gray-500 border-b border-gray-200 flex-shrink-0 bg-[#FAFAF8]">
         <span>제목</span><span className="text-center">작성자</span><span className="text-right">날짜</span>
       </div>
 
-      {/* 검색바 — 제목/작성자/기간(실제 접수 건만 검색) */}
-      <div className="flex flex-wrap items-center gap-1.5 px-5 py-2 border-b border-gray-100 flex-shrink-0 bg-white">
-        <input
-          type="text" value={qTitle} onChange={(e) => setQTitle(e.target.value)} placeholder="제목 검색"
-          className="min-w-0 flex-1 basis-24 border border-gray-200 rounded px-2 py-1 text-[11px] focus:outline-none focus:border-[#303236]"
-        />
-        <input
-          type="text" value={qAuthor} onChange={(e) => setQAuthor(e.target.value)} placeholder="작성자"
-          className="min-w-0 w-24 border border-gray-200 rounded px-2 py-1 text-[11px] focus:outline-none focus:border-[#303236]"
-        />
-        <input
-          type="date" value={qFrom} onChange={(e) => setQFrom(e.target.value)} max={qTo || undefined}
-          className="min-w-0 w-[110px] border border-gray-200 rounded px-1.5 py-1 text-[11px] text-gray-500 focus:outline-none focus:border-[#303236]"
-        />
-        <span className="text-gray-300 text-[10px]">~</span>
-        <input
-          type="date" value={qTo} onChange={(e) => setQTo(e.target.value)} min={qFrom || undefined}
-          className="min-w-0 w-[110px] border border-gray-200 rounded px-1.5 py-1 text-[11px] text-gray-500 focus:outline-none focus:border-[#303236]"
-        />
-        {searching && (
-          <button type="button" onClick={() => { setQTitle(""); setQAuthor(""); setQFrom(""); setQTo(""); }}
-            className="text-[11px] text-gray-400 hover:text-[#303236] px-1.5 py-1">초기화</button>
-        )}
-      </div>
+      {/* 검색바 — 제목/작성자/기간(실제 접수 건만 검색). 검색 버튼으로 펼침 */}
+      {(showSearch || searching) && (
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-200 flex-shrink-0 bg-white">
+          <input
+            type="text" value={qTitle} onChange={(e) => setQTitle(e.target.value)} placeholder="제목 검색"
+            className="min-w-0 flex-1 basis-28 h-10 border border-gray-200 px-3 text-sm focus:outline-none focus:border-[#303236]"
+          />
+          <input
+            type="text" value={qAuthor} onChange={(e) => setQAuthor(e.target.value)} placeholder="작성자"
+            className="min-w-0 w-24 h-10 border border-gray-200 px-3 text-sm focus:outline-none focus:border-[#303236]"
+          />
+          <input
+            type="date" value={qFrom} onChange={(e) => setQFrom(e.target.value)} max={qTo || undefined} aria-label="시작일"
+            className="min-w-0 w-[132px] h-10 border border-gray-200 px-2 text-sm text-gray-500 focus:outline-none focus:border-[#303236]"
+          />
+          <span className="text-gray-300 text-xs">~</span>
+          <input
+            type="date" value={qTo} onChange={(e) => setQTo(e.target.value)} min={qFrom || undefined} aria-label="종료일"
+            className="min-w-0 w-[132px] h-10 border border-gray-200 px-2 text-sm text-gray-500 focus:outline-none focus:border-[#303236]"
+          />
+          {searching && (
+            <button type="button" onClick={() => { setQTitle(""); setQAuthor(""); setQFrom(""); setQTo(""); }}
+              className="h-10 text-xs text-gray-500 hover:text-[#303236] px-2">초기화</button>
+          )}
+        </div>
+      )}
 
       {/* 목록 (전체 스크롤 — 바닥 근처에서 점진 로드) */}
       <div className="flex-1 overflow-y-auto" onScroll={onScroll}>
@@ -275,10 +283,10 @@ export default function InquiryBoard({ type }: { type?: string }) {
               <div
                 key={it.id}
                 onClick={it.locked ? () => setViewItem(it) : undefined}
-                className={`grid grid-cols-[1fr_70px_64px] px-5 py-2.5 text-[11px] items-center border-b border-gray-50 border-l-2 transition-colors hover:bg-slate-50/70 ${it.locked ? "cursor-pointer" : ""} ${today ? "bg-[#fff7f1] border-l-[#E5541B]" : "border-l-transparent"}`}
+                className={`grid grid-cols-[1fr_72px_84px] px-5 py-3 text-sm items-center border-b border-gray-100 border-l-2 transition-colors hover:bg-[#FAFAF8] ${it.locked ? "cursor-pointer" : ""} ${today ? "bg-[#fff7f1] border-l-[#E5541B]" : "border-l-transparent"}`}
               >
                 <span className="text-[#303236] truncate flex items-center gap-1.5 min-w-0">
-                  {today && <span className="flex-shrink-0 text-[9px] tracking-[0.12em] text-[#E5541B]">NEW</span>}
+                  {today && <span className="flex-shrink-0 text-[10px] font-bold tracking-[0.08em] text-[#E5541B]">NEW</span>}
                   {it.locked && (
                     <svg className="w-3 h-3 flex-shrink-0 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-label="비밀글">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -287,7 +295,7 @@ export default function InquiryBoard({ type }: { type?: string }) {
                   <span className="truncate">{it.content}</span>
                 </span>
                 <span className="text-center text-gray-500 truncate">{it.name}</span>
-                <span className={`text-right whitespace-nowrap ${today ? "text-[#E5541B] font-medium" : "text-gray-400"}`}>{fmtDate(it.created_at)}</span>
+                <span className={`text-right whitespace-nowrap text-xs ${today ? "text-[#E5541B] font-medium" : "text-gray-400"}`}>{fmtDate(it.created_at)}</span>
               </div>
             );
           })
