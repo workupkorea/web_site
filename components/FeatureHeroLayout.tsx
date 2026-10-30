@@ -532,7 +532,7 @@ export default function FeatureHeroLayout({
               {tags.map((tag, i) => (
                 <Link
                   key={i}
-                  href={`/products/${tag.productId}`}
+                  href={tag.href ?? `/products/${tag.productId}`}
                   className="flex items-center gap-4"
                   onClick={() => setSheetOpen(false)}
                 >
@@ -700,7 +700,7 @@ export default function FeatureHeroLayout({
               {tags.map((tag, i) => (
                 <Link
                   key={i}
-                  href={`/products/${tag.productId}`}
+                  href={tag.href ?? `/products/${tag.productId}`}
                   className="flex items-center gap-4"
                   onClick={() => setSheetOpen(false)}
                 >

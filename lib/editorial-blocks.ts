@@ -18,9 +18,11 @@ export type Banner = {
 };
 export type DBBlock = {
   id: string; sort_order: number; is_visible: boolean; reversed: boolean;
-  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_position?: string; link: string; tags: HeroTag[] };
+  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_position?: string; link: string; tags: HeroTag[]; detail?: Banner };
   banner1: Banner; banner2: Banner; banner3?: Banner; banner4?: Banner;
 };
+
+export const MAIN_DETAIL_SLUG = "main";
 
 // ── DB 조회 ───────────────────────────────────────────────────
 async function fetchBlocks(): Promise<DBBlock[] | null> {
@@ -85,7 +87,8 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
 // 상세페이지 링크가 꺼져 있거나 어느 배너에도 없으면 undefined → 제품 상세로 이동.
 // 태그는 배너 제품에 연결된다. item_id가 없는 옛 태그는 같은 제품명의 배너 제품을 찾아 연결한다(제품 DB는 쓰지 않음).
 function findTagItem(block: DBBlock, t: HeroTag): { item?: ProductItem; n: number } {
-  const banners = [block.banner1, block.banner2, block.banner3, block.banner4];
+  // 5번째 = 메인 기획전 상세(hero.detail) — 메인 이미지에 여러 제품을 태그할 수 있다
+  const banners = [block.banner1, block.banner2, block.banner3, block.banner4, block.hero?.detail];
   const all = (b?: Banner) => [...(b?.items ?? []), ...(b?.detail_items ?? [])];
   const norm = (v?: string) => (v ?? "").replace(/\s+/g, "").toLowerCase();
   const matchers: ((i: ProductItem) => boolean)[] = t.item_id
@@ -107,7 +110,8 @@ function tagHref(block: DBBlock, t: HeroTag, href: (n: number) => string | undef
 
 export function blockToEditorial(block: DBBlock): Editorial {
   // 서브배너 1~4 모두 상세페이지 링크 활성
-  const href = (n: number) => `/products/feature/${block.id}/${n}`;
+  // n=5 → 메인 기획전 상세페이지(/main)
+  const href = (n: number) => `/products/feature/${block.id}/${n >= 5 ? MAIN_DETAIL_SLUG : n}`;
   const s1 = makeSection(block.banner1, href(1));
   const s2 = makeSection(block.banner2, href(2));
   const s3 = block.banner3 ? makeSection(block.banner3, href(3)) : s1;
@@ -243,16 +247,11 @@ async function fetchBrandMap(ids: string[]): Promise<Record<string, { brand?: st
   return map;
 }
 
-export async function getBannerDetail(blockId: string, bannerIndex: number): Promise<BannerDetail | null> {
-  if (bannerIndex < 1 || bannerIndex > 4) return null;
-  const blockList = await fetchBlocks();
-  if (!blockList) return null;
-  const block = blockList.find((b) => b.id === blockId);
-  if (!block || block.is_visible === false) return null;
-
-  const banner = [block.banner1, block.banner2, block.banner3, block.banner4][bannerIndex - 1];
-  if (!banner) return null;
-
+// 배너(Banner) → 상세페이지 데이터. 기획전 서브 배너와 메인 슬라이드 전용 상세가 함께 쓴다.
+async function buildBannerDetail(
+  banner: Banner,
+  meta: { blockId: string; bannerIndex: number; editorialTitle: string },
+): Promise<BannerDetail> {
   const merged = [...mapItems(banner.items), ...mapItems(banner.detail_items)]
     // 중복 상품(productId 기준) 제거 — 메인/추가에 같은 상품이 들어간 경우
     .filter((p, i, arr) => !p.productId || arr.findIndex((q) => q.productId === p.productId) === i);
@@ -265,14 +264,44 @@ export async function getBannerDetail(blockId: string, bannerIndex: number): Pro
   });
 
   return {
-    blockId: block.id,
-    bannerIndex,
-    editorialTitle: block.hero?.title || "",
-    label: banner.label?.trim() || block.hero?.title || "",
+    ...meta,
+    label: banner.label?.trim() || meta.editorialTitle,
     title: banner.title || "",
     desc: banner.desc || "",
     imageUrl: banner.image_url || undefined,
     bg: banner.section_bg || "#303236",
     products,
   };
+}
+
+export async function getBannerDetail(blockId: string, bannerIndex: number): Promise<BannerDetail | null> {
+  if (bannerIndex < 1 || bannerIndex > 4) return null;
+  const blockList = await fetchBlocks();
+  if (!blockList) return null;
+  const block = blockList.find((b) => b.id === blockId);
+  if (!block || block.is_visible === false) return null;
+
+  const banner = [block.banner1, block.banner2, block.banner3, block.banner4][bannerIndex - 1];
+  if (!banner) return null;
+  return buildBannerDetail(banner, { blockId: block.id, bannerIndex, editorialTitle: block.hero?.title || "" });
+}
+
+// 메인 기획전(hero) 상세페이지 — hero.detail(서브 배너와 같은 Banner 구조)로 같은 화면을 만든다.
+// 주소: /products/feature/<기획전 id>/main. 숨김 기획전·제품 없는 상세는 null.
+// 제목·설명·이미지를 비워 두면 메인 기획전(hero)의 값을 쓴다.
+export async function getHeroDetail(blockId: string): Promise<BannerDetail | null> {
+  const blockList = await fetchBlocks();
+  const block = blockList?.find((b) => b.id === blockId);
+  const detail = block?.hero?.detail;
+  if (!block || block.is_visible === false || !detail) return null;
+  if (![...(detail.items ?? []), ...(detail.detail_items ?? [])].some((i) => i.product_id || i.name)) return null;
+  return buildBannerDetail(
+    {
+      ...detail,
+      title: detail.title || block.hero.title,
+      desc: detail.desc || block.hero.desc,
+      image_url: detail.image_url || block.hero.image_url,
+    },
+    { blockId: block.id, bannerIndex: 0, editorialTitle: block.hero.title || "" },
+  );
 }

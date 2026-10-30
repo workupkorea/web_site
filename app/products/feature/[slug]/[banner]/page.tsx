@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getBannerDetail } from "@/lib/editorial-blocks";
+import { getBannerDetail, getHeroDetail, MAIN_DETAIL_SLUG } from "@/lib/editorial-blocks";
 import { ikSrc } from "@/lib/imageSrc";
 import ProductFeatureTabs from "@/components/ProductFeatureTabs";
+
+// banner가 "main"이면 메인 기획전 상세, 숫자면 서브 배너 상세
+const loadDetail = (slug: string, banner: string) =>
+  banner === MAIN_DETAIL_SLUG ? getHeroDetail(slug) : getBannerDetail(slug, Number(banner));
 
 type Props = { params: Promise<{ slug: string; banner: string }>; searchParams: Promise<{ product?: string; item?: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, banner } = await params;
-  const detail = await getBannerDetail(slug, Number(banner));
+  const detail = await loadDetail(slug, banner);
   if (!detail) return { title: "기획전" };
   return {
     title: `${detail.title} — WORKUP`,
@@ -25,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BannerDetailPage({ params, searchParams }: Props) {
   const { slug, banner } = await params;
   const { product: initialProductId, item: initialItemId } = await searchParams;
-  const detail = await getBannerDetail(slug, Number(banner));
+  const detail = await loadDetail(slug, banner);
   if (!detail) notFound();
 
   const products = detail.products.filter((p) => p.productId || p.name);

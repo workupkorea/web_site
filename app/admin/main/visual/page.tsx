@@ -813,12 +813,37 @@ function SectionTitle({ title, desc, accent = "bg-blue-500", right }: {
   );
 }
 
+// 기획전(editorial_blocks)의 상세페이지 링크 목록 — 메인 상세 + 서브 배너 1~4, 내용이 있는 것만
+type EditorialBannerLite = { title?: string; items?: { product_id?: string; name?: string }[]; detail_items?: { product_id?: string; name?: string }[] };
+type EditorialBlockLite = { id: string; hero?: { title?: string; detail?: EditorialBannerLite }; banner1?: EditorialBannerLite; banner2?: EditorialBannerLite; banner3?: EditorialBannerLite; banner4?: EditorialBannerLite };
+function editorialDetailLinks(blocks: EditorialBlockLite[] | undefined): { label: string; href: string }[] {
+  const out: { label: string; href: string }[] = [];
+  const filled = (b?: EditorialBannerLite) => !!b && [...(b.items ?? []), ...(b.detail_items ?? [])].some((i) => i.product_id || i.name);
+  (blocks ?? []).forEach((b, bi) => {
+    const head = `기획전 ${bi + 1}${b.hero?.title ? ` (${b.hero.title})` : ""}`;
+    if (filled(b.hero?.detail)) out.push({ label: `${head} · 메인 상세 — ${b.hero?.detail?.title || b.hero?.title || "제목 없음"}`, href: `/products/feature/${b.id}/main` });
+    [b.banner1, b.banner2, b.banner3, b.banner4].forEach((banner, n) => {
+      if (!banner || !(banner.title || filled(banner))) return;
+      out.push({ label: `${head} · 서브배너 ${n + 1} — ${banner.title || "제목 없음"}`, href: `/products/feature/${b.id}/${n + 1}` });
+    });
+  });
+  return out;
+}
+
 // ── 슬라이드 클릭 이동 링크 (헤더 메뉴 프리셋 + 직접 입력) ──
 function SlideLinkField({ value, newTab, onChangeValue, onChangeNewTab }: {
   value: string | null; newTab: boolean;
   onChangeValue: (v: string | null) => void; onChangeNewTab: (v: boolean) => void;
 }) {
-  const preset = value !== null && LINK_PRESETS.some((p) => p.href === value);
+  const [detailLinks, setDetailLinks] = useState<{ label: string; href: string }[]>([]);
+  useEffect(() => {
+    fetch("/api/admin/site-settings/editorial_blocks")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setDetailLinks(editorialDetailLinks(data?.blocks)))
+      .catch(() => {});
+  }, []);
+
+  const preset = value !== null && (LINK_PRESETS.some((p) => p.href === value) || detailLinks.some((p) => p.href === value));
   const isCustom = !!value && !preset;
   const selectValue = !value ? "" : preset ? value : "custom";
 
@@ -839,6 +864,13 @@ function SlideLinkField({ value, newTab, onChangeValue, onChangeNewTab }: {
           {LINK_PRESETS.map((p) => (
             <option key={p.href} value={p.href}>{p.label} — {p.href}</option>
           ))}
+          {detailLinks.length > 0 && (
+            <optgroup label="기획전 상세페이지 (메인·서브 배너)">
+              {detailLinks.map((p) => (
+                <option key={p.href} value={p.href}>{p.label}</option>
+              ))}
+            </optgroup>
+          )}
           <option value="custom">직접 입력 (URL)</option>
         </select>
 
