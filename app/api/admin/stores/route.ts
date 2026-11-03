@@ -3,12 +3,13 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
 import { geocodeAddress } from "@/lib/geocode";
-import { activateDueStores, isOpenPending } from "@/lib/store-changes";
+import { activateDueStores, closeDueStores, isOpenPending } from "@/lib/store-changes";
 
 export async function GET() {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const supabase = createAdminClient();
   await activateDueStores(supabase); // 오픈일 도래 지점 자동 공개
+  await closeDueStores(supabase); // 폐업 예정일 도래 지점 자동 폐업
   const { data, error } = await supabase
     .from("stores")
     .select("*")

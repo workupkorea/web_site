@@ -51,7 +51,15 @@ export async function PUT(req: Request, { params }: Params) {
   const { data: prev } = await supabase.from("stores").select("*").eq("id", id).single();
   // 폐업 처리: closed_at 이 오면 그 값(null 이면 해제), 안 오면(수정 폼 등) 기존 값 유지. 폐업 지점은 항상 비활성.
   const closedAt: string | null = body.closed_at !== undefined ? (body.closed_at || null) : (prev?.closed_at ?? null);
-  const nextActive = closedAt || isOpenPending(openDate) ? false : (body.is_active ?? true);
+  // 폐업 예정일: 이미 폐업이면 비움, 안 오면 기존 값 유지. 도래하면 closeDueStores 가 자동 폐업 처리한다.
+  const closeDate: string | null = closedAt
+    ? null
+    : (body.close_date !== undefined ? (body.close_date || null) : (prev?.close_date ?? null));
+  // 폐업 사유: 폐업/폐업 예약 상태일 때만 유지, 안 오면 기존 값 유지
+  const closeReason: string | null = closedAt || closeDate
+    ? (body.close_reason !== undefined ? (body.close_reason?.trim() || null) : (prev?.close_reason ?? null))
+    : null;
+  const nextActive = closedAt ||isOpenPending(openDate) ? false : (body.is_active ?? true);
   const reactivated = prev?.is_active === false && nextActive === true;
 
   const nowIso = new Date().toISOString();
@@ -76,6 +84,8 @@ export async function PUT(req: Request, { params }: Params) {
     product_ids: body.product_ids ?? [],
     open_date: openDate,
     closed_at: closedAt,
+    close_date: closeDate,
+    close_reason: closeReason,
   };
   // 수정 내역(무엇이 바뀌었는지) 기록 — 변경이 있을 때만, 최근 20건 유지
   const changes = prev ? diffStore(prev, fields) : [];

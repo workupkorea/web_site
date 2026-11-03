@@ -23,6 +23,8 @@ const TRACKED_FIELDS: { key: string; label: string; long?: boolean; bool?: boole
   { key: "is_active", label: "활성" },
   { key: "page_active", label: "스토어 페이지 노출" },
   { key: "open_date", label: "오픈 예정일" },
+  { key: "close_date", label: "폐업 예정일" },
+  { key: "close_reason", label: "폐업 사유" },
   { key: "closed_at", label: "폐업", bool: true },
   { key: "sort_order", label: "정렬순서" },
   { key: "kakao_channel_url", label: "카카오채널URL" },
@@ -105,6 +107,40 @@ export async function activateDueStores(supabase: SupabaseClient): Promise<void>
               at: now,
               by: "시스템",
               changes: [{ field: "is_active", label: "활성", from: "아니오", to: "예 (오픈일 자동 오픈)" }],
+            }),
+          })
+          .eq("id", s.id)
+      )
+    );
+  } catch {
+    // 새 컬럼 미적용 등 — 조용히 무시
+  }
+}
+
+// 폐업 예정일이 된(지난 경우 포함) 지점을 폐업 처리한다. (비활성 + 폐업일 기록)
+// - activateDueStores 와 같은 방식: 별도 크론 없이 목록 조회 시 호출, 실패해도 조회를 막지 않는다.
+export async function closeDueStores(supabase: SupabaseClient): Promise<void> {
+  try {
+    const { data: due } = await supabase
+      .from("stores")
+      .select("id, change_history")
+      .is("closed_at", null)
+      .not("close_date", "is", null)
+      .lte("close_date", todayKST());
+    if (!due || due.length === 0) return;
+    const now = new Date().toISOString();
+    await Promise.all(
+      due.map((s: { id: number; change_history: unknown }) =>
+        supabase
+          .from("stores")
+          .update({
+            is_active: false,
+            closed_at: now,
+            close_date: null,
+            change_history: appendHistory(s.change_history, {
+              at: now,
+              by: "시스템",
+              changes: [{ field: "closed_at", label: "폐업", from: "아니오", to: "예 (폐업일 자동 폐업)" }],
             }),
           })
           .eq("id", s.id)

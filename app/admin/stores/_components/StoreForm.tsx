@@ -20,6 +20,8 @@ export type StoreFormData = {
   is_active: boolean;
   page_active: boolean;
   open_date: string;
+  close_date: string;
+  close_reason: string;
   sort_order: string;
   image_urls: string[];
   product_ids: string[];
@@ -123,7 +125,7 @@ type InitialData = Partial<{
   name: string; store_code: string; ship_name: string | null; region: string; address: string; hours: string; phone: string;
   store_type: string; description: string; brands: string[] | string;
   parking: boolean; kakao_channel_url: string; store_url: string;
-  is_active: boolean; page_active: boolean; open_date: string | null; sort_order: number | string; image_urls: string[];
+  is_active: boolean; page_active: boolean; open_date: string | null; close_date: string | null; close_reason: string | null; sort_order: number | string; image_urls: string[];
   product_ids: string[]; lat: unknown; lng: unknown;
 }>;
 
@@ -158,6 +160,8 @@ export default function StoreForm({
         is_active: d?.is_active ?? true,
         page_active: d?.page_active ?? (storeId ? true : false), // 신규 등록은 비노출이 기본
         open_date: d?.open_date ?? "",
+        close_date: d?.close_date ?? "",
+        close_reason: d?.close_reason ?? "",
         sort_order: String(d?.sort_order ?? "0"),
         image_urls: Array.isArray(d?.image_urls) ? d.image_urls : [],
         product_ids: Array.isArray(d?.product_ids) ? d.product_ids : [],
@@ -267,6 +271,8 @@ export default function StoreForm({
       hours: buildHours(hoursWeekday, hoursWeekend, hoursSame),
       sort_order: Number(form.sort_order) || 0,
       open_date: form.open_date || null,
+      close_date: form.close_date || null,
+      close_reason: form.close_reason.trim() || null,
       brands: form.brands.split(";").map((b) => b.trim()).filter(Boolean),
     };
     const url = isEdit ? `/api/admin/stores/${storeId}` : "/api/admin/stores";
@@ -525,6 +531,28 @@ export default function StoreForm({
               className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
             />
           </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">폐업 예정일 (선택)</label>
+            <input
+              type="date"
+              value={form.close_date}
+              onChange={(e) => set("close_date", e.target.value)}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">폐업 사유 (선택)</label>
+            <input
+              list="store-close-reasons"
+              value={form.close_reason}
+              onChange={(e) => set("close_reason", e.target.value)}
+              placeholder="예: 폐업, 점주변경"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+            <datalist id="store-close-reasons">
+              {["폐업", "점주변경", "이전", "계약종료"].map((r) => <option key={r} value={r} />)}
+            </datalist>
+          </div>
           <div className="col-span-2 flex flex-nowrap items-center gap-6 whitespace-nowrap">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -620,6 +648,7 @@ export default function StoreForm({
       {/* 추가 정보 세부 설명 (박스 바깥) */}
       <div className="-mt-5 px-1 space-y-1 text-xs text-gray-400">
         <p>· 오픈 예정일: 미리 등록하면 비공개로 저장되고, 오픈일 당일에 자동으로 공개(활성)됩니다.</p>
+        <p>· 폐업 예정일: 폐업일 전까지는 정상 노출되고, 폐업일 당일에 자동으로 폐업 처리(비활성)됩니다.</p>
         <p>· 활성 (공개): 켜면 매장 찾기 목록과 지도에 이 매장이 보입니다. 끄면 고객에게 아예 안 보입니다.</p>
         <p>· 스토어 페이지 노출: 켜면 이 매장의 상세 페이지를 고객이 열어볼 수 있습니다. 활성(공개)도 같이 켜져 있어야 합니다.</p>
       </div>

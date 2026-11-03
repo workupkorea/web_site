@@ -29,6 +29,8 @@ type StoreRow = {
   created_at: string;
   updated_at: string | null;
   open_date: string | null;
+  close_date: string | null;
+  close_reason: string | null;
   closed_at: string | null;
   change_history: { at: string; by: string; changes: { field: string; label: string; from: string; to: string }[] }[] | null;
 };
@@ -57,15 +59,21 @@ const sortValue = (s: StoreRow, key: SortKey): string | number => {
   }
 };
 
-type StoreStatus = "활성" | "비활성" | "폐업";
-const STATUS_OPTIONS: StoreStatus[] = ["활성", "비활성", "폐업"];
+// 운영중 = 공개 중, 예정 = 오픈 대기(비활성) 또는 폐업 예약, 폐업 = 폐업 처리됨
+type StoreStatus = "운영중" | "예정" | "폐업";
+const STATUS_OPTIONS: StoreStatus[] = ["운영중", "예정", "폐업"];
 const STATUS_COLOR: Record<StoreStatus, string> = {
-  활성: "bg-emerald-100 text-emerald-700",
-  비활성: "bg-gray-100 text-gray-500",
+  운영중: "bg-emerald-100 text-emerald-700",
+  예정: "bg-amber-100 text-amber-700",
   폐업: "bg-red-100 text-red-700",
 };
 const storeStatus = (s: Pick<StoreRow, "is_active" | "closed_at">): StoreStatus =>
-  s.closed_at ? "폐업" : s.is_active ? "활성" : "비활성";
+  s.closed_at ? "폐업" : s.is_active ? "운영중" : "예정";
+// 예정 필터: 오픈 대기(비활성) + 폐업 예약(폐업 예정일이 있고 아직 운영중)
+const isScheduled = (s: Pick<StoreRow, "is_active" | "closed_at" | "close_date">) =>
+  !s.closed_at && (!s.is_active || !!s.close_date);
+
+const CLOSE_REASONS = ["폐업", "점주변경", "이전", "계약종료"];
 
 const TYPE_COLOR: Record<string, string> = {
   직영점: "bg-blue-100 text-blue-700",
@@ -80,7 +88,10 @@ export default function AdminStoresPage() {
   const [search, setSearch] = useState("");
   const [regionFilter, setRegionFilter] = useState("전체");
   const [typeFilter, setTypeFilter] = useState("전체");
-  const [activeFilter, setActiveFilter] = useState<"전체" | "활성" | "비활성" | "폐업">("전체");
+  const [closeTarget, setCloseTarget] = useState<StoreRow | null>(null);
+  const [closeDate, setCloseDate] = useState("");
+  const [closeReason, setCloseReason] = useState("");
+  const [activeFilter, setActiveFilter] = useState<"전체" | "운영중" | "예정" | "폐업">("전체");
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [bulkSaving, setBulkSaving] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("created_at"); // 기본: 최근 등록일 순
@@ -130,19 +141,21 @@ export default function AdminStoresPage() {
       // 폐업 지점은 '폐업' 필터에서만 보이고, 전체/활성/비활성 목록에서는 숨긴다.
       if (activeFilter === "폐업") return !!s.closed_at;
       if (s.closed_at) return false;
-      if (activeFilter === "활성" && !s.is_active) return false;
-      if (activeFilter === "비활성" && s.is_active) return false;
+      if (activeFilter === "운영중" && !s.is_active) return false;
+      if (activeFilter === "예정" && !isScheduled(s)) return false;
       return true;
     });
   }, [stores, search, regionFilter, typeFilter, activeFilter]);
 
   // 상태 필터별 건수 (전체 = 폐업 제외)
   const statusCounts = useMemo(() => {
-    const c = { 전체: 0, 활성: 0, 비활성: 0, 폐업: 0 };
+    const c = { 전체: 0, 운영중: 0, 예정: 0, 폐업: 0 };
     stores.forEach((s) => {
       const st = storeStatus(s);
-      c[st] += 1;
-      if (st !== "폐업") c.전체 += 1;
+      if (st === "폐업") { c.폐업 += 1; return; }
+      c.전체 += 1;
+      if (st === "운영중") c.운영중 += 1;
+      if (isScheduled(s)) c.예정 += 1;
     });
     return c;
   }, [stores]);
@@ -222,13 +235,27 @@ export default function AdminStoresPage() {
   // 상태 변경(활성/비활성/폐업). 폐업은 비활성 + 폐업일 기록, 다른 상태로 바꾸면 폐업일 해제
   const changeStatus = async (store: StoreRow, next: StoreStatus) => {
     if (next === storeStatus(store)) return;
-    if (next === "폐업" && !confirm(`"${store.name}"을(를) 폐업 처리합니다. 고객 화면에서 노출되지 않습니다.`)) return;
-    await updateStore(
-      store,
-      next === "폐업"
-        ? { is_active: false, closed_at: new Date().toISOString() }
-        : { is_active: next === "활성", closed_at: null }
-    );
+    if (next === "폐업") {
+      // 폐업일은 캘린더 팝업에서 선택 (즉시 폐업 / 날짜 예약)
+      setCloseTarget(store);
+      setCloseDate(store.close_date ?? "");
+      setCloseReason(store.close_reason ?? "");
+      return;
+    }
+    await updateStore(store, { is_active: next === "운영중", closed_at: null, close_date: null, close_reason: null });
+  };
+
+  // 폐업 확정: date 가 없거나 오늘 이하면 즉시 폐업, 오늘 이후면 해당일에 자동 폐업(예약)
+  const confirmClose = async (date: string) => {
+    const store = closeTarget;
+    if (!store) return;
+    const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10); // KST
+    setCloseTarget(null);
+    if (date && date > today) {
+      await updateStore(store, { close_date: date, close_reason: closeReason.trim() || null });
+    } else {
+      await updateStore(store, { is_active: false, closed_at: new Date().toISOString(), close_date: null, close_reason: closeReason.trim() || null });
+    }
   };
   const togglePageActive = (store: StoreRow) => updateStore(store, { page_active: !store.page_active });
 
@@ -350,7 +377,7 @@ export default function AdminStoresPage() {
           {types.map((t) => <option key={t} value={t}>{t === "전체" ? "유형 전체" : t}</option>)}
         </select>
         <div className="flex gap-1 border border-gray-200 rounded-lg overflow-hidden">
-          {(["전체", "활성", "비활성", "폐업"] as const).map((opt) => (
+          {(["전체", "운영중", "예정", "폐업"] as const).map((opt) => (
             <button
               key={opt}
               onClick={() => setActiveFilter(opt)}
@@ -473,7 +500,12 @@ export default function AdminStoresPage() {
                       <Link href={`/admin/stores/${store.id}/edit`} className="text-gray-600 hover:text-blue-600 hover:underline">{store.store_code || "-"}</Link>
                     </td>
                     <td className="px-3 py-2.5">
-                      <Link href={`/admin/stores/${store.id}/edit`} className="font-medium text-gray-900 hover:text-blue-600 hover:underline">{store.name}</Link>
+                      <Link href={`/admin/stores/${store.id}/edit`} className="font-medium text-gray-900 hover:text-blue-600 hover:underline">
+                        {store.close_reason && (
+                          <span className="mr-1.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-semibold align-middle">{store.close_reason}</span>
+                        )}
+                        {store.name}
+                      </Link>
                       <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[200px]">{store.address}</p>
                     </td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{store.ship_name || "-"}</td>
@@ -495,6 +527,11 @@ export default function AdminStoresPage() {
                       </select>
                       {store.closed_at && (
                         <p className="mt-1 text-[11px] font-mono text-red-600 whitespace-nowrap">{fmtDate(store.closed_at)}</p>
+                      )}
+                      {store.close_date && !store.closed_at && (
+                        <p className="mt-1 text-[11px] font-semibold text-red-600 whitespace-nowrap">
+                          {store.close_date.slice(5).replace("-", "/")} 폐업예정
+                        </p>
                       )}
                       {store.open_date && (
                         <p className="mt-1 text-[11px] font-semibold text-[#E5541B] whitespace-nowrap">
@@ -540,6 +577,49 @@ export default function AdminStoresPage() {
           </table>
         </div>
       </div>
+
+      {/* 폐업일 선택 팝업 */}
+      {closeTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setCloseTarget(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="폐업 처리"
+        >
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">{closeTarget.name} 폐업 처리</h3>
+            <p className="mt-1 text-[13px] text-gray-500">폐업일을 선택하면 그날 자동으로 폐업되고, 그 전까지는 정상 노출됩니다.</p>
+            <input
+              list="close-reason-options"
+              value={closeReason}
+              onChange={(e) => setCloseReason(e.target.value)}
+              placeholder="폐업 사유 (예: 폐업, 점주변경)"
+              className="mt-4 w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+            <datalist id="close-reason-options">
+              {CLOSE_REASONS.map((r) => <option key={r} value={r} />)}
+            </datalist>
+            <input
+              type="date"
+              value={closeDate}
+              onChange={(e) => setCloseDate(e.target.value)}
+              className="mt-2 w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+            />
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button onClick={() => setCloseTarget(null)} className="min-h-[44px] px-4 text-sm text-gray-500 hover:text-gray-900">취소</button>
+              <button onClick={() => confirmClose("")} className="min-h-[44px] px-4 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50">지금 즉시 폐업</button>
+              <button
+                onClick={() => confirmClose(closeDate)}
+                disabled={!closeDate}
+                className="min-h-[44px] px-4 text-sm bg-[#303236] text-white rounded-lg disabled:opacity-40"
+              >
+                폐업일 예약
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 수정내역 팝업 */}
       {historyStore && (
