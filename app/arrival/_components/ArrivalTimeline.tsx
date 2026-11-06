@@ -592,12 +592,12 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates, ra
   return (
     <button onClick={onSelect}
       className="text-left transition-opacity hover:opacity-80 flex flex-col">
+      {/* 관리자: 초도 입고 경과일을 이미지 위쪽에 배치 */}
+      {showRates && dLabel && (
+        <span className="mb-1 self-start rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white tabular-nums" title="초도 입고일 기준 경과일">{dLabel}</span>
+      )}
       <div className={`relative w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
         <ProductImage product={product} size="sm" />
-        {/* 좌측 상단: 초도 입고 경과일 (관리자) */}
-        {showRates && dLabel && (
-          <span className="absolute top-1.5 left-1.5 z-10 rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm tabular-nums" title="초도 입고일 기준 경과일">{dLabel}</span>
-        )}
         {/* 우측 상단: 주문(파랑)·판매(초록) 순위 (관리자) */}
         {rank && (
           <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1 tabular-nums">
@@ -607,7 +607,7 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates, ra
         )}
         {product.newArrivalType === "재진행" && (
           <span
-            className={`absolute ${showRates && dLabel ? "top-7" : "top-1.5"} left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[12px] font-bold flex items-center justify-center leading-none shadow`}
+            className={`absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[12px] font-bold flex items-center justify-center leading-none shadow`}
             title="재진행 상품"
           >
             R
