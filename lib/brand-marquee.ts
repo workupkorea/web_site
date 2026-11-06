@@ -27,7 +27,7 @@ function brandCatalogHref(name: string): string {
   return `${staticBrand?.href ?? `/brands/${brandSlug(name)}`}/catalog`;
 }
 
-type BrandRow = { id: string | number; name: string; logo_url: string | null };
+type BrandRow = { id: string | number; name: string; logo_url: string | null; is_visible?: boolean | null };
 
 export async function getBrandMarquee(): Promise<{ title: string; items: BrandLogoItem[] }> {
   // brands 테이블은 /admin/catalog/brands에서 수시로 바뀌므로(로고 교체 등) 캐시하지 않고 매 요청 조회한다.
@@ -36,7 +36,7 @@ export async function getBrandMarquee(): Promise<{ title: string; items: BrandLo
     const supabase = createAdminClient();
     const [{ data: settingsRow }, { data: brands }] = await Promise.all([
       supabase.from("site_settings").select("config").eq("section", "brand_marquee").maybeSingle(),
-      supabase.from("brands").select("id, name, logo_url"),
+      supabase.from("brands").select("id, name, logo_url, is_visible"),
     ]);
 
     const config = (settingsRow?.config as Partial<BrandMarqueeConfig>) ?? {};
@@ -46,7 +46,8 @@ export async function getBrandMarquee(): Promise<{ title: string; items: BrandLo
     const byId = new Map((brands ?? []).map((b) => [String(b.id), b as BrandRow]));
     const items: BrandLogoItem[] = brandIds
       .map((id) => byId.get(String(id)))
-      .filter((b): b is BrandRow => !!b)
+      // /admin/catalog/brands에서 비노출(숨김)로 둔 브랜드는 마퀴에서도 제외
+      .filter((b): b is BrandRow => !!b && b.is_visible !== false)
       .map((b) => ({ id: String(b.id), name: b.name, logoUrl: b.logo_url ?? "", href: brandCatalogHref(b.name) }));
 
     return { title, items };

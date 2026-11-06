@@ -43,7 +43,8 @@ export async function loadBrandPdfCatalog(slug: string): Promise<LoadedBrandPdfC
   try {
     const sb = createAdminClient();
     const brand = await resolveBrand(sb, slug);
-    if (!brand) return null;
+    // 비노출(숨김) 브랜드는 직접 URL로도 PDF 카탈로그를 보여주지 않는다
+    if (!brand || brand.is_visible === false) return null;
     const { data: rows } = await sb
       .from("brand_catalogs").select("*")
       .eq("is_visible", true)
@@ -66,6 +67,7 @@ export async function loadBrandCatalog(
     const sb = createAdminClient();
     const brand = await resolveBrand(sb, slug);
     if (!brand) return null;
+    if (brand.is_visible === false && !opts.includeHidden) return null;
     if (brand.catalog_enabled !== true && !opts.includeHidden) return null;
 
     let q = sb.from("catalog_pages").select("*")

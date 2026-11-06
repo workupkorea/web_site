@@ -31,3 +31,6 @@ scratchpad_dev.log
 
 # SDD scratch (subagent-driven-development)
 .superpowers/
+
+# graphify output
+graphify-out/
