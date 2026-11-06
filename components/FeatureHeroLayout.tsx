@@ -23,7 +23,7 @@ function TagChip({ tag, x, y, compact, px, inline }: { tag: EditorialTag; x?: nu
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={ikSrc(tag.brandLogo, 200)}
-          alt={tag.brand ?? ""}
+          alt={tag.brand || tag.name}
           className={`object-contain mb-1 ${compact ? "h-[8px]" : "h-[11px]"}`}
           style={{ filter: "brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.45))" }}
         />
@@ -145,6 +145,8 @@ function SectionTags({ tags }: { tags?: EditorialSectionTag[] }) {
 // 섹션 이미지 랜덤 로테이션 — 후보가 2장 이상이면 접속할 때마다 랜덤으로 시작하고 일정 간격으로 다른 이미지로 교체.
 // SSR/첫 렌더는 대표 이미지(0번)로 고정해 hydration 불일치를 막고, 마운트 후 랜덤 선택. 현재 노출 중인 이미지 1장만 로드(트래픽 최소화).
 const IMAGE_ROTATE_INTERVAL_MS = 8000;
+// 섹션 제목이 비어 있을 때 쓰는 대체 alt (SEO·접근성: 빈 alt 방지)
+const SECTION_IMAGE_ALT = "기획전 제품 이미지";
 function RotatingImage({ urls, alt, className }: { urls: string[]; alt: string; className?: string }) {
   const [idx, setIdx] = useState(0);
   const count = urls.length;
@@ -248,7 +250,7 @@ function WhiteBox({
           {section.imageUrl ? (
             <RotatingImage
               urls={section.imageUrls?.length ? section.imageUrls : [section.imageUrl]}
-              alt={section.title}
+              alt={section.title || SECTION_IMAGE_ALT}
               className="w-full h-full object-contain"
             />
           ) : (
@@ -421,6 +423,9 @@ export default function FeatureHeroLayout({
 
   return (
     <>
+      {/* 페이지 대표 H1 — 반응형 3개 레이아웃이 모두 DOM에 있으므로 H1은 여기 한 곳에만 둔다 (SEO: H1 1개) */}
+      <h1 className="sr-only">{editorial.title}</h1>
+
       {/* ── PC 레이아웃 (xl+) — 1280px 이상 ── */}
       <div
         className="hidden xl:flex xl:items-start bg-white"
@@ -459,7 +464,7 @@ export default function FeatureHeroLayout({
           <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
             <MobileTagList tags={tags} />
             <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
-            <h1 className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</h1>
+            <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
           </div>
         </div>
 
@@ -592,7 +597,7 @@ export default function FeatureHeroLayout({
           <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
             <MobileTagList tags={tags} />
             <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
-            <h1 className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</h1>
+            <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
           </div>
         </div>
 
@@ -623,7 +628,7 @@ export default function FeatureHeroLayout({
                 {section.imageUrl ? (
                   <RotatingImage
                     urls={section.imageUrls?.length ? section.imageUrls : [section.imageUrl]}
-                    alt={section.title}
+                    alt={section.title || SECTION_IMAGE_ALT}
                     className="w-full h-full object-contain"
                   />
                 ) : (
