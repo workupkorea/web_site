@@ -1356,7 +1356,13 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                           </span>
                                         </div>
                                         <FitName name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} reorder={p.newArrivalType === "재진행"} />
-                                        <p className="px-1.5 py-1 min-h-[26px] border-t border-gray-100 text-[12px] text-gray-500 leading-tight text-center truncate" title={fmtSize(p.size)}>{p.size ? fmtSize(p.size) : " "}</p>
+                                        {(() => {
+                                          // 사이즈 · 컬러 (컬러는 "카키,블랙" → "카키, 블랙")
+                                          const sizeTxt = fmtSize(p.size);
+                                          const colorTxt = (p.color || "").split(",").map(c => c.trim()).filter(Boolean).join(", ");
+                                          const line = [sizeTxt, colorTxt].filter(Boolean).join(" · ");
+                                          return <p className="px-1.5 py-1 min-h-[26px] border-t border-gray-100 text-[12px] text-gray-500 leading-tight text-center truncate" title={line}>{line || " "}</p>;
+                                        })()}
                                         <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white border-y border-gray-100 ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
