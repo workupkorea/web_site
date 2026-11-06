@@ -1360,7 +1360,13 @@ export default function AdminArrivalPage() {
             </div>
           )}
         </label>
-        <span className="text-[13px] font-semibold text-[#1a1a1a]">{p.productName}</span>
+        <button
+          type="button"
+          onClick={() => setEditProduct(p)}
+          className="text-[13px] font-semibold text-[#1a1a1a] text-left hover:underline focus-visible:underline outline-none"
+        >
+          {p.productName}
+        </button>
       </div>
     ) },
     { key: "brand", label: "브랜드", tdCls: "text-[13px] text-gray-600 whitespace-nowrap", render: p => p.brand },
@@ -1373,6 +1379,7 @@ export default function AdminArrivalPage() {
         ? <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-md bg-gray-100 text-gray-600">{s}</span>
         : <span className="text-gray-300">—</span>;
     } },
+    { key: "costPrice", label: "원가", tdCls: "text-[13px] text-gray-500 whitespace-nowrap tabular-nums", render: p => p.costPrice && p.costPrice > 0 ? p.costPrice.toLocaleString("ko-KR") : "—" },
     { key: "supplyPrice", label: "공급가", tdCls: "text-[13px] text-gray-500 whitespace-nowrap tabular-nums", render: p => p.supplyPrice && p.supplyPrice > 0 ? p.supplyPrice.toLocaleString("ko-KR") : "—" },
     { key: "price", label: "판매가", tdCls: "text-[13px] text-gray-600 whitespace-nowrap tabular-nums", render: p => p.price > 0 ? p.price.toLocaleString("ko-KR") : "—" },
     { key: "quantity", label: "입고수량", tdCls: "text-[13px] text-gray-600 whitespace-nowrap tabular-nums", render: p => p.quantity != null && p.quantity > 0 ? p.quantity.toLocaleString("ko-KR") : "—" },
@@ -1598,7 +1605,6 @@ export default function AdminArrivalPage() {
                       {c.label}
                     </th>
                   ))}
-                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -1612,14 +1618,6 @@ export default function AdminArrivalPage() {
                       {visibleColumns.map(c => (
                         <td key={c.key} className={`px-3 py-1.5 align-middle ${c.tdCls ?? ""}`}>{c.render(p)}</td>
                       ))}
-                      <td className="px-3 py-1.5 whitespace-nowrap">
-                        <button
-                          onClick={() => setEditProduct(p)}
-                          className="text-[12px] text-gray-400 hover:text-[#1a1a1a] border border-gray-200 px-2.5 py-1 rounded-md hover:border-gray-400 transition-colors"
-                        >
-                          수정
-                        </button>
-                      </td>
                     </tr>
                   );
                 })}

@@ -575,7 +575,9 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates }: 
           <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${meta.cls}`}>{meta.label}</span>
         </div>
         <p className="text-[11px] text-gray-400 font-mono truncate">{product.productCode}</p>
-        <p className="text-[14px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2 flex-1">{stripBrand(product.productName, product.brand)}</p>
+        <p className="text-[14px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2">{stripBrand(product.productName, product.brand)}</p>
+        {product.size && <p className="text-[12px] text-gray-500 leading-tight truncate" title={product.size}>{product.size}</p>}
+        <div className="flex-1" />
         {showDate && product.arrivalDate ? (
           <div className="text-[13px] text-gray-600 flex items-center justify-between gap-1 mt-auto">
             <span className="truncate">{full}</span>
@@ -1251,6 +1253,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                           </span>
                                         </div>
                                         <FitName name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} reorder={p.newArrivalType === "재진행"} />
+                                        {p.size && <p className="px-1.5 text-[12px] text-gray-500 leading-tight text-center truncate" title={p.size}>{p.size}</p>}
                                         <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
@@ -1608,6 +1611,7 @@ function TimelineView({ products, onSelect, showMarketing, showRates }: {
                                     <p className="text-[15px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2">
                                       {stripBrand(p.productName, p.brand)}
                                     </p>
+                                    {p.size && <p className="text-[12px] text-gray-500 leading-tight">{p.size}</p>}
                                     {p.orderQuantity != null && p.orderQuantity > 0 && (
                                       <p className="text-[14px] text-gray-500">
                                         주문 <span className="font-semibold text-[#1a1a1a]">{p.orderQuantity.toLocaleString("ko-KR")}</span>
@@ -1869,6 +1873,7 @@ export default function ArrivalTimeline() {
   const [filterCategory,  setFilterCategory]  = useState("all");
   const [filterSize,      setFilterSize]      = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
+  const [filterKind,      setFilterKind]      = useState(""); // 데스크탑 필터: 현재 값을 고르는 중인 필터 종류
   const [filterNewArrival, setFilterNewArrival] = useState("all"); // all / 신규 / 재진행
   const [searchQuery,     setSearchQuery]     = useState("");
   const [filterMarketing, setFilterMarketing] = useState(false);
@@ -2020,6 +2025,13 @@ export default function ArrivalTimeline() {
     setFilterBrand("all"); setFilterCategory("all"); setFilterSize("all");
     setFilterStatus("all"); setFilterNewArrival("all"); setSearchQuery(""); setFilterMarketing(false); setFilterThisWeek(false);
   }, []);
+  const filterDefs = [
+    { key: "brand",    label: "브랜드",   value: filterBrand,    set: setFilterBrand,    options: brands.map(b => ({ v: b, l: b })) },
+    { key: "category", label: "카테고리", value: filterCategory, set: setFilterCategory, options: categories.map(c => ({ v: c, l: c })) },
+    { key: "size",     label: "사이즈",   value: filterSize,     set: setFilterSize,     options: sizes.map(z => ({ v: z, l: z })) },
+    { key: "status",   label: "상태",     value: filterStatus,   set: setFilterStatus,   options: [{ v: "입고예정", l: "입고예정" }, { v: "입고완료", l: "입고완료" }, { v: "일정미표기", l: "일정미정" }] },
+  ];
+  const activeFilterDef = filterDefs.find(d => d.key === filterKind);
   const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterSize !== "all" || filterStatus !== "all" || filterNewArrival !== "all" || searchQuery !== "" || filterMarketing || (viewMode === "calendar" && filterThisWeek);
 
   if (loadingData) {
@@ -2045,7 +2057,7 @@ export default function ArrivalTimeline() {
           그 높이만큼 padding-top을 줘서 본문이 가려지지 않게 한다. */}
       <div ref={topBarRef} className={`fixed top-0 left-0 right-0 z-30 ${PAGE_X_PAD} pt-3 pb-1.5 bg-[#fafaf8]`}>
         {isPopup && (
-          <div className="mb-2 rounded-xl border border-[#ffe08a] bg-[#fff3cd] py-2 text-center text-[13px] font-semibold text-[#7a5c00]">
+          <div className="sm:hidden mb-2 rounded-xl border border-[#ffe08a] bg-[#fff3cd] py-2 text-center text-[13px] font-semibold text-[#7a5c00]">
             {getWeekLabel(thisWeekRange.start)}
           </div>
         )}
@@ -2054,12 +2066,18 @@ export default function ArrivalTimeline() {
           {/* ── Row 1: 타이틀 / 검색 / 필터토글(모바일) / 뷰버튼 / 개수 ── */}
           <div className="flex items-center gap-1.5 sm:flex-wrap sm:gap-y-1.5">
             {/* 타이틀 (모바일에서 검색 왼쪽) */}
+            {/* 팝업(W주문): 주차 안내를 필터 바 맨 앞 뱃지로 (모바일은 위 배너 유지) */}
+            {isPopup && (
+              <span className="hidden sm:inline-block shrink-0 whitespace-nowrap rounded-full border border-[#ffe08a] bg-[#fff3cd] px-2.5 py-0.5 text-[13px] font-bold text-[#7a5c00]">
+                {getWeekLabel(thisWeekRange.start)}
+              </span>
+            )}
             <span className="text-[15px] font-black text-[#1a1a1a] tracking-tight shrink-0 mr-1 hidden sm:block">워크업 입고 예정 스케쥴</span>
 
             {/* 검색 */}
             <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder="상품명 / 코드"
-              className="border border-gray-200 px-2.5 py-1 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a] w-full sm:w-40 text-gray-800 placeholder:text-gray-400 min-w-0" />
+              className="border border-gray-200 px-2.5 py-1 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a] w-full sm:w-32 text-gray-800 placeholder:text-gray-400 min-w-0" />
 
             {/* 모바일 필터 토글 버튼 */}
             <button
@@ -2071,29 +2089,31 @@ export default function ArrivalTimeline() {
             </button>
 
             {/* 데스크탑 인라인 필터 */}
-            <div className="hidden sm:flex items-center gap-1.5 flex-1">
-              <select value={filterBrand} onChange={e => setFilterBrand(e.target.value)}
-                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
-                <option value="all">브랜드</option>
-                {brands.map(b => <option key={b} value={b}>{b}</option>)}
+            <div className="hidden sm:flex items-center gap-1.5 flex-1 flex-wrap">
+              {/* 1단계: 필터 종류 선택 → 2단계: 해당 값 선택. 선택된 필터는 칩으로 쌓이며 서로 AND 로 적용 */}
+              <select value={filterKind} onChange={e => setFilterKind(e.target.value)}
+                aria-label="필터 종류"
+                className="w-[96px] shrink-0 border border-gray-200 px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                <option value="">필터 선택</option>
+                {filterDefs.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
               </select>
-              <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)}
-                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
-                <option value="all">카테고리</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={filterSize} onChange={e => setFilterSize(e.target.value)}
-                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
-                <option value="all">사이즈</option>
-                {sizes.map(z => <option key={z} value={z}>{z}</option>)}
-              </select>
-              <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-                className="flex-1 min-w-[90px] max-w-[240px] border border-gray-200 px-2 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
-                <option value="all">상태</option>
-                <option value="입고예정">입고예정</option>
-                <option value="입고완료">입고완료</option>
-                <option value="일정미표기">일정미정</option>
-              </select>
+              {activeFilterDef && (
+                <select value="" autoFocus
+                  aria-label={`${activeFilterDef.label} 값`}
+                  onChange={e => { if (e.target.value) { activeFilterDef.set(e.target.value); setFilterKind(""); } }}
+                  className="w-[120px] shrink-0 border border-[#1a1a1a] px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none text-gray-700">
+                  <option value="">{activeFilterDef.label} 선택</option>
+                  {activeFilterDef.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                </select>
+              )}
+              {filterDefs.filter(d => d.value !== "all").map(d => (
+                <button key={d.key} type="button" onClick={() => d.set("all")}
+                  title="클릭하면 이 필터를 해제합니다"
+                  className="flex items-center gap-1 shrink-0 whitespace-nowrap rounded-full bg-[#1a1a1a] text-white text-[13px] font-semibold px-2.5 py-1 hover:bg-gray-700">
+                  {d.label}: {d.options.find(o => o.v === d.value)?.l ?? d.value}
+                  <span aria-hidden="true" className="text-[12px] opacity-70">×</span>
+                </button>
+              ))}
               {isAdmin && <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                 <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                   className="w-3 h-3 accent-blue-500 cursor-pointer" />
