@@ -85,7 +85,9 @@ function stripBrand(name: string, brand: string) {
   // 표시명(케이워커스)과 원본 상품명 접두(K-WORKERS_)가 달라 둘 다 제거 대상으로 본다
   const names = brand === "케이워커스" ? [brand, "K-WORKERS"] : [brand];
   const prefix = new RegExp(`^(?:${names.map(esc).join("|")})[_\\s]+`, "i");
-  return name.replace(prefix, "").trim() || name;
+  const noBrand = name.replace(prefix, "").trim() || name;
+  // 제품명 앞의 영문 업체 코드("DVT077_", "GSGSUTS02_")는 언더바까지 비노출
+  return noBrand.replace(/^[A-Za-z0-9-]+_+/, "").trim() || noBrand;
 }
 
 function fmtPrice(n: number) {
@@ -342,7 +344,7 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
             {/* ── PC 레이아웃 (sm: 이상) ── */}
             <div className="hidden sm:block">
               <p className="text-[13px] tracking-[0.2em] text-gray-400 uppercase font-semibold mb-1">{product.brand}</p>
-              <h2 className="text-[26px] font-bold text-[#1a1a1a] leading-normal mb-4">{product.productName}</h2>
+              <h2 className="text-[26px] font-bold text-[#1a1a1a] leading-normal mb-4">{stripBrand(product.productName, product.brand)}</h2>
               <table className="w-full border-collapse">
                 <tbody>
                   <tr className="border-b border-gray-100">
@@ -399,7 +401,7 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
 
             {/* ── 모바일 레이아웃 (sm: 미만) ── */}
             <div className="sm:hidden">
-              <h2 className="text-[18px] font-bold text-[#1a1a1a] leading-normal mb-1.5">{product.productName}</h2>
+              <h2 className="text-[18px] font-bold text-[#1a1a1a] leading-normal mb-1.5">{stripBrand(product.productName, product.brand)}</h2>
               <table className="w-full border-collapse">
                 <tbody>
                   <tr className="border-b border-gray-100">
@@ -563,16 +565,16 @@ function RateLine({ product, inline }: { product: ArrivalProduct; inline?: boole
 }
 
 // 마케팅 체크 시 이미지 하단에 얹는 용도 뱃지 (관리자 전용 — 호출 측에서 showMarketing으로 게이트)
-function MarketingBadge({ usage }: { usage?: string }) {
+function MarketingBadge({ usage, lifted }: { usage?: string; lifted?: boolean }) {
   if (!usage) return null;
   return (
-    <span className="absolute bottom-1 left-1 right-1 z-10 max-w-[calc(100%-8px)] truncate rounded bg-blue-500/95 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm w-fit" title={usage}>
+    <span className={`absolute ${lifted ? "bottom-[22px]" : "bottom-1"} left-1 right-1 z-10 max-w-[calc(100%-8px)] truncate rounded bg-blue-500/95 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm w-fit`} title={usage}>
       {usage}
     </span>
   );
 }
 /** 현재 목록 전체 기준 주문량·판매량 순위 (관리자 이미지 뷰 전용) */
-type SalesRank = { order: number; sales: number; total: number };
+type SalesRank = { order?: number; sales?: number; total: number };
 const rankKey = (p: ArrivalProduct) => `${p.productCode}__${p.arrivalDate || "none"}`;
 
 /** 초도 입고일 기준 경과일 라벨: 입고 후 D+92, 입고 전 D-3, 당일 D+0 (날짜 없으면 빈 값) */
@@ -592,41 +594,71 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates, ra
   return (
     <button onClick={onSelect}
       className="text-left transition-opacity hover:opacity-80 flex flex-col">
-      {/* 관리자: 초도 입고 경과일을 이미지 위쪽에 배치 */}
-      {showRates && dLabel && (
-        <span className="mb-1 self-start rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white tabular-nums" title="초도 입고일 기준 경과일">{dLabel}</span>
-      )}
       <div className={`relative w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
         <ProductImage product={product} size="sm" />
         {/* 우측 상단: 주문(파랑)·판매(초록) 순위 (관리자) */}
+        {/* 좌측 상단(이미지 안): 초도 입고 경과일 + 입고일 (관리자) */}
+        {showRates && (dLabel || product.arrivalDate) && (
+          <div className="absolute top-1.5 left-1.5 z-10 flex flex-col items-start gap-1 tabular-nums">
+            {dLabel && <span className="rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title="초도 입고일 기준 경과일">{dLabel}</span>}
+            {product.arrivalDate && <span className="rounded-md bg-white/85 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-gray-700 shadow-sm">{full}</span>}
+          </div>
+        )}
         {rank && (
-          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1 tabular-nums">
-            <span className="flex items-center gap-1 rounded-md bg-blue-600/90 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title={`주문량 ${rank.order}위`}><span className="opacity-70">O</span>{rank.order}</span>
-            <span className="flex items-center gap-1 rounded-md bg-green-600/90 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title={`판매량 ${rank.sales}위`}><span className="opacity-70">S</span>{rank.sales}</span>
+          <div className="absolute top-1.5 right-1.5 z-10 flex flex-col items-end gap-1 tabular-nums">
+            {rank.order !== undefined && <span className="flex items-center gap-1 rounded-md bg-blue-600/90 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title={`주문량 ${rank.order}위`}><span className="opacity-70">O</span>{rank.order}</span>}
+            {rank.sales !== undefined && <span className="flex items-center gap-1 rounded-md bg-green-600/90 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title={`판매량 ${rank.sales}위`}><span className="opacity-70">S</span>{rank.sales}</span>}
           </div>
         )}
         {product.newArrivalType === "재진행" && (
           <span
-            className={`absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[12px] font-bold flex items-center justify-center leading-none shadow`}
+            className={`absolute ${showRates && (dLabel || product.arrivalDate) ? "top-12" : "top-1.5"} left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[12px] font-bold flex items-center justify-center leading-none shadow`}
             title="재진행 상품"
           >
             R
           </span>
         )}
-        {showMarketing && <MarketingBadge usage={product.marketingUsage} />}
+        {showMarketing && <MarketingBadge usage={product.marketingUsage} lifted={showRates} />}
       </div>
-      <div className="pt-2 flex flex-col gap-1 flex-1">
+      {/* 관리자 전용: 이미지 하단 경계에 걸치는 정보 바 — 위쪽 일부만 사진과 겹치고 나머지는 사진 바깥으로 (원가·판매가 / 주문율·판매율·재고) */}
+      {showRates && (() => {
+        const o = orderRateOf(product);
+        const sr = salesRateOf(product);
+        const stock = product.stockQuantity;
+        const dash = "—";
+        const num = (n?: number | null) => (n != null && n > 0 ? n.toLocaleString("ko-KR") : dash);
+        return (
+          <div className="relative z-10 -mt-4 mx-1.5 rounded-md border border-gray-200 bg-white/95 px-2.5 py-1.5 text-[11px] leading-tight tabular-nums shadow-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-gray-500">원가 <b className="font-semibold text-gray-700">{num(product.costPrice)}</b></span>
+              <span className="text-gray-500">판매가 <b className="text-[12px] font-bold text-[#1a1a1a]">{num(product.price)}</b></span>
+            </div>
+            <div className="mt-1 flex items-center justify-between border-t border-gray-200 pt-1">
+              <span className="text-gray-500">주문 <b className="font-bold text-blue-600">{o != null ? `${o}%` : dash}</b></span>
+              <span className="text-gray-500">판매 <b className="font-bold text-green-600">{sr != null ? `${sr}%` : dash}</b></span>
+              <span className="text-gray-500">재고 <b className="font-bold text-[#1a1a1a]">{stock != null ? stock.toLocaleString("ko-KR") : dash}</b></span>
+            </div>
+          </div>
+        );
+      })()}
+      <div className="pt-2 flex flex-col gap-0.5 flex-1">
         <div className="flex items-center justify-between gap-1">
-          <span className="text-[13px] tracking-wider text-gray-500 uppercase truncate font-medium">{product.brand}</span>
+          <span className="flex min-w-0 items-baseline gap-1.5">
+            <span className="text-[13px] tracking-wider text-gray-500 uppercase truncate font-medium shrink-0 max-w-[50%]">{product.brand}</span>
+            <span className="text-[11px] text-gray-400 font-mono truncate">{product.productCode}</span>
+          </span>
           <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${meta.cls}`}>{meta.label}</span>
         </div>
-        <div className="flex items-center justify-between gap-1">
-          <p className="text-[11px] text-gray-400 font-mono truncate">{product.productCode}</p>
-          {product.size && <span className="text-[12px] text-gray-500 whitespace-nowrap shrink-0" title={fmtSize(product.size)}>{fmtSize(product.size)}</span>}
-        </div>
-        <p className="text-[14px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2">{stripBrand(product.productName, product.brand)}</p>
+        {/* 제품명이 길면 줄바꿈 대신 글자 크기를 줄여 한 줄에 맞춤 */}
+        <FitName name={stripBrand(product.productName, product.brand)} align="left" compact />
+        {(() => {
+          // 사이즈 · 컬러를 한 줄로 ("카키,블랙" → "카키, 블랙")
+          const colorTxt = (product.color || "").split(",").map(c => c.trim()).filter(Boolean).join(", ");
+          const line = [fmtSize(product.size), colorTxt].filter(Boolean).join(" · ");
+          return line ? <p className="text-[12px] text-gray-500 leading-tight truncate" title={line}>{line}</p> : null;
+        })()}
         <div className="flex-1" />
-        {showDate && product.arrivalDate ? (
+        {showRates ? null : showDate && product.arrivalDate ? (
           <div className="text-[13px] text-gray-600 flex items-center justify-between gap-1 mt-auto">
             <span className="truncate">{full}</span>
             {!showRates && product.price > 0 && <span className="font-medium text-[#1a1a1a] whitespace-nowrap shrink-0">{fmtPrice(product.price)}</span>}
@@ -634,17 +666,6 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates, ra
         ) : (
           !showRates && <p className="text-[13px] text-gray-600 font-medium text-right mt-auto">{fmtPrice(product.price)}</p>
         )}
-        {/* 관리자 전용: 원가 · 판매가 (showRates 는 관리자 로그인 시에만 true) */}
-        {showRates && (
-          <p className="text-[13px] text-right whitespace-nowrap mt-auto">
-            <span className="text-gray-500">원가 </span>
-            <span className="font-medium text-gray-700">{product.costPrice && product.costPrice > 0 ? product.costPrice.toLocaleString("ko-KR") : "—"}</span>
-            <span className="text-gray-300 mx-1">|</span>
-            <span className="text-gray-500">판매가 </span>
-            <span className="font-semibold text-[#1a1a1a]">{product.price > 0 ? product.price.toLocaleString("ko-KR") : "—"}</span>
-          </p>
-        )}
-        {showRates && <RateLine product={product} inline />}
       </div>
     </button>
   );
@@ -780,7 +801,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, rank
 // ─── 한 줄 맞춤 제품명: 브랜드 배지 + 제품명이 한 줄에 들어가도록 글자 크기를 자동 축소 ─────
 const FIT_MAX_PX = 14;
 const FIT_MIN_PX = 9;
-function FitName({ name, reorder }: { name: string; reorder?: boolean }) {
+function FitName({ name, reorder, align = "center", compact }: { name: string; reorder?: boolean; align?: "center" | "left"; compact?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState(FIT_MAX_PX);
 
@@ -805,7 +826,7 @@ function FitName({ name, reorder }: { name: string; reorder?: boolean }) {
   }, [name]);
 
   return (
-    <div ref={rowRef} className={`relative flex items-center justify-center gap-1.5 whitespace-nowrap overflow-hidden h-8 ${reorder ? "px-8" : "px-1.5"}`}>
+    <div ref={rowRef} className={`relative flex items-center ${align === "left" ? "justify-start" : "justify-center"} gap-1.5 whitespace-nowrap overflow-hidden ${compact ? "h-5" : "h-8"} ${reorder ? "px-8" : align === "left" ? "px-0" : "px-1.5"}`}>
       <span data-fit-text className="font-semibold text-[#1a1a1a]" style={{ fontSize: size, lineHeight: 1.2 }}>{name}</span>
       {reorder && (
         <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재입고 상품">R</span>
@@ -1568,7 +1589,7 @@ function GanttView({ products, onSelect, showMarketing }: {
             {undated.map(p => (
               <button key={`${p.productCode}_none`} onClick={() => onSelect(p)}
                 className="text-[12px] text-gray-500 border border-gray-200 rounded px-2 py-0.5 hover:border-gray-400 hover:text-gray-700 transition-colors">
-                {p.brand} · {p.productName.slice(0, 14)}
+                {p.brand} · {stripBrand(p.productName, p.brand).slice(0, 14)}
               </button>
             ))}
           </div>
@@ -2141,17 +2162,21 @@ export default function ArrivalTimeline() {
 
 
   // 전체 누적(필터와 무관한 전체 데이터) 기준 주문량·판매량 순위 — 관리자 이미지 뷰 카드 우상단 뱃지용 (동률은 같은 순위)
+  // 수량이 0/없음인 제품은 해당 순위에서 제외(뱃지 없음)
   const salesRanks = useMemo(() => {
     const map = new Map<string, SalesRank>();
     if (!isAdmin) return map;
     const rankBy = (pick: (p: ArrivalProduct) => number) => {
-      const vals = products.map(pick);
-      return (v: number) => 1 + vals.filter(x => x > v).length;
+      const vals = products.map(pick).filter(v => v > 0);
+      return (v: number) => (v > 0 ? 1 + vals.filter(x => x > v).length : undefined);
     };
     const orderRank = rankBy(p => p.orderQuantity ?? 0);
     const salesRank = rankBy(p => p.salesQuantity ?? 0);
     for (const p of products) {
-      map.set(rankKey(p), { order: orderRank(p.orderQuantity ?? 0), sales: salesRank(p.salesQuantity ?? 0), total: products.length });
+      const order = orderRank(p.orderQuantity ?? 0);
+      const sales = salesRank(p.salesQuantity ?? 0);
+      if (order === undefined && sales === undefined) continue;
+      map.set(rankKey(p), { order, sales, total: products.length });
     }
     return map;
   }, [products, isAdmin]);
@@ -2170,7 +2195,8 @@ export default function ArrivalTimeline() {
     // 관리자: 판매량/주문량 정렬은 월·그룹과 무관하게 전체 누적 기준으로 한 목록에 (1위부터 순서대로)
     if (isAdmin && sortKey) {
       const qty = (p: ArrivalProduct) => (sortKey === "sales" ? p.salesQuantity : p.orderQuantity) ?? 0;
-      return [[SORTED_GROUP_KEY, [...filtered].sort((a, b) => qty(b) - qty(a))]];
+      // 수량이 0/없는 제품은 해당 정렬(순위) 목록에서 제외
+      return [[SORTED_GROUP_KEY, filtered.filter(p => qty(p) > 0).sort((a, b) => qty(b) - qty(a))]];
     }
     return Array.from(map.entries()).sort(([a],[b]) => a.localeCompare(b));
   }, [filtered, groupMode, isAdmin, sortKey]);
