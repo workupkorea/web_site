@@ -273,7 +273,7 @@ function fmtSize(raw?: string | null): string {
   return raw
     .replace(/\s+/g, "")
     .replace(/~/g, "-")
-    .replace(/(^|-)00(?=[A-Za-z])/g, "$1") // 앞쪽 "00" 접두 제거 (00S → S)
+    .replace(/(^|-)0{1,2}(?=[A-Za-z])/g, "$1") // 앞쪽 "0"/"00" 접두 제거 (00S → S, 0XL → XL)
     .replace(/(\d+)N(?![A-Za-z])/g, "$1"); // 숫자 뒤 N 제거 (30N → 30)
 }
 
@@ -507,8 +507,11 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
 // ─── 타입 ─────────────────────────────────────────────────────────────────────
 type ViewMode  = "grid" | "calendar" | "timeline" | "gantt";
 // 사이즈 문자열("S/M/L", "95,100,105" 등)을 낱개 사이즈로 분리
+// 필터용 낱개 사이즈. 표기 간소화와 동일하게 정규화: 00S→S, 0XL→XL, 00F→F, 26N→26
 function splitSizes(size?: string | null): string[] {
-  return (size ?? "").split(/[\s,/|·~\-]+/).map(t => t.trim().toUpperCase()).filter(Boolean);
+  return (size ?? "").split(/[\s,/|·~\-]+/)
+    .map(t => t.trim().toUpperCase().replace(/^0{1,2}(?=[A-Z])/, "").replace(/^(\d+)N$/, "$1"))
+    .filter(Boolean);
 }
 const SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "2XL", "XXL", "3XL", "XXXL", "4XL", "FREE", "F"];
 // 알파벳 사이즈는 S→XL 순, 숫자 사이즈는 오름차순, 그 외는 가나다순
@@ -523,6 +526,8 @@ function compareSize(a: string, b: string): number {
 }
 
 type GroupMode = "date" | "month" | "category" | "brand";
+/** 판매량/주문량 정렬 시 모든 제품을 한 그룹으로 모을 때 쓰는 내부 키 */
+const SORTED_GROUP_KEY = "__sorted__";
 
 // ─── 상품 카드 (그리드용) ─────────────────────────────────────────────────────
 // 이미지·타임라인·캘린더 뷰가 같은 가로폭을 쓰도록 상단 바와 본문이 공유하는 좌우 여백
@@ -693,7 +698,15 @@ function BrandCatalogLink({ brand }: { brand: string }) {
 }
 
 // ─── 그룹 헤더 ───────────────────────────────────────────────────────────────
-function GroupHeader({ groupKey, groupMode, count }: { groupKey: string; groupMode: GroupMode; count: number }) {
+function GroupHeader({ groupKey, groupMode, count, sortLabel }: { groupKey: string; groupMode: GroupMode; count: number; sortLabel?: string }) {
+  if (groupKey === SORTED_GROUP_KEY) {
+    return (
+      <div className="flex items-baseline gap-3 mb-4">
+        <span className="text-[21px] font-black text-[#1a1a1a] tracking-tight leading-none">전체 {sortLabel}</span>
+        <span className="text-[14px] text-gray-500 font-medium">{count}개</span>
+      </div>
+    );
+  }
   if (groupMode === "date") {
     const { mm, dd, day, month } = fmtDate(groupKey);
     return (
@@ -726,11 +739,11 @@ function GroupHeader({ groupKey, groupMode, count }: { groupKey: string; groupMo
 }
 
 // ─── 그리드 뷰 ───────────────────────────────────────────────────────────────
-function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, ranks }: {
+function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, ranks, sortLabel }: {
   grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean; showRates?: boolean;
-  ranks?: Map<string, SalesRank>;
+  ranks?: Map<string, SalesRank>; sortLabel?: string;
 }) {
-  const collapsible = groupMode === "category" || groupMode === "brand";
+  const collapsible = (groupMode === "category" || groupMode === "brand") && !grouped.some(([k]) => k === SORTED_GROUP_KEY);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const toggle = (key: string) =>
     setCollapsed(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n; });
@@ -751,7 +764,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, rank
                 {groupMode === "brand" && key && key !== "미분류" && <BrandCatalogLink brand={key} />}
               </div>
             ) : (
-              <GroupHeader groupKey={key} groupMode={groupMode} count={items.length} />
+              <GroupHeader groupKey={key} groupMode={groupMode} count={items.length} sortLabel={sortLabel} />
             )}
             {!isCollapsed && (
               <div className={GRID_COLS}>
@@ -2014,6 +2027,7 @@ export default function ArrivalTimeline() {
   const [filterCategory,  setFilterCategory]  = useState("all");
   const [filterSize,      setFilterSize]      = useState("all");
   const [filterStatus,    setFilterStatus]    = useState("all");
+  const [sortKey,         setSortKey]         = useState<"" | "sales" | "order">(""); // 관리자 이미지 뷰: 판매량/주문량 정렬
   const [filterKind,      setFilterKind]      = useState(""); // 데스크탑 필터: 현재 값을 고르는 중인 필터 종류
   const [filterNewArrival, setFilterNewArrival] = useState("all"); // all / 신규 / 재진행
   const [searchQuery,     setSearchQuery]     = useState("");
@@ -2126,21 +2140,21 @@ export default function ArrivalTimeline() {
   }, [products, filterBrand, filterCategory, filterSize, filterStatus, filterNewArrival, filterMarketing, isAdmin, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
 
 
-  // 현재 목록(필터 결과) 전체 기준 주문량·판매량 순위 — 관리자 이미지 뷰 카드 좌상단 뱃지용 (동률은 같은 순위)
+  // 전체 누적(필터와 무관한 전체 데이터) 기준 주문량·판매량 순위 — 관리자 이미지 뷰 카드 우상단 뱃지용 (동률은 같은 순위)
   const salesRanks = useMemo(() => {
     const map = new Map<string, SalesRank>();
     if (!isAdmin) return map;
     const rankBy = (pick: (p: ArrivalProduct) => number) => {
-      const vals = filtered.map(pick);
+      const vals = products.map(pick);
       return (v: number) => 1 + vals.filter(x => x > v).length;
     };
     const orderRank = rankBy(p => p.orderQuantity ?? 0);
     const salesRank = rankBy(p => p.salesQuantity ?? 0);
-    for (const p of filtered) {
-      map.set(rankKey(p), { order: orderRank(p.orderQuantity ?? 0), sales: salesRank(p.salesQuantity ?? 0), total: filtered.length });
+    for (const p of products) {
+      map.set(rankKey(p), { order: orderRank(p.orderQuantity ?? 0), sales: salesRank(p.salesQuantity ?? 0), total: products.length });
     }
     return map;
-  }, [filtered, isAdmin]);
+  }, [products, isAdmin]);
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
     const map = new Map<string, ArrivalProduct[]>();
@@ -2153,8 +2167,13 @@ export default function ArrivalTimeline() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(p);
     }
+    // 관리자: 판매량/주문량 정렬은 월·그룹과 무관하게 전체 누적 기준으로 한 목록에 (1위부터 순서대로)
+    if (isAdmin && sortKey) {
+      const qty = (p: ArrivalProduct) => (sortKey === "sales" ? p.salesQuantity : p.orderQuantity) ?? 0;
+      return [[SORTED_GROUP_KEY, [...filtered].sort((a, b) => qty(b) - qty(a))]];
+    }
     return Array.from(map.entries()).sort(([a],[b]) => a.localeCompare(b));
-  }, [filtered, groupMode]);
+  }, [filtered, groupMode, isAdmin, sortKey]);
 
   // 날짜별 모드로 전환 시 오늘과 가장 가까운 날짜 그룹으로 스크롤
   useEffect(() => {
@@ -2252,30 +2271,43 @@ export default function ArrivalTimeline() {
 
             {/* 데스크탑 인라인 필터 */}
             <div className="hidden sm:flex sm:order-4 items-center gap-1.5 flex-1 min-w-0">
-              {/* 1단계: 필터 종류 선택 → 2단계: 해당 값 선택. 선택된 필터는 칩으로 쌓이며 서로 AND 로 적용 */}
-              <select value={filterKind} onChange={e => setFilterKind(e.target.value)}
-                aria-label="필터 종류"
-                className="w-[96px] shrink-0 border border-gray-200 px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
-                <option value="">필터 선택</option>
-                {filterDefs.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
-              </select>
-              {activeFilterDef && (
-                <select value="" autoFocus
-                  aria-label={`${activeFilterDef.label} 값`}
-                  onChange={e => { if (e.target.value) { activeFilterDef.set(e.target.value); setFilterKind(""); } }}
-                  className="w-[120px] shrink-0 border border-[#1a1a1a] px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none text-gray-700">
-                  <option value="">{activeFilterDef.label} 선택</option>
-                  {activeFilterDef.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+              {isPopup ? (
+                <>
+                {/* 1단계: 필터 종류 선택 → 2단계: 해당 값 선택. 선택된 필터는 칩으로 쌓이며 서로 AND 로 적용 */}
+                <select value={filterKind} onChange={e => setFilterKind(e.target.value)}
+                  aria-label="필터 종류"
+                  className="w-[96px] shrink-0 border border-gray-200 px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                  <option value="">필터 선택</option>
+                  {filterDefs.map(d => <option key={d.key} value={d.key}>{d.label}</option>)}
                 </select>
+                {activeFilterDef && (
+                  <select value="" autoFocus
+                    aria-label={`${activeFilterDef.label} 값`}
+                    onChange={e => { if (e.target.value) { activeFilterDef.set(e.target.value); setFilterKind(""); } }}
+                    className="w-[120px] shrink-0 border border-[#1a1a1a] px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none text-gray-700">
+                    <option value="">{activeFilterDef.label} 선택</option>
+                    {activeFilterDef.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                )}
+                {filterDefs.filter(d => d.value !== "all").map(d => (
+                  <button key={d.key} type="button" onClick={() => d.set("all")}
+                    title="클릭하면 이 필터를 해제합니다"
+                    className="flex items-center gap-1 min-w-0 max-w-[140px] whitespace-nowrap rounded-full bg-[#1a1a1a] text-white text-[13px] font-semibold px-2.5 py-1 hover:bg-gray-700">
+                    <span className="truncate">{d.label}: {d.options.find(o => o.v === d.value)?.l ?? d.value}</span>
+                    <span aria-hidden="true" className="text-[12px] opacity-70">×</span>
+                  </button>
+                ))}
+                </>
+              ) : (
+                /* 일반 페이지: 필터를 펼쳐서 바로 선택 (너무 넓지 않게 고정 폭) */
+                filterDefs.map(d => (
+                  <select key={d.key} value={d.value} onChange={e => d.set(e.target.value)} aria-label={d.label}
+                    className="w-[104px] shrink-0 border border-gray-200 px-1 py-1 text-[14px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a] text-gray-700">
+                    <option value="all">{d.label}</option>
+                    {d.options.map(o => <option key={o.v} value={o.v}>{o.l}</option>)}
+                  </select>
+                ))
               )}
-              {filterDefs.filter(d => d.value !== "all").map(d => (
-                <button key={d.key} type="button" onClick={() => d.set("all")}
-                  title="클릭하면 이 필터를 해제합니다"
-                  className="flex items-center gap-1 min-w-0 max-w-[140px] whitespace-nowrap rounded-full bg-[#1a1a1a] text-white text-[13px] font-semibold px-2.5 py-1 hover:bg-gray-700">
-                  <span className="truncate">{d.label}: {d.options.find(o => o.v === d.value)?.l ?? d.value}</span>
-                  <span aria-hidden="true" className="text-[12px] opacity-70">×</span>
-                </button>
-              ))}
               {isAdmin && viewMode !== "calendar" && <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                 <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                   className="w-3 h-3 accent-blue-500 cursor-pointer" />
@@ -2299,10 +2331,19 @@ export default function ArrivalTimeline() {
               {/* 그룹 기준 (sm+, 캘린더·타임라인·간트 제외) */}
               {viewMode !== "calendar" && viewMode !== "timeline" && viewMode !== "gantt" && (
                 <div className="hidden sm:flex items-center gap-0.5 border border-gray-200 rounded-lg p-0.5">
-                  {([ ["month","월별"], ["date","날짜별"], ["category","카테고리별"], ["brand","브랜드별"] ] as [GroupMode, string][]).map(([mode, label]) => (
-                    <button key={mode} onClick={() => setGroupMode(mode)}
+                  {([ ["month","월별"], ["brand","브랜드별"] ] as [GroupMode, string][]).map(([mode, label]) => (
+                    <button key={mode} onClick={() => { setGroupMode(mode); setSortKey(""); }}
                       className={`px-2 py-0.5 text-[13px] font-semibold rounded-md transition-all whitespace-nowrap ${
-                        groupMode === mode ? "bg-gray-800 text-white" : "text-gray-500 hover:text-[#1a1a1a]"
+                        groupMode === mode && !sortKey ? "bg-gray-800 text-white" : "text-gray-500 hover:text-[#1a1a1a]"
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                  {/* 관리자 전용: 전체 누적 판매량/주문량순 (그룹 구분 없이 한 목록) */}
+                  {isAdmin && ([ ["sales","판매량순"], ["order","주문량순"] ] as ["sales" | "order", string][]).map(([key, label]) => (
+                    <button key={key} onClick={() => setSortKey(key)}
+                      className={`px-2 py-0.5 text-[13px] font-semibold rounded-md transition-all whitespace-nowrap ${
+                        sortKey === key ? "bg-gray-800 text-white" : "text-gray-500 hover:text-[#1a1a1a]"
                       }`}>
                       {label}
                     </button>
@@ -2356,7 +2397,7 @@ export default function ArrivalTimeline() {
               )}
             </div>
           {/* 로그인/로그아웃 — 이미지 뷰. PC는 상단바 한 줄의 맨 끝(겹침 방지), 모바일은 바 위쪽 */}
-          {viewMode === "grid" && (
+          {(viewMode === "grid" || (viewMode === "calendar" && !isPopup)) && (
             <div className="max-sm:absolute max-sm:right-3 max-sm:-top-0.5 max-sm:-translate-y-full sm:relative sm:order-8 sm:shrink-0">
               <button type="button"
                 onClick={() => loggedIn ? doLogout() : setLoginOpen(v => !v)}
@@ -2441,7 +2482,7 @@ export default function ArrivalTimeline() {
             <button onClick={resetFilters} className="mt-3 text-[14px] text-[#1a1a1a] underline underline-offset-2">필터 초기화</button>
           </div>
         ) : viewMode === "grid" ? (
-          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} ranks={isAdmin ? salesRanks : undefined} />
+          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} ranks={isAdmin ? salesRanks : undefined} sortLabel={sortKey === "sales" ? "판매량순" : sortKey === "order" ? "주문량순" : ""} />
         ) : viewMode === "timeline" ? (
           <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} />
         ) : viewMode === "gantt" ? (
