@@ -11,6 +11,7 @@ export default function PartnershipPanel({ info }: { info: PartnerInfo }) {
   const st = info.styles;
   // 연락처 칸에 이메일이 들어 있으면(예: 제휴 문의 메일) 전화 대신 메일 아이콘·링크를 쓴다.
   const isEmail = info.phone.includes("@");
+  const extraIsEmail = info.extra_contact.includes("@");
   // 장식 글로우 색 — 배경이 푸른 계열(네이비)이면 하늘색, 그 외(차콜 등)는 브랜드 오렌지
   const bgHex = /^#([0-9a-f]{6})$/i.exec(info.panel_bg.trim())?.[1];
   const bgBlue = bgHex ? parseInt(bgHex.slice(4, 6), 16) - parseInt(bgHex.slice(0, 2), 16) > 10 : false;
@@ -82,6 +83,23 @@ export default function PartnershipPanel({ info }: { info: PartnerInfo }) {
           )}
         </div>
       </div>
+      {/* 추가 연락처(예: 마케팅 문의) — 문의 메일 바로 아래, 같은 형식으로 표기 */}
+      {info.extra_label && info.extra_contact && (
+        <div className="mt-1 flex flex-col gap-1 xl:flex-row xl:items-center xl:gap-3 font-medium text-white" style={{ fontSize: 17 }}>
+          <p className="flex items-center gap-2 whitespace-nowrap">
+            <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 7a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7zm0 0l9 6 9-6" />
+            </svg>
+            {info.extra_label}
+          </p>
+          <a
+            href={extraIsEmail ? `mailto:${info.extra_contact.trim()}` : `tel:${info.extra_contact.replace(/[^0-9+]/g, "")}`}
+            className="inline-flex items-center min-h-11 tracking-[-0.01em] hover:opacity-80 transition-opacity"
+          >
+            {info.extra_contact}
+          </a>
+        </div>
+      )}
     </div>
   );
 }

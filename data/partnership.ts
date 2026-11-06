@@ -55,6 +55,8 @@ export type PartnerInfo = {
   benefits: string[];   // 혜택 리스트
   phone_label: string;  // 직통 전화 라벨
   phone: string;        // 직통 전화 번호
+  extra_label: string;  // 추가 연락처 라벨 (예: 마케팅 문의 · 비우면 숨김)
+  extra_contact: string; // 추가 연락처 (이메일이면 mailto 링크)
   hours: string;        // 운영 시간
   form_title: string;   // 폼 영역 제목
   form_desc: string;    // 폼 영역 안내 문구(선택)
@@ -142,6 +144,8 @@ export const DEFAULT_PARTNERSHIP: PartnershipConfig = {
     ],
     phone_label: "문의 전화",
     phone: "02-0000-0000",
+    extra_label: "",
+    extra_contact: "",
     hours: "평일 09:00 – 18:00",
     form_title: "문의하기",
     form_desc: "",
@@ -164,6 +168,8 @@ export const DEFAULT_PARTNERSHIP: PartnershipConfig = {
     ],
     phone_label: "직통 전화",
     phone: "02-0000-0001",
+    extra_label: "마케팅 문의",
+    extra_contact: "ssh9916@tpostkorea.com",
     hours: "평일 09:00 – 18:00",
     form_title: "문의하기",
     form_desc: "",
@@ -249,6 +255,8 @@ function normInfo(raw: unknown, def: PartnerInfo): PartnerInfo {
     benefits: Array.isArray(r.benefits) ? (r.benefits as unknown[]).map((b) => String(b)) : def.benefits,
     phone_label: str(r.phone_label, def.phone_label),
     phone: str(r.phone, def.phone),
+    extra_label: str(r.extra_label, def.extra_label),
+    extra_contact: str(r.extra_contact, def.extra_contact),
     hours: str(r.hours, def.hours),
     // 옛 기본 문구("제휴 문의하기")가 저장돼 있으면 새 기본값으로 대체
     form_title: r.form_title === "제휴 문의하기" ? def.form_title : str(r.form_title, def.form_title),

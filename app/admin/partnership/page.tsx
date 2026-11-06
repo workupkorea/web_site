@@ -282,6 +282,10 @@ export default function PartnershipEditPage() {
               onText={(v) => patchInfo({ phone_label: v })} style={info.styles.phone_label} onStyle={(p) => patchStyle("phone_label", p)} />
             <StyledField label="전화번호" value={info.phone}
               onText={(v) => patchInfo({ phone: v })} style={info.styles.phone} onStyle={(p) => patchStyle("phone", p)} />
+            <StyledField label="추가 연락처 라벨 (예: 마케팅 문의 · 비우면 숨김)" value={info.extra_label} placeholder="마케팅 문의"
+              onText={(v) => patchInfo({ extra_label: v })} style={info.styles.phone_label} onStyle={(p) => patchStyle("phone_label", p)} />
+            <StyledField label="추가 연락처 (이메일/전화)" value={info.extra_contact} placeholder="ssh9916@tpostkorea.com"
+              onText={(v) => patchInfo({ extra_contact: v })} style={info.styles.phone} onStyle={(p) => patchStyle("phone", p)} />
             <StyledField label="운영 시간" value={info.hours}
               onText={(v) => patchInfo({ hours: v })} style={info.styles.hours} onStyle={(p) => patchStyle("hours", p)} />
           </Card>
