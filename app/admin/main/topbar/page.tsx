@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, Fragment } from "react";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import TopbarIcon from "@/components/TopbarIcon";
 import {
   DEFAULT_TOPBAR,
@@ -12,7 +12,6 @@ import {
   type TopbarIconName,
 } from "@/lib/topbar";
 
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 const COLOR_PRESETS = ["#E5541B", "#303236", "#0f172a", "#111827", "#2d4f72", "#16a34a", "#dc2626", "#ffffff"];
 

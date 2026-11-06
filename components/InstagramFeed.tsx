@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import {
   DEFAULT_INSTAGRAM_FEED,
   normalizeInstagramFeed,
@@ -12,7 +12,6 @@ import type { InstagramMedia } from "@/data/products";
 import { ikSrc } from "@/lib/imageSrc";
 
 // 로고와 유사한 영문 디스플레이 폰트 (WORKUP on Instagram 타이틀용)
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["400", "700"] });
 
 // 상품 상세페이지 인스타 피드 — 해당 상품 등록 미디어를 9:16 세로 카드로 노출.
 // 연한 그레이 배경 블록 + "WORKUP on Instagram" 타이틀로 영역 구분.

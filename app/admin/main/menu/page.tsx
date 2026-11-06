@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import {
   DEFAULT_HEADER_NAV,
   normalizeHeaderNav,
@@ -8,7 +8,6 @@ import {
   type NavMenuItem,
 } from "@/lib/header-nav";
 
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["600"] });
 
 function uid() {
   return (typeof crypto !== "undefined" && crypto.randomUUID)

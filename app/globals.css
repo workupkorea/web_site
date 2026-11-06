@@ -388,3 +388,8 @@ html {
 .wu-scroll-light::-webkit-scrollbar-thumb { background: #cfd2d6; border-radius: 999px; }
 .wu-scroll-dark::-webkit-scrollbar-thumb:hover { background: #E5541B; }
 .wu-scroll-light::-webkit-scrollbar-thumb:hover { background: #E5541B; }
+
+/* Oxanium — layout.tsx의 Google Fonts <link>로 로드됨 (lib/oxanium.ts) */
+.font-oxanium {
+  font-family: "Oxanium", sans-serif;
+}

@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, Fragment } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import { useRouter, usePathname } from "next/navigation";
 import { BRANDS_LABEL_KO, DEFAULT_HEADER_NAV, type NavMenuItem } from "@/lib/header-nav";
 import { DEFAULT_LOGO, type LogoConfig } from "@/lib/logo";
@@ -12,7 +12,6 @@ import type { MegaBrandsConfig } from "@/lib/mega-brands-types";
 
 
 
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["600"] });
 
 type MemberSession = { name: string; grade: string } | null;
 

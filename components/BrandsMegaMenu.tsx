@@ -1,10 +1,9 @@
 "use client";
 import Link from "next/link";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import { BRANDS } from "@/lib/brands-data";
 import type { MegaBrandItem, MegaMenuSettings } from "@/lib/mega-brands-types";
 
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["600", "700", "800"] });
 
 type DisplayBrand = {
   id: string;

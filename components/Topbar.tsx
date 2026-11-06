@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { Fragment } from "react";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import TopbarIcon from "@/components/TopbarIcon";
 import { safeHref, type TopbarConfig } from "@/lib/topbar";
 
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
 
 // 사이트 최상단 띠 배너. PC/모바일 각각 다른 높이·글자 크기를 쓰므로
 // 같은 내용을 두 번 렌더링하고 반응형 클래스로 하나만 보이게 한다(admin 미리보기와 동일한 방식).

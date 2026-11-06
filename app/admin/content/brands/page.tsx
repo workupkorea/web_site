@@ -1,10 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { Oxanium } from "next/font/google";
+import { oxanium } from "@/lib/oxanium";
 import { buildDefaultBrands, DEFAULT_MEGA_SETTINGS } from "@/lib/mega-brands-defaults";
 import type { MegaBrandItem, MegaBrandsConfig, MegaMenuSettings } from "@/lib/mega-brands-types";
 
-const oxanium = Oxanium({ subsets: ["latin"], weight: ["600", "700"] });
 
 
 // ── 작은 카드 미리보기 ─────────────────────────────────────────────────────
