@@ -40,6 +40,8 @@ export interface ArrivalProduct {
   stockQuantity?: number;
   /** 이 행이 구글 시트에서 마지막으로 동기화된 시각 (ISO) */
   syncedAt?: string;
+  /** 원가 (시트 AF열). 관리자 전용 표시 */
+  costPrice?: number;
   supplyPrice?: number;
   price: number;
   quantity?: number;
@@ -84,6 +86,7 @@ function rowToProduct(row: any): ArrivalProduct {
     salesRate:      row.sales_rate ?? undefined,
     stockQuantity:  row.stock_quantity ?? undefined,
     syncedAt:       row.synced_at ?? undefined,
+    costPrice:      row.cost_price ?? undefined,
     supplyPrice:    row.supply_price ?? undefined,
     price:          row.price,
     quantity:       row.quantity ?? undefined,
@@ -310,6 +313,7 @@ export async function addNewProduct(product: ArrivalProduct): Promise<void> {
     product_type:     product.productType ?? null,
     new_arrival_type: product.newArrivalType ?? null,
     color:            product.color,
+    cost_price:       product.costPrice ?? 0,
     supply_price:     product.supplyPrice ?? 0,
     price:            product.price,
     quantity:         product.quantity ?? 0,
@@ -358,6 +362,7 @@ export async function addMultipleProducts(
       product_type:     p.productType ?? null,
       new_arrival_type: p.newArrivalType ?? null,
       color:            p.color,
+      cost_price:       p.costPrice ?? 0,
       supply_price:     p.supplyPrice ?? 0,
       price:            p.price,
       quantity:         p.quantity ?? 0,
@@ -462,6 +467,7 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
     order_rate:       p.orderRate ?? null,
     sales_rate:       p.salesRate ?? null,
     stock_quantity:   p.stockQuantity ?? null,
+    cost_price:       p.costPrice ?? 0,
     supply_price:     p.supplyPrice ?? 0,
     price:            p.price,
     quantity:         p.quantity ?? 0,
@@ -515,6 +521,7 @@ export async function archiveSalesSnapshot(products: ArrivalProduct[]): Promise<
         stock_quantity: p.stockQuantity ?? null,
         order_rate:     p.orderRate ?? null,
         sales_rate:     p.salesRate ?? null,
+        cost_price:     p.costPrice ?? 0,
         supply_price:   p.supplyPrice ?? 0,
         price:          p.price,
         updated_at:     now,

@@ -170,6 +170,7 @@ const EXPECTED_HEADERS: Record<string, { idx: number; keywords: string[] }> = {
   "사이즈런":        { idx: 25, keywords: ["사이즈"] },
   "비고":            { idx: 28, keywords: ["비고"] },
   "마케팅 활용여부": { idx: 29, keywords: ["마케팅"] },
+  "원가":            { idx: 31, keywords: ["원가"] },
   "공급가":          { idx: 32, keywords: ["공급가"] },
   "판매가":          { idx: 33, keywords: ["판매가"] },
   "공급 수량":       { idx: 38, keywords: ["수량"] },
@@ -224,7 +225,7 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
     brand: 8,            // 브랜드명 (I열). J열(9)은 브랜드코드(예: "KT")라 표시용으로 쓰지 않음
     name: 17, code: 18, colorCode: 19,
     fullCode: 20, colorName: 23, sizeRun: 25, note: 28, marketingUsage: 29,
-    supplyPrice: 32, price: 33,
+    costPrice: 31, supplyPrice: 32, price: 33,
     quantity: 38,       // 공급 수량 (공급점 발주)
     totalArrival: 41,   // 총입고(사입) 수량
     orderQty: 45,       // 총주문 수량
@@ -281,6 +282,7 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
         newArrivalType: (row[IDX.newArrivalType] ?? "").trim() || undefined,
         color: "",
         size: (row[IDX.sizeRun] ?? "").trim() || undefined,
+        costPrice: parsePrice(row[IDX.costPrice] ?? ""),
         supplyPrice: parsePrice(row[IDX.supplyPrice] ?? ""),
         price: parsePrice(row[IDX.price] ?? ""),
         quantity: rowQty(row),

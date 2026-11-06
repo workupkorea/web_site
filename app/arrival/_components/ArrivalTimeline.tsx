@@ -362,6 +362,18 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">판매가</td>
                     <td className="py-2.5 text-[15px] font-bold text-[#1a1a1a] align-middle">{product.price > 0 ? fmtPrice(product.price) : "—"}</td>
                   </tr>
+                  {isAdmin && (
+                    <tr className="border-b border-gray-100 bg-orange-50/40">
+                      <td className="py-2.5 pr-4 text-[13px] tracking-widest text-orange-400 uppercase font-semibold whitespace-nowrap align-middle">원가</td>
+                      <td className="py-2.5 text-[15px] font-bold text-orange-700 align-middle">{product.costPrice && product.costPrice > 0 ? fmtPrice(product.costPrice) : "—"}</td>
+                    </tr>
+                  )}
+                  {isAdmin && (
+                    <tr className="border-b border-gray-100 bg-orange-50/40">
+                      <td className="py-2.5 pr-4 text-[13px] tracking-widest text-orange-400 uppercase font-semibold whitespace-nowrap align-middle">공급가</td>
+                      <td className="py-2.5 text-[15px] font-bold text-orange-700 align-middle">{product.supplyPrice && product.supplyPrice > 0 ? fmtPrice(product.supplyPrice) : "—"}</td>
+                    </tr>
+                  )}
                   <tr className="last:border-0">
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">입고일</td>
                     <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{full}</td>
@@ -416,6 +428,18 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
                     <td className="py-1 pr-3 text-[12px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">판매가</td>
                     <td className="py-1 text-[13px] text-[#1a1a1a] align-middle font-bold">{product.price > 0 ? fmtPrice(product.price) : "—"}</td>
                   </tr>
+                  {isAdmin && (
+                    <tr className="border-b border-gray-100 bg-orange-50/40">
+                      <td className="py-1 pr-3 text-[12px] tracking-widest text-orange-400 uppercase font-semibold whitespace-nowrap align-middle">원가</td>
+                      <td className="py-1 text-[13px] text-orange-700 align-middle font-bold">{product.costPrice && product.costPrice > 0 ? fmtPrice(product.costPrice) : "—"}</td>
+                    </tr>
+                  )}
+                  {isAdmin && (
+                    <tr className="border-b border-gray-100 bg-orange-50/40">
+                      <td className="py-1 pr-3 text-[12px] tracking-widest text-orange-400 uppercase font-semibold whitespace-nowrap align-middle">공급가</td>
+                      <td className="py-1 text-[13px] text-orange-700 align-middle font-bold">{product.supplyPrice && product.supplyPrice > 0 ? fmtPrice(product.supplyPrice) : "—"}</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
