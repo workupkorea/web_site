@@ -587,7 +587,7 @@ function daysSinceLabel(arrivalDate?: string | null): string {
   return diff >= 0 ? `D+${diff}` : `D${diff}`;
 }
 
-function ProductCard({ product, onSelect, showDate, showMarketing, showRates, rank }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean; showRates?: boolean; rank?: SalesRank }) {
+function ProductCard({ product, onSelect, showDate, showMarketing, showRates, rank, qtyMode }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean; showRates?: boolean; rank?: SalesRank; qtyMode?: boolean }) {
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const { full } = fmtDate(product.arrivalDate);
   const dLabel = daysSinceLabel(product.arrivalDate);
@@ -634,8 +634,9 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates, ra
               <span className="text-gray-500">판매가 <b className="text-[12px] font-bold text-[#1a1a1a]">{num(product.price)}</b></span>
             </div>
             <div className="mt-1 flex items-center justify-between border-t border-gray-200 pt-1">
-              <span className="text-gray-500">주문 <b className="font-bold text-blue-600">{o != null ? `${o}%` : dash}</b></span>
-              <span className="text-gray-500">판매 <b className="font-bold text-green-600">{sr != null ? `${sr}%` : dash}</b></span>
+              {/* 판매량순·주문량순 정렬 중에는 비율(%) 대신 주문·판매 수량을 표기 */}
+              <span className="text-gray-500">주문 <b className="font-bold text-blue-600">{qtyMode ? num(product.orderQuantity) : o != null ? `${o}%` : dash}</b></span>
+              <span className="text-gray-500">판매 <b className="font-bold text-green-600">{qtyMode ? num(product.salesQuantity) : sr != null ? `${sr}%` : dash}</b></span>
               <span className="text-gray-500">재고 <b className="font-bold text-[#1a1a1a]">{stock != null ? stock.toLocaleString("ko-KR") : dash}</b></span>
             </div>
           </div>
@@ -760,9 +761,9 @@ function GroupHeader({ groupKey, groupMode, count, sortLabel }: { groupKey: stri
 }
 
 // ─── 그리드 뷰 ───────────────────────────────────────────────────────────────
-function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, ranks, sortLabel }: {
+function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, ranks, sortLabel, qtyMode }: {
   grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean; showRates?: boolean;
-  ranks?: Map<string, SalesRank>; sortLabel?: string;
+  ranks?: Map<string, SalesRank>; sortLabel?: string; qtyMode?: boolean;
 }) {
   const collapsible = (groupMode === "category" || groupMode === "brand") && !grouped.some(([k]) => k === SORTED_GROUP_KEY);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -789,7 +790,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, rank
             )}
             {!isCollapsed && (
               <div className={GRID_COLS}>
-                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} showRates={showRates} rank={ranks?.get(rankKey(p))} />)}
+                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} showRates={showRates} rank={ranks?.get(rankKey(p))} qtyMode={qtyMode} />)}
               </div>
             )}
           </div>
@@ -2508,7 +2509,7 @@ export default function ArrivalTimeline() {
             <button onClick={resetFilters} className="mt-3 text-[14px] text-[#1a1a1a] underline underline-offset-2">필터 초기화</button>
           </div>
         ) : viewMode === "grid" ? (
-          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} ranks={isAdmin ? salesRanks : undefined} sortLabel={sortKey === "sales" ? "판매량순" : sortKey === "order" ? "주문량순" : ""} />
+          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} ranks={isAdmin ? salesRanks : undefined} sortLabel={sortKey === "sales" ? "판매량순" : sortKey === "order" ? "주문량순" : ""} qtyMode={isAdmin && !!sortKey} />
         ) : viewMode === "timeline" ? (
           <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} />
         ) : viewMode === "gantt" ? (
