@@ -566,17 +566,43 @@ function MarketingBadge({ usage }: { usage?: string }) {
     </span>
   );
 }
-function ProductCard({ product, onSelect, showDate, showMarketing, showRates }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean; showRates?: boolean }) {
+/** 현재 목록 전체 기준 주문량·판매량 순위 (관리자 이미지 뷰 전용) */
+type SalesRank = { order: number; sales: number; total: number };
+const rankKey = (p: ArrivalProduct) => `${p.productCode}__${p.arrivalDate || "none"}`;
+
+/** 초도 입고일 기준 경과일 라벨: 입고 후 D+92, 입고 전 D-3, 당일 D+0 (날짜 없으면 빈 값) */
+function daysSinceLabel(arrivalDate?: string | null): string {
+  const d = arrivalDate ? parseDate(arrivalDate) : null;
+  if (!d) return "";
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  const a = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diff = Math.round((t.getTime() - a.getTime()) / 86400000);
+  return diff >= 0 ? `D+${diff}` : `D${diff}`;
+}
+
+function ProductCard({ product, onSelect, showDate, showMarketing, showRates, rank }: { product: ArrivalProduct; onSelect: () => void; showDate?: boolean; showMarketing?: boolean; showRates?: boolean; rank?: SalesRank }) {
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const { full } = fmtDate(product.arrivalDate);
+  const dLabel = daysSinceLabel(product.arrivalDate);
   return (
     <button onClick={onSelect}
       className="text-left transition-opacity hover:opacity-80 flex flex-col">
       <div className={`relative w-full overflow-hidden rounded-sm border ${showMarketing && product.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
         <ProductImage product={product} size="sm" />
+        {/* 좌측 상단: 초도 입고 경과일 (관리자) */}
+        {showRates && dLabel && (
+          <span className="absolute top-1.5 left-1.5 z-10 rounded-md bg-gray-900/80 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm tabular-nums" title="초도 입고일 기준 경과일">{dLabel}</span>
+        )}
+        {/* 우측 상단: 주문(파랑)·판매(초록) 순위 (관리자) */}
+        {rank && (
+          <div className="absolute top-1.5 right-1.5 z-10 flex items-center gap-1 tabular-nums">
+            <span className="flex items-center gap-1 rounded-md bg-blue-600/90 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title={`주문량 ${rank.order}위`}><span className="opacity-70">O</span>{rank.order}</span>
+            <span className="flex items-center gap-1 rounded-md bg-green-600/90 px-1.5 py-0.5 text-[11px] font-bold leading-none text-white shadow-sm" title={`판매량 ${rank.sales}위`}><span className="opacity-70">S</span>{rank.sales}</span>
+          </div>
+        )}
         {product.newArrivalType === "재진행" && (
           <span
-            className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[12px] font-bold flex items-center justify-center leading-none shadow"
+            className={`absolute ${showRates && dLabel ? "top-7" : "top-1.5"} left-1.5 w-5 h-5 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[12px] font-bold flex items-center justify-center leading-none shadow`}
             title="재진행 상품"
           >
             R
@@ -700,8 +726,9 @@ function GroupHeader({ groupKey, groupMode, count }: { groupKey: string; groupMo
 }
 
 // ─── 그리드 뷰 ───────────────────────────────────────────────────────────────
-function GridView({ grouped, groupMode, onSelect, showMarketing, showRates }: {
+function GridView({ grouped, groupMode, onSelect, showMarketing, showRates, ranks }: {
   grouped: [string, ArrivalProduct[]][]; groupMode: GroupMode; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean; showRates?: boolean;
+  ranks?: Map<string, SalesRank>;
 }) {
   const collapsible = groupMode === "category" || groupMode === "brand";
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -728,7 +755,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing, showRates }: {
             )}
             {!isCollapsed && (
               <div className={GRID_COLS}>
-                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} showRates={showRates} />)}
+                {items.map((p, i) => <ProductCard key={`${p.productCode}_${p.arrivalDate || "none"}_${i}`} product={p} onSelect={() => onSelect(p)} showDate={groupMode !== "date"} showMarketing={showMarketing} showRates={showRates} rank={ranks?.get(rankKey(p))} />)}
               </div>
             )}
           </div>
@@ -1145,31 +1172,6 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
 
   return (
     <div className="space-y-4">
-
-      {/* 안내 + PDF 버튼: 관리자 전용 */}
-      {isAdmin && (
-        <div className="hidden sm:flex items-center gap-3 flex-wrap">
-          <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-[14px] text-gray-600 flex flex-col sm:flex-row gap-1 sm:gap-3">
-            <span><strong className="text-[#1a1a1a]">상품 클릭</strong> → 상세 보기</span>
-            <span className="text-gray-400 hidden sm:inline">|</span>
-            <span><strong className="text-[#1a1a1a]">월 헤더</strong> → 접기 / 펼치기</span>
-            <span className="text-gray-400 hidden sm:inline">|</span>
-            <span className="text-gray-500 sm:hidden">좌우로 스크롤해 이미지를 볼 수 있습니다</span>
-          </div>
-          {/* PDF 버튼: PC 전용 */}
-          <button
-            onClick={handlePDF}
-            className="hidden sm:flex items-center gap-1.5 shrink-0 border border-gray-300 hover:border-[#1a1a1a] text-[14px] font-semibold text-gray-700 hover:text-[#1a1a1a] px-4 py-2.5 rounded-xl transition-colors bg-white"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-              <polyline points="7 10 12 15 17 10"/>
-              <line x1="12" y1="15" x2="12" y2="3"/>
-            </svg>
-            PDF 다운로드
-          </button>
-        </div>
-      )}
 
       {months.map(({ year, month }, monthIdx) => {
         // 클릭 안내·기준 시각 박스는 "이번 달" 헤더에 고정 (필터로 앞 달이 사라져도 위치가 바뀌지 않게). 이번 달이 없으면 첫 달.
@@ -1979,14 +1981,19 @@ export default function ArrivalTimeline() {
   // ?popup=1: W주문 팝업(iframe) 전용 — 상단에 이번 주차 띠("10월 셋째주")를 자동 표시
   const [isPopup] = useState(() => {
     if (typeof window === "undefined") return false;
-    return new URLSearchParams(window.location.search).get("popup") === "1";
+    const q = new URLSearchParams(window.location.search);
+    // "&amp;popup=1" 처럼 HTML 이스케이프된 채로 걸린 링크("amp;popup")도 팝업으로 인식
+    return q.get("popup") === "1" || q.get("amp;popup") === "1";
   });
 
   // ?view=calendar 같은 링크로 접속하면 해당 뷰로 바로 진입 (캘린더뷰 전용 공유 링크)
   const [viewMode,  setViewMode]  = useState<ViewMode>(() => {
     if (typeof window === "undefined") return "grid";
-    const v = new URLSearchParams(window.location.search).get("view");
-    return v === "calendar" || v === "timeline" || v === "gantt" ? (v as ViewMode) : "grid";
+    const q = new URLSearchParams(window.location.search);
+    const v = q.get("view");
+    if (v === "calendar" || v === "timeline" || v === "gantt") return v as ViewMode;
+    // 팝업(W주문)은 view 파라미터가 없어도 캘린더가 기본
+    return q.get("popup") === "1" || q.get("amp;popup") === "1" ? "calendar" : "grid";
   });
   const [groupMode, setGroupMode] = useState<GroupMode>("month");
 
@@ -2105,7 +2112,7 @@ export default function ArrivalTimeline() {
         if (filterSize     !== "all" && !splitSizes(p.size).includes(filterSize)) return false;
         if (filterStatus   !== "all" && p.status   !== filterStatus)   return false;
         if (filterNewArrival !== "all" && (p.newArrivalType ?? "") !== filterNewArrival) return false;
-        if (isAdmin && filterMarketing && !p.marketingUsage) return false;
+        if (isAdmin && viewMode !== "calendar" && filterMarketing && !p.marketingUsage) return false;
         if (viewMode === "calendar" && filterThisWeek && !isInWeekRange(p.arrivalDate, thisWeekRange)) return false;
         if (q && !p.productName.toLowerCase().includes(q) && !p.productCode.toLowerCase().includes(q)) return false;
         return true;
@@ -2118,6 +2125,22 @@ export default function ArrivalTimeline() {
       });
   }, [products, filterBrand, filterCategory, filterSize, filterStatus, filterNewArrival, filterMarketing, isAdmin, filterThisWeek, thisWeekRange, viewMode, searchQuery]);
 
+
+  // 현재 목록(필터 결과) 전체 기준 주문량·판매량 순위 — 관리자 이미지 뷰 카드 좌상단 뱃지용 (동률은 같은 순위)
+  const salesRanks = useMemo(() => {
+    const map = new Map<string, SalesRank>();
+    if (!isAdmin) return map;
+    const rankBy = (pick: (p: ArrivalProduct) => number) => {
+      const vals = filtered.map(pick);
+      return (v: number) => 1 + vals.filter(x => x > v).length;
+    };
+    const orderRank = rankBy(p => p.orderQuantity ?? 0);
+    const salesRank = rankBy(p => p.salesQuantity ?? 0);
+    for (const p of filtered) {
+      map.set(rankKey(p), { order: orderRank(p.orderQuantity ?? 0), sales: salesRank(p.salesQuantity ?? 0), total: filtered.length });
+    }
+    return map;
+  }, [filtered, isAdmin]);
 
   const grouped = useMemo<[string, ArrivalProduct[]][]>(() => {
     const map = new Map<string, ArrivalProduct[]>();
@@ -2166,7 +2189,7 @@ export default function ArrivalTimeline() {
     { key: "status",   label: "상태",     value: filterStatus,   set: setFilterStatus,   options: [{ v: "입고예정", l: "입고예정" }, { v: "입고완료", l: "입고완료" }, { v: "일정미표기", l: "일정미정" }] },
   ];
   const activeFilterDef = filterDefs.find(d => d.key === filterKind);
-  const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterSize !== "all" || filterStatus !== "all" || filterNewArrival !== "all" || searchQuery !== "" || filterMarketing || (viewMode === "calendar" && filterThisWeek);
+  const hasFilter = filterBrand !== "all" || filterCategory !== "all" || filterSize !== "all" || filterStatus !== "all" || filterNewArrival !== "all" || searchQuery !== "" || (filterMarketing && viewMode !== "calendar") || (viewMode === "calendar" && filterThisWeek);
 
   if (loadingData) {
     return (
@@ -2180,7 +2203,9 @@ export default function ArrivalTimeline() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafaf8]" style={{ paddingTop: "var(--arrival-topbar-h, 90px)" }}>
+    <div className="min-h-screen bg-[#fafaf8]" style={{ paddingTop: "var(--arrival-topbar-h, 90px)", fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif" }}>
+      {/* 타이틀 전용 폰트(페이퍼로지 Bold 700만 로드). Pretendard 는 layout.tsx 에서 전역 로드됨 */}
+      <style>{`@font-face{font-family:'Paperlogy';font-weight:700;font-style:normal;font-display:swap;src:url('https://cdn.jsdelivr.net/gh/fonts-archive/Paperlogy/Paperlogy-7Bold.woff2') format('woff2');}`}</style>
       {/* ── 필터 + 뷰 전환 ──
           일부 레이아웃(특히 모바일)에서는 조상 요소 중 하나가 overflow-y:auto 스크롤 컨테이너인데
           정작 그 컨테이너 자신은 내부적으로 스크롤되지 않고(항상 scrollTop 0) 대신 문서 전체가
@@ -2190,7 +2215,7 @@ export default function ArrivalTimeline() {
           고정되므로 이 문제를 확실하게 피해간다. 대신 fixed는 문서 흐름에서 빠지므로, 위 wrapper에
           그 높이만큼 padding-top을 줘서 본문이 가려지지 않게 한다. */}
       <div ref={topBarRef} className={`fixed top-0 left-0 right-0 z-30 ${PAGE_X_PAD} pt-3 pb-1.5 bg-[#fafaf8]`}>
-        {isPopup && (
+        {isPopup && viewMode === "calendar" && (
           <div className="sm:hidden mb-2 rounded-xl border border-[#ffe08a] bg-[#fff3cd] py-2 text-center text-[13px] font-semibold text-[#7a5c00]">
             {getWeekLabel(thisWeekRange.start)}
           </div>
@@ -2201,14 +2226,14 @@ export default function ArrivalTimeline() {
           <div className="flex items-center gap-1.5 sm:flex-wrap sm:gap-y-1.5">
             {/* 타이틀 (모바일에서 검색 왼쪽) */}
             {/* 타이틀 영역(PC): 주차 뱃지(팝업 전용) + 제목을 한 줄로. 모바일은 위 배너 사용 */}
-            <div className="hidden sm:flex sm:order-1 flex-row items-center gap-2 shrink-0 mr-2">
-              {isPopup && (
-                <span className="shrink-0 whitespace-nowrap text-[16px] font-extrabold leading-none tracking-tight text-orange-600">
+            <div className="hidden sm:flex sm:order-1 flex-row items-center gap-2 shrink-0 mr-2" style={{ fontFamily: "'Paperlogy', 'Pretendard', sans-serif" }}>
+              {isPopup && viewMode === "calendar" && (
+                <span className="shrink-0 whitespace-nowrap text-[15px] font-bold leading-none tracking-tight text-orange-600">
                   {getWeekLabel(thisWeekRange.start)}
                 </span>
               )}
-              {isPopup && <span className="h-4 w-px bg-gray-300 shrink-0" aria-hidden="true" />}
-              <span title={lastSync ? `${new Date(lastSync).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준` : undefined} className="text-[16px] font-extrabold text-[#1a1a1a] tracking-tight shrink-0 whitespace-nowrap">워크업 입고 스케쥴</span>
+              {isPopup && viewMode === "calendar" && <span className="h-4 w-px bg-gray-300 shrink-0" aria-hidden="true" />}
+              <span title={lastSync ? `${new Date(lastSync).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준` : undefined} className="text-[15px] font-bold leading-none text-[#1a1a1a] tracking-tight shrink-0 whitespace-nowrap">워크업 입고 스케쥴</span>
             </div>
 
             {/* 검색 */}
@@ -2222,7 +2247,7 @@ export default function ArrivalTimeline() {
               className={`sm:hidden flex items-center gap-1 px-2.5 py-1 text-[14px] font-semibold rounded-lg border transition-all shrink-0 ${
                 filterOpen || hasFilter ? "bg-[#1a1a1a] text-white border-[#1a1a1a]" : "border-gray-200 text-gray-600"
               }`}>
-              필터{hasFilter ? ` (${[filterBrand!=="all",filterCategory!=="all",filterSize!=="all",filterStatus!=="all",filterNewArrival!=="all",filterMarketing,viewMode==="calendar"&&filterThisWeek].filter(Boolean).length})` : ""}
+              필터{hasFilter ? ` (${[filterBrand!=="all",filterCategory!=="all",filterSize!=="all",filterStatus!=="all",filterNewArrival!=="all",(filterMarketing&&viewMode!=="calendar"),viewMode==="calendar"&&filterThisWeek].filter(Boolean).length})` : ""}
             </button>
 
             {/* 데스크탑 인라인 필터 */}
@@ -2251,7 +2276,7 @@ export default function ArrivalTimeline() {
                   <span aria-hidden="true" className="text-[12px] opacity-70">×</span>
                 </button>
               ))}
-              {isAdmin && <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
+              {isAdmin && viewMode !== "calendar" && <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
                 <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                   className="w-3 h-3 accent-blue-500 cursor-pointer" />
                 <span className={`text-[13px] font-semibold whitespace-nowrap ${filterMarketing ? "text-blue-500" : "text-gray-500"}`}>마케팅</span>
@@ -2294,7 +2319,24 @@ export default function ArrivalTimeline() {
                 <span className="hidden sm:inline">주문순위</span>
               </button>
               )}
-              {/* 뷰 전환 버튼 */}
+              {/* 뷰 전환 버튼 — 팝업(W주문)은 캘린더 고정 + 이미지·타임라인은 드롭다운(새 창으로 열기) */}
+              {isPopup ? (
+                <div className="flex items-center gap-1 border border-gray-200 rounded-lg p-0.5">
+                  <span className="px-2 py-0.5 text-[13px] font-semibold rounded-md bg-[#1a1a1a] text-white whitespace-nowrap">⊞<span className="hidden sm:inline"> 캘린더</span></span>
+                  <select value="" aria-label="뷰 변경 (새 창)"
+                    onChange={e => {
+                      const v = e.target.value;
+                      if (!v) return;
+                      // 새 창(탭 아님)으로 전체 페이지를 연다. popup 파라미터는 붙이지 않는다.
+                      window.open(`${window.location.origin}/arrival${v === "timeline" ? "?view=timeline" : ""}`, "arrival_full", "width=1280,height=900,scrollbars=yes,resizable=yes");
+                    }}
+                    className="max-w-[110px] cursor-pointer rounded-md bg-transparent px-1 py-0.5 text-[13px] font-semibold text-gray-600 focus:outline-none">
+                    <option value="" hidden>뷰 변경</option>
+                    <option value="grid">▦ 이미지 (새 창)</option>
+                    <option value="timeline">↓ 타임라인 (새 창)</option>
+                  </select>
+                </div>
+              ) : (
               <div className="flex items-center gap-0.5 border border-gray-200 rounded-lg p-0.5">
                 <button onClick={() => setViewMode("grid")}
                   className={`px-2 py-0.5 text-[13px] font-semibold rounded-md transition-all whitespace-nowrap ${viewMode === "grid" ? "bg-[#1a1a1a] text-white" : "text-gray-500 hover:text-[#1a1a1a]"}`}>
@@ -2311,12 +2353,11 @@ export default function ArrivalTimeline() {
                   ⊞<span className="hidden sm:inline"> 캘린더</span>
                 </button>
               </div>
+              )}
             </div>
-          </div>
-
-          {/* 로그인/로그아웃 — 이미지 뷰 우측 상단에 아주 작게 */}
+          {/* 로그인/로그아웃 — 이미지 뷰. PC는 상단바 한 줄의 맨 끝(겹침 방지), 모바일은 바 위쪽 */}
           {viewMode === "grid" && (
-            <div className="absolute right-3 -top-0.5 -translate-y-full sm:translate-y-0 sm:top-0.5">
+            <div className="max-sm:absolute max-sm:right-3 max-sm:-top-0.5 max-sm:-translate-y-full sm:relative sm:order-8 sm:shrink-0">
               <button type="button"
                 onClick={() => loggedIn ? doLogout() : setLoginOpen(v => !v)}
                 className="text-[10px] leading-none px-1 py-0.5 text-gray-300 hover:text-gray-600 transition-colors">
@@ -2337,10 +2378,11 @@ export default function ArrivalTimeline() {
               )}
             </div>
           )}
+          </div>
 
           {/* ── 모바일: 마케팅/이번주 체크박스는 필터 펼치기와 무관하게 항상 노출 ── */}
           <div className="sm:hidden mt-2 flex items-center gap-2 flex-wrap">
-            {isAdmin && <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
+            {isAdmin && viewMode !== "calendar" && <label className="flex items-center gap-1.5 cursor-pointer select-none bg-gray-50 rounded-lg px-2.5 py-1.5">
               <input type="checkbox" checked={filterMarketing} onChange={e => setFilterMarketing(e.target.checked)}
                 className="w-3.5 h-3.5 accent-blue-500 cursor-pointer" />
               <span className={`text-[14px] font-semibold ${filterMarketing ? "text-blue-500" : "text-gray-500"}`}>마케팅 활용</span>
@@ -2399,13 +2441,13 @@ export default function ArrivalTimeline() {
             <button onClick={resetFilters} className="mt-3 text-[14px] text-[#1a1a1a] underline underline-offset-2">필터 초기화</button>
           </div>
         ) : viewMode === "grid" ? (
-          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} />
+          <GridView grouped={grouped} groupMode={groupMode} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} ranks={isAdmin ? salesRanks : undefined} />
         ) : viewMode === "timeline" ? (
           <TimelineView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} showRates={isAdmin} />
         ) : viewMode === "gantt" ? (
           <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
         ) : (
-          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} syncLabel={lastSync ? `${new Date(lastSync).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준` : undefined} />
+          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={false} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} syncLabel={lastSync ? `${new Date(lastSync).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준` : undefined} />
         )}
       </div>
 
