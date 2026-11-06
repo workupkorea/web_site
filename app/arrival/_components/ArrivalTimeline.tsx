@@ -27,39 +27,41 @@ function fmtDate(iso: string) {
   };
 }
 const BRAND_BG: Record<string, string> = {
-  "켄타":        "bg-[#4769b3]",   // 로열 블루       hue 225
-  "디트로잇":    "bg-[#a73030]",   // 선명 레드       hue 0
-  "GRBD":        "bg-[#27874b]",   // 선명 그린       hue 132
-  "K-WORKERS":   "bg-[#7049bc]",   // 바이올렛        hue 264
-  "덴버":        "bg-[#a73076]",   // 마젠타/핫핑크   hue 330
-  "디월트":      "bg-[#c6b13c]",   // 선명 옐로       hue 51
-  "매드독캠프":  "bg-[#206e60]",   // 다크 틸         hue 165
-  "모디뜨":      "bg-[#c36a95]",   // 핑크            hue 335
-  "몬스톤":      "bg-[#83a9d7]",   // 라이트 블루      hue 213
-  "볼컴":        "bg-[#c67d3c]",   // 선명 오렌지     hue 29
-  "블랙스미스":  "bg-[#7a4f23]",   // 브라운          hue 30 (dark)
-  "블랙아머":    "bg-[#313145]",   // 다크 네이비     near black
-  "유니보스":    "bg-[#3099a7]",   // 아쿠아/시안     hue 186
-  "이글서플라이":"bg-[#b99748]",   // 앰버/골드       hue 43
-  "프레파라트":  "bg-[#769a2d]",   // 라임 그린       hue 81
+  "켄타":        "bg-[#5b73a3]",   // 로열 블루       hue 225
+  "디트로잇":    "bg-[#9a5a5a]",   // 선명 레드       hue 0
+  "GRBD":        "bg-[#4f8a68]",   // 선명 그린       hue 132
+  "K-WORKERS":   "bg-[#7a6aa8]",   // 바이올렛        hue 264
+  "케이워커스":  "bg-[#7a6aa8]",   // K-WORKERS 표시명
+  "덴버":        "bg-[#9a5f84]",   // 마젠타/핫핑크   hue 330
+  "디월트":      "bg-[#cbbd78]",   // 선명 옐로       hue 51
+  "매드독캠프":  "bg-[#3f7468]",   // 다크 틸         hue 165
+  "모디뜨":      "bg-[#a8708e]",   // 핑크            hue 335
+  "몬스톤":      "bg-[#9db6d2]",   // 라이트 블루      hue 213
+  "볼컴":        "bg-[#a8754a]",   // 선명 오렌지     hue 29
+  "블랙스미스":  "bg-[#7d6247]",   // 브라운          hue 30 (dark)
+  "블랙아머":    "bg-[#4a4c5e]",   // 다크 네이비     near black
+  "유니보스":    "bg-[#4f8a94]",   // 아쿠아/시안     hue 186
+  "이글서플라이":"bg-[#c1a86a]",   // 앰버/골드       hue 43
+  "프레파라트":  "bg-[#8aa05a]",   // 라임 그린       hue 81
 };
 
 const BRAND_BG_HEX: Record<string, string> = {
-  "켄타":        "#4769b3",
-  "디트로잇":    "#a73030",
-  "GRBD":        "#27874b",
-  "K-WORKERS":   "#7049bc",
-  "덴버":        "#a73076",
-  "디월트":      "#c6b13c",
-  "매드독캠프":  "#206e60",
-  "모디뜨":      "#c36a95",
-  "몬스톤":      "#83a9d7",
-  "볼컴":        "#c67d3c",
-  "블랙스미스":  "#7a4f23",
-  "블랙아머":    "#313145",
-  "유니보스":    "#3099a7",
-  "이글서플라이":"#b99748",
-  "프레파라트":  "#769a2d",
+  "켄타":        "#5b73a3",
+  "디트로잇":    "#9a5a5a",
+  "GRBD":        "#4f8a68",
+  "K-WORKERS":   "#7a6aa8",
+  "케이워커스":  "#7a6aa8",
+  "덴버":        "#9a5f84",
+  "디월트":      "#cbbd78",
+  "매드독캠프":  "#3f7468",
+  "모디뜨":      "#a8708e",
+  "몬스톤":      "#9db6d2",
+  "볼컴":        "#a8754a",
+  "블랙스미스":  "#7d6247",
+  "블랙아머":    "#4a4c5e",
+  "유니보스":    "#4f8a94",
+  "이글서플라이":"#c1a86a",
+  "프레파라트":  "#8aa05a",
 };
 
 function brandBg(brand: string) {
@@ -79,7 +81,10 @@ function brandTextColor(brand: string) {
 
 function stripBrand(name: string, brand: string) {
   if (!brand) return name;
-  const prefix = new RegExp(`^${brand.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[_\\s]+`, "i");
+  const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // 표시명(케이워커스)과 원본 상품명 접두(K-WORKERS_)가 달라 둘 다 제거 대상으로 본다
+  const names = brand === "케이워커스" ? [brand, "K-WORKERS"] : [brand];
+  const prefix = new RegExp(`^(?:${names.map(esc).join("|")})[_\\s]+`, "i");
   return name.replace(prefix, "").trim() || name;
 }
 
@@ -262,6 +267,16 @@ function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: Arriva
 }
 
 // ─── 상품 상세 모달 ───────────────────────────────────────────────────────────
+/** 사이즈 표기 간소화: "00M~4XL" → "M-4XL", 바지 "30N~38N" → "30-38" (표시 전용, 원본 데이터는 그대로) */
+function fmtSize(raw?: string | null): string {
+  if (!raw) return "";
+  return raw
+    .replace(/\s+/g, "")
+    .replace(/~/g, "-")
+    .replace(/(^|-)00(?=[A-Za-z])/g, "$1") // 앞쪽 "00" 접두 제거 (00S → S)
+    .replace(/(\d+)N(?![A-Za-z])/g, "$1"); // 숫자 뒤 N 제거 (30N → 30)
+}
+
 function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: ArrivalProduct; onClose: () => void; openOrderLink: (url: string, e: React.MouseEvent) => void; isAdmin?: boolean }) {
   const { full } = fmtDate(product.arrivalDate);
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
@@ -355,7 +370,7 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
                   {product.size && (
                     <tr className="border-b border-gray-100">
                       <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">사이즈</td>
-                      <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{product.size}</td>
+                      <td className="py-2.5 text-[15px] text-[#1a1a1a] align-middle">{fmtSize(product.size)}</td>
                     </tr>
                   )}
                   <tr className="border-b border-gray-100">
@@ -421,7 +436,7 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
                   {product.size && (
                     <tr className="border-b border-gray-100">
                       <td className="py-1 pr-3 text-[12px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">사이즈</td>
-                      <td className="py-1 text-[13px] text-[#1a1a1a] align-middle">{product.size}</td>
+                      <td className="py-1 text-[13px] text-[#1a1a1a] align-middle">{fmtSize(product.size)}</td>
                     </tr>
                   )}
                   <tr className="border-b border-gray-100">
@@ -574,17 +589,29 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates }: 
           <span className="text-[13px] tracking-wider text-gray-500 uppercase truncate font-medium">{product.brand}</span>
           <span className={`text-[12px] px-1.5 py-0.5 rounded-full font-bold shrink-0 ${meta.cls}`}>{meta.label}</span>
         </div>
-        <p className="text-[11px] text-gray-400 font-mono truncate">{product.productCode}</p>
+        <div className="flex items-center justify-between gap-1">
+          <p className="text-[11px] text-gray-400 font-mono truncate">{product.productCode}</p>
+          {product.size && <span className="text-[12px] text-gray-500 whitespace-nowrap shrink-0" title={fmtSize(product.size)}>{fmtSize(product.size)}</span>}
+        </div>
         <p className="text-[14px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2">{stripBrand(product.productName, product.brand)}</p>
-        {product.size && <p className="text-[12px] text-gray-500 leading-tight truncate" title={product.size}>{product.size}</p>}
         <div className="flex-1" />
         {showDate && product.arrivalDate ? (
           <div className="text-[13px] text-gray-600 flex items-center justify-between gap-1 mt-auto">
             <span className="truncate">{full}</span>
-            {product.price > 0 && <span className="font-medium text-[#1a1a1a] whitespace-nowrap shrink-0">{fmtPrice(product.price)}</span>}
+            {!showRates && product.price > 0 && <span className="font-medium text-[#1a1a1a] whitespace-nowrap shrink-0">{fmtPrice(product.price)}</span>}
           </div>
         ) : (
-          <p className="text-[13px] text-gray-600 font-medium text-right mt-auto">{fmtPrice(product.price)}</p>
+          !showRates && <p className="text-[13px] text-gray-600 font-medium text-right mt-auto">{fmtPrice(product.price)}</p>
+        )}
+        {/* 관리자 전용: 원가 · 판매가 (showRates 는 관리자 로그인 시에만 true) */}
+        {showRates && (
+          <p className="text-[13px] text-right whitespace-nowrap mt-auto">
+            <span className="text-gray-500">원가 </span>
+            <span className="font-medium text-gray-700">{product.costPrice && product.costPrice > 0 ? product.costPrice.toLocaleString("ko-KR") : "—"}</span>
+            <span className="text-gray-300 mx-1">|</span>
+            <span className="text-gray-500">판매가 </span>
+            <span className="font-semibold text-[#1a1a1a]">{product.price > 0 ? product.price.toLocaleString("ko-KR") : "—"}</span>
+          </p>
         )}
         {showRates && <RateLine product={product} inline />}
       </div>
@@ -605,6 +632,7 @@ const BRAND_CATALOG_SLUGS: Record<string, string> = {
   "이글서플라이": "eagle-supply",
   "GRBD":      "grbd",
   "K-WORKERS": "k-workers",
+  "케이워커스": "k-workers",
   "매드독캠프":"maddog",
   "몬스톤":    "monston",
   "유니보스":  "uniboss",
@@ -710,7 +738,7 @@ function GridView({ grouped, groupMode, onSelect, showMarketing, showRates }: {
   );
 }
 // ─── 한 줄 맞춤 제품명: 브랜드 배지 + 제품명이 한 줄에 들어가도록 글자 크기를 자동 축소 ─────
-const FIT_MAX_PX = 16;
+const FIT_MAX_PX = 14;
 const FIT_MIN_PX = 9;
 function FitName({ name, reorder }: { name: string; reorder?: boolean }) {
   const rowRef = useRef<HTMLDivElement>(null);
@@ -737,7 +765,7 @@ function FitName({ name, reorder }: { name: string; reorder?: boolean }) {
   }, [name]);
 
   return (
-    <div ref={rowRef} className={`relative flex items-center justify-center gap-1.5 whitespace-nowrap overflow-hidden h-9 ${reorder ? "px-8" : "px-1.5"}`}>
+    <div ref={rowRef} className={`relative flex items-center justify-center gap-1.5 whitespace-nowrap overflow-hidden h-8 ${reorder ? "px-8" : "px-1.5"}`}>
       <span data-fit-text className="font-semibold text-[#1a1a1a]" style={{ fontSize: size, lineHeight: 1.2 }}>{name}</span>
       {reorder && (
         <span className="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#ffd700] text-[#1a1a1a] text-[13px] font-bold flex items-center justify-center leading-none shadow" title="재입고 상품">R</span>
@@ -971,10 +999,12 @@ function buildCalendarPDF(
 }
 
 // ─── 캘린더 뷰 ───────────────────────────────────────────────────────────────
-function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filterThisWeek, openOrderLink }: {
+function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filterThisWeek, openOrderLink, syncLabel }: {
   products: ArrivalProduct[]; onSelect: (p: ArrivalProduct) => void; showMarketing?: boolean;
   thisWeekRange?: { start: string; end: string }; filterThisWeek?: boolean;
   openOrderLink: (url: string, e: React.MouseEvent) => void;
+  /** 데이터 기준 시각 문구. 첫 번째 월 헤더 우측 끝에 표시 */
+  syncLabel?: string;
 }) {
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
@@ -1068,6 +1098,30 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterThisWeek]);
 
+  // 클릭 안내 + 기준 시각 박스 (이번 달 헤더 또는 접힌 달 줄 오른쪽 끝에 표시)
+  const infoBox = (
+    <span className={`ml-auto items-center divide-x divide-gray-200 shrink-0 whitespace-nowrap rounded-lg border border-gray-200 bg-white overflow-hidden ${syncLabel ? "flex" : "hidden sm:flex"}`}>
+      {/* 클릭 안내 (PC) + 기준 시각을 한 박스로 묶음 */}
+      <span className="hidden sm:flex items-center gap-1.5 px-3 py-1 text-[13px] font-semibold text-[#1a1a1a] animate-pulse motion-reduce:animate-none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        제품을 클릭하면 크게 볼 수 있습니다
+      </span>
+      {syncLabel && <span className="px-3 py-1 text-[12px] font-normal text-gray-500 tabular-nums">{syncLabel}</span>}
+    </span>
+  );
+  // 월별 입고 건수 / 재진행 건수
+  const monthStats = (y: number, m: number) => {
+    let total = 0, reorder = 0;
+    for (const d of allDates) {
+      const dd = parseDate(d);
+      if (!dd || dd.getFullYear() !== y || dd.getMonth() !== m) continue;
+      const items = dateMap.get(d) ?? [];
+      total += items.length;
+      reorder += items.filter(p => p.newArrivalType === "재진행").length;
+    }
+    return { total, reorder };
+  };
+
   function handlePDF() {
     const html = buildCalendarPDF(products, dateMap, months, allDates);
     if (!html) return;
@@ -1090,7 +1144,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
 
       {/* 안내 + PDF 버튼: 관리자 전용 */}
       {isAdmin && (
@@ -1117,9 +1171,43 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
         </div>
       )}
 
-      {months.map(({ year, month }) => {
+      {months.map(({ year, month }, monthIdx) => {
+        // 클릭 안내·기준 시각 박스는 "이번 달" 헤더에 고정 (필터로 앞 달이 사라져도 위치가 바뀌지 않게). 이번 달이 없으면 첫 달.
+        const infoMonthIdx = (() => {
+          const base = (thisWeekRange?.start && parseDate(thisWeekRange.start)) || new Date();
+          const i = months.findIndex(m => m.year === base.getFullYear() && m.month === base.getMonth());
+          return i >= 0 ? i : 0;
+        })();
         const monthKey = `${year}-${month}`;
         const isCollapsed = collapsed.has(monthKey);
+        // 연속으로 접힌 달들은 한 줄에 칩으로 나란히 표시 (줄의 첫 달에서 한 번에 렌더링, 나머지는 건너뜀)
+        if (isCollapsed) {
+          const isCol = (i: number) => i >= 0 && i < months.length && collapsed.has(`${months[i].year}-${months[i].month}`);
+          if (isCol(monthIdx - 1)) return null;
+          const run: number[] = [];
+          for (let j = monthIdx; isCol(j); j++) run.push(j);
+          return (
+            <div key={`run-${monthKey}`} className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-gray-200 pb-2">
+              {run.map((j, n) => {
+                const m = months[j];
+                const st = monthStats(m.year, m.month);
+                const showYear = n === 0 || months[run[n - 1]].year !== m.year;
+                return (
+                  <button key={`${m.year}-${m.month}`} id={`cal-month-${m.year}-${m.month}`}
+                    onClick={() => toggleCollapse(`${m.year}-${m.month}`)}
+                    title="클릭하면 펼쳐집니다"
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[13px] font-bold text-gray-500 hover:border-gray-400 hover:text-gray-800 transition-colors">
+                    <span>{showYear ? `${m.year}. ` : ""}{MONTH_KO[m.month]}</span>
+                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500">{st.total}개</span>
+                    {st.reorder > 0 && <span className="flex items-center gap-0.5 text-[11px] font-semibold text-gray-500"><span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#ffd700] text-[10px] font-bold leading-none text-[#1a1a1a]">R</span>{st.reorder}</span>}
+                    <span className="text-[11px] font-medium text-gray-400">▼</span>
+                  </button>
+                );
+              })}
+              {run.includes(infoMonthIdx) && <span className="ml-auto">{infoBox}</span>}
+            </div>
+          );
+        }
         const past = isPast(year, month);
 
         const monthDates = allDates.filter(d => {
@@ -1149,15 +1237,15 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
         const cells = allWeeks.flat();
 
         return (
-          <div key={monthKey} id={`cal-month-${year}-${month}`}>
+          <div key={monthKey} id={`cal-month-${year}-${month}`} className={isCollapsed ? "mb-2" : ""}>
             {/* 월 헤더 */}
             <button onClick={() => toggleCollapse(monthKey)}
-              className="w-full flex items-center gap-3 mb-3 group text-left">
-              <span className={`text-[16px] tracking-[0.1em] uppercase font-bold transition-colors ${past ? "text-gray-400" : "text-gray-700"} group-hover:text-gray-900`}>
+              className={`w-full flex items-center group text-left ${isCollapsed ? "gap-2.5 py-2 border-b border-gray-200" : "gap-3 mb-3"}`}>
+              <span className={`${isCollapsed ? "text-[14px] tracking-[0.05em]" : "text-[16px] tracking-[0.1em]"} uppercase font-bold transition-colors ${past ? "text-gray-400" : "text-gray-700"} group-hover:text-gray-900`}>
                 {year}. {MONTH_KO[month]}
               </span>
               {monthTotal > 0 && (
-                <span className={`text-[14px] px-2 py-0.5 rounded-full font-semibold ${past ? "bg-gray-100 text-gray-500" : "bg-[#1a1a1a]/10 text-gray-700"}`}>
+                <span className={`${isCollapsed ? "text-[12px]" : "text-[14px]"} px-2 py-0.5 rounded-full font-semibold ${past ? "bg-gray-100 text-gray-500" : "bg-[#1a1a1a]/10 text-gray-700"}`}>
                   {monthTotal}개
                 </span>
               )}
@@ -1167,27 +1255,14 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                   <span className="text-[14px] text-gray-600 font-medium">재입고 {monthReorder}개</span>
                 </span>
               )}
-              <span className={`text-[14px] font-medium ${past ? "text-gray-400" : "text-gray-500"} group-hover:text-gray-700`}>
+              {isCollapsed && monthTotal === 0 && <span className="text-[12px] text-gray-400">입고 스케쥴 없음</span>}
+              <span className={`${isCollapsed ? "text-[12px]" : "text-[14px]"} font-medium ${past ? "text-gray-400" : "text-gray-500"} group-hover:text-gray-700`}>
                 {isCollapsed ? "▼ 펼치기" : "▲ 접기"}
               </span>
+              {monthIdx === infoMonthIdx && infoBox}
             </button>
 
-            {isCollapsed ? (
-              <div className="flex flex-wrap gap-1.5 px-1 pb-2">
-                {allDates
-                  .filter(d => { const dd = parseDate(d); return dd && dd.getFullYear() === year && dd.getMonth() === month; })
-                  .map(d => {
-                    const { dd: dayNum } = fmtDate(d);
-                    const count = dateMap.get(d)?.length ?? 0;
-                    return (
-                      <span key={d} className="text-[14px] text-gray-600 border border-gray-200 rounded px-2 py-0.5 font-medium">
-                        {dayNum}일 {count}개
-                      </span>
-                    );
-                  })}
-                {monthTotal === 0 && <span className="text-[14px] text-gray-400">입고 스케쥴 없음</span>}
-              </div>
-            ) : (
+            {isCollapsed ? null : (
               <>
                 {/* ── 모바일: 날짜별 이미지 카드 (2열) ─────────────────────── */}
                 <div className="sm:hidden space-y-4">
@@ -1220,7 +1295,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                     {/* 요일 헤더 */}
                     <div className="grid grid-cols-5 gap-px bg-gray-200 rounded-t-xl overflow-hidden border border-b-0 border-gray-200">
                       {WEEKDAY_KO.map(d => (
-                        <div key={d} className="bg-gray-100 text-center text-[14px] text-gray-500 py-2 font-bold">{d}</div>
+                        <div key={d} className="bg-gray-50 text-center text-[11px] text-gray-400 py-0.5 font-semibold leading-tight">{d}</div>
                       ))}
                     </div>
                     {/* 모든 주 렌더 (데이터 없는 주도 가로라인 표시) */}
@@ -1230,31 +1305,59 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                           if (!day) return <div key={di} className="bg-[#fafaf8]" />;
                           const isoKey     = `${year}-${String(month+1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                           const items      = dateMap.get(isoKey) ?? [];
+                          // 같은 주(줄)에서 가장 제품이 많은 날의 개수 — 이보다 적은 날은 마지막 제품 아래에도 얇은 선을 둔다
+                          const weekMax    = Math.max(0, ...week.map(d => d ? (dateMap.get(`${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`)?.length ?? 0) : 0));
                           const hasItems   = items.length > 0;
                           const completedAll = hasItems && items.every(p => p.status === "입고완료");
                           const isToday    = year === thisYear && month === thisMonth && day === today.getDate();
                           const dayKoLabel = DAY_KO[new Date(year, month, day).getDay()];
+                          // 오늘 이전 날짜: 점 깜빡임 중지 + 날짜 짙은 회색
+                          const isPastDay  = new Date(year, month, day).getTime() < new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
                           return (
-                            <div key={di} data-cal-today={isToday ? "true" : undefined} className="bg-white pb-1.5">
+                            <div key={di} data-cal-today={isToday ? "true" : undefined} className="bg-white flex flex-col">
+                              {!hasItems && (
+                                <div className="flex flex-1 flex-col">
+                                  {/* 입고 없는 날: 입고완료처럼 회색 날짜 + 안내 문구 */}
+                                  <div className="flex h-9 items-center px-2 border-b border-gray-100 bg-gray-50/70">
+                                    <span className="text-[13px] font-bold leading-none whitespace-nowrap text-gray-400">
+                                      {month + 1}/{day}
+                                      <span className="ml-0.5 font-medium text-gray-300">({dayKoLabel})</span>
+                                    </span>
+                                  </div>
+                                  <p className="pt-3 text-center text-[13px] font-medium text-gray-300">입고 없음</p>
+                                </div>
+                              )}
                               {hasItems && (
-                                <div>
-                                  {items.map(p => {
+                                <div className="flex flex-1 flex-col">
+                                  {items.map((p, pi) => {
                                     const meta = STATUS_META[p.status] ?? STATUS_META["입고예정"];
                                     const isThisWeek = thisWeekRange ? isInWeekRange(p.arrivalDate, thisWeekRange) : false;
                                     return (
                                       <button key={`${p.productCode}_${p.arrivalDate || "none"}`} onClick={() => onSelect(p)}
-                                        className="block w-full text-left transition-opacity hover:opacity-75 pb-2 border-b-2 border-gray-400 last:border-b-0 last:pb-0">
-                                        {/* 날짜/상태 줄: 이번 주 입고 품목은 주황 음영 */}
-                                        <div className={`flex items-center justify-between px-1.5 py-1 ${isThisWeek ? "bg-orange-200" : ""}`}>
-                                          <span className="text-[14px] font-bold leading-none text-gray-700">{month + 1}/{day}({dayKoLabel})</span>
-                                          <span className="flex items-center gap-1.5 shrink-0">
-                                            <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${brandTextCls(p.brand)} ${brandBg(p.brand)}`}>{p.brand}</span>
-                                            <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded-sm leading-none ${meta.cls}`}>{meta.label}</span>
+                                        className={`flex flex-col items-stretch justify-start w-full text-left transition-opacity hover:opacity-75 pb-2 border-b ${pi < items.length - 1 || items.length < weekMax ? "border-gray-200" : "border-transparent pb-1.5"}`}>
+                                        {/* 날짜/상태 줄: 오늘 이후(미래) 날짜는 주황 깜빡이는 점·날짜, 지난 날짜는 짙은 회색. 이번 주는 연한 주황 배경 */}
+                                        <div className={`flex h-9 items-center justify-between gap-1 px-2 border-b border-gray-100 ${isThisWeek ? "bg-orange-50" : "bg-gray-50/70"}`}>
+                                          <span className={`flex items-center gap-1.5 text-[13px] font-bold leading-none whitespace-nowrap ${isPastDay ? "text-gray-700" : "text-orange-600"}`}>
+                                            {!isToday && (!isPastDay || isThisWeek) && (
+                                              <span className="relative flex h-2 w-2 shrink-0" aria-hidden="true">
+                                                {!isPastDay && <span className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75 animate-ping motion-reduce:hidden" />}
+                                                <span className={`relative inline-flex h-2 w-2 rounded-full ${isPastDay ? "bg-gray-400" : "bg-orange-500"}`} />
+                                              </span>
+                                            )}
+                                            {/* 오늘: 날짜를 주황 채움 알약으로 (캘린더 앱의 '오늘' 표기 방식) */}
+                                            <span className={isToday ? "rounded-full bg-orange-500 px-2 py-1 text-white" : ""}>
+                                              {month + 1}/{day}
+                                              <span className={`ml-0.5 font-medium ${isToday ? "text-orange-100" : isPastDay ? "text-gray-500" : "text-orange-400"}`}>({dayKoLabel})</span>
+                                            </span>
+                                          </span>
+                                          <span className="flex items-center gap-1 shrink-0">
+                                            <span className={`text-[11px] font-bold px-1.5 py-[3px] rounded-full leading-none ${brandTextCls(p.brand)} ${brandBg(p.brand)}`}>{p.brand}</span>
+                                            <span className={`text-[11px] font-bold px-1.5 py-[3px] rounded-full leading-none ${meta.cls}`}>{meta.label}</span>
                                           </span>
                                         </div>
                                         <FitName name={stripBrand(p.productName, p.brand).replace(/^[A-Za-z][A-Za-z0-9]*_/, "")} reorder={p.newArrivalType === "재진행"} />
-                                        {p.size && <p className="px-1.5 text-[12px] text-gray-500 leading-tight text-center truncate" title={p.size}>{p.size}</p>}
-                                        <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
+                                        <p className="px-1.5 py-1 min-h-[26px] border-t border-gray-100 text-[12px] text-gray-500 leading-tight text-center truncate" title={fmtSize(p.size)}>{p.size ? fmtSize(p.size) : " "}</p>
+                                        <div className={`relative w-full aspect-[5/4] max-h-44 overflow-hidden bg-white border-y border-gray-100 ${showMarketing && p.marketingUsage ? "ring-2 ring-blue-500" : ""}`}>
                                           <div className="relative w-4/5 h-full mx-auto">
                                             <MiniThumb product={p} fit="contain" />
                                           </div>
@@ -1263,7 +1366,7 @@ function CalendarView({ products, onSelect, showMarketing, thisWeekRange, filter
                                         <div className="px-1.5">
                                           <div className="mt-1 flex flex-col gap-1">
                                             <p className="h-[14px] text-[14px] text-gray-400 font-mono leading-none truncate text-center">{p.productCode}</p>
-                                            <p className="h-[14px] text-[14px] text-gray-500 leading-none whitespace-nowrap text-center">
+                                            <p className="h-[19px] border-t border-gray-100 pt-1 text-[14px] text-gray-500 leading-none whitespace-nowrap text-center">
                                               {p.price > 0 && (<>판매가 <span className="font-semibold text-[#1a1a1a]">{p.price.toLocaleString("ko-KR")}</span></>)}
                                             </p>
                                           </div>
@@ -1530,9 +1633,34 @@ function TimelineView({ products, onSelect, showMarketing, showRates }: {
   );
 
   return (
-    <div className="space-y-6 overflow-x-hidden">
-      {byMonth.map(({ mKey, label, dates, total }) => {
+    <div className="space-y-4 overflow-x-hidden">
+      {byMonth.map(({ mKey, label, dates, total }, idx) => {
         const isCollapsed = collapsedMonths.has(mKey);
+        // 연속으로 접힌 달들은 한 줄에 칩으로 나란히 표시 (줄의 첫 달에서 한 번에 렌더링, 나머지는 건너뜀)
+        if (isCollapsed) {
+          const isCol = (i: number) => i >= 0 && i < byMonth.length && collapsedMonths.has(byMonth[i].mKey);
+          if (isCol(idx - 1)) return null;
+          const run: number[] = [];
+          for (let j = idx; isCol(j); j++) run.push(j);
+          const yearOf = (k: string) => k.split("-")[0];
+          const monthLabel = (k: string) => k === "미정" ? "일정 미정" : `${parseInt(k.split("-")[1], 10)}월`;
+          return (
+            <div key={`run-${mKey}`} className="flex flex-wrap items-center gap-x-2 gap-y-2 border-b border-gray-200 pb-2">
+              {run.map((j, n) => {
+                const m = byMonth[j];
+                const showYear = m.mKey !== "미정" && (n === 0 || yearOf(byMonth[run[n - 1]].mKey) !== yearOf(m.mKey));
+                return (
+                  <button key={m.mKey} onClick={() => toggleMonth(m.mKey)} title="클릭하면 펼쳐집니다"
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[13px] font-bold text-gray-500 hover:border-gray-400 hover:text-gray-800 transition-colors">
+                    <span>{showYear ? `${yearOf(m.mKey)}. ` : ""}{monthLabel(m.mKey)}</span>
+                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-semibold text-gray-500">{m.total}개</span>
+                    <span className="text-[11px] font-medium text-gray-400">▼</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        }
         return (
           <div key={mKey}>
             {/* 월 헤더 */}
@@ -1611,7 +1739,7 @@ function TimelineView({ products, onSelect, showMarketing, showRates }: {
                                     <p className="text-[15px] font-semibold text-[#1a1a1a] leading-snug line-clamp-2">
                                       {stripBrand(p.productName, p.brand)}
                                     </p>
-                                    {p.size && <p className="text-[12px] text-gray-500 leading-tight">{p.size}</p>}
+                                    {p.size && <p className="text-[12px] text-gray-500 leading-tight">{fmtSize(p.size)}</p>}
                                     {p.orderQuantity != null && p.orderQuantity > 0 && (
                                       <p className="text-[14px] text-gray-500">
                                         주문 <span className="font-semibold text-[#1a1a1a]">{p.orderQuantity.toLocaleString("ko-KR")}</span>
@@ -1902,7 +2030,7 @@ export default function ArrivalTimeline() {
   useEffect(() => {
     fetch("/api/arrival")
       .then(r => r.json())
-      .then(data => { if (Array.isArray(data)) setProducts(data); })
+      .then(data => { if (Array.isArray(data)) setProducts(data.map((p: ArrivalProduct) => p.brand === "K-WORKERS" ? { ...p, brand: "케이워커스" } : p)); })
       .finally(() => setLoadingData(false));
   }, []);
 
@@ -2066,18 +2194,21 @@ export default function ArrivalTimeline() {
           {/* ── Row 1: 타이틀 / 검색 / 필터토글(모바일) / 뷰버튼 / 개수 ── */}
           <div className="flex items-center gap-1.5 sm:flex-wrap sm:gap-y-1.5">
             {/* 타이틀 (모바일에서 검색 왼쪽) */}
-            {/* 팝업(W주문): 주차 안내를 필터 바 맨 앞 뱃지로 (모바일은 위 배너 유지) */}
-            {isPopup && (
-              <span className="hidden sm:inline-block shrink-0 whitespace-nowrap rounded-full border border-[#ffe08a] bg-[#fff3cd] px-2.5 py-0.5 text-[13px] font-bold text-[#7a5c00]">
-                {getWeekLabel(thisWeekRange.start)}
-              </span>
-            )}
-            <span className="text-[15px] font-black text-[#1a1a1a] tracking-tight shrink-0 mr-1 hidden sm:block">워크업 입고 예정 스케쥴</span>
+            {/* 타이틀 영역(PC): 주차 뱃지(팝업 전용) + 제목을 한 줄로. 모바일은 위 배너 사용 */}
+            <div className="hidden sm:flex sm:order-1 flex-row items-center gap-2 shrink-0 mr-2">
+              {isPopup && (
+                <span className="shrink-0 whitespace-nowrap text-[16px] font-extrabold leading-none tracking-tight text-orange-600">
+                  {getWeekLabel(thisWeekRange.start)}
+                </span>
+              )}
+              {isPopup && <span className="h-4 w-px bg-gray-300 shrink-0" aria-hidden="true" />}
+              <span title={lastSync ? `${new Date(lastSync).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준` : undefined} className="text-[16px] font-extrabold text-[#1a1a1a] tracking-tight shrink-0 whitespace-nowrap">워크업 입고 스케쥴</span>
+            </div>
 
             {/* 검색 */}
             <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               placeholder="상품명 / 코드"
-              className="border border-gray-200 px-2.5 py-1 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a] w-full sm:w-32 text-gray-800 placeholder:text-gray-400 min-w-0" />
+              className="border border-gray-200 px-2.5 py-1 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a] w-full sm:w-32 sm:order-3 text-gray-800 placeholder:text-gray-400 min-w-0" />
 
             {/* 모바일 필터 토글 버튼 */}
             <button
@@ -2089,7 +2220,7 @@ export default function ArrivalTimeline() {
             </button>
 
             {/* 데스크탑 인라인 필터 */}
-            <div className="hidden sm:flex items-center gap-1.5 flex-1 flex-wrap">
+            <div className="hidden sm:flex sm:order-4 items-center gap-1.5 flex-1 min-w-0">
               {/* 1단계: 필터 종류 선택 → 2단계: 해당 값 선택. 선택된 필터는 칩으로 쌓이며 서로 AND 로 적용 */}
               <select value={filterKind} onChange={e => setFilterKind(e.target.value)}
                 aria-label="필터 종류"
@@ -2109,8 +2240,8 @@ export default function ArrivalTimeline() {
               {filterDefs.filter(d => d.value !== "all").map(d => (
                 <button key={d.key} type="button" onClick={() => d.set("all")}
                   title="클릭하면 이 필터를 해제합니다"
-                  className="flex items-center gap-1 shrink-0 whitespace-nowrap rounded-full bg-[#1a1a1a] text-white text-[13px] font-semibold px-2.5 py-1 hover:bg-gray-700">
-                  {d.label}: {d.options.find(o => o.v === d.value)?.l ?? d.value}
+                  className="flex items-center gap-1 min-w-0 max-w-[140px] whitespace-nowrap rounded-full bg-[#1a1a1a] text-white text-[13px] font-semibold px-2.5 py-1 hover:bg-gray-700">
+                  <span className="truncate">{d.label}: {d.options.find(o => o.v === d.value)?.l ?? d.value}</span>
                   <span aria-hidden="true" className="text-[12px] opacity-70">×</span>
                 </button>
               ))}
@@ -2120,30 +2251,20 @@ export default function ArrivalTimeline() {
                 <span className={`text-[13px] font-semibold whitespace-nowrap ${filterMarketing ? "text-blue-500" : "text-gray-500"}`}>마케팅</span>
               </label>}
               {viewMode === "calendar" && (
-                <label className="flex items-center gap-1 cursor-pointer select-none bg-gray-50 rounded-lg px-2 py-1">
-                  <input type="checkbox" checked={filterThisWeek} onChange={e => setFilterThisWeek(e.target.checked)}
-                    className="w-3 h-3 accent-orange-500 cursor-pointer" />
-                  <span className={`text-[13px] font-semibold whitespace-nowrap ${filterThisWeek ? "text-orange-500" : "text-gray-500"}`}>
-                    이번주 입고 예정 품목
-                  </span>
-                </label>
+                <button type="button" onClick={() => setFilterThisWeek(v => !v)} aria-pressed={filterThisWeek}
+                  className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[13px] font-semibold transition-colors ${
+                    filterThisWeek ? "bg-orange-500 border-orange-500 text-white" : "bg-white border-gray-200 text-gray-600 hover:border-gray-400"
+                  }`}>
+                  이번주 입고
+                </button>
               )}
               {hasFilter && (
-                <button onClick={resetFilters} className="text-[13px] text-gray-400 hover:text-[#1a1a1a] underline underline-offset-2 whitespace-nowrap">초기화</button>
+                <button onClick={resetFilters} className="text-[13px] text-gray-400 hover:text-[#1a1a1a] underline underline-offset-2 whitespace-nowrap shrink-0">초기화</button>
               )}
             </div>
 
-            {/* PC: 항상 2줄 — 여기서 줄바꿈(1줄: 타이틀·검색·필터 / 2줄: 안내·기준시각·보기 버튼) */}
-            <div className="hidden sm:block basis-full h-0" aria-hidden="true" />
-            {/* 클릭 안내 (PC·캘린더): 이미지/타임라인/캘린더 버튼과 같은 줄, 좌측 */}
-            {viewMode === "calendar" && (
-              <div className="hidden sm:flex items-center gap-1.5 shrink-0 whitespace-nowrap text-[14px] font-bold text-orange-600 animate-pulse motion-reduce:animate-none">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                제품을 클릭하면 크게 볼 수 있습니다
-              </div>
-            )}
-
-            <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            {/* PC: 한 줄 — 주차·타이틀·검색·필터·보기 버튼 (필터 칩이 많아지면 자연스럽게 줄바꿈) */}
+            <div className="ml-auto sm:order-7 flex items-center gap-1.5 shrink-0">
               {/* 그룹 기준 (sm+, 캘린더·타임라인·간트 제외) */}
               {viewMode !== "calendar" && viewMode !== "timeline" && viewMode !== "gantt" && (
                 <div className="hidden sm:flex items-center gap-0.5 border border-gray-200 rounded-lg p-0.5">
@@ -2156,12 +2277,6 @@ export default function ArrivalTimeline() {
                     </button>
                   ))}
                 </div>
-              )}
-              {/* 업데이트 일자 + 주문 순위 */}
-              {lastSync && (
-                <span className="hidden sm:inline text-[12px] text-gray-400 whitespace-nowrap tabular-nums">
-                  {new Date(lastSync).toLocaleString("ko-KR", { year: "2-digit", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준
-                </span>
               )}
               {isAdmin && (
               <button
@@ -2271,7 +2386,7 @@ export default function ArrivalTimeline() {
       </div>
 
       {/* ── 본문 ── */}
-      <div className={`${PAGE_X_PAD} py-4`}>
+      <div className={`${PAGE_X_PAD} pt-1 pb-4`}>
         {filtered.length === 0 ? (
           <div className="py-32 text-center">
             <p className="text-[15px] text-gray-400">조건에 맞는 상품이 없습니다.</p>
@@ -2284,7 +2399,7 @@ export default function ArrivalTimeline() {
         ) : viewMode === "gantt" ? (
           <GanttView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} />
         ) : (
-          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} />
+          <CalendarView products={filtered} onSelect={setSelectedProduct} showMarketing={isAdmin && filterMarketing} thisWeekRange={thisWeekRange} filterThisWeek={filterThisWeek} openOrderLink={openOrderLink} syncLabel={lastSync ? `${new Date(lastSync).toLocaleString("ko-KR", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false })} 기준` : undefined} />
         )}
       </div>
 
