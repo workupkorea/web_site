@@ -102,7 +102,19 @@ export default function ClaimPage() {
         <p className="text-4xl">🎉</p>
         <p className="mt-3 text-lg font-bold text-gray-900">제출이 완료되었습니다</p>
         <p className="mt-2 text-[14px] text-gray-500">
-          입력하신 정보로 경품을 보내드립니다. 신청 기간({fmtDeadline(info.deadline)}까지) 안에는 이 링크에서 다시 제출해 수정할 수 있습니다.
+          입력하신 정보로 경품을 보내드립니다. 제출 후에는 수정할 수 없으니, 수정이 필요하면 안내를 보내드린 계정으로 문의해 주세요.
+        </p>
+      </div>,
+    );
+
+  // 이미 제출한 링크는 폼을 다시 보여주지 않는다 (수정 불가)
+  if (info.submitted)
+    return shell(
+      <div className="text-center py-8">
+        <p className="text-4xl">✅</p>
+        <p className="mt-3 text-lg font-bold text-gray-900">이미 제출하셨습니다</p>
+        <p className="mt-2 text-[14px] text-gray-500">
+          입력하신 정보로 경품을 보내드립니다. 제출 후에는 수정할 수 없으니, 수정이 필요하면 안내를 보내드린 계정으로 문의해 주세요.
         </p>
       </div>,
     );
@@ -123,7 +135,6 @@ export default function ClaimPage() {
         {info.prize && <p className="mt-1 text-[15px] text-[#E5541B] font-bold">🎁 {info.prize}</p>}
         <p className="mt-2 text-[13px] text-gray-500">
           경품 배송을 위해 아래 정보를 입력해 주세요. 마감: <b>{fmtDeadline(info.deadline)}</b>
-          {info.submitted && <span className="block mt-1 text-emerald-600">이미 제출하셨습니다. 수정이 필요하면 다시 입력해 제출해 주세요.</span>}
         </p>
       </div>
 
@@ -176,7 +187,7 @@ export default function ClaimPage() {
 
       {err && <p className="text-[14px] text-red-600" role="alert">{err}</p>}
       <button type="submit" disabled={busy || !consent || (info.sizes.length > 0 && !form.size)} className="w-full min-h-[52px] rounded-xl bg-[#E5541B] text-white text-[16px] font-bold disabled:opacity-40">
-        {busy ? "제출 중…" : info.submitted ? "다시 제출하기" : "제출하기"}
+        {busy ? "제출 중…" : "제출하기"}
       </button>
     </form>,
   );

@@ -44,6 +44,16 @@ const toLocalInput = (iso: string) => {
 };
 const fmtDt = (iso: string) => new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 
+/** DM 문구를 마지막으로 복사한 시각 (토큰별, 이 브라우저에 저장) */
+const DM_KEY = "workup_dm_copied_v1";
+const readDmCopied = (): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(DM_KEY) || "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
 export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
   const [doc, setDoc] = useState<ClaimDoc | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,6 +63,7 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
   const [sizesText, setSizesText] = useState("");
   const [openUser, setOpenUser] = useState<string | null>(null);
   const [copied, setCopied] = useState("");
+  const [dmCopied, setDmCopied] = useState<Record<string, string>>(() => (typeof window === "undefined" ? {} : readDmCopied()));
 
   const winners = winnersOf(record);
   const base = () => (typeof window === "undefined" ? "" : window.location.origin);
@@ -125,8 +136,23 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
     }
     setTimeout(() => setCopied(""), 1500);
   };
+  /** DM 문구 복사 + 복사 시각 기록 (다시 복사하면 최신 시각으로 갱신) */
+  const copyDm = async (e: { token: string; user: string; prize: string }) => {
+    try {
+      await navigator.clipboard.writeText(dmText(e.user, e.prize, e.token));
+      const next = { ...readDmCopied(), [e.token]: new Date().toISOString() };
+      try {
+        localStorage.setItem(DM_KEY, JSON.stringify(next));
+      } catch {}
+      setDmCopied(next);
+      setCopied(e.token);
+    } catch {
+      setCopied("fail");
+    }
+    setTimeout(() => setCopied(""), 1500);
+  };
   const dmText = (user: string, prize: string, token: string) =>
-    `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDt(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}`;
+    `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDt(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}\n\n※ 링크에서 입력만 해 주시면 되고, 이 DM에는 따로 답장하지 않으셔도 됩니다.`;
 
   const submittedN = doc?.entries.filter((e) => e.submitted).length ?? 0;
   // 확정 이후 당첨자가 바뀌었는지 (링크 갱신 필요)
@@ -139,7 +165,7 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
    * 송장양식 내보내기 — 사용자가 올린 송장양식.xlsx(개인정보를 지운 템플릿: public/templates/giveaway-invoice-template.xlsx)를
    * 그대로 불러와 서식(글꼴·색·테두리·열 너비·행 높이·제목 줄)을 유지한 채 제출된 당첨자 정보만 채운다.
    *  · "1차선정" 시트: 2행 제목, 3행부터 닉네임(@아이디) / 이름 / 연락처 / 주소 / 아이템(상품) / 색상 / 사이즈 / 개수
-   *  · "엑셀파일 첫행-제목없음" 시트: 1행은 양식 그대로, 2행부터 이름 | (공백) | 주소 | 전화번호 | 전화번호 | 1 | 2600 | 010 | 제품명_사이즈(1)
+   *  · "엑셀파일 첫행-제목없음" 시트: 1행은 가이드(최종 저장 시 삭제), 1행부터 이름 | (공백) | 주소 | 전화번호 | 전화번호 | 1 | 2600 | 010 | 제품명_사이즈(1)
    *  수집 항목에 색상이 없어 색상 칸은 비워 두고, 제품명에서도 색상 부분을 생략한다.
    */
   const exportInvoice = async () => {
@@ -163,7 +189,8 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
         const last = ws.rowCount;
         data.forEach((vals, i) => {
           const row = ws.getRow(sampleRow + i);
-          if (height) row.height = height;
+          // 견본 행에 높이가 없으면 템플릿 뒷줄에 남아 있는 높이(예: 3행 63.95)도 지운다.
+          row.height = (height ?? undefined) as unknown as number;
           vals.forEach((v, c) => {
             const cell = row.getCell(c + 1);
             cell.style = { ...styles[c] };
@@ -187,13 +214,14 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
       if (!s1 || !s2) throw new Error("템플릿 시트를 찾지 못했습니다.");
       // 시트1: A열은 비어 있고 B열(No)부터 사용. No 칸은 양식대로 비워 둔다.
       fill(s1, 3, 10, rows.map((e) => [null, null, e.user, e.submitted!.name, fmtPhone(e.submitted!.phone), addr(e), e.prize, "", e.submitted!.size, 1]));
-      // 시트2: 1행(제목/고정값)은 양식 그대로 두고 2행부터 채운다.
+      // 시트2: 1행은 양식의 가이드 행이므로 2행(견본 서식)부터 채운 뒤, 최종 저장 전에 1행을 삭제해 첫 줄부터 데이터가 오게 한다.
       fill(
         s2,
         2,
         9,
         rows.map((e) => [e.submitted!.name, "", addr(e), fmtPhone(e.submitted!.phone), fmtPhone(e.submitted!.phone), INVOICE_DEFAULTS.qty, INVOICE_DEFAULTS.fee, INVOICE_DEFAULTS.code, `${[e.prize, e.submitted!.size].filter(Boolean).join("_")}(1)`]),
       );
+      s2.spliceRows(1, 1);
 
       const buf = await wb.xlsx.writeBuffer();
       const url = URL.createObjectURL(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
@@ -229,31 +257,10 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
             제출 {submittedN}/{doc.entries.length}명 · 마감 {fmtDt(doc.deadline)}
           </span>
         )}
-        {stale && <span className="text-[12px] text-red-600">당첨자가 바뀌었습니다 — 링크 갱신이 필요합니다</span>}
+        {stale && <span className="text-[12px] text-red-600">당첨자가 바뀌었습니다 — "마감·사이즈 저장"을 눌러 반영하세요</span>}
         {msg && <span className="text-[13px] text-gray-500">{msg}</span>}
-      </div>
-
-      {loading ? (
-        <p className="mt-2 text-[13px] text-gray-400">불러오는 중…</p>
-      ) : (
-        <>
-          <div className="mt-3 flex items-end gap-3 flex-wrap">
-            <label className="text-[12px] font-semibold text-gray-600">
-              신청 마감
-              <input type="datetime-local" className={`${cInput} block mt-1`} value={deadline} onChange={(e) => setDeadline(e.target.value)} />
-            </label>
-            <label className="text-[12px] font-semibold text-gray-600 flex-1 min-w-[200px]">
-              사이즈 선택지 <span className="font-normal text-gray-400">(쉼표 구분, 비우면 사이즈 입력 없음)</span>
-              <input className={`${cInput} block mt-1 w-full`} value={sizesText} onChange={(e) => setSizesText(e.target.value)} placeholder="S, M, L, XL" />
-            </label>
-            <button className={`${smallBtn} !bg-[#303236] !text-white !border-[#303236]`} onClick={save} disabled={busy || !winners.length}>
-              {doc ? "링크 갱신" : "링크 만들기"}
-            </button>
-          </div>
-
-          {doc && (
-            <>
-              <div className="mt-3 flex flex-wrap gap-2">
+        {doc && (
+          <div className="ml-auto flex flex-wrap gap-2">
                 <button className={smallBtn} onClick={() => copy("all", doc.entries.map((e) => `@${e.user}${e.prize ? ` (${e.prize})` : ""} ${linkOf(e.token)}`).join("\n"))}>
                   {copied === "all" ? "복사됨" : "전체 링크 복사"}
                 </button>
@@ -261,7 +268,40 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
                 <button className={smallBtn} onClick={exportCsv}>제출 정보 CSV</button>
                 <button className={smallBtn} onClick={load}>새로고침</button>
                 <button className={`${smallBtn} !text-red-600 !border-red-200`} onClick={remove} disabled={busy}>배송 정보 삭제</button>
-              </div>
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <p className="mt-2 text-[13px] text-gray-400">불러오는 중…</p>
+      ) : (
+        <>
+          <div className="mt-3 flex items-center gap-x-4 gap-y-2 flex-wrap">
+            <label className="flex items-center gap-2 text-[12px] font-semibold text-gray-600">
+              <span className="whitespace-nowrap">신청 마감</span>
+              <input type="datetime-local" className={cInput} value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+            </label>
+            <label className="flex items-center gap-2 text-[12px] font-semibold text-gray-600 flex-1 min-w-[260px]">
+              <span className="whitespace-nowrap">사이즈 선택지</span>
+              <input className={`${cInput} flex-1 min-w-0`} value={sizesText} onChange={(e) => setSizesText(e.target.value)} placeholder="S, M, L, XL (쉼표 구분, 비우면 사이즈 입력 없음)" />
+            </label>
+            <button className={`${smallBtn} !bg-[#303236] !text-white !border-[#303236]`} onClick={save} disabled={busy || !winners.length} title={doc ? "바뀐 마감·사이즈·당첨자를 기존 신청 링크에 반영합니다. 링크 주소는 그대로입니다." : "당첨자별 신청 링크를 만듭니다."}>
+              {doc ? "마감·사이즈 저장" : "신청 링크 만들기"}
+            </button>
+          </div>
+
+          {!doc && winners.length > 0 && (
+            <ul className="mt-3 space-y-0.5 text-[13px] text-gray-700">
+              {winners.map((w, i) => (
+                <li key={w.user + i}>
+                  {w.label}{w.prize && !w.label.includes(w.prize) ? ` (${w.prize})` : ""} <span className="font-semibold">@{w.user}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {doc && (
+            <>
               <ul className="mt-3 divide-y divide-gray-100">
                 {doc.entries.map((e) => (
                   <li key={e.token} className="py-2 text-[13px]">
@@ -270,8 +310,9 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
                       {e.prize && <span className="text-gray-500">{e.prize}</span>}
                       <span className={e.submitted ? "text-emerald-600 font-semibold" : "text-amber-600"}>{e.submitted ? `✓ 제출 ${fmtDt(e.submitted.at)}` : "미제출"}</span>
                       <span className="ml-auto flex gap-2">
-                        <button className="text-gray-600 hover:underline" onClick={() => copy(e.token, dmText(e.user, e.prize, e.token))} title="DM으로 보낼 안내문과 링크를 복사합니다">
-                          {copied === e.token ? "복사됨" : "DM 문구 복사"}
+                        {dmCopied[e.token] && <span className="text-[12px] text-gray-400">DM 복사 {fmtDt(dmCopied[e.token])}</span>}
+                        <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
+                          {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "DM 문구 복사"}
                         </button>
                         {e.submitted && (
                           <button className="text-[#303236] font-semibold hover:underline" onClick={() => setOpenUser(openUser === e.user ? null : e.user)}>

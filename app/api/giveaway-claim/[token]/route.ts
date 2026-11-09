@@ -47,6 +47,8 @@ export async function POST(req: Request, { params }: Ctx) {
     if (!hit) return bad("유효하지 않거나 만료된 링크입니다.", 404);
     const { doc } = hit; // 토큰이 유효한 당첨자만 여기까지 온다
     if (Date.now() > Date.parse(doc.deadline)) return bad("신청 기간이 끝났습니다.", 403);
+    // 한 번 제출하면 수정할 수 없다(수정이 필요하면 관리자에게 문의).
+    if (await getSubmission(token)) return bad("이미 제출하셨습니다. 수정이 필요하면 안내를 보내드린 계정으로 문의해 주세요.", 409);
     if (body.consent !== true) return bad("개인정보 수집·이용에 동의해 주세요.");
 
     const name = clip(body.name, 40);
@@ -66,7 +68,7 @@ export async function POST(req: Request, { params }: Ctx) {
       size,
       at: new Date().toISOString(),
     };
-    await saveSubmission(token, submitted); // 마감 전에는 다시 제출해 수정할 수 있다
+    await saveSubmission(token, submitted); // 최초 1회만 저장된다
     return NextResponse.json({ ok: true });
   } catch {
     return bad("저장하지 못했습니다. 잠시 후 다시 시도해 주세요.", 500);

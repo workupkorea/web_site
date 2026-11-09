@@ -467,12 +467,11 @@ export default function GiveawayTab() {
   const confirmDraw = async () => {
     const snap = drawSnap.current;
     if (!snap || record || confirming) return;
-    const unchecked = results.filter((r) => r.status === "ok" && r.role === "winner" && !r.followOk).length;
-    if (unchecked > 0 && !confirm(`팔로우 확인이 안 된 당첨자가 ${unchecked}명 있습니다. 이대로 확정할까요?`)) return;
     setConfirming(true);
     try {
-      // 확정하면 취소·교체·미팔로우로 빠진 내역은 지우고 최종 당첨자만 남긴다.
-      const finalItems = finalizeItems(results);
+      // 확정하면 남은 당첨자는 모두 팔로우 확인 처리한다(미팔로우는 확정 전에 "미팔로우→예비"로 빼 둔 상태).
+      // 취소·교체·미팔로우로 빠진 내역은 지우고 최종 당첨자만 남긴다.
+      const finalItems = finalizeItems(results.map((r) => (r.status === "ok" && r.role === "winner" ? { ...r, followOk: true } : r)));
       const rec = await makeRecord(finalItems, null);
       setResults(finalItems);
       try {
@@ -611,7 +610,24 @@ export default function GiveawayTab() {
         setMsg("교체할 아이디 형식을 확인해 주세요. (영문·숫자·._, @ 제외)");
         return;
       }
-      if (items.some((r) => r.status === "ok" && r.comment.user.toLowerCase() === u.toLowerCase())) {
+      const dupIdx = items.findIndex((r) => r.status === "ok" && r.comment.user.toLowerCase() === u.toLowerCase());
+      if (dupIdx >= 0) {
+        const dup = items[dupIdx];
+        // 예비는 아직 당첨자가 아니므로, 예비 명단에 있는 아이디로 교체하면 그 예비를 이 자리로 승급시킨다.
+        if (dup.role === "backup" && target.role === "winner") {
+          target.status = "void";
+          target.note = `@${dup.comment.user}로 교체`;
+          target.link = { kind: "promote", user: dup.comment.user };
+          dup.role = "winner";
+          dup.prize = target.prize;
+          dup.slot = target.slot ?? target.label;
+          dup.note = `${target.label} 교체로 승급`;
+          setMsg("");
+          setReplaceIdx(null);
+          setReplaceInput("");
+          await commit(items, record);
+          return;
+        }
         setMsg("이미 결과에 있는 아이디입니다.");
         return;
       }
@@ -765,10 +781,6 @@ export default function GiveawayTab() {
     );
   /** 당첨자 인스타 프로필을 새 탭으로 연다 (브라우저가 팝업을 막으면 허용해 주세요) */
   const openProfiles = (list: ResultItem[]) => list.forEach((r) => window.open(igUrl(r.comment.user), "_blank", "noopener"));
-  const exportProof = () =>
-    record &&
-    downloadText(`giveaway-proof-${stamp()}.json`, JSON.stringify(record, null, 2), "application/json;charset=utf-8");
-
   const dropParts = [
     an.dropped.excluded && `제외 아이디 ${an.dropped.excluded}`,
     an.dropped.filtered && `조건 미충족 ${an.dropped.filtered}`,
@@ -991,18 +1003,14 @@ export default function GiveawayTab() {
       {/* 3. 추첨 조건 · 추첨 결과 (추첨 영역을 따로 두지 않고 조건 아래에 이어 붙인다) */}
       <section className={`${card} relative overflow-hidden`}>
         <canvas ref={confettiRef} className="absolute inset-0 w-full h-full pointer-events-none" />
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <h2 className="text-xl font-bold text-gray-800">3. 추첨 조건</h2>
-          <button className={`${btn} bg-[#303236] text-white hover:bg-black text-[16px] px-6 py-2`} onClick={draw} disabled={drawing || !an.users.size}>
+        <div className="flex items-center gap-3 mb-3 flex-wrap">
+          <h2 className="text-xl font-bold text-gray-800 whitespace-nowrap">3. 추첨 조건</h2>
+          <input className={`${cInput} flex-1 min-w-[220px]`} value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="이벤트 이름 (이력 관리용) 예: 11월 신상 오픈 기념 댓글 이벤트" aria-label="이벤트 이름 (이력 관리용)" />
+          <button className={`${btn} bg-[#303236] text-white hover:bg-black text-[16px] px-6 py-2 whitespace-nowrap`} onClick={draw} disabled={drawing || !an.users.size}>
             {drawing ? "추첨 중…" : results.length ? "다시 추첨" : "추첨하기"}
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-3">
-          <div className="col-span-2 md:col-span-12">
-            <label className={label}>이벤트 이름 <span className="font-normal text-gray-400">(이력 관리용)</span></label>
-            <input className={cInput} value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="예: 11월 신상 오픈 기념 댓글 이벤트" />
-          </div>
-
           <div className="col-span-2 md:col-span-12">
             <label className={label}>상품 · 당첨 인원 <span className="font-normal text-gray-400">(총 {winnersN}명)</span></label>
             {/* 상품은 가로로 이어 붙이고, 공간이 모자라면 다음 줄로 넘어간다 */}
@@ -1036,23 +1044,37 @@ export default function GiveawayTab() {
             <input className={cInput} type="number" min={0} max={500} value={minLength} onChange={(e) => setMinLength(Number(e.target.value))} />
           </div>
           <div className="col-span-2 md:col-span-6">
-            <label className={label}>제외 아이디</label>
-            <input className={cInput} value={exclude} onChange={(e) => setExclude(e.target.value)} placeholder="공백·쉼표로 구분" />
-          </div>
-          <div className="col-span-2 md:col-span-6">
             <label className={label}>필수 키워드 · 해시태그</label>
             <input className={cInput} value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="#워크업이벤트, 참여 (쉼표 구분, 모두 포함)" />
           </div>
-          <div className="md:col-span-3">
-            <label className={label}>댓글 시작 시각</label>
-            <input className={cInput} type="datetime-local" value={fromStr} onChange={(e) => setFromStr(e.target.value)} />
-          </div>
-          <div className="md:col-span-3">
-            <label className={label}>댓글 마감 시각</label>
-            <input className={cInput} type="datetime-local" value={toStr} onChange={(e) => setToStr(e.target.value)} />
-          </div>
+          {/* 자주 바꾸지 않는 조건은 접어 둔다 */}
+          <details className="col-span-2 md:col-span-6 group">
+            <summary className="cursor-pointer text-[13px] font-semibold text-[#303236] hover:underline">
+              제외 아이디 · 댓글 기간 설정 ▾
+              <span className="ml-2 font-normal text-gray-400">
+                제외 {exclude.split(/[\s,]+/).filter(Boolean).length}명{fromStr || toStr ? " · 기간 지정" : ""}
+              </span>
+            </summary>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3">
+              <div className="md:col-span-2">
+                <label className={label}>제외 아이디</label>
+                <input className={cInput} value={exclude} onChange={(e) => setExclude(e.target.value)} placeholder="공백·쉼표로 구분" />
+              </div>
+              <div>
+                <label className={label}>댓글 시작 시각</label>
+                <input className={cInput} type="datetime-local" value={fromStr} onChange={(e) => setFromStr(e.target.value)} />
+              </div>
+              <div>
+                <label className={label}>댓글 마감 시각</label>
+                <input className={cInput} type="datetime-local" value={toStr} onChange={(e) => setToStr(e.target.value)} />
+              </div>
+            </div>
+          </details>
         </div>
 
+        {/* 조건 요약(왼쪽)과 추첨 박스(오른쪽)를 나란히 둔다. 좁은 화면에서는 위아래로 쌓인다. */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-x-3 gap-y-3 md:items-stretch">
+          <div className="md:col-span-6 min-w-0">
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 mt-3 text-[14px] text-gray-700">
           <label className="flex items-center gap-1.5" title="끄면 유효 댓글 1개가 응모권 1장">
             <input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} />
@@ -1079,13 +1101,14 @@ export default function GiveawayTab() {
           <span className="ml-3 text-[12px] text-gray-400">※ 팔로우·좋아요는 API로 확인 불가 — 당첨 후 직접 확인</span>
         </p>
         {msg && <p className="mt-3 text-[14px] text-amber-700">{msg}</p>}
-
+          </div>
         {(drawing || results.length > 0) && (
-          <div className="mt-5 bg-[#0f172a] rounded-xl p-6 text-center">
+          <div className="md:col-span-6 min-w-0 bg-[#0f172a] rounded-xl p-6 text-center flex flex-col justify-center">
             <p className="text-slate-400 text-[14px]">{stageLabel}</p>
             <p className="text-white text-3xl font-black mt-1 break-all">{stageName}</p>
           </div>
         )}
+        </div>
 
         {results.length > 0 && (
           <>
@@ -1098,13 +1121,13 @@ export default function GiveawayTab() {
                 <option key={u} value={u} />
               ))}
             </datalist>
-            <ol className="mt-2 space-y-1">
+            <ol className="mt-2 grid grid-cols-1 lg:grid-cols-2 gap-1.5">
               {results.map((r, i) => {
                 const f = flags[r.comment.user.toLowerCase()];
                 const live = r.status === "ok";
                 return (
                   <Fragment key={r.comment.user + i}>
-                  <li className={`px-3 py-1.5 rounded-lg border flex items-center gap-x-3 gap-y-1 flex-wrap lg:flex-nowrap ${!live ? "bg-gray-50 border-gray-200 opacity-60" : r.role === "winner" ? "border-[#E5541B]/40 bg-orange-50" : "border-gray-200"}`}>
+                  <li className={`px-3 py-1.5 rounded-lg border flex items-center gap-x-3 gap-y-1 flex-wrap ${!live ? "bg-gray-50 border-gray-200 opacity-60" : r.role === "winner" ? "border-[#E5541B]/40 bg-orange-50" : "border-gray-200"}`}>
                     <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap shrink-0 ${r.role === "winner" && live ? "bg-[#E5541B] text-white" : "bg-gray-200 text-gray-600"}`}>
                       {r.role === "winner" && r.label.startsWith("예비") && r.prize ? `${r.prize} · ${r.label} 승급` : r.label}
                     </span>
@@ -1115,8 +1138,6 @@ export default function GiveawayTab() {
                     {f?.cherry && <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[11px] font-bold shrink-0">체리피커</span>}
                     {f?.noFollow && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-bold shrink-0">비팔로우 이력</span>}
                     {r.note && <span className="text-[12px] text-emerald-700 shrink-0">{r.note}</span>}
-                    {/* 댓글은 한 줄로 줄이고, 마우스를 올리면 전체가 보인다 */}
-                    <span className="flex-1 min-w-[120px] truncate text-[13px] text-gray-400" title={r.comment.text}>{r.comment.text}</span>
                     {!live && !drawing && !record && (
                       <button className="min-h-[32px] text-[13px] font-semibold text-[#303236] hover:underline whitespace-nowrap shrink-0 ml-auto" onClick={() => undoVoid(i)}>
                         되돌리기
@@ -1148,7 +1169,7 @@ export default function GiveawayTab() {
                     )}
                   </li>
                   {replaceIdx === i && live && (
-                    <li className="ml-6 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 flex items-center gap-2 flex-wrap">
+                    <li className="lg:col-span-2 ml-6 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 flex items-center gap-2 flex-wrap">
                       <span className="text-[13px] text-gray-600 whitespace-nowrap">@{r.comment.user} →</span>
                       <input
                         className={`${cInput} !w-56 !py-1.5`}
@@ -1186,7 +1207,7 @@ export default function GiveawayTab() {
             ) : (
               <div className="flex items-center gap-3 flex-wrap bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <p className="text-[14px] text-amber-800 flex-1 min-w-[220px]">
-                  아직 확정 전입니다. 확정하면 이력과 당첨 횟수에 반영되고, 취소·교체된 내역은 삭제됩니다.
+                  아직 확정 전입니다. 확정하면 남은 당첨자는 모두 팔로우 확인 처리되어 이력과 당첨 횟수에 반영되고, 취소·교체된 내역은 삭제됩니다.
                 </p>
                 <button className={`${btn} bg-[#E5541B] text-white hover:bg-[#cc4915] px-6 py-2`} onClick={confirmDraw} disabled={confirming}>
                   {confirming ? "저장 중…" : "당첨 확정"}
@@ -1203,7 +1224,6 @@ export default function GiveawayTab() {
               <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={() => openProfiles(results.filter((r) => r.status === "ok" && r.role === "winner"))}>당첨자 프로필 모두 열기 ↗</button>
               <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={exportWinners}>당첨자 CSV</button>
               <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={exportParticipants}>응모자 CSV</button>
-              {record && <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={exportProof}>추첨 기록(JSON)</button>}
             </div>
             {record && <GiveawayClaimPanel key={record.id} record={record} />}
           </div>
@@ -1307,20 +1327,8 @@ export default function GiveawayTab() {
                           {h.at} · <a className="hover:underline" href={h.postUrl} target="_blank" rel="noopener noreferrer">{h.postUrl || "(직접 입력)"}</a>
                         </p>
                         <p className="text-gray-500 text-[12px]">{h.conditions}</p>
-                        <ul className="space-y-0.5">
-                          {h.winners.map((w, i) => (
-                            <li key={w.user + i} className={w.status === "취소" ? "text-gray-400 line-through" : "text-gray-700"}>
-                              {w.label}{w.prize && !w.label.includes(w.prize) ? ` (${w.prize})` : ""}{" "}
-                              <a className="font-semibold hover:underline" href={igUrl(w.user)} target="_blank" rel="noopener noreferrer">@{w.user}</a>
-                              {w.status === "확정" && (w.followOk ? <span className="ml-1.5 text-emerald-600">✓ 팔로우</span> : <span className="ml-1.5 text-amber-600">팔로우 미확인</span>)}
-                              {w.note && <span className="ml-1.5 text-[12px] text-gray-400">({w.note})</span>}
-                            </li>
-                          ))}
-                        </ul>
-                        <details className="group">
-                          <summary className="cursor-pointer text-[13px] font-semibold text-[#303236] hover:underline list-none">배송 정보 수집 보기 ▾</summary>
-                          <GiveawayClaimPanel record={h} />
-                        </details>
+                        {/* 당첨자 목록은 배송 정보 리스트가 대신한다(링크 생성 전에는 패널이 당첨자만 미리 보여 줌) */}
+                        <GiveawayClaimPanel record={h} />
                         <div className="flex items-center gap-4">
                           {h.hasDetail && (
                             <button className="text-[13px] font-semibold text-[#303236] hover:underline" onClick={() => openDetail(h)}>
