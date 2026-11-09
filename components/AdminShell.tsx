@@ -2,7 +2,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminSidebar, { getNavLeafByHref } from "./AdminSidebar";
-import AdminTabBar from "./AdminTabBar";
 import { AdminUIContext, type AdminTab, type AdminUIValue } from "./admin-ui-context";
 
 const MAX_TABS = 10;
@@ -246,15 +245,14 @@ export default function AdminShell({ children, superAdmin }: { children: React.R
   );
 
   const value = useMemo<AdminUIValue>(
-    () => ({ tabs, currentHref: activeHref, selectTab, closeTab, closeAllTabs, favorites, isFavorite, toggleFavorite }),
-    [tabs, activeHref, selectTab, closeTab, closeAllTabs, favorites, isFavorite, toggleFavorite]
+    () => ({ tabs, currentHref: activeHref, selectTab, closeTab, closeAllTabs, favorites, isFavorite, toggleFavorite, superAdmin: !!superAdmin }),
+    [tabs, activeHref, selectTab, closeTab, closeAllTabs, favorites, isFavorite, toggleFavorite, superAdmin]
   );
 
   return (
     <AdminUIContext.Provider value={value}>
       <AdminSidebar superAdmin={superAdmin} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        <AdminTabBar />
         <main className="flex-1 min-w-0 overflow-y-auto bg-[#f1f5f9]">
           <div className="px-4 sm:px-6 lg:px-10 pt-5 pb-10 admin-content">{children}</div>
         </main>

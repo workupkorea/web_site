@@ -114,8 +114,8 @@ const DEFAULT_HREFS = [
   "/admin/stores",
   "/admin/inquiries",
   "/admin/members",
-  "/admin/main/sections",
-  "/admin/analytics/pixels",
+  "/admin/main/home",
+  "/admin/analytics",
 ];
 
 const FALLBACK_ICON = (

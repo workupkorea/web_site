@@ -69,7 +69,10 @@ export default function Header({
     publish();
     const ro = new ResizeObserver(publish);
     ro.observe(el);
-    return () => ro.disconnect();
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--wu-header-h"); // 헤더가 사라지면 오프셋도 해제
+    };
   }, []);
 
   // ESC 키 + 외부 클릭으로 BRANDS 메가메뉴 닫기
@@ -186,23 +189,35 @@ export default function Header({
             </Link>
           )}
 
-          {/* 관리자 메뉴 — 관리자 등급으로 로그인한 경우에만 노출 (출고패스·입고스케쥴 바로가기) */}
+          {/* 관리자 메뉴 — 관리자 등급으로 로그인한 경우에만 노출 (출고패스·입고스케쥴 바로가기).
+              이동 대상은 사이트 헤더를 숨기는 단독 화면이라, 클라이언트 전환(Link)이 아닌 전체 로드(<a>)로 열어야
+              헤더가 남아 화면 상단을 가리거나 여백을 만들지 않는다. */}
           {(memberSession?.grade === "관리자" || memberSession?.grade === "S관리자") && (
-            <div className="group/admin relative focus-within:z-10" onMouseEnter={hasBrandsMega ? closeBrandsNow : undefined}>
+            <div className="group/admin relative ml-3 xl:ml-5 focus-within:z-10" onMouseEnter={hasBrandsMega ? closeBrandsNow : undefined}>
               <button
                 type="button"
                 aria-haspopup="true"
-                className={`${navLinkBase} ${navLinkColor}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#303236] bg-[#303236] px-3.5 py-1.5 text-[13px] leading-none text-white whitespace-nowrap transition-colors hover:bg-white hover:text-[#303236]"
                 style={{ fontWeight: 700 }}
               >
-                <span style={{ gridArea: "1 / 1" }} className="text-[14px] leading-none tracking-tighter">관리자 메뉴</span>
+                <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" />
+                </svg>
+                관리자 메뉴
+                <svg className="h-3 w-3 opacity-70" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                </svg>
               </button>
-              <div className="absolute left-0 top-full hidden group-hover/admin:block group-focus-within/admin:block pt-1">
+              <div className="absolute left-1/2 top-full hidden -translate-x-1/2 group-hover/admin:block group-focus-within/admin:block pt-1">
                 <div className="min-w-[140px] rounded-lg border border-gray-200 bg-white py-1.5 shadow-lg">
-                  <Link href="/notices" className="block px-4 py-2 text-[13px] font-semibold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
+                  <Link href="/admin" className="block px-4 py-2 text-center text-[13px] font-bold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
+                    관리자 페이지
+                  </Link>
+                  <div className="my-1 border-t border-gray-100" />
+                  <Link href="/notices" className="block px-4 py-2 text-center text-[13px] font-semibold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
                     출고패스
                   </Link>
-                  <Link href="/arrival" className="block px-4 py-2 text-[13px] font-semibold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
+                  <Link href="/arrival" className="block px-4 py-2 text-center text-[13px] font-semibold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
                     입고스케쥴
                   </Link>
                 </div>

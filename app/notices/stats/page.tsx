@@ -41,6 +41,11 @@ function fmtDate(iso: string): string {
 
 const todayKst = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const currentMonthKst = () => todayKst().slice(0, 7);
+// 이번 달 말일(YYYY-MM-DD) — 30일/28일 달에 존재하지 않는 "-31"을 보내 조회가 실패하던 문제 방지
+const currentMonthEndKst = () => {
+  const [y, m] = currentMonthKst().split("-").map(Number);
+  return `${currentMonthKst()}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+};
 
 // ── 지점 선택 드롭다운 ────────────────────────────────────────────
 function StoreFilterDropdown({
@@ -755,7 +760,7 @@ export default function NoticeStatsPage() {
   const [loading, setLoading] = useState(true);
   const { showShip, toggle: toggleShip } = useShipNameMode();
   const [showAllDetail, setShowAllDetail] = useState(false);
-  const [statsTab, setStatsTab] = useState<"store" | "product">("store");
+  const [statsTab, setStatsTab] = useState<"store" | "product">("product");
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -829,7 +834,7 @@ export default function NoticeStatsPage() {
   // 지점별 자세히 / 상품별 현황이 공통으로 쓰는 조회 기간
   const matrixParams = useMemo(() => {
     if (selectedDay) return { date: selectedDay.notice_date };
-    if (filterMode === "month") return { from: `${currentMonthKst()}-01`, to: `${currentMonthKst()}-31` };
+    if (filterMode === "month") return { from: `${currentMonthKst()}-01`, to: currentMonthEndKst() };
     if (filterMode === "range") return { from: filterFrom, to: filterTo };
     return { date: todayKst() };
   }, [selectedDay, filterMode, filterFrom, filterTo]);
@@ -960,9 +965,9 @@ export default function NoticeStatsPage() {
 
         {/* 지점별 현황 */}
         <div className="flex-1 min-w-0">
-          {/* 탭: 지점별 / 상품별 */}
+          {/* 탭: 상품별 / 지점별 (상품별이 기본) */}
           <div className="flex gap-1 mb-3 border border-gray-200 rounded-lg overflow-hidden lg:w-fit">
-            {([["store", "지점별 출고/패스 현황"], ["product", "상품별 출고/패스 현황"]] as const).map(([k, label]) => (
+            {([["product", "상품별"], ["store", "지점별"]] as const).map(([k, label]) => (
               <button
                 key={k}
                 onClick={() => setStatsTab(k)}

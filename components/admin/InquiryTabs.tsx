@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// "고객 문의" 아래 5개 페이지(문의 관리·페이지 편집 3종·더미리스트)를 하나의 탭 UI로 묶는다.
+// "고객 문의" 아래 4개 페이지(문의 관리·페이지 편집 3종)를 하나의 탭 UI로 묶는다.
 // 사이드바에는 "문의 관리" 하나만 남기고, 나머지는 이 탭바로 이동한다(실제 페이지/라우트는 그대로 유지).
 
 const PAGE_EDIT_ROUTES = [
@@ -14,7 +14,6 @@ const PAGE_EDIT_ROUTES = [
 const TOP_TABS = [
   { label: "문의 관리", href: "/admin/inquiries" },
   { label: "페이지 편집", href: PAGE_EDIT_ROUTES[0].href, isPageEdit: true },
-  { label: "더미 리스트", href: "/admin/inquiries/board" },
 ];
 
 export default function InquiryTabs() {

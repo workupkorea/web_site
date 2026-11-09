@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>인스타 댓글 추첨기</title>
+<style>
+:root{
+  --bg:#faf8f5; --card:#ffffff; --ink:#1c1a17; --muted:#6f6a62; --line:#e6e1d8;
+  --accent:#d62976; --accent-ink:#ffffff; --soft:#fdebf2; --ok:#1a7f4b; --warn:#a15c00;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#141210; --card:#1e1b18; --ink:#f3efe9; --muted:#a39d93; --line:#332e29;
+        --accent:#ff5c93; --accent-ink:#1a0610; --soft:#3a1a27; --ok:#5fd394; --warn:#f0b35a;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.55 "Pretendard","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;}
+.wrap{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:28px;margin:0 0 4px;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 24px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:16px}
+.card h2{font-size:16px;margin:0 0 12px}
+.step{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;
+  background:var(--accent);color:var(--accent-ink);font-size:13px;margin-right:8px;font-weight:700}
+textarea,input[type=text],input[type=number]{width:100%;padding:10px 12px;border:1px solid var(--line);
+  border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:200px;resize:vertical;font-size:14px;line-height:1.5}
+textarea:focus,input:focus{outline:2px solid var(--accent);outline-offset:1px}
+label.f{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.span{grid-column:1/-1}
+.check{display:flex;gap:8px;align-items:center;font-size:15px}
+.check input{width:18px;height:18px;accent-color:var(--accent)}
+.hint{font-size:13px;color:var(--muted);margin:8px 0 0}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);padding:9px 14px}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);
+  font-weight:700;font-size:18px;padding:14px 20px;width:100%}
+button:disabled{opacity:.55;cursor:default}
+.stats{font-size:14px;color:var(--muted);margin-top:10px}
+.stats b{color:var(--ink)}
+.stage{margin:16px 0 0;padding:28px 12px;border-radius:12px;background:var(--soft);text-align:center;display:none}
+.stage.on{display:block}
+.stage .lab{font-size:14px;color:var(--muted)}
+.stage .name{font-size:clamp(24px,7vw,40px);font-weight:800;letter-spacing:-.02em;word-break:break-all;min-height:1.3em}
+ol.res{list-style:none;margin:16px 0 0;padding:0;display:grid;gap:8px}
+ol.res li{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;align-items:baseline;
+  padding:12px 14px;border:1px solid var(--line);border-radius:10px;animation:pop .35s ease-out}
+ol.res li.backup{opacity:.85;border-style:dashed}
+.badge{font-size:12px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--accent);color:var(--accent-ink)}
+li.backup .badge{background:var(--muted)}
+ol.res a{color:var(--ink);font-weight:700;text-decoration:none;word-break:break-all}
+ol.res a:hover{text-decoration:underline;color:var(--accent)}
+ol.res .cm{grid-column:2;font-size:13px;color:var(--muted);word-break:break-word}
+.meta{font-size:13px;color:var(--muted);margin-top:12px}
+.msg{font-size:14px;margin-top:10px;color:var(--warn);min-height:1.4em}
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){ol.res li{animation:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>인스타 댓글 추첨기</h1>
+  <p class="sub">댓글을 붙여넣고 조건을 정한 뒤 추첨하세요. 모든 처리는 이 브라우저 안에서만 이루어지고 어디에도 전송되지 않습니다.</p>
+
+  <section class="card">
+    <h2><span class="step">1</span>주소로 댓글 불러오기</h2>
+    <div class="grid">
+      <div class="span"><label class="f" for="url">게시물·릴스 주소</label><input id="url" type="text" placeholder="https://www.instagram.com/p/XXXXXXXXXXX/"></div>
+      <div class="span"><label class="f" for="igid">인스타그램 계정 ID (선택 · Facebook 로그인 방식 토큰이면 입력, 예: 17841473476577810)</label><input id="igid" type="text" inputmode="numeric" placeholder="숫자 ID"></div>
+      <div class="span"><label class="f" for="token">액세스 토큰 (이 페이지 메모리에만 있고 저장·전송되지 않습니다)</label><input id="token" type="password" autocomplete="off" placeholder="IGAA..."></div>
+    </div>
+    <div class="row"><button id="fetchBtn" type="button" class="primary" style="width:auto;font-size:16px;padding:10px 18px">댓글 불러오기</button></div>
+    <div class="msg" id="fmsg" role="status"></div>
+    <p class="hint">인스타그램은 로그인 없이 남의 게시물 댓글을 읽는 것을 허용하지 않습니다. 그래서 <b>본인 소유의 비즈니스·크리에이터 계정</b> 게시물에 한해 공식 API로 읽어 옵니다.
+      Meta 개발자 앱의 "Instagram API with Instagram Login"에서 <code>instagram_business_basic</code>, <code>instagram_business_manage_comments</code> 권한으로 토큰을 발급해 붙여넣으세요. 대댓글은 제외됩니다.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">+</span>직접 붙여넣기 / 불러온 댓글 확인</h2>
+    <textarea id="input" spellcheck="false" placeholder="한 줄에 댓글 하나씩, 아이디가 맨 앞에 오게 입력하세요.&#10;&#10;예)&#10;minji_01 @friend1 @friend2 이벤트 참여해요!&#10;jun.park: @sujin 같이 가고 싶어요&#10;@dahye99, 당첨되고 싶어요 #이벤트"></textarea>
+    <div class="row">
+      <button id="sample" type="button">예시 불러오기</button>
+      <button id="clear" type="button">비우기</button>
+    </div>
+    <p class="hint">형식: <code>아이디 댓글내용</code> (아이디 뒤에 공백, 콜론, 쉼표, 탭 모두 가능, 앞의 @는 있어도 됩니다). 댓글 수집 도구에서 내보낸 <code>아이디,댓글</code> CSV 내용을 붙여넣어도 됩니다. 한 줄에 아이디만 있어도 참여로 인정합니다.</p>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">2</span>추첨 조건</h2>
+    <div class="grid">
+      <div><label class="f" for="winners">당첨자 수</label><input id="winners" type="number" min="1" max="100" value="1"></div>
+      <div><label class="f" for="backups">예비 당첨자 수</label><input id="backups" type="number" min="0" max="100" value="1"></div>
+      <div><label class="f" for="mentions">최소 친구 멘션 수</label><input id="mentions" type="number" min="0" max="20" value="0"></div>
+      <div class="span"><label class="f" for="keywords">필수 단어·해시태그 (쉼표로 구분, 모두 포함해야 인정)</label><input id="keywords" type="text" placeholder="예: #이벤트, 참여"></div>
+      <div class="span"><label class="f" for="exclude">제외할 아이디 (내 계정, 직원 등 · 쉼표 또는 공백으로 구분)</label><input id="exclude" type="text" placeholder="예: my_brand, staff01"></div>
+      <div class="span check"><input id="dedupe" type="checkbox" checked><label for="dedupe">1인 1회만 인정 (같은 아이디의 중복 댓글 제거)</label></div>
+    </div>
+    <p class="hint">1인 1회를 끄면 댓글을 많이 단 사람이 당첨될 확률이 높아집니다. 어느 쪽이든 한 사람이 두 번 당첨되지는 않습니다.</p>
+  </section>
+
+  <section class="card">
+    <h2><span class="step">3</span>추첨</h2>
+    <button id="go" class="primary" type="button">추첨하기</button>
+    <div class="msg" id="msg" role="status"></div>
+    <div class="stage" id="stage" aria-live="polite"><div class="lab" id="stageLab"></div><div class="name" id="stageName"></div></div>
+    <ol class="res" id="res"></ol>
+    <div class="meta" id="meta"></div>
+    <div class="row" id="after" hidden>
+      <button id="copy" type="button">결과 복사</button>
+      <button id="again" type="button">다시 추첨</button>
+    </div>
+  </section>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// 편향 없는 암호학적 난수 (0 ≤ r < n)
+function rand(n){
+  const max = Math.floor(0x100000000 / n) * n, buf = new Uint32Array(1);
+  do { crypto.getRandomValues(buf); } while (buf[0] >= max);
+  return buf[0] % n;
+}
+
+function parseComments(text){
+  const rows = [];
+  for (const raw of text.split(/\r?\n/)){
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^@?([A-Za-z0-9._]{1,30})(?:\s*[:,\t]\s*|\s+|$)(.*)$/);
+    if (m) rows.push({ user: m[1], text: m[2].trim().replace(/^"|"$/g, '') });
+  }
+  return rows;
+}
+
+function analyze(){
+  const rows = parseComments($('input').value);
+  const exclude = new Set($('exclude').value.split(/[\s,]+/).map(s => s.replace(/^@/, '').toLowerCase()).filter(Boolean));
+  const minMention = Math.max(0, parseInt($('mentions').value) || 0);
+  const kws = $('keywords').value.split(/[,\n]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+  const dedupe = $('dedupe').checked;
+  const st = { total: rows.length, excluded: 0, filtered: 0, dup: 0 };
+  const valid = [], seen = new Set();
+  for (const r of rows){
+    const u = r.user.toLowerCase();
+    if (exclude.has(u)){ st.excluded++; continue; }
+    const mentions = new Set((r.text.match(/@[A-Za-z0-9._]+/g) || []).map(s => s.toLowerCase()).filter(s => s.slice(1) !== u));
+    const low = r.text.toLowerCase();
+    if (mentions.size < minMention || !kws.every(k => low.includes(k))){ st.filtered++; continue; }
+    if (dedupe){ if (seen.has(u)){ st.dup++; continue; } seen.add(u); }
+    valid.push(r);
+  }
+  const users = new Set(valid.map(r => r.user.toLowerCase()));
+  return { valid, st, users };
+}
+
+function renderStats(){
+  const { valid, st, users } = analyze();
+  const parts = [];
+  if (st.excluded) parts.push(`제외 아이디 ${st.excluded}`);
+  if (st.filtered) parts.push(`조건 미충족 ${st.filtered}`);
+  if (st.dup) parts.push(`중복 ${st.dup}`);
+  $('stats').innerHTML = st.total
+    ? `인식된 댓글 <b>${st.total}</b>개 → 유효 <b>${valid.length}</b>개 · 참여자 <b>${users.size}</b>명` + (parts.length ? ` <span>(${parts.join(' · ')})</span>` : '')
+    : '아직 입력된 댓글이 없습니다.';
+}
+
+const SAMPLE = [
+  'minji_01 @friend1 @friend2 이벤트 참여해요! #이벤트',
+  'jun.park: @sujin 같이 가고 싶어요 #이벤트',
+  '@dahye99, 당첨되고 싶어요 #이벤트 @eunji',
+  'haru_day @mina @yuri 너무 가고 싶어요 #이벤트',
+  'sora.kim 참여합니다',
+  'minji_01 @friend3 한 번 더 참여! #이벤트',
+  'my_brand 감사합니다 :)',
+  'tae_yang @bomi @sena @ari #이벤트 응원해요',
+  'nari_0412 @hyun 신청합니다 #이벤트',
+  'gaon.lee @doyun #이벤트 꼭 되고 싶어요',
+  'yeji_s @chaewon @ruda 이벤트 참여 #이벤트',
+  'ocean_blue77 @sia #이벤트'
+].join('\n');
+
+let last = null, drawing = false;
+
+async function roll(names, finalName, duration){
+  const nameEl = $('stageName');
+  if (reduced || names.length < 2){ nameEl.textContent = '@' + finalName; return; }
+  const start = performance.now(); let delay = 40;
+  while (performance.now() - start < duration){
+    nameEl.textContent = '@' + names[rand(names.length)];
+    await sleep(delay);
+    delay = Math.min(delay * 1.07, 230);
+  }
+  nameEl.textContent = '@' + finalName;
+}
+
+async function draw(){
+  if (drawing) return;
+  $('msg').textContent = '';
+  const { valid, users } = analyze();
+  if (!users.size){ $('msg').textContent = '조건을 만족하는 참여자가 없습니다. 댓글이나 조건을 확인해 주세요.'; return; }
+
+  const nW = clamp(parseInt($('winners').value) || 1, 1, 100);
+  const nB = clamp(parseInt($('backups').value) || 0, 0, 100);
+  let pool = valid.slice(); const picked = [];
+  while (picked.length < nW + nB && pool.length){
+    const w = pool[rand(pool.length)];
+    picked.push(w);
+    const u = w.user.toLowerCase();
+    pool = pool.filter(r => r.user.toLowerCase() !== u);
+  }
+  if (picked.length < nW + nB) $('msg').textContent = `참여자가 ${users.size}명뿐이라 ${picked.length}명만 추첨했습니다.`;
+
+  drawing = true; $('go').disabled = true; $('after').hidden = true;
+  $('res').replaceChildren(); $('meta').textContent = '';
+  const stage = $('stage'); stage.classList.add('on');
+  const names = [...new Set(valid.map(r => r.user))];
+  const dur = picked.length <= 5 ? 2000 : picked.length <= 20 ? 900 : 350;
+  const items = [];
+
+  for (let i = 0; i < picked.length; i++){
+    const isBackup = i >= nW;
+    const label = isBackup ? `예비 ${i - nW + 1}` : `당첨 ${i + 1}`;
+    $('stageLab').textContent = label + ' 추첨 중…';
+    await roll(names, picked[i].user, dur);
+    await sleep(reduced ? 0 : 350);
+
+    const li = document.createElement('li');
+    if (isBackup) li.className = 'backup';
+    const b = document.createElement('span'); b.className = 'badge'; b.textContent = label;
+    const a = document.createElement('a');
+    a.href = 'https://www.instagram.com/' + encodeURIComponent(picked[i].user) + '/';
+    a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = '@' + picked[i].user;
+    li.append(b, a);
+    if (picked[i].text){
+      const c = document.createElement('div'); c.className = 'cm'; c.textContent = picked[i].text; li.append(c);
+    }
+    $('res').append(li);
+    items.push(`${label}: @${picked[i].user}`);
+  }
+
+  $('stageLab').textContent = '추첨 완료';
+  $('stageName').textContent = `당첨 ${Math.min(nW, picked.length)}명 확정`;
+  const when = new Date().toLocaleString('ko-KR');
+  $('meta').textContent = `${when} · 참여자 ${users.size}명 중 추첨 · 브라우저 암호학적 난수 사용`;
+  last = items.join('\n');
+  $('after').hidden = false; $('go').disabled = false; drawing = false;
+}
+
+['input','winners','backups','mentions','keywords','exclude','dedupe'].forEach(id => $(id).addEventListener('input', renderStats));
+$('sample').onclick = () => { $('input').value = SAMPLE; $('exclude').value = 'my_brand'; renderStats(); };
+$('clear').onclick = () => { $('input').value = ''; renderStats(); };
+$('go').onclick = draw;
+$('again').onclick = draw;
+$('copy').onclick = async () => {
+  try { await navigator.clipboard.writeText(last || ''); $('copy').textContent = '복사됨'; }
+  catch { $('copy').textContent = '복사 실패'; }
+  setTimeout(() => $('copy').textContent = '결과 복사', 1500);
+};
+const apiBase = () => $('igid').value.trim() ? 'https://graph.facebook.com/v21.0' : 'https://graph.instagram.com/v21.0';
+const mediaPath = () => ($('igid').value.trim() ? '/' + encodeURIComponent($('igid').value.trim()) : '/me') + '/media?fields=id,permalink&limit=100';
+const shortcodeOf = u => { const m = (u || '').match(/instagram\.com\/(?:[^\/?#]+\/)?(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/); return m ? m[1] : null; };
+
+const nextPath = u => { const x = new URL(u); x.searchParams.delete('access_token'); return x.pathname.replace(/^\/v[\d.]+/, '') + x.search; };
+
+async function api(path, token){
+  const r = await fetch(`${apiBase()}${path}${path.includes('?') ? '&' : '?'}access_token=${encodeURIComponent(token)}`);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error(j.error?.message || `요청 실패 (${r.status})`);
+  return j;
+}
+
+async function fetchComments(){
+  const msg = t => $('fmsg').textContent = t;
+  const code = shortcodeOf($('url').value.trim());
+  const token = $('token').value.trim();
+  if (!code){ msg('게시물 주소를 확인해 주세요. (instagram.com/p/…, /reel/… 형식)'); return; }
+  if (!token){ msg('액세스 토큰을 입력해 주세요.'); return; }
+  $('fetchBtn').disabled = true;
+  try {
+    // 1) 내 미디어 목록에서 주소의 shortcode와 일치하는 게시물 찾기
+    let mediaId = null, next = mediaPath(), pages = 0;
+    while (next && !mediaId && pages < 50){
+      msg(`게시물 찾는 중… (${++pages})`);
+      const j = await api(next, token);
+      mediaId = (j.data || []).find(m => shortcodeOf(m.permalink) === code)?.id || null;
+      next = j.paging?.next ? nextPath(j.paging.next) : null;
+    }
+    if (!mediaId) throw new Error('토큰 계정의 게시물 중에서 이 주소를 찾지 못했습니다. 본인 계정의 게시물인지 확인해 주세요.');
+    // 2) 댓글 전체 페이지 읽기
+    const lines = []; let n = `/${mediaId}/comments?fields=username,text&limit=100`, cp = 0;
+    while (n){
+      const j = await api(n, token);
+      for (const c of j.data || []) if (c.username) lines.push(`${c.username} ${(c.text || '').replace(/\s+/g, ' ')}`);
+      msg(`댓글 읽는 중… ${lines.length}개 (${++cp})`);
+      n = j.paging?.next ? nextPath(j.paging.next) : null;
+    }
+    $('input').value = lines.join('\n');
+    renderStats();
+    msg(`댓글 ${lines.length}개를 불러왔습니다.`);
+  } catch (e) {
+    msg('불러오기 실패: ' + e.message);
+  } finally { $('fetchBtn').disabled = false; }
+}
+$('fetchBtn').onclick = fetchComments;
+renderStats();
+</script>
+</body>
+</html>

@@ -204,6 +204,8 @@ export default function NoticesPreviewPage() {
         setCloseTime(data?.closeTime || DEFAULT_CLOSE_TIME);
         setOpenTime(data?.openTime || "11:00");
       });
+    // 서버 렌더 시각과 달라 하이드레이션 경고가 나므로, 마운트 직후 현재 시각으로 한 번 갱신한다.
+    setDlNow(new Date());
     const timer = setInterval(() => setDlNow(new Date()), 30_000);
     return () => clearInterval(timer);
   }, []);
@@ -418,9 +420,9 @@ export default function NoticesPreviewPage() {
                     </div>
                     <div className="flex-1 min-w-[120px]">
                       <div className="relative h-1.5 bg-gray-100 rounded-full">
-                        <div className="absolute left-0 top-0 h-full bg-emerald-400 rounded-full" style={{ width: `${pct}%` }} />
+                        <div className="absolute left-0 top-0 h-full bg-emerald-400 rounded-full" style={{ width: `${pct}%` }} suppressHydrationWarning />
                       </div>
-                      <p className="text-[11px] text-gray-400 mt-0.5">{dlNow.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} · {countdown}</p>
+                      <p className="text-[11px] text-gray-400 mt-0.5" suppressHydrationWarning>{dlNow.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })} · {countdown}</p>
                     </div>
                     <div className="grid grid-cols-4 lg:flex gap-1.5 items-center w-full lg:w-auto">
                       <button

@@ -382,9 +382,9 @@ export default function AdminInquiriesPage() {
     <div>
       <InquiryTabs />
       <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
-        <div>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h1 className="text-3xl font-bold text-gray-900">문의 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">실제 접수된 문의를 확인하고 바로 답변합니다. 제목을 클릭하면 내용이 펼쳐집니다.</p>
+          <p className="text-sm text-gray-500">실제 접수된 문의를 확인하고 바로 답변합니다. 제목을 클릭하면 내용이 펼쳐집니다.</p>
         </div>
         <div className="flex items-center gap-3">
           {toast && <span className="text-sm font-medium text-green-600">{toast}</span>}

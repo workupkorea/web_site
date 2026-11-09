@@ -256,6 +256,22 @@ export default function BottomNav({
             <span className="text-[10px] font-semibold leading-none tracking-tight">매장</span>
           </Link>
 
+          {/* 스토어 — 네이버 브랜드스토어 (새 창) */}
+          <a
+            href="https://brand.naver.com/workup_offcial"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 flex flex-col items-center justify-center gap-1 text-[#666666] touch-manipulation transition-[background-color,transform] active:scale-95 active:bg-gray-100"
+            aria-label="스토어 (새 창)"
+            onClick={() => setMenuOpen(false)}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16 10a4 4 0 01-8 0" />
+            </svg>
+            <span className="text-[10px] font-semibold leading-none tracking-tight">스토어</span>
+          </a>
+
           {/* 마이 — PC 헤더의 회원 아이콘을 모바일에서는 이 탭으로 대체 */}
           <Link
             href={memberSession ? "/mypage" : "/member/login"}

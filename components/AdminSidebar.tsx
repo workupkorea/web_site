@@ -23,7 +23,9 @@ export const navGroups: NavGroup[] = [
     label: "사이트관리",
     items: [
       {
-        label: "메인 페이지 구성",
+        label: "메인 관리",
+        href: "/admin/main/home",
+        exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <rect x="4" y="4" width="16" height="4" rx="1" />
@@ -31,166 +33,36 @@ export const navGroups: NavGroup[] = [
             <rect x="4" y="16" width="16" height="4" rx="1" />
           </svg>
         ),
-        children: [
-          {
-            label: "메인 배치",
-            href: "/admin/main/sections",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <rect x="4" y="4" width="16" height="4" rx="1" />
-                <rect x="4" y="10" width="16" height="4" rx="1" />
-                <rect x="4" y="16" width="16" height="4" rx="1" />
-              </svg>
-            ),
-          },
-          {
-            label: "슬라이딩 메뉴",
-            href: "/admin/main/visual",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
-              </svg>
-            ),
-          },
-          {
-            label: "신상품 영역",
-            href: "/admin/main/new-arrivals",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l1.88 5.79H20l-4.94 3.59 1.88 5.79L12 14.58l-4.94 3.59 1.88-5.79L4.12 8.79H10.12z" />
-              </svg>
-            ),
-          },
-          {
-            label: "기획전 영역",
-            href: "/admin/main/editorial",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            ),
-          },
-          {
-            label: "브랜드 로고 영역",
-            href: "/admin/main/brands",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" />
-              </svg>
-            ),
-          },
-        ],
       },
       {
         label: "팝업 관리",
+        href: "/admin/main/popups",
+        exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
           </svg>
         ),
-        children: [
-          {
-            label: "팝업 배너",
-            href: "/admin/main/popup",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
-              </svg>
-            ),
-          },
-          {
-            label: "팝업 랜딩 페이지",
-            href: "/admin/main/popup/pages",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            ),
-          },
-        ],
       },
       {
-        label: "콘텐츠 페이지",
+        label: "콘텐츠",
+        href: "/admin/main/contents",
+        exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
           </svg>
         ),
-        children: [
-          {
-            label: "메이트",
-            href: "/admin/main/people",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            ),
-          },
-          {
-            label: "스토리",
-            href: "/admin/main/story",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-              </svg>
-            ),
-          },
-          {
-            label: "공지사항",
-            href: "/admin/main/pr-room",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m0 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-              </svg>
-            ),
-          },
-        ],
       },
       {
-        label: "공통 레이아웃",
+        label: "레이아웃",
+        href: "/admin/main/layout",
+        exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <rect x="3" y="4" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M3 9h18" />
           </svg>
         ),
-        children: [
-          {
-            label: "로고관리",
-            href: "/admin/main/logo",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            ),
-          },
-          {
-            label: "헤더메뉴관리",
-            href: "/admin/main/menu",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            ),
-          },
-          {
-            label: "상단 탑바",
-            href: "/admin/main/topbar",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M3 9h18" />
-              </svg>
-            ),
-          },
-          {
-            label: "푸터·약관",
-            href: "/admin/main/footer",
-            icon: (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="16" rx="2" /><path strokeLinecap="round" d="M3 15h18" />
-              </svg>
-            ),
-          },
-        ],
       },
     ],
   },
@@ -199,21 +71,12 @@ export const navGroups: NavGroup[] = [
     label: "브랜드 관리",
     items: [
       {
-        label: "브랜드 통합 관리",
+        label: "브랜드 관리",
         href: "/admin/catalog/brands",
         exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 6.878V6a2.25 2.25 0 012.25-2.25h7.5A2.25 2.25 0 0118 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 004.5 9v.878m13.5-3A2.25 2.25 0 0119.5 9v.878m0 0a2.246 2.246 0 00-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0121 12v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6c0-.98.626-1.813 1.5-2.122" />
-          </svg>
-        ),
-      },
-      {
-        label: "메가메뉴 설정",
-        href: "/admin/content/brands",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
           </svg>
         ),
       },
@@ -224,22 +87,12 @@ export const navGroups: NavGroup[] = [
     label: "지점 및 상품관리",
     items: [
       {
-        label: "입고 스케쥴",
+        label: "입고 스케쥴 · 출고 패스",
         href: "/admin/arrival",
         exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        ),
-      },
-      {
-        label: "지점 출고 패스",
-        href: "/notices",
-        newTab: true,
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
         ),
       },
@@ -250,7 +103,7 @@ export const navGroups: NavGroup[] = [
     label: "스토어 관리",
     items: [
       {
-        label: "매장 목록",
+        label: "스토어 관리",
         href: "/admin/stores",
         exact: true,
         icon: (
@@ -259,27 +112,9 @@ export const navGroups: NavGroup[] = [
           </svg>
         ),
       },
-      {
-        label: "상단 편집",
-        href: "/admin/stores/page-settings",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-        ),
-      },
-      {
-        label: "방문 분석",
-        href: "/admin/stores/analytics",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-          </svg>
-        ),
-      },
     ],
   },
-  // ── 5. 고객 문의 (하위 페이지 편집·더미리스트는 /admin/inquiries 안의 탭으로 이동) ──
+  // ── 5. 고객 문의 (하위 페이지 편집은 /admin/inquiries 안의 탭으로 이동) ──
   {
     label: "고객 문의",
     items: [
@@ -301,57 +136,41 @@ export const navGroups: NavGroup[] = [
     superAdminOnly: true,
     items: [
       {
-        label: "인플루언서 허브",
-        href: "/admin/influencer-hub",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "픽셀/광고 설정",
-        href: "/admin/analytics/pixels",
+        label: "마케팅/분석",
+        href: "/admin/analytics"
+        ,exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
           </svg>
         ),
       },
+    ],
+  },
+  // ── 8. 회원 관리 ──────────────────────────────────────────────────────────
+  {
+    label: "회원 관리",
+    items: [
       {
-        label: "활동 로그",
-        href: "/admin/logs",
+        label: "회원 관리",
+        href: "/admin/members",
         exact: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         ),
       },
+    ],
+  },
+  // ── 시스템 관리 (Vercel·DB 상태, 오류 수정 내역) ───────────────────────────
+  {
+    label: "시스템 관리",
+    superAdminOnly: true,
+    items: [
       {
-        label: "오류 수정 내역",
-        href: "/admin/fix-log",
-        exact: true,
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085" />
-          </svg>
-        ),
-      },
-      {
-        label: "Vercel 상태",
-        href: "/admin/vercel",
-        exact: true,
-        superAdminOnly: true,
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l7-7 7 7" />
-          </svg>
-        ),
-      },
-      {
-        label: "DB 상태",
-        href: "/admin/db-status",
+        label: "시스템 관리",
+        href: "/admin/system",
         exact: true,
         superAdminOnly: true,
         icon: (
@@ -364,72 +183,20 @@ export const navGroups: NavGroup[] = [
       },
     ],
   },
-  // ── 8. 회원 관리 ──────────────────────────────────────────────────────────
-  {
-    label: "회원 관리",
-    items: [
-      {
-        label: "회원 현황",
-        href: "/admin/members",
-        exact: true,
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "회원 조회",
-        href: "/admin/members/list",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        ),
-      },
-      {
-        label: "회원 직접등록",
-        href: "/admin/members/new",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-          </svg>
-        ),
-      },
-      {
-        label: "휴면회원 관리",
-        href: "/admin/members/dormant",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-          </svg>
-        ),
-      },
-      {
-        label: "접속 관리",
-        href: "/admin/members/access",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-          </svg>
-        ),
-      },
-      {
-        label: "탈퇴 관리",
-        href: "/admin/members/withdrawn",
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-        ),
-      },
-    ],
-  },
   // ── 마지막. 비활성 기능 (현재 사용하지 않는 기능 모음) ──────────────────────
   {
     label: "비활성 기능",
     superAdminOnly: true,
     items: [
+      {
+        label: "인플루언서 허브",
+        href: "/admin/influencer-hub",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+        ),
+      },
       {
         label: "제품 목록",
         href: "/admin/products",
@@ -730,18 +497,36 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
             const active = isLeafActive(only, pathname, searchStr);
             return (
               <div key={group.label} className="mb-0.5 px-3">
-                <Link
-                  href={only.href}
-                  target={only.newTab ? "_blank" : undefined}
-                  rel={only.newTab ? "noopener noreferrer" : undefined}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-[14px] font-bold tracking-tight transition-colors ${
-                    active ? "bg-[#1d4ed8] text-white shadow-md shadow-blue-900/30" : "text-slate-300 hover:text-white hover:bg-white/8"
-                  }`}
-                >
-                  <span className={`flex-shrink-0 ${active ? "text-white" : "text-slate-500"}`}>{only.icon}</span>
-                  <span>{group.label}</span>
-                  {only.newTab && <ExternalLinkIcon />}
-                </Link>
+                <div className="group/leaf relative flex items-center">
+                  <Link
+                    href={only.href}
+                    target={only.newTab ? "_blank" : undefined}
+                    rel={only.newTab ? "noopener noreferrer" : undefined}
+                    className={`flex-1 min-w-0 flex items-center gap-2 pl-3 pr-9 py-2.5 rounded-lg text-[14px] font-bold tracking-tight transition-colors ${
+                      active ? "bg-[#1d4ed8] text-white shadow-md shadow-blue-900/30" : "text-slate-300 hover:text-white hover:bg-white/8"
+                    }`}
+                  >
+                    <span className={`flex-shrink-0 ${active ? "text-white" : "text-slate-500"}`}>{only.icon}</span>
+                    <span className="truncate">{group.label}</span>
+                    {only.newTab && <ExternalLinkIcon />}
+                  </Link>
+                  {/* 최상단 단일 메뉴도 즐겨찾기 가능 */}
+                  <button
+                    type="button"
+                    onClick={() => toggleFavorite(only.href)}
+                    title={isFavorite(only.href) ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                    aria-label={isFavorite(only.href) ? "즐겨찾기 해제" : "즐겨찾기 추가"}
+                    className={`absolute right-2 p-1 rounded transition-opacity ${
+                      isFavorite(only.href)
+                        ? "opacity-100 text-amber-400 hover:text-amber-300"
+                        : active
+                          ? "opacity-0 group-hover/leaf:opacity-100 text-white/70 hover:text-amber-300"
+                          : "opacity-0 group-hover/leaf:opacity-100 text-slate-500 hover:text-amber-400"
+                    }`}
+                  >
+                    <StarIcon filled={isFavorite(only.href)} />
+                  </button>
+                </div>
               </div>
             );
           }

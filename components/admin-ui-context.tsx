@@ -18,6 +18,8 @@ export type AdminUIValue = {
   favorites: string[];
   isFavorite: (href: string) => boolean;
   toggleFavorite: (href: string) => void;
+  /** S관리자 여부 */
+  superAdmin: boolean;
 };
 
 export const AdminUIContext = createContext<AdminUIValue | null>(null);

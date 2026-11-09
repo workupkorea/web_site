@@ -16,7 +16,7 @@ type DaumPostcodeResult = { address: string; addressType: string; bname: string;
 const SCRIPT_SRC = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
 let scriptPromise: Promise<void> | null = null;
 
-function loadDaumPostcodeScript(): Promise<void> {
+export function loadDaumPostcodeScript(): Promise<void> {
   if (window.daum?.Postcode) return Promise.resolve();
   if (scriptPromise) return scriptPromise;
   scriptPromise = new Promise((resolve, reject) => {

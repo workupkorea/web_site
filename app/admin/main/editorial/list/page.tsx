@@ -187,7 +187,7 @@ function BlockCard({
         {/* 버튼 */}
         <div className="flex flex-col gap-1 mt-1">
           <Link
-            href="/admin/main/editorial"
+            href="/admin/main/home?tab=editorial"
             className="flex items-center justify-center gap-1 px-3 py-1.5 text-[11px] font-medium text-[#303236] bg-[#f5f7ff] border border-[#303236]/20 rounded-lg hover:bg-[#e8ecf9] transition-colors whitespace-nowrap"
           >
             <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -345,7 +345,7 @@ export default function AdminEditorialListPage() {
           </p>
         </div>
         <Link
-          href="/admin/main/editorial"
+          href="/admin/main/home?tab=editorial"
           className="px-6 py-2.5 bg-[#303236] text-white text-sm font-semibold rounded hover:bg-[#243d6a] transition-colors"
         >
           편집 모드
@@ -368,7 +368,7 @@ export default function AdminEditorialListPage() {
       {blocks.length === 0 ? (
         <div className="text-center py-20 text-gray-400 text-sm border-2 border-dashed border-gray-200 rounded-xl">
           <p className="mb-4">등록된 기획전 블록이 없습니다.</p>
-          <Link href="/admin/main/editorial"
+          <Link href="/admin/main/home?tab=editorial"
             className="inline-block px-6 py-2.5 bg-[#303236] text-white text-sm font-semibold rounded hover:bg-[#243d6a] transition-colors">
             편집 모드에서 추가하기
           </Link>

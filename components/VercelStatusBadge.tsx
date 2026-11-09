@@ -40,7 +40,7 @@ export default function VercelStatusBadge() {
 
   return (
     <Link
-      href="/admin/vercel"
+      href="/admin/system?tab=vercel"
       className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
       title="Vercel 배포 상태"
     >

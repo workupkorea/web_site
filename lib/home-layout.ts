@@ -21,12 +21,12 @@ export type HomeSectionMeta = {
 // 배치 가능한 섹션 레지스트리 — 정의 순서 = 기본 노출 순서.
 // 섹션을 새로 추가하면 여기에 한 줄 추가하면 된다(저장된 설정에도 자동으로 끝에 노출됨).
 export const HOME_SECTIONS: HomeSectionMeta[] = [
-  { key: "hero", label: "메인 비주얼", description: "최상단 히어로 영역", editHref: "/admin/main/visual" },
-  { key: "brandLogos", label: "브랜드 로고", description: "매장검색 아래 브랜드 로고 무한 마퀴", editHref: "/admin/main/brands" },
-  { key: "newArrivals", label: "신상품", description: "‘신상품이 입고되었어요’ 영역", editHref: "/admin/main/new-arrivals" },
+  { key: "hero", label: "메인 비주얼", description: "최상단 히어로 영역", editHref: "/admin/main/home?tab=visual" },
+  { key: "brandLogos", label: "브랜드 로고", description: "매장검색 아래 브랜드 로고 무한 마퀴", editHref: "/admin/main/home?tab=brands" },
+  { key: "newArrivals", label: "신상품", description: "‘신상품이 입고되었어요’ 영역", editHref: "/admin/main/home?tab=new-arrivals" },
   { key: "category", label: "카테고리", description: "카테고리 그리드", editHref: "/admin/main/categories" },
-  { key: "editorial", label: "기획전", description: "기획전(에디토리얼) 블록", editHref: "/admin/main/editorial" },
-  { key: "people", label: "일하는 사람들 이야기", description: "MATE 인터뷰 티저", editHref: "/admin/main/people" },
+  { key: "editorial", label: "기획전", description: "기획전(에디토리얼) 블록", editHref: "/admin/main/home?tab=editorial" },
+  { key: "people", label: "일하는 사람들 이야기", description: "MATE 인터뷰 티저", editHref: "/admin/main/contents?tab=people" },
   { key: "youtube", label: "유튜브 롱폼", description: "@WorkUp_official 채널 최신 롱폼 영상(쇼츠 제외)" },
   { key: "instagram", label: "인스타그램 피드", description: "@workup_official_kr 실시간 피드" },
 ];

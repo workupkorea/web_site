@@ -2260,7 +2260,7 @@ export default function ArrivalTimeline() {
           원인). position:fixed는 조상의 스크롤 컨테이너 여부와 무관하게 항상 뷰포트 기준으로
           고정되므로 이 문제를 확실하게 피해간다. 대신 fixed는 문서 흐름에서 빠지므로, 위 wrapper에
           그 높이만큼 padding-top을 줘서 본문이 가려지지 않게 한다. */}
-      <div ref={topBarRef} className={`fixed top-0 left-0 right-0 z-30 ${PAGE_X_PAD} pt-3 pb-1.5 bg-[#fafaf8]`}>
+      <div ref={topBarRef} className={`fixed top-0 md:top-[var(--wu-header-h,0px)] left-0 right-0 z-30 ${PAGE_X_PAD} pt-3 pb-1.5 bg-[#fafaf8]`}>
         {isPopup && viewMode === "calendar" && (
           <div className="sm:hidden mb-2 rounded-xl border border-[#ffe08a] bg-[#fff3cd] py-2 text-center text-[13px] font-semibold text-[#7a5c00]">
             {getWeekLabel(thisWeekRange.start)}
