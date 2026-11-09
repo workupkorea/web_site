@@ -253,6 +253,18 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
   // 시트 주문율/판매율은 색상(행) 단위 값이라, 상품 단위로는 입고수량 가중평균으로 합친다(행이 1개면 시트 값 그대로).
   const groupRates = new Map<GroupKey, { oSum: number; oW: number; sSum: number; sW: number }>();
 
+  // 같은 상품코드의 다른 색상 행에 매장입고일이 있으면, 날짜가 빈 색상 행이 따로 "일정미정"으로 갈라지지 않게
+  // 그 날짜를 따라간다. 날짜가 있는 행들의 값이 서로 다르면(색상별 일정이 다름) 추정하지 않고 비워 둔다.
+  const siblingDate = new Map<string, string | null>(); // code → 공통 날짜(원문) / 불일치 시 null
+  for (const row of rows.slice(4)) {
+    if (!/^\d+$/.test((row[IDX.no] ?? "").trim())) continue;
+    const code = (row[IDX.code] ?? "").trim();
+    const raw = (row[IDX.arrivalDate] ?? "").trim();
+    if (!code || !raw || raw === "-" || raw === "대기" || /취소|개별/.test(raw)) continue;
+    if (!siblingDate.has(code)) siblingDate.set(code, raw);
+    else if (siblingDate.get(code) !== raw) siblingDate.set(code, null);
+  }
+
   for (const row of rows.slice(4)) {
     const noVal = (row[IDX.no] ?? "").trim();
     if (!/^\d+$/.test(noVal)) continue;
@@ -263,7 +275,9 @@ function parseSheetRows(rows: string[][]): ArrivalProduct[] {
     // 매장 입고일이 "취소" 또는 "개별"인 품목은 수집하지 않고 제외 (물류 입고일은 보지 않음)
     if (/취소|개별/.test(row[IDX.arrivalDate] ?? "")) continue;
 
-    const [arrDate, status] = parseArrivalDate(row[IDX.arrivalDate] ?? "");
+    let dateCell = row[IDX.arrivalDate] ?? "";
+    if (!dateCell.trim() || dateCell.trim() === "-") dateCell = siblingDate.get(baseCode) ?? dateCell;
+    const [arrDate, status] = parseArrivalDate(dateCell);
 
     const key: GroupKey = `${baseCode}::${arrDate}`;
 

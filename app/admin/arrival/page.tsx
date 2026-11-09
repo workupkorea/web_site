@@ -110,7 +110,7 @@ function calcSyncDiff(before: ArrivalProduct[], after: ArrivalProduct[]): SyncDi
     if (b.productName  !== a.productName)  changes.push({ field: "상품명", before: b.productName,      after: a.productName });
     if (b.brand        !== a.brand)        changes.push({ field: "브랜드", before: b.brand,            after: a.brand });
     if (b.category     !== a.category)     changes.push({ field: "카테고리", before: b.category,       after: a.category });
-    if (b.arrivalDate  !== a.arrivalDate)  changes.push({ field: "입고일", before: b.arrivalDate || "—", after: a.arrivalDate || "—" });
+    if (b.arrivalDate  !== a.arrivalDate)  changes.push({ field: "매장입고일", before: b.arrivalDate || "—", after: a.arrivalDate || "—" });
     if (b.status       !== a.status)       changes.push({ field: "상태",   before: b.status,           after: a.status });
     if (b.price        !== a.price)        changes.push({ field: "판매가", before: `₩${b.price.toLocaleString()}`, after: `₩${a.price.toLocaleString()}` });
     if ((b.quantity??0) !== (a.quantity??0)) changes.push({ field: "수량", before: String(b.quantity??0), after: String(a.quantity??0) });
@@ -149,6 +149,8 @@ function EditModal({
     () => (product.image || "").split(",").map(s => s.trim()).filter(Boolean)
   );
   const [reason,    setReason]    = useState("");
+  // 입고일·상태는 구글시트(매장입고일) 값을 그대로 따른다. 강제 수정이 필요할 때만 잠금 해제.
+  const [forceEdit, setForceEdit] = useState(false);
   const [saving,    setSaving]    = useState(false);
   const [saved,     setSaved]     = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -210,10 +212,12 @@ function EditModal({
       const body: Record<string, unknown> = {
         productCode: product.productCode,
         originalArrivalDate: product.arrivalDate, // 복합키 생성용 원래 입고일
-        arrivalDate: date,
-        status,
         image: imageStr || null,
       };
+      // 날짜·상태는 실제로 바꾼 경우에만 보낸다. 이미지만 등록해도 현재 값(빈 날짜 등)이
+      // 오버라이드로 고정되어, 나중에 시트에 날짜가 들어와도 덮어쓰는 문제를 막는다.
+      if (forceEdit && date !== (product.arrivalDate || "")) body.arrivalDate = date;
+      if (forceEdit && status !== product.status) body.status = status;
       if (reason.trim()) body.reason = reason.trim();
       const res = await fetch("/api/admin/arrival", {
         method: "PATCH",
@@ -265,13 +269,31 @@ function EditModal({
 
         <div className="space-y-4">
           <div>
-            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1.5">입고일</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] tracking-widest text-gray-500 uppercase">매장입고일 · 입고상태</label>
+              <button
+                type="button"
+                onClick={() => {
+                  if (forceEdit) { setDate(product.arrivalDate || ""); setStatus(product.status); setReason(""); }
+                  setForceEdit(v => !v);
+                }}
+                className={`text-[11px] rounded-full px-2.5 py-0.5 border transition-colors ${
+                  forceEdit ? "border-amber-400 text-amber-600 bg-amber-50" : "border-gray-200 text-gray-500 hover:border-gray-400"
+                }`}
+              >
+                {forceEdit ? "강제 수정 취소" : "강제 수정"}
+              </button>
+            </div>
+            {!forceEdit && (
+              <p className="text-[11px] text-gray-400 mb-2">구글시트 매장입고일 기준으로 자동 반영됩니다. 시트와 다르게 지정해야 할 때만 &lsquo;강제 수정&rsquo;을 누르세요.</p>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="date"
                 value={date}
+                disabled={!forceEdit}
                 onChange={e => setDate(e.target.value)}
-                className="flex-1 border border-gray-200 px-3 py-2 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a]"
+                className="flex-1 border border-gray-200 px-3 py-2 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a] disabled:bg-gray-50 disabled:text-gray-500"
               />
               {dateChanged && (
                 <div className="text-[11px] text-gray-400 shrink-0">
@@ -294,13 +316,13 @@ function EditModal({
           </div>
 
           <div>
-            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1.5">입고상태</label>
             <div className="flex gap-2 flex-wrap">
               {STATUS_OPTIONS.map(s => (
                 <button
                   key={s}
                   onClick={() => setStatus(s)}
-                  className={`px-3 py-1.5 text-[12px] font-bold rounded-full border transition-all ${
+                  disabled={!forceEdit}
+                  className={`px-3 py-1.5 text-[12px] font-bold rounded-full border transition-all disabled:cursor-not-allowed ${
                     status === s
                       ? STATUS_CLS[s] + " border-transparent"
                       : "border-gray-200 text-gray-400 hover:border-gray-400"
@@ -473,7 +495,7 @@ function BulkPanel({
       </div>
       <div className="flex gap-3 items-end mb-3">
         <div className="flex-1">
-          <p className="text-[11px] text-gray-400 mb-1">입고일 변경</p>
+          <p className="text-[11px] text-gray-400 mb-1">매장입고일 변경</p>
           <input type="date" value={date} onChange={e => setDate(e.target.value)}
             className="w-full border border-gray-200 px-3 py-2 text-[14px] rounded-lg focus:outline-none focus:border-[#1a1a1a]" />
         </div>
@@ -574,7 +596,7 @@ function AddProductModal({
           {field("카테고리", "category", "text", "상의")}
           {field("컬러", "color", "text", "블랙")}
           {field("가격", "price", "number", "50000")}
-          {field("입고일", "arrivalDate", "date", "")}
+          {field("매장입고일", "arrivalDate", "date", "")}
         </div>
 
         <div className="mt-3">
@@ -1011,7 +1033,7 @@ function UploadPanel({
                               <th className="px-3 py-2 text-left font-bold text-gray-400">코드</th>
                               <th className="px-3 py-2 text-left font-bold text-gray-400">상품명</th>
                               <th className="px-3 py-2 text-left font-bold text-gray-400">브랜드</th>
-                              <th className="px-3 py-2 text-left font-bold text-gray-400">입고일</th>
+                              <th className="px-3 py-2 text-left font-bold text-gray-400">매장입고일</th>
                               <th className="px-3 py-2 text-left font-bold text-gray-400">상태</th>
                               <th className="px-3 py-2 text-left font-bold text-gray-400">이미지</th>
                             </tr>
@@ -1195,6 +1217,15 @@ export default function AdminArrivalPage() {
     else if (filterStatus !== "all" && p.status !== filterStatus) return false;
     if (filterDate && p.arrivalDate !== filterDate) return false;
     return true;
+  }).sort((a, b) => {
+    // 상태 그룹 순서: 예정(입고지연 포함) → 일정미정(대기 포함) → 완료. 예정은 가까운 날짜순, 완료는 최근순.
+    const rank = (s: ArrivalStatus) =>
+      s === "입고예정" || s === "입고지연" ? 0 : s === "입고완료" ? 2 : 1;
+    const ra = rank(a.status), rb = rank(b.status);
+    if (ra !== rb) return ra - rb;
+    const da = a.arrivalDate || "", db = b.arrivalDate || "";
+    if (da !== db) return ra === 2 ? db.localeCompare(da) : da.localeCompare(db);
+    return a.brand.localeCompare(b.brand) || a.productName.localeCompare(b.productName);
   });
 
   const allSelected = filtered.length > 0 && filtered.every(p => selected.has(p.productCode));
@@ -1335,7 +1366,7 @@ export default function AdminArrivalPage() {
     key: string; label: string; essential?: boolean;
     tdCls?: string; render: (p: ArrivalProduct) => ReactNode;
   }[] = [
-    { key: "arrivalDate", label: "입고일", essential: true, tdCls: "text-[13px] font-mono text-gray-600 whitespace-nowrap", render: p => fmtArrivalShort(p.arrivalDate) },
+    { key: "arrivalDate", label: "매장입고일", essential: true, tdCls: "text-[13px] font-mono text-gray-600 whitespace-nowrap", render: p => fmtArrivalShort(p.arrivalDate) },
     { key: "productCode", label: "상품코드", tdCls: "text-[12px] font-mono text-gray-500 whitespace-nowrap",
       render: p => p.productCode },
     { key: "name", label: "상품명", essential: true, tdCls: "min-w-[220px]", render: p => (
@@ -1731,7 +1762,7 @@ export default function AdminArrivalPage() {
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품코드</th>
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">브랜드</th>
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상품명</th>
-                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">입고일</th>
+                              <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">매장입고일</th>
                               <th className="text-left px-3 py-1.5 font-semibold border-b border-emerald-100">상태</th>
                             </tr></thead>
                             <tbody className="divide-y divide-emerald-50">

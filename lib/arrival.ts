@@ -137,8 +137,13 @@ export async function getArrivalProducts(): Promise<ArrivalProduct[]> {
   // 날짜별 override의 image는 적용하지 않고, 기본 키에 이미지가 없을 때만 폴백으로 쓴다.
   function applyOverride(result: ArrivalProduct, ov: ArrivalOverride | undefined, withImage: boolean) {
     if (!ov) return;
-    if (ov.arrivalDate !== undefined) result.arrivalDate = ov.arrivalDate;
-    if (ov.status !== undefined) result.status = ov.status;
+    // 빈 날짜("") 오버라이드는 시트에 날짜가 없던 시기의 잔재다. 시트에 날짜가 생긴 뒤에도
+    // 시트 값을 덮어써 "일정미정"으로 남는 문제가 있어, 시트에 날짜가 있으면 날짜·상태 오버라이드를 무시한다.
+    const staleEmptyDate = ov.arrivalDate === "" && !!result.arrivalDate;
+    if (!staleEmptyDate) {
+      if (ov.arrivalDate !== undefined) result.arrivalDate = ov.arrivalDate;
+      if (ov.status !== undefined) result.status = ov.status;
+    }
     if (withImage && ov.image !== undefined) result.image = ov.image;
     if (ov.detailUrl !== undefined) result.detailUrl = ov.detailUrl;
     if (ov.changeHistory !== undefined) result.changeHistory = ov.changeHistory;

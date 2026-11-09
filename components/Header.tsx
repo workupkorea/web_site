@@ -186,6 +186,30 @@ export default function Header({
             </Link>
           )}
 
+          {/* 관리자 메뉴 — 관리자 등급으로 로그인한 경우에만 노출 (출고패스·입고스케쥴 바로가기) */}
+          {(memberSession?.grade === "관리자" || memberSession?.grade === "S관리자") && (
+            <div className="group/admin relative focus-within:z-10" onMouseEnter={hasBrandsMega ? closeBrandsNow : undefined}>
+              <button
+                type="button"
+                aria-haspopup="true"
+                className={`${navLinkBase} ${navLinkColor}`}
+                style={{ fontWeight: 700 }}
+              >
+                <span style={{ gridArea: "1 / 1" }} className="text-[14px] leading-none tracking-tighter">관리자 메뉴</span>
+              </button>
+              <div className="absolute left-0 top-full hidden group-hover/admin:block group-focus-within/admin:block pt-1">
+                <div className="min-w-[140px] rounded-lg border border-gray-200 bg-white py-1.5 shadow-lg">
+                  <Link href="/notices" className="block px-4 py-2 text-[13px] font-semibold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
+                    출고패스
+                  </Link>
+                  <Link href="/arrival" className="block px-4 py-2 text-[13px] font-semibold text-[#303236] hover:bg-gray-50 hover:text-[#E5541B] whitespace-nowrap">
+                    입고스케쥴
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 티셔츠 꾸미기 스튜디오 — 관리자에서 활성화 시 노출 */}
           {studioEnabled && (
             <Link
