@@ -92,11 +92,11 @@ export default function WithdrawnTab() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">회원 탈퇴 관리</h1>
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <div>
+          <h1 className="text-xl font-bold text-gray-900">회원 탈퇴 관리</h1>
         </div>
-        <p className="text-base text-gray-400 mt-1">
+        <p className="text-sm text-gray-400">
           탈퇴 회원 — <span className="font-bold text-red-500">{members.length}</span>명
         </p>
       </div>

@@ -104,9 +104,9 @@ export default function LogsTab() {
   return (
     <div className="space-y-5 max-w-[1400px]">
       {/* 헤더 */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">활동 로그</h1>
-        <p className="text-base text-gray-400 mt-1">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h1 className="text-xl font-bold text-gray-900">활동 로그</h1>
+        <p className="text-sm text-gray-400">
           관리자가 수정한 내역을 기록합니다. 총 <span className="font-bold text-gray-700">{total.toLocaleString()}</span>건
         </p>
       </div>

@@ -127,6 +127,29 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
     }
   };
 
+  /** 잘못 입력한 당첨자의 제출 내용만 초기화 (같은 링크로 재입력 가능) */
+  const resetEntry = async (e: { token: string; user: string }) => {
+    if (!confirm(`@${e.user}님이 제출한 배송 정보를 초기화할까요?\n입력 내용이 삭제되고, 기존 링크로 다시 입력할 수 있게 됩니다.`)) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const r = await fetch(`/api/admin/giveaway/claims/${record.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: e.token }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "초기화하지 못했습니다.");
+      setDoc(j.doc as ClaimDoc);
+      setOpenUser(null);
+      setMsg(`@${e.user} 제출 내용을 초기화했습니다. DM으로 링크를 다시 안내해 주세요.`);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "초기화하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const copy = async (key: string, text: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -314,6 +337,11 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
                         <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
                           {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "DM 문구 복사"}
                         </button>
+                        {e.submitted && (
+                          <button className="text-red-600 hover:underline disabled:opacity-50" disabled={busy} onClick={() => resetEntry(e)} title="제출 내용을 지우고 같은 링크로 다시 입력받습니다.">
+                            초기화
+                          </button>
+                        )}
                         {e.submitted && (
                           <button className="text-[#303236] font-semibold hover:underline" onClick={() => setOpenUser(openUser === e.user ? null : e.user)}>
                             {openUser === e.user ? "닫기" : "내용 보기"}

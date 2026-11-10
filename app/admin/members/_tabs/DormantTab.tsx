@@ -129,11 +129,11 @@ export default function DormantTab() {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">휴면회원 관리</h1>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">휴면회원 관리</h1>
           </div>
-          <p className="text-base text-gray-400 mt-1">
+          <p className="text-sm text-gray-400">
             status가 휴면이거나 1년 이상 미접속인 회원 —&nbsp;
             <span className="font-bold text-amber-600">{dormant.length}</span>명
           </p>

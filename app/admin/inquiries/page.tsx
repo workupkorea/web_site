@@ -404,8 +404,25 @@ export default function AdminInquiriesPage() {
       {/* ── 접수 목록 ── */}
       {tab === "list" && (
         <div>
+          {/* 필터 — 전체를 제외한 나머지 버튼에 위 통계 카드에서 고른 기간 기준 건수를 표기한다(기간을 바꾸면 여기 숫자도 바뀐다). */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {FILTERS.map(([f, label]) => (
+              <button key={f} onClick={() => setFilter(f)}
+                className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${filter === f ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                {label}{f !== "all" && <span className={filter === f ? "text-white/70" : "text-slate-400"}> ({(statsTypeCounts[f] ?? 0).toLocaleString()})</span>}
+              </button>
+            ))}
+            <button onClick={loadInquiries}
+            className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors">
+            <svg className={`w-3.5 h-3.5 ${loadingList ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            새로고침
+          </button>
+          </div>
+
           {/* 문의 통계 — 기간 프리셋(왼쪽) + 검색창(오른쪽) + 미답변 건수. 유형별 집계는 아래 필터 버튼에 표기(중복 제거). 영역은 작게 유지. */}
-          <div className="bg-white rounded-lg border border-slate-200 px-3.5 py-2.5 mb-3">
+          <div className="bg-white rounded-t-lg border border-b-0 border-slate-200 px-3.5 py-2.5">
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {([["1m", "1개월"], ["3m", "3개월"], ["all", "전체"], ["custom", "직접선택"]] as const).map(([p, label]) => (
@@ -438,26 +455,9 @@ export default function AdminInquiriesPage() {
             </div>
           </div>
 
-          {/* 필터 — 전체를 제외한 나머지 버튼에 위 통계 카드에서 고른 기간 기준 건수를 표기한다(기간을 바꾸면 여기 숫자도 바뀐다). */}
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            {FILTERS.map(([f, label]) => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${filter === f ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-                {label}{f !== "all" && <span className={filter === f ? "text-white/70" : "text-slate-400"}> ({(statsTypeCounts[f] ?? 0).toLocaleString()})</span>}
-              </button>
-            ))}
-            <button onClick={loadInquiries}
-            className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors">
-            <svg className={`w-3.5 h-3.5 ${loadingList ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            새로고침
-          </button>
-          </div>
-
           {/* 선택 이동 바 */}
           {selected.size > 0 && (
-            <div className="flex items-center gap-3 mb-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg flex-wrap">
+            <div className="flex items-center gap-3 my-3 px-4 py-2.5 bg-blue-50 border border-blue-200 rounded-lg flex-wrap">
               <span className="text-sm font-semibold text-blue-800">{selected.size.toLocaleString()}개 선택</span>
               <span className="text-xs text-slate-500">유형 이동</span>
               <select value={moveTarget} onChange={(e) => setMoveTarget(e.target.value)}
@@ -483,7 +483,7 @@ export default function AdminInquiriesPage() {
               {kw || filter !== "all" ? "조건에 맞는 문의가 없습니다." : "접수된 문의가 없습니다."}
             </div>
           ) : (
-            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="bg-white rounded-b-xl border border-slate-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <div className="min-w-[720px]">
                   {/* 헤더 */}

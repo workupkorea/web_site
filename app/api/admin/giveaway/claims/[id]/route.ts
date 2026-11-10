@@ -72,6 +72,23 @@ export async function PUT(req: Request, { params }: Ctx) {
   }
 }
 
+/** 특정 당첨자의 제출 내용만 초기화 — 같은 링크로 다시 입력할 수 있게 된다. */
+export async function PATCH(req: Request, { params }: Ctx) {
+  if (!(await isSuperAdmin())) return bad("Unauthorized", 401);
+  const { id } = await params;
+  if (!validEventId(id)) return bad("잘못된 ID");
+  const body = (await req.json().catch(() => null)) as { token?: string } | null;
+  try {
+    const doc = await getClaimDoc(id);
+    // 이 이벤트의 당첨자 토큰만 허용 (임의 토큰 삭제 방지)
+    if (!body?.token || !doc?.entries.some((e) => e.token === body.token)) return bad("대상을 찾을 수 없습니다.", 404);
+    await deleteSubmissions([body.token]);
+    return NextResponse.json({ doc: await getClaimDocWithSubmissions(id) });
+  } catch (e) {
+    return bad((e as Error).message, 500);
+  }
+}
+
 /** 개인정보 파기: 문서 전체(링크 + 제출 내용) 삭제 */
 export async function DELETE(_req: Request, { params }: Ctx) {
   if (!(await isSuperAdmin())) return bad("Unauthorized", 401);
