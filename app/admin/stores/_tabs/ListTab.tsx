@@ -298,15 +298,15 @@ export default function ListTab() {
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-3xl font-bold text-gray-900">스토어 관리</h1>
-          <p className="text-base text-gray-400">전국 매장 정보를 관리합니다.</p>
+          <h1 className="text-xl font-bold text-gray-900">스토어 관리</h1>
+          <p className="text-sm text-gray-400">전국 매장 정보를 관리합니다.</p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/admin/stores/import"
-            className="flex items-center gap-2 px-4 py-2.5 border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-400 transition-colors rounded"
+            className="flex items-center gap-2 px-4 py-1.5 border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-400 transition-colors rounded"
           >
             <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -316,7 +316,7 @@ export default function ListTab() {
           <button
             onClick={downloadExcel}
             disabled={stores.length === 0}
-            className="flex items-center gap-2 px-4 py-2.5 border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-400 transition-colors rounded disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-1.5 border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-400 transition-colors rounded disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
@@ -325,7 +325,7 @@ export default function ListTab() {
           </button>
           <Link
             href="/admin/stores/new"
-            className="flex items-center gap-2 px-5 py-2.5 bg-[#303236] text-white text-sm font-semibold hover:bg-[#243a63] transition-colors rounded"
+            className="flex items-center gap-2 px-5 py-1.5 bg-[#303236] text-white text-sm font-semibold hover:bg-[#243a63] transition-colors rounded"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -337,7 +337,7 @@ export default function ListTab() {
 
 
       {/* 필터 */}
-      <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 mb-6 flex flex-wrap gap-4 items-center">
+      <div className="bg-white border border-gray-200 rounded-t-xl border-b-0 px-5 py-3 mb-0 flex flex-wrap gap-4 items-center">
         <input
           type="text"
           placeholder="매장명 또는 주소 검색"
@@ -377,7 +377,7 @@ export default function ListTab() {
 
       {/* 다중 선택 일괄 처리 */}
       {selected.size > 0 && (
-        <div className="bg-[#303236] rounded-xl px-5 py-3 mb-4 flex items-center gap-4">
+        <div className="bg-[#303236] rounded-xl px-5 py-3 mt-3 mb-3 flex items-center gap-4">
           <span className="text-sm font-semibold text-white">{selected.size}개 선택됨</span>
           <div className="flex items-center gap-2 ml-auto">
             <button
@@ -420,7 +420,7 @@ export default function ListTab() {
       )}
 
       {/* 테이블 */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead className="bg-gray-50 border-b border-gray-200">

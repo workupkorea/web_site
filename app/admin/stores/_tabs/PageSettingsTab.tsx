@@ -47,16 +47,10 @@ export default function PageSettingsTab() {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
-        <Link href="/admin/stores" className="hover:text-gray-900">스토어 관리</Link>
-        <span>/</span>
-        <span className="text-gray-900 font-semibold">상단 편집</span>
-      </div>
-
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">매장 찾기 상단 편집</h1>
-          <p className="mt-1 text-sm text-gray-500">고객용 매장 찾기(/store) 페이지 맨 위의 제목·설명·안내 문구를 수정합니다.</p>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h1 className="text-xl font-bold text-gray-900">매장 찾기 상단 편집</h1>
+          <p className="text-sm text-gray-400">고객용 매장 찾기(/store) 페이지 맨 위의 제목·설명·안내 문구를 수정합니다.</p>
         </div>
         <div className="flex items-center gap-3">
           {toast && <span className="text-sm font-medium text-green-600">{toast}</span>}

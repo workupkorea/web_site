@@ -1436,12 +1436,12 @@ export default function ArrivalTab() {
   const toggleableColumns = columns.filter(c => !c.essential);
 
   return (
-    <div className="space-y-5 max-w-[1400px]">
+    <div className="space-y-3 max-w-[1400px]">
 
       {/* 헤더 (스크롤 시 상단 고정) */}
-      <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-3 bg-[#f1f5f9] border-b border-slate-200 flex items-start justify-between gap-4">
+      <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-2 bg-[#f1f5f9] border-b border-slate-200 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-[#1a1a1a]">입고 스케쥴</h1>
+          <h1 className="text-xl font-black text-[#1a1a1a]">입고 스케쥴</h1>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -1525,19 +1525,19 @@ export default function ArrivalTab() {
 
       {/* 통계 — 상단 */}
       {!loading && (
-        <div className="grid grid-cols-5 gap-3">
+        <div className="grid grid-cols-5 gap-2">
           {stats.map(s => {
             const active = filterStatus === s.filter;
             return (
               <button
                 key={s.label}
                 onClick={() => setFilterStatus(active ? "all" : s.filter)}
-                className={`bg-white border rounded-xl p-4 text-center w-full transition-all ${
+                className={`bg-white border rounded-lg px-3 py-1.5 w-full flex items-baseline justify-center gap-2 transition-all ${
                   active ? "border-[#1a1a1a] ring-1 ring-[#1a1a1a]" : "border-gray-200 hover:border-gray-400"
                 }`}
               >
-                <p className={`text-2xl font-black ${s.cls}`}>{s.value}</p>
-                <p className="text-[11px] tracking-widest text-gray-400 uppercase mt-0.5">{s.label}</p>
+                <p className={`text-lg font-black leading-none ${s.cls}`}>{s.value}</p>
+                <p className="text-[12px] text-gray-400">{s.label}</p>
               </button>
             );
           })}
@@ -1545,7 +1545,7 @@ export default function ArrivalTab() {
       )}
 
       {/* 필터 */}
-      <div className="bg-white border border-gray-200 rounded-2xl p-4 flex gap-3 flex-wrap items-center">
+      <div className="bg-white border border-gray-200 rounded-t-2xl border-b-0 px-4 py-3 !mb-0 flex gap-3 flex-wrap items-center">
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
@@ -1620,7 +1620,7 @@ export default function ArrivalTab() {
       </div>
 
       {/* 테이블 */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white border border-gray-200 rounded-b-2xl shadow-sm !mt-0 overflow-hidden">
         {loading ? (
           <div className="flex items-center gap-3 py-20 px-6 text-[14px] text-gray-400">
             <span className="w-5 h-5 border-2 border-[#1a1a1a] border-t-transparent rounded-full animate-spin" />

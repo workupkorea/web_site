@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-[#f1f5f9] flex flex-col">
       {/* 상단 헤더 */}
-      <header className="bg-[#0f172a] h-16 flex items-center justify-between px-8 flex-shrink-0 z-20 border-b border-white/5">
+      <header className="bg-[#0f172a] h-12 flex items-center justify-between px-6 flex-shrink-0 z-20 border-b border-white/5">
         <div className="flex items-center gap-5">
           <Link href="/admin" className="flex items-center gap-3 group" title="대시보드로 이동">
             <div className="w-9 h-9 bg-[#1d4ed8] rounded-lg flex items-center justify-center">

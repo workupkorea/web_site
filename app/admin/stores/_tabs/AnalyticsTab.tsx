@@ -190,8 +190,24 @@ function VisitAnalyticsTab() {
 
   return (
     <>
+      {/* 요약 카드 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        {summary.map((s) => (
+          <div key={s.label} className="bg-white border border-gray-200 rounded-xl px-5 py-4">
+            <p className="text-xs text-gray-500 mb-1">{s.label}</p>
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value.toLocaleString()}</p>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <ChangeBadge curr={s.value} prev={s.prev} />
+              {s.prev !== undefined && (
+                <span className="text-[11px] text-gray-300">이전 {s.prev.toLocaleString()}</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* 기간 선택 + 엑셀 다운로드 */}
-      <div className="bg-white border border-gray-200 rounded-xl px-5 py-4 mb-6 flex flex-wrap items-center gap-4">
+      <div className="bg-white border border-gray-200 rounded-t-xl border-b-0 px-5 py-3 flex flex-wrap items-center gap-4">
         <div className="flex gap-1 border border-gray-200 rounded-lg overflow-hidden">
           {VISIT_PRESETS.map((p) => (
             <button key={p.days} onClick={() => setRange({ type: "preset", days: p.days })}
@@ -224,24 +240,8 @@ function VisitAnalyticsTab() {
         </div>
       </div>
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
-        {summary.map((s) => (
-          <div key={s.label} className="bg-white border border-gray-200 rounded-xl px-5 py-4">
-            <p className="text-xs text-gray-500 mb-1">{s.label}</p>
-            <p className={`text-2xl font-bold ${s.color}`}>{s.value.toLocaleString()}</p>
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <ChangeBadge curr={s.value} prev={s.prev} />
-              {s.prev !== undefined && (
-                <span className="text-[11px] text-gray-300">이전 {s.prev.toLocaleString()}</span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* 지점별 순위 */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+      <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-900">지점별 순위 <span className="text-sm font-normal text-gray-400 ml-1">전환 많은 순</span></h2>
           <p className="text-sm text-gray-400">{stores.length}개 지점</p>
@@ -642,14 +642,9 @@ export default function AnalyticsTab() {
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center gap-2 mb-6 text-sm text-gray-500">
-        <Link href="/admin/stores" className="hover:text-gray-900">스토어 관리</Link>
-        <span>/</span>
-        <span className="text-gray-900 font-semibold">분석</span>
-      </div>
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">지점 분석</h1>
-        <p className="text-base text-gray-400 mt-1">방문 전환 현황을 확인합니다.</p>
+      <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h1 className="text-xl font-bold text-gray-900">지점 분석</h1>
+        <p className="text-sm text-gray-400">방문 전환 현황을 확인합니다.</p>
       </div>
 
       <VisitAnalyticsTab />

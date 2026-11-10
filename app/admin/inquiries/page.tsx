@@ -81,9 +81,9 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
 
   return (
     <div className={`border-b border-slate-100 last:border-0 ${selected ? "bg-blue-50/40" : ""}`}>
-      <div className="grid grid-cols-[32px_68px_128px_112px_1fr_84px] items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer" onClick={() => setOpen((o) => !o)}>
+      <div className="grid grid-cols-[32px_84px_128px_112px_1fr_84px] items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer" onClick={() => setOpen((o) => !o)}>
         <input type="checkbox" checked={selected} onClick={(e) => e.stopPropagation()} onChange={() => onToggleSelect(q.id)} className="w-4 h-4 accent-blue-600" />
-        <span className={`text-[11px] px-2 py-0.5 rounded text-center ${TYPE_BADGE[q.type] ?? "bg-gray-500 text-white"}`}>{TYPE_LABEL[q.type] ?? q.type}</span>
+        <span className={`text-[11px] px-2 py-0.5 rounded text-center whitespace-nowrap ${TYPE_BADGE[q.type] ?? "bg-gray-500 text-white"}`}>{TYPE_LABEL[q.type] ?? q.type}</span>
         <span className="text-xs text-slate-400 whitespace-nowrap">{fmtDate(q.created_at)}</span>
         <span className="text-sm text-slate-700 truncate">{name}</span>
         <span className="text-sm text-slate-800 truncate flex items-center gap-1.5">
@@ -487,7 +487,7 @@ export default function AdminInquiriesPage() {
               <div className="overflow-x-auto">
                 <div className="min-w-[720px]">
                   {/* 헤더 */}
-                  <div className="grid grid-cols-[32px_68px_128px_112px_1fr_84px] items-center gap-3 px-4 py-2.5 text-[11px] font-medium text-slate-400 border-b border-slate-100 bg-slate-50/50">
+                  <div className="grid grid-cols-[32px_84px_128px_112px_1fr_84px] items-center gap-3 px-4 py-2.5 text-[11px] font-medium text-slate-400 border-b border-slate-100 bg-slate-50/50">
                     <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} title="전체 선택" className="w-4 h-4 accent-blue-600" />
                     <span className="text-center">유형</span><span>접수일</span><span>이름</span><span>제목</span><span className="text-right">상태</span>
                   </div>

@@ -168,16 +168,16 @@ export default function PixelSettingsPage() {
   const enabledCount = Object.entries(localEnabled).filter(([, v]) => v).length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">픽셀 / 광고 설정</h1>
-          <p className="text-base text-gray-400 mt-1">
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h1 className="text-xl font-bold text-gray-900">픽셀 / 광고 설정</h1>
+          <p className="text-sm text-gray-400">
             인스타그램, 네이버, 카카오 광고 픽셀을 설정하면 사이트 전체에 자동 적용됩니다.
           </p>
         </div>
-        <div className={`px-5 py-2.5 rounded-xl text-base font-bold ${enabledCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
+        <div className={`px-3 py-1 rounded-lg text-sm font-bold ${enabledCount > 0 ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-500"}`}>
           {loading ? "-" : enabledCount}개 활성화
         </div>
       </div>
@@ -192,24 +192,24 @@ export default function PixelSettingsPage() {
       )}
 
       {/* 회원 요약 카드 */}
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-3 gap-3">
         {[
           { label: "전체 회원", value: memberStats.total, color: "text-[#303236]" },
           { label: "이번달 신규", value: memberStats.thisMonth, color: "text-[#E5541B]" },
           { label: "활성 회원", value: memberStats.active, color: "text-emerald-600" },
         ].map((s) => (
-          <div key={s.label} className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-            <p className="text-[15px] text-gray-500 font-medium mb-2">{s.label}</p>
-            <p className={`text-4xl font-black ${s.color}`}>{loadingM ? "-" : s.value.toLocaleString()}</p>
-            <p className="text-[13px] text-gray-300 mt-1">명</p>
+          <div key={s.label} className="bg-white border border-gray-200 rounded-xl px-4 py-2 flex items-baseline justify-center gap-3">
+            <p className="text-[13px] text-gray-500 font-medium">{s.label}</p>
+            <p className={`text-2xl font-black leading-none ${s.color}`}>{loadingM ? "-" : s.value.toLocaleString()}</p>
+            <p className="text-[12px] text-gray-300 -ml-2">명</p>
           </div>
         ))}
       </div>
 
       {/* 월별 신규 회원 차트 */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-gray-800">월별 신규 회원 추이</h2>
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-base font-bold text-gray-800">월별 신규 회원 추이</h2>
           <Link href="/admin/members" className="text-[14px] text-[#303236] hover:underline">회원 관리 →</Link>
         </div>
         {loadingM ? (
@@ -219,7 +219,7 @@ export default function PixelSettingsPage() {
             가입 회원이 없어 데이터가 없습니다.
           </div>
         ) : (
-          <div className="flex items-end gap-4 h-44">
+          <div className="flex items-end gap-4 h-32">
             {memberChartData.byMonth.map(({ month, count }) => (
               <div key={month} className="flex-1 flex flex-col items-center gap-2">
                 <span className="text-[13px] font-bold text-[#303236]">{count > 0 ? count : ""}</span>
@@ -237,7 +237,7 @@ export default function PixelSettingsPage() {
       </div>
 
       {/* 픽셀 카드들 */}
-      <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
         {Object.entries(PLATFORMS).map(([key, cfg]) => {
           const pixelId   = localIds[key]     ?? "";
           const isEnabled = localEnabled[key] ?? false;

@@ -327,7 +327,7 @@ function LeafRow({
         href={leaf.href}
         target={leaf.newTab ? "_blank" : undefined}
         rel={leaf.newTab ? "noopener noreferrer" : undefined}
-        className={`flex-1 min-w-0 flex items-center gap-3 pl-4 pr-9 py-2.5 rounded-lg text-[14px] font-medium transition-all ${
+        className={`flex-1 min-w-0 flex items-center gap-3 pl-4 pr-9 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
           active
             ? "bg-[#1d4ed8] text-white shadow-md shadow-blue-900/30"
             : "text-slate-400 hover:text-white hover:bg-white/8"
@@ -444,13 +444,13 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
     .filter((l): l is NavLeaf => Boolean(l));
 
   return (
-    <aside className="w-72 flex-shrink-0 bg-[#0f172a] min-h-full flex flex-col">
+    <aside className="w-52 flex-shrink-0 bg-[#0f172a] min-h-full flex flex-col">
       <nav className="flex-1 py-4 overflow-y-auto">
         {/* 대시보드 (홈) */}
         <div className="px-3 mb-2">
           <Link
             href="/admin"
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-[14px] font-semibold transition-all ${
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-[13.5px] font-semibold transition-all ${
               pathname === "/admin"
                 ? "bg-[#1d4ed8] text-white shadow-md shadow-blue-900/30"
                 : "text-slate-300 hover:text-white hover:bg-white/8"
@@ -466,7 +466,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
         {/* 즐겨찾기 */}
         {favoriteLeaves.length > 0 && (
           <div className="mb-3 px-3">
-            <p className="px-3 pt-2 pb-2 text-[11px] font-bold text-amber-400/80 uppercase tracking-[0.18em] flex items-center gap-1.5">
+            <p className="px-3 pt-2 pb-2 text-[10px] font-bold text-amber-400/80 uppercase tracking-[0.18em] flex items-center gap-1.5">
               <StarIcon filled />
               즐겨찾기
             </p>
@@ -502,7 +502,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
                     href={only.href}
                     target={only.newTab ? "_blank" : undefined}
                     rel={only.newTab ? "noopener noreferrer" : undefined}
-                    className={`flex-1 min-w-0 flex items-center gap-2 pl-3 pr-9 py-2.5 rounded-lg text-[14px] font-bold tracking-tight transition-colors ${
+                    className={`flex-1 min-w-0 flex items-center gap-2 pl-3 pr-9 py-2.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-colors ${
                       active ? "bg-[#1d4ed8] text-white shadow-md shadow-blue-900/30" : "text-slate-300 hover:text-white hover:bg-white/8"
                     }`}
                   >
@@ -536,7 +536,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
               <button
                 type="button"
                 onClick={() => toggleGroup(group.label)}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-[14px] font-bold tracking-tight transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-[13.5px] font-bold tracking-tight transition-colors ${
                   groupActive ? "text-blue-300" : "text-slate-300 hover:text-white"
                 }`}
               >
@@ -565,7 +565,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
                           <button
                             type="button"
                             onClick={() => toggleDropdown(item.label)}
-                            className={`w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-lg text-[14px] font-medium transition-all ${
+                            className={`w-full flex items-center gap-3 pl-4 pr-3 py-2.5 rounded-lg text-[13.5px] font-medium transition-all ${
                               hasActive ? "text-white bg-white/8" : "text-slate-400 hover:text-white hover:bg-white/8"
                             }`}
                           >

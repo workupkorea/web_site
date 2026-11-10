@@ -1013,9 +1013,9 @@ export default function GiveawayTab() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">인스타그램 댓글 추첨 · 분석</h1>
-        <p className="text-base text-gray-400 mt-1">
+      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        <h1 className="text-xl font-bold text-gray-900">인스타그램 댓글 추첨 · 분석</h1>
+        <p className="text-sm text-gray-400">
           게시물 주소로 댓글을 불러와 참여 현황을 분석하고, 조건에 맞는 참여자를 공정하게 추첨합니다.
         </p>
       </div>

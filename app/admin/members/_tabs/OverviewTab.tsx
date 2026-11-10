@@ -60,15 +60,15 @@ export default function OverviewTab() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">회원 현황</h1>
-          <p className="text-base text-gray-400 mt-1">전체 회원 현황 및 최근 가입 회원</p>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <h1 className="text-xl font-bold text-gray-900">회원 현황</h1>
+          <p className="text-sm text-gray-400">전체 회원 현황 및 최근 가입 회원</p>
         </div>
         <Link href="/admin/members?tab=list"
-          className="px-6 py-2.5 text-base bg-[#303236] text-white hover:bg-[#243d5e] rounded font-bold">
+          className="px-4 py-1.5 text-sm bg-[#303236] text-white hover:bg-[#243d5e] rounded font-bold">
           전체 회원 조회 →
         </Link>
       </div>
@@ -81,7 +81,7 @@ export default function OverviewTab() {
       )}
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-5 gap-3">
         {[
           { label: "이번달 신규", value: stats.newThisMonth, color: "text-[#E5541B]",    href: "/admin/members?tab=list" },
           { label: "전체 회원",   value: stats.total,        color: "text-[#303236]",    href: "/admin/members?tab=list" },
@@ -90,13 +90,13 @@ export default function OverviewTab() {
           { label: "탈퇴 회원",   value: stats.withdrawn,    color: "text-red-500",      href: "/admin/members?tab=inactive&sub=withdrawn" },
         ].map(s => (
           <Link key={s.label} href={s.href}
-            className="bg-white border border-gray-200 rounded-xl p-6 hover:border-[#303236] hover:shadow-sm transition-all text-center block">
-            <p className="text-[15px] text-gray-500 font-medium mb-2">{s.label}</p>
+            className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 hover:border-[#303236] hover:shadow-sm transition-all flex items-baseline justify-center gap-2">
+            <p className="text-[13px] text-gray-500 font-medium">{s.label}</p>
             {loading
-              ? <p className="text-3xl font-black text-gray-200 animate-pulse">---</p>
-              : <p className={`text-4xl font-black ${s.color}`}>{s.value.toLocaleString()}</p>
+              ? <p className="text-xl font-black text-gray-200 animate-pulse">---</p>
+              : <p className={`text-2xl font-black leading-none ${s.color}`}>{s.value.toLocaleString()}</p>
             }
-            <p className="text-[13px] text-gray-300 mt-1">명</p>
+            <p className="text-[12px] text-gray-300">명</p>
           </Link>
         ))}
       </div>

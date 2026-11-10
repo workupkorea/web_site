@@ -291,16 +291,16 @@ export default function ListTab() {
   const isFiltered = accessFilter !== "all" || applied.query || gradeFilter !== "전체" || statusFilter !== "전체" || dateStart || dateEnd;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold text-gray-900">회원 조회</h1>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">회원 조회</h1>
           </div>
-          <p className="text-base text-gray-400 mt-1">총 <span className="font-bold text-gray-700">{members.length}</span>명 등록</p>
+          <p className="text-sm text-gray-400">총 <span className="font-bold text-gray-700">{members.length}</span>명 등록</p>
         </div>
         <button onClick={() => setCreateOpen(true)}
-          className="min-h-[44px] px-5 bg-[#303236] text-white text-sm font-semibold rounded-lg hover:bg-[#243d5e] transition-colors">
+          className="min-h-[44px] px-4 bg-[#303236] text-white text-sm font-semibold rounded-lg hover:bg-[#243d5e] transition-colors">
           + 회원 직접등록
         </button>
       </div>
@@ -327,9 +327,9 @@ export default function ListTab() {
         {ACCESS_FILTERS.map(f => (
           <button key={f.key} onClick={() => { setAccessFilter(accessFilter === f.key ? "all" : f.key); setPage(1); }}
             aria-pressed={accessFilter === f.key}
-            className={`min-h-[44px] bg-white border rounded-xl py-4 text-center transition-colors ${accessFilter === f.key ? "border-[#303236] ring-1 ring-[#303236]" : "border-gray-200 hover:border-gray-400"}`}>
-            <p className="text-[14px] text-gray-500 font-medium mb-1">{f.label}</p>
-            <p className={`text-3xl font-black ${f.color}`}>{loading ? "-" : accessCounts[f.key as keyof typeof accessCounts].toLocaleString()}<span className="text-[13px] font-normal text-gray-300 ml-1">명</span></p>
+            className={`min-h-[44px] bg-white border rounded-xl px-4 py-2 flex items-baseline justify-center gap-2 transition-colors ${accessFilter === f.key ? "border-[#303236] ring-1 ring-[#303236]" : "border-gray-200 hover:border-gray-400"}`}>
+            <p className="text-[13px] text-gray-500 font-medium">{f.label}</p>
+            <p className={`text-2xl font-black leading-none ${f.color}`}>{loading ? "-" : accessCounts[f.key as keyof typeof accessCounts].toLocaleString()}<span className="text-[13px] font-normal text-gray-300 ml-1">명</span></p>
           </button>
         ))}
       </div>
