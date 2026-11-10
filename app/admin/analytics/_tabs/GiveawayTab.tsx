@@ -1098,7 +1098,6 @@ export default function GiveawayTab() {
           ) : (
             "불러온 댓글이 없습니다."
           )}
-          <span className="ml-3 text-[12px] text-gray-400">※ 팔로우·좋아요는 API로 확인 불가 — 당첨 후 직접 확인</span>
         </p>
         {msg && <p className="mt-3 text-[14px] text-amber-700">{msg}</p>}
           </div>
