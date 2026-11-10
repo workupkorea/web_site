@@ -4,6 +4,7 @@
   "crons": [
     { "path": "/api/cron/notices/open",  "schedule": "0 2 * * *" },
     { "path": "/api/cron/notices/close", "schedule": "0 5 * * *" },
-    { "path": "/api/cron/arrival",       "schedule": "50 23 * * *" }
+    { "path": "/api/cron/arrival",       "schedule": "50 23 * * *" },
+    { "path": "/api/cron/nav-events-cleanup", "schedule": "0 18 * * *" }
   ]
 }

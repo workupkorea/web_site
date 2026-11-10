@@ -2,6 +2,7 @@
 // 관리자 페이지·서버 렌더링·캐시 헬퍼가 모두 이 파일을 참조한다.
 
 export type HomeSectionKey =
+  | "magazine"
   | "hero"
   | "brandLogos"
   | "newArrivals"
@@ -29,6 +30,9 @@ export const HOME_SECTIONS: HomeSectionMeta[] = [
   { key: "people", label: "일하는 사람들 이야기", description: "MATE 인터뷰 티저", editHref: "/admin/main/contents?tab=people" },
   { key: "youtube", label: "유튜브 롱폼", description: "@WorkUp_official 채널 최신 롱폼 영상(쇼츠 제외)" },
   { key: "instagram", label: "인스타그램 피드", description: "@workup_official_kr 실시간 피드" },
+  // 저장본이 이미 있는 환경에선 normalizeHomeLayout 이 끝에 붙인다.
+  // 공개 OFF·커버 미입력이면 렌더되지 않으므로 배포 직후 메인에는 변화가 없다.
+  { key: "magazine", label: "캠페인 매거진", description: "배우 캠페인 매거진(커버·인터뷰·챕터·비하인드)", editHref: "/admin/main/home?tab=magazine" },
 ];
 
 export type HomeSectionLayout = { key: HomeSectionKey; visible: boolean };

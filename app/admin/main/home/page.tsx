@@ -6,6 +6,7 @@ import VisualTab from "../_tabs/VisualTab";
 import NewArrivalsTab from "../_tabs/NewArrivalsTab";
 import EditorialTab from "../_tabs/EditorialTab";
 import BrandsMarqueeTab from "../_tabs/BrandsMarqueeTab";
+import MagazineTab from "../_tabs/MagazineTab";
 
 // 사이트 관리 › 메인 관리 — 탭으로 묶은 통합 페이지
 const TABS = [
@@ -14,6 +15,7 @@ const TABS = [
   { key: "new-arrivals", label: "신상품", Component: NewArrivalsTab },
   { key: "editorial", label: "기획전", Component: EditorialTab },
   { key: "brands", label: "로고 마퀴", Component: BrandsMarqueeTab },
+  { key: "magazine", label: "캠페인 매거진", Component: MagazineTab },
 ] as const;
 
 export default function AdminHomePage() {

@@ -393,3 +393,44 @@ html {
 .font-oxanium {
   font-family: "Oxanium", sans-serif;
 }
+
+/* 메인 캠페인 매거진 — 이미지 크롭 위치(관리자 지정 object-position, PC/모바일 분리) */
+.magazine-img { object-position: var(--pos, 50% 50%); }
+@media (max-width: 767px) {
+  .magazine-img { object-position: var(--pos-m, var(--pos, 50% 50%)); }
+}
+
+/* 메인 캠페인 매거진 — 풀 쿼트·챕터 본문용 명조 계열 (Noto Serif KR 은 layout.tsx 의 구글 폰트 링크로 이미 로드됨) */
+.mag-serif {
+  font-family: "Noto Serif KR", "Nanum Myeongjo", "Batang", "Times New Roman", serif;
+}
+
+/* 메인 캠페인 매거진 — 고딕 계열은 모두 Pretendard (layout.tsx 에서 CDN 으로 전역 로드됨) */
+.mag-sans {
+  font-family: "Pretendard", "Noto Sans KR", sans-serif;
+}
+
+/* 메인 캠페인 매거진 — 본문 텍스트 자간 -85 (포토샵 단위 = -0.085em) */
+.mag-body {
+  letter-spacing: -0.085em;
+}
+
+/* 메인 캠페인 매거진 — 챕터 전환(부드럽게 나타남)·롤링 진행 표시 */
+@keyframes mag-fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes mag-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.mag-fade-in { animation: mag-fade-in 1100ms cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .mag-fade-in { animation: none; }
+}
+
+/* 메인 캠페인 매거진 — 구간 배경색을 지정했을 때 안쪽 구간들의 기본 배경을 투명하게 */
+.mag-custom-bg section,
+.mag-custom-bg .mag-own-bg {
+  background-color: transparent !important;
+}
