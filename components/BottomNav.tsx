@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { DEFAULT_HEADER_NAV, type NavMenuItem } from "@/lib/header-nav";
 import { useCart } from "@/contexts/CartContext";
 import { BRANDS } from "@/lib/brands-data";
+import { trackNavClick } from "@/lib/track";
 
 type MemberSession = { name: string; grade: string } | null;
 
@@ -175,7 +176,10 @@ export default function BottomNav({
                     target={item.newTab ? "_blank" : undefined}
                     rel={item.newTab ? "noopener noreferrer" : undefined}
                     className="flex items-center justify-between py-4 text-[#303236] hover:text-[#E5541B] active:text-[#E5541B] transition-[color,transform] active:scale-[0.97]"
-                    onClick={() => setMenuOpen(false)}
+                    onClick={() => {
+                      trackNavClick(item.labelKo ?? item.label, item.href, !!item.newTab);
+                      setMenuOpen(false);
+                    }}
                   >
                     <span className="flex items-baseline gap-3">
                       <span className="text-[13px] font-semibold tracking-[0.15em]">{item.label}</span>

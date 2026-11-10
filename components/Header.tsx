@@ -8,6 +8,8 @@ import { BRANDS_LABEL_KO, DEFAULT_HEADER_NAV, type NavMenuItem } from "@/lib/hea
 import { DEFAULT_LOGO, type LogoConfig } from "@/lib/logo";
 import { DEFAULT_TOPBAR, safeHref, type TopbarItem } from "@/lib/topbar";
 import BrandsMegaMenu from "@/components/BrandsMegaMenu";
+import NavDwellTracker from "@/components/NavDwellTracker";
+import { trackNavClick } from "@/lib/track";
 import type { MegaBrandsConfig } from "@/lib/mega-brands-types";
 
 
@@ -125,6 +127,7 @@ export default function Header({
                   href="/brands"
                   onMouseEnter={openBrands}
                   onMouseLeave={closeBrandsDelayed}
+                  onClick={() => trackNavClick(item.labelKo ?? BRANDS_LABEL_KO, "/brands")}
                   className={`${navLinkBase} ${brandsOpen ? "text-[#E5541B]" : navLinkColor}`}
                   style={{ fontWeight: 650 }}
                   aria-expanded={brandsOpen}
@@ -146,6 +149,7 @@ export default function Header({
                 target={item.newTab ? "_blank" : undefined}
                 rel={item.newTab ? "noopener noreferrer" : undefined}
                 onMouseEnter={hasBrandsMega ? closeBrandsNow : undefined}
+                onClick={() => trackNavClick(item.labelKo ?? item.label, item.href, !!item.newTab)}
                 className={`${navLinkBase} ${navLinkColor}`}
                 style={{ fontWeight: 650 }}
               >
@@ -175,6 +179,7 @@ export default function Header({
               href="/brands"
               onMouseEnter={openBrands}
               onMouseLeave={closeBrandsDelayed}
+              onClick={() => trackNavClick(BRANDS_LABEL_KO, "/brands")}
               className={`${navLinkBase} ${brandsOpen ? "text-[#E5541B]" : navLinkColor}`}
               style={{ fontWeight: 650 }}
               aria-expanded={brandsOpen}
@@ -319,6 +324,7 @@ export default function Header({
       ref={headerRef}
       className={`relative md:sticky md:top-[var(--wu-topbar-h,36px)] z-50 bg-white border-b border-gray-200${hideOnMobile ? " hidden md:block" : ""}`}
     >
+      <NavDwellTracker />
       {topRow}
       {brandsMegaPanel}
     </header>

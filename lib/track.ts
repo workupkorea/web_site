@@ -44,6 +44,59 @@ const GTM_CONVERSION_EVENT: Partial<Record<StoreEventType, string>> = {
   directions_naver: "directions_click",
 };
 
+// ── 상단 메뉴 클릭 · 이동 페이지 체류시간 ─────────────────────────
+const NAV_PENDING_KEY = "wu_nav_pending";
+export type NavPending = { label: string; href: string; path: string };
+
+function sendNav(payload: Record<string, unknown>) {
+  try {
+    const body = JSON.stringify({ ...payload, visitor_id: getVisitorId() });
+    const blob = new Blob([body], { type: "application/json" });
+    if (navigator.sendBeacon && navigator.sendBeacon("/api/track/nav", blob)) return;
+    fetch("/api/track/nav", {
+      method: "POST",
+      body,
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    /* 트래킹 실패는 무시 */
+  }
+}
+
+// 메뉴 클릭 기록. 같은 탭에서 사이트 내부로 이동하는 경우에만 '이동 페이지 체류시간' 측정 대기를 걸어둔다.
+export function trackNavClick(label: string, href: string, newTab = false) {
+  if (typeof window === "undefined" || !label) return;
+  sendNav({ event_type: "nav_click", nav_label: label, href, path: window.location.pathname });
+  try {
+    if (!newTab && href.startsWith("/")) {
+      const pending: NavPending = { label, href, path: href.split(/[?#]/)[0] };
+      sessionStorage.setItem(NAV_PENDING_KEY, JSON.stringify(pending));
+    } else {
+      sessionStorage.removeItem(NAV_PENDING_KEY);
+    }
+  } catch {
+    /* sessionStorage 불가 시 클릭만 기록 */
+  }
+}
+
+export function takeNavPending(pathname: string): NavPending | null {
+  try {
+    const raw = sessionStorage.getItem(NAV_PENDING_KEY);
+    if (!raw) return null;
+    sessionStorage.removeItem(NAV_PENDING_KEY);
+    const p = JSON.parse(raw) as NavPending;
+    return p.path === pathname ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+export function trackNavDwell(p: NavPending, durationSec: number) {
+  if (typeof window === "undefined" || durationSec < 1) return;
+  sendNav({ event_type: "dwell", nav_label: p.label, href: p.href, path: p.path, duration_sec: durationSec });
+}
+
 // 매장 이벤트 기록. 화면 이동을 막지 않도록 sendBeacon 우선 사용.
 export function trackStoreEvent(eventType: StoreEventType, store?: TrackStore) {
   if (typeof window === "undefined") return;
