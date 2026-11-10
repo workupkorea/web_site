@@ -443,3 +443,84 @@ export function runConfetti(cv: HTMLCanvasElement | null) {
   };
   requestAnimationFrame(tick);
 }
+
+
+// ── 선택형 이벤트 분석 (댓글로 제품을 고르는 이벤트: 어떤 제품이 많이 선택됐는지) ──
+
+export interface GwChoice {
+  label: string;
+  /** 소문자 키워드 — 댓글에 하나라도 포함되면 이 선택지를 고른 것으로 본다 */
+  keys: string[];
+}
+
+export interface GwChoiceResult {
+  label: string;
+  /** 이 선택지를 고른 참여자(중복 제거) */
+  users: string[];
+  /** 이 선택지가 언급된 댓글 수 */
+  comments: number;
+}
+
+/** 한 줄에 선택지 하나: "제품명 = 키워드1, 키워드2" (= 이후를 생략하면 제품명 자체가 키워드) */
+export function parseChoices(text: string): GwChoice[] {
+  const out: GwChoice[] = [];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line) continue;
+    const eq = line.indexOf("=");
+    const label = (eq >= 0 ? line.slice(0, eq) : line).trim();
+    if (!label) continue;
+    const keys = (eq >= 0 ? line.slice(eq + 1) : label)
+      .split(",")
+      .map((k) => k.trim().toLowerCase())
+      .filter(Boolean);
+    out.push({ label, keys: keys.length ? keys : [label.toLowerCase()] });
+  }
+  return out;
+}
+
+/**
+ * 댓글에 키워드가 들어 있는지. 숫자만으로 된 키워드("1")는 독립된 숫자로만 찾고 앞의 0은 무시한다.
+ * → "1", "01", "1번"은 일치, "10"·"12"·"21"은 불일치.
+ */
+function keyMatches(text: string, key: string): boolean {
+  if (/^\d+$/.test(key)) {
+    const num = key.replace(/^0+/, "") || "0";
+    return new RegExp(String.raw`(?<!\d)0*${num}(?!\d)`).test(text);
+  }
+  return text.includes(key);
+}
+
+export function analyzeChoices(rows: GwComment[], choices: GwChoice[], exclude: Set<string>) {
+  const picked = choices.map(() => new Map<string, string>()); // 소문자 아이디 → 표시용 아이디
+  const commentCount = choices.map(() => 0);
+  const allUsers = new Map<string, string>();
+  const matchedUsers = new Set<string>();
+  const perUser = new Map<string, number>();
+  for (const c of rows) {
+    const key = c.user.toLowerCase();
+    if (exclude.has(key)) continue;
+    allUsers.set(key, c.user);
+    const text = c.text.toLowerCase();
+    choices.forEach((ch, i) => {
+      if (!ch.keys.some((k) => keyMatches(text, k))) return;
+      commentCount[i]++;
+      if (!picked[i].has(key)) {
+        picked[i].set(key, c.user);
+        perUser.set(key, (perUser.get(key) || 0) + 1);
+      }
+      matchedUsers.add(key);
+    });
+  }
+  const options: GwChoiceResult[] = choices.map((ch, i) => ({ label: ch.label, users: [...picked[i].values()], comments: commentCount[i] }));
+  return {
+    options,
+    totalUsers: allUsers.size,
+    matchedUsers: matchedUsers.size,
+    unmatchedUsers: allUsers.size - matchedUsers.size,
+    /** 2개 이상 선택한 참여자 수 */
+    multiUsers: [...perUser.values()].filter((n) => n > 1).length,
+  };
+}
+
+export type GwChoiceAnalysis = ReturnType<typeof analyzeChoices>;

@@ -3,12 +3,14 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import GiveawayClaimPanel from "./GiveawayClaimPanel";
 import {
   analyze,
+  analyzeChoices,
   downloadText,
   drawOne,
   drawPicks,
   fetchInstagramComments,
   insights,
   listInstagramMedia,
+  parseChoices,
   parseComments,
   participantsFingerprint,
   rollNames,
@@ -16,7 +18,9 @@ import {
   sleep,
   stampNow,
   toCsv,
+  type GwChoiceAnalysis,
   type GwComment,
+  type GwInsights,
   type GwMedia,
   type GwOptions,
 } from "@/lib/giveaway";
@@ -72,6 +76,141 @@ interface DrawRecord {
   winners: { label: string; prize?: string; user: string; status: string; followOk?: boolean; note?: string }[];
   /** 추첨 당시 참여자 명단이 서버에 저장돼 있는지 (옛 기록은 없음) */
   hasDetail?: boolean;
+  /** 참여 분석 결과(지표·차트·제품 선택). 확정 시 자동 저장되고, 기록에서 갱신할 수 있다 */
+  analysis?: { ins: GwInsights; choices?: GwChoiceAnalysis };
+}
+
+/** 제품 선택 분석 결과 표시 (참여 분석·이벤트 기록에서 함께 사용) */
+function ChoiceSummary({ res, name }: { res: GwChoiceAnalysis; name: string }) {
+  const n = (v: number) => v.toLocaleString("ko-KR");
+  const sorted = [...res.options].sort((a, b) => b.users.length - a.users.length);
+  const max = Math.max(1, sorted[0]?.users.length || 1);
+  const pctOf = (c: number) => (res.matchedUsers ? Math.round((c / res.matchedUsers) * 1000) / 10 : 0);
+  return (
+    <div>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-gray-600 mb-2">
+        <span>참여자 <b>{n(res.totalUsers)}</b>명</span>
+        <span>선택 확인 <b>{n(res.matchedUsers)}</b>명</span>
+        <span>해당 없음 <b>{n(res.unmatchedUsers)}</b>명</span>
+        {res.multiUsers > 0 && <span>2개 이상 선택 <b>{n(res.multiUsers)}</b>명</span>}
+        <button
+          className="text-gray-500 hover:text-[#303236] hover:underline"
+          onClick={() =>
+            downloadText(
+              `giveaway-choices-${name.replace(/[\\/:*?"<>|]/g, "").slice(0, 30) || "event"}.csv`,
+              toCsv(["제품", "선택 인원", "비율(%)", "선택한 아이디"], sorted.map((o) => [o.label, o.users.length, pctOf(o.users.length), o.users.join(" ")])),
+            )
+          }
+        >
+          CSV 저장
+        </button>
+      </div>
+      <ol className="space-y-2">
+        {sorted.map((o, i) => (
+          <li key={o.label + i} className="text-[14px]">
+            <div className="flex items-center gap-2">
+              <span className="w-6 text-gray-400 text-right">{i + 1}</span>
+              <span className="w-40 truncate font-semibold text-gray-800" title={o.label}>{o.label}</span>
+              <div className="flex-1 bg-gray-100 rounded h-4">
+                <div className={`h-4 rounded ${i === 0 && o.users.length > 0 ? "bg-[#E5541B]" : "bg-[#303236]"}`} style={{ width: `${(o.users.length / max) * 100}%` }} />
+              </div>
+              <span className="w-24 text-right font-bold text-[#303236]">{n(o.users.length)}명 <span className="font-normal text-gray-400">{pctOf(o.users.length)}%</span></span>
+            </div>
+            {o.users.length > 0 && (
+              <details className="ml-8">
+                <summary className="cursor-pointer text-[12px] text-gray-400 hover:underline">선택한 아이디 보기</summary>
+                <p className="mt-1 text-[12px] text-gray-500 break-all">{o.users.map((u) => "@" + u).join(" ")}</p>
+              </details>
+            )}
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** 참여 분석 차트·지표 (추첨 화면의 2번과 이벤트 기록에서 함께 사용) */
+function AnalysisCharts({ ins }: { ins: GwInsights }) {
+  const maxHour = Math.max(1, ...ins.hourly);
+  const maxDay = Math.max(1, ...ins.daily.map((d) => d.count));
+  return (
+    <>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          {[
+            { l: "전체 댓글", v: fmt(ins.comments) },
+            { l: "참여자", v: fmt(ins.users) },
+            { l: "평균 멘션/댓글", v: ins.avgMentions.toFixed(1) },
+            { l: "멘션된 계정(도달 추정)", v: fmt(ins.uniqueMentioned) },
+            { l: "댓글 좋아요 합", v: ins.totalLikes ? fmt(ins.totalLikes) : "-" },
+          ].map((k) => (
+            <div key={k.l} className="bg-gray-50 rounded-lg p-4 text-center">
+              <p className="text-[13px] text-gray-500 mb-1">{k.l}</p>
+              <p className="text-2xl font-black text-[#303236]">{k.v}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+          <div>
+            <h3 className="text-[15px] font-bold text-gray-700 mb-3">시간대별 댓글 수</h3>
+            {ins.hasTime ? (
+              <div className="flex items-end gap-[3px] h-32">
+                {ins.hourly.map((c, h) => (
+                  <div key={h} className="flex-1 flex flex-col items-center justify-end h-full" title={`${h}시 · ${c}개`}>
+                    <div className="w-full bg-[#303236] rounded-t-sm" style={{ height: `${c ? Math.max(3, (c / maxHour) * 100) : 0}%` }} />
+                    <span className="text-[10px] text-gray-400 mt-1">{h % 6 === 0 ? h : ""}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[14px] text-gray-400">주소로 불러온 댓글에서만 시간 분석이 가능합니다.</p>
+            )}
+          </div>
+          <div>
+            <h3 className="text-[15px] font-bold text-gray-700 mb-3">일자별 댓글 수</h3>
+            {ins.hasTime ? (
+              <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                {ins.daily.map((d) => (
+                  <div key={d.date} className="flex items-center gap-2 text-[13px]">
+                    <span className="w-20 text-gray-500">{d.date.slice(5)}</span>
+                    <div className="flex-1 bg-gray-100 rounded h-3">
+                      <div className="bg-[#E5541B] h-3 rounded" style={{ width: `${(d.count / maxDay) * 100}%` }} />
+                    </div>
+                    <span className="w-10 text-right font-semibold">{d.count}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[14px] text-gray-400">-</p>
+            )}
+          </div>
+          <div>
+            <h3 className="text-[15px] font-bold text-gray-700 mb-2">댓글 많은 계정 TOP 5</h3>
+            <ol className="text-[14px] text-gray-600 space-y-1">
+              {ins.topCommenters.map((t, i) => (
+                <li key={t.user}>
+                  {i + 1}. @{t.user} <span className="text-gray-400">· {t.count}개</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+          <div>
+            <h3 className="text-[15px] font-bold text-gray-700 mb-2">많이 쓰인 해시태그</h3>
+            {ins.topTags.length ? (
+              <div className="flex flex-wrap gap-2">
+                {ins.topTags.map((t) => (
+                  <span key={t.tag} className="px-2.5 py-1 bg-gray-100 rounded-full text-[13px] text-gray-600">
+                    {t.tag} <b>{t.count}</b>
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[14px] text-gray-400">해시태그가 없습니다.</p>
+            )}
+          </div>
+        </div>
+    </>
+  );
 }
 
 /** 이벤트 상세(추첨 당시 참여자·댓글) */
@@ -226,8 +365,42 @@ export default function GiveawayTab() {
 
   const an = useMemo(() => analyze(rows, opts), [rows, opts]);
   const ins = useMemo(() => insights(rows), [rows]);
-  const maxHour = Math.max(1, ...ins.hourly);
-  const maxDay = Math.max(1, ...ins.daily.map((d) => d.count));
+
+  // 선택형 이벤트 분석: 제품(선택지)을 하나씩 추가한다. 제품명 + 댓글에서 찾을 키워드(쉼표 구분, 비우면 제품명).
+  // 입력값은 이 브라우저에 기억해 둔다.
+  const CHOICE_KEY = "workup_gw_choice_items_v1";
+  const [choiceItems, setChoiceItems] = useState<{ id: string; name: string; keys: string }[]>(() => {
+    const blank = [{ id: newId(), name: "", keys: "" }];
+    try {
+      if (typeof window === "undefined") return blank;
+      const raw = localStorage.getItem(CHOICE_KEY);
+      if (raw) {
+        const list = JSON.parse(raw) as { id: string; name: string; keys: string }[];
+        if (Array.isArray(list) && list.length) return list;
+      }
+      // 예전 한 칸 입력 방식("제품명 = 키워드")으로 저장된 값을 옮긴다.
+      const old = parseChoices(localStorage.getItem("workup_gw_choices_v1") || "");
+      if (old.length) return old.map((c) => ({ id: newId(), name: c.label, keys: c.keys.join(", ") }));
+    } catch {}
+    return blank;
+  });
+  const choiceRes = useMemo(() => {
+    const choices = choiceItems
+      .filter((i) => i.name.trim())
+      .map((i) => ({
+        label: i.name.trim(),
+        keys: (i.keys.trim() || i.name).split(",").map((k) => k.trim().toLowerCase()).filter(Boolean),
+      }));
+    if (!choices.length) return null;
+    const ex = new Set(exclude.split(/[\s,]+/).map((x) => x.replace(/^@/, "").toLowerCase()).filter(Boolean));
+    return analyzeChoices(rows, choices, ex);
+  }, [choiceItems, rows, exclude]);
+  const updateChoiceItems = (next: { id: string; name: string; keys: string }[]) => {
+    setChoiceItems(next);
+    try {
+      localStorage.setItem(CHOICE_KEY, JSON.stringify(next));
+    } catch {}
+  };
 
   useEffect(() => {
     fetch("/api/admin/giveaway/comments")
@@ -446,6 +619,7 @@ export default function GiveawayTab() {
       conditions: snap.conditions,
       prizes: snap.prizes,
       winners,
+      analysis: { ins, choices: choiceRes ?? undefined },
     };
   };
 
@@ -461,6 +635,13 @@ export default function GiveawayTab() {
     const rec = await makeRecord(kept, prev);
     setRecord(rec);
     saveHistory([rec, ...stateRef.current.history.filter((h) => h.id !== rec.id)].slice(0, 200));
+  };
+
+  /** 지금 화면의 참여 분석 결과를 이벤트 기록에 저장한다 (확정 후에도 추가·갱신 가능) */
+  const saveAnalysisTo = (h: DrawRecord) => {
+    const rec = { ...h, analysis: { ins, choices: choiceRes ?? undefined } };
+    if (record?.id === h.id) setRecord(rec);
+    saveHistory(stateRef.current.history.map((x) => (x.id === h.id ? rec : x)));
   };
 
   /** 당첨 확정 — 이 시점에 이력(서버 DB)과 당첨 횟수에 반영된다. 추첨 당시 참여자 명단도 함께 저장한다. */
@@ -779,6 +960,39 @@ export default function GiveawayTab() {
         results.map((r) => [r.label, r.prize, r.comment.user, r.status === "void" ? "취소" : "확정", r.followOk ? "완료" : "", r.comment.text, r.note]),
       ),
     );
+  // ── 저장된 이벤트 기록용 내보내기 (추첨 직후 화면이 아니어도 기록에서 바로 쓴다) ──
+  const recWinners = (h: DrawRecord) => h.winners.filter((w) => w.status === "확정" && (!w.label.startsWith("예비") || (w.note || "").includes("승급")));
+  const recCopy = async (h: DrawRecord, kind: "copy" | "ann") => {
+    const live = h.winners.filter((w) => w.status === "확정");
+    let text: string;
+    if (kind === "copy") {
+      text = live.map((w) => `${recWinners(h).includes(w) ? "당첨" : "예비"} @${w.user}`).join("\n");
+    } else {
+      const order: string[] = [];
+      const by = new Map<string, string[]>();
+      for (const w of recWinners(h)) {
+        const name = w.prize || "상품";
+        if (!by.has(name)) {
+          by.set(name, []);
+          order.push(name);
+        }
+        by.get(name)!.push(`@${w.user}`);
+      }
+      const title = (h.eventName || "").trim();
+      text = [title ? `🎉 ${title}` : "🎉", "당첨자를 발표합니다!", "", ...order.map((n) => [`🎁 ${n}`, ...by.get(n)!]).flatMap((b, i) => (i ? ["", ...b] : b))].join("\n");
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      flash(`${kind}-${h.id}`);
+    } catch {
+      flash("fail");
+    }
+  };
+  const recCsv = (h: DrawRecord) =>
+    downloadText(
+      `giveaway-winners-${h.id}.csv`,
+      toCsv(["구분", "상품", "아이디", "팔로우확인", "비고"], recWinners(h).map((w) => [w.label, w.prize, w.user, w.followOk ? "완료" : "", w.note])),
+    );
   /** 당첨자 인스타 프로필을 새 탭으로 연다 (브라우저가 팝업을 막으면 허용해 주세요) */
   const openProfiles = (list: ResultItem[]) => list.forEach((r) => window.open(igUrl(r.comment.user), "_blank", "noopener"));
   const dropParts = [
@@ -922,78 +1136,53 @@ export default function GiveawayTab() {
           <p className="text-[15px] text-gray-400">아직 불러온 댓글이 없습니다.</p>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              {[
-                { l: "전체 댓글", v: fmt(ins.comments) },
-                { l: "참여자", v: fmt(ins.users) },
-                { l: "평균 멘션/댓글", v: ins.avgMentions.toFixed(1) },
-                { l: "멘션된 계정(도달 추정)", v: fmt(ins.uniqueMentioned) },
-                { l: "댓글 좋아요 합", v: ins.totalLikes ? fmt(ins.totalLikes) : "-" },
-              ].map((k) => (
-                <div key={k.l} className="bg-gray-50 rounded-lg p-4 text-center">
-                  <p className="text-[13px] text-gray-500 mb-1">{k.l}</p>
-                  <p className="text-2xl font-black text-[#303236]">{k.v}</p>
-                </div>
-              ))}
-            </div>
+            <AnalysisCharts ins={ins} />
 
-            <div className="grid md:grid-cols-2 gap-6 mt-6">
-              <div>
-                <h3 className="text-[15px] font-bold text-gray-700 mb-3">시간대별 댓글 수</h3>
-                {ins.hasTime ? (
-                  <div className="flex items-end gap-[3px] h-32">
-                    {ins.hourly.map((c, h) => (
-                      <div key={h} className="flex-1 flex flex-col items-center justify-end h-full" title={`${h}시 · ${c}개`}>
-                        <div className="w-full bg-[#303236] rounded-t-sm" style={{ height: `${c ? Math.max(3, (c / maxHour) * 100) : 0}%` }} />
-                        <span className="text-[10px] text-gray-400 mt-1">{h % 6 === 0 ? h : ""}</span>
+            {/* 선택형 이벤트: 댓글로 고른 제품별 선택 수 */}
+            <div className="mt-6 border-t border-gray-100 pt-5">
+              <h3 className="text-[15px] font-bold text-gray-700">제품 선택 분석 <span className="font-normal text-[13px] text-gray-400">(댓글로 제품을 고르는 이벤트용)</span></h3>
+              <div className="mt-2 grid md:grid-cols-12 gap-x-6 gap-y-3 items-start">
+                <div className="md:col-span-5">
+                  <div className="space-y-2">
+                    {choiceItems.map((it) => (
+                      <div key={it.id} className="flex items-center gap-1.5">
+                        <input
+                          className={`${cInput} !w-32 !py-1.5 shrink-0`}
+                          value={it.name}
+                          onChange={(e) => updateChoiceItems(choiceItems.map((x) => (x.id === it.id ? { ...x, name: e.target.value } : x)))}
+                          placeholder="제품명"
+                          aria-label="제품명"
+                        />
+                        <input
+                          className={`${cInput} !py-1.5 min-w-0`}
+                          value={it.keys}
+                          onChange={(e) => updateChoiceItems(choiceItems.map((x) => (x.id === it.id ? { ...x, keys: e.target.value } : x)))}
+                          placeholder="찾을 키워드 (쉼표 구분, 비우면 제품명)"
+                          aria-label="찾을 키워드"
+                        />
+                        <button
+                          className="px-1 text-[16px] leading-none text-gray-400 hover:text-red-600 disabled:opacity-30 shrink-0"
+                          onClick={() => updateChoiceItems(choiceItems.filter((x) => x.id !== it.id))}
+                          disabled={choiceItems.length <= 1}
+                          aria-label="제품 삭제"
+                          title="제품 삭제"
+                        >
+                          ×
+                        </button>
                       </div>
                     ))}
+                    <button
+                      className="px-3 py-1.5 rounded-lg border border-dashed border-[#E5541B]/50 text-[14px] font-semibold text-[#E5541B] hover:bg-orange-50 whitespace-nowrap"
+                      onClick={() => updateChoiceItems([...choiceItems, { id: newId(), name: "", keys: "" }])}
+                    >
+                      + 제품 추가
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-[14px] text-gray-400">주소로 불러온 댓글에서만 시간 분석이 가능합니다.</p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-[15px] font-bold text-gray-700 mb-3">일자별 댓글 수</h3>
-                {ins.hasTime ? (
-                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
-                    {ins.daily.map((d) => (
-                      <div key={d.date} className="flex items-center gap-2 text-[13px]">
-                        <span className="w-20 text-gray-500">{d.date.slice(5)}</span>
-                        <div className="flex-1 bg-gray-100 rounded h-3">
-                          <div className="bg-[#E5541B] h-3 rounded" style={{ width: `${(d.count / maxDay) * 100}%` }} />
-                        </div>
-                        <span className="w-10 text-right font-semibold">{d.count}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[14px] text-gray-400">-</p>
-                )}
-              </div>
-              <div>
-                <h3 className="text-[15px] font-bold text-gray-700 mb-2">댓글 많은 계정 TOP 5</h3>
-                <ol className="text-[14px] text-gray-600 space-y-1">
-                  {ins.topCommenters.map((t, i) => (
-                    <li key={t.user}>
-                      {i + 1}. @{t.user} <span className="text-gray-400">· {t.count}개</span>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-              <div>
-                <h3 className="text-[15px] font-bold text-gray-700 mb-2">많이 쓰인 해시태그</h3>
-                {ins.topTags.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {ins.topTags.map((t) => (
-                      <span key={t.tag} className="px-2.5 py-1 bg-gray-100 rounded-full text-[13px] text-gray-600">
-                        {t.tag} <b>{t.count}</b>
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-[14px] text-gray-400">해시태그가 없습니다.</p>
-                )}
+                  <p className="mt-1 text-[12px] text-gray-400">같은 사람이 같은 제품을 여러 번 써도 1명으로 셉니다. 숫자 키워드(1)는 독립된 숫자로만 찾아서 01·1번은 포함하고 10·12는 제외합니다. 제외 아이디는 자동 제외됩니다.</p>
+                </div>
+                <div className="md:col-span-7 min-w-0">
+                  {choiceRes ? <ChoiceSummary res={choiceRes} name={eventName || "event"} /> : <p className="text-[13px] text-gray-400 pt-2">제품과 키워드를 입력하면 결과가 여기에 표시됩니다.</p>}
+                </div>
               </div>
             </div>
           </>
@@ -1326,7 +1515,46 @@ export default function GiveawayTab() {
                           {h.at} · <a className="hover:underline" href={h.postUrl} target="_blank" rel="noopener noreferrer">{h.postUrl || "(직접 입력)"}</a>
                         </p>
                         <p className="text-gray-500 text-[12px]">{h.conditions}</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recCopy(h, "copy")}>
+                            {copied === `copy-${h.id}` ? "복사됨" : "결과 복사"}
+                          </button>
+                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recCopy(h, "ann")} title="상품별로 당첨 아이디를 묶은 인스타 공지용 문구를 복사합니다">
+                            {copied === `ann-${h.id}` ? "복사됨" : "공지용 복사"}
+                          </button>
+                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recWinners(h).forEach((w) => window.open(igUrl(w.user), "_blank", "noopener"))}>
+                            당첨자 프로필 모두 열기 ↗
+                          </button>
+                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recCsv(h)}>
+                            당첨자 CSV
+                          </button>
+                        </div>
                         {/* 당첨자 목록은 배송 정보 리스트가 대신한다(링크 생성 전에는 패널이 당첨자만 미리 보여 줌) */}
+                        <details className="border border-gray-200 rounded-xl px-4 py-3">
+                          <summary className="cursor-pointer text-[14px] font-bold text-gray-800">
+                            참여 분석 보기 {h.analysis ? <span className="font-normal text-[12px] text-gray-400">· 저장된 결과</span> : <span className="font-normal text-[12px] text-gray-400">· 저장된 분석 없음</span>}
+                          </summary>
+                          <div className="mt-3">
+                            {rows.length > 0 && h.postUrl && h.postUrl === url.trim() && (
+                              <button className="mb-3 min-h-[32px] px-3 rounded-lg border border-gray-300 text-[13px] font-semibold text-gray-700 hover:bg-gray-50" onClick={() => saveAnalysisTo(h)} title="지금 불러온 댓글로 계산한 참여 분석(제품 선택 포함)을 이 기록에 저장합니다.">
+                                {h.analysis ? "현재 분석으로 갱신" : "현재 분석 결과 저장"}
+                              </button>
+                            )}
+                            {h.analysis ? (
+                              <>
+                                <AnalysisCharts ins={h.analysis.ins} />
+                                {h.analysis.choices && (
+                                  <div className="mt-6 border-t border-gray-100 pt-5">
+                                    <h3 className="text-[15px] font-bold text-gray-700">제품 선택 분석</h3>
+                                    <ChoiceSummary res={h.analysis.choices} name={h.eventName || "event"} />
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-[12px] text-gray-400">당첨을 확정하면 참여 분석이 자동으로 저장됩니다. 이미 확정한 이벤트는 같은 게시물 주소로 댓글을 불러온 상태에서 &quot;현재 분석 결과 저장&quot;을 누르세요.</p>
+                            )}
+                          </div>
+                        </details>
                         <GiveawayClaimPanel record={h} />
                         <div className="flex items-center gap-4">
                           {h.hasDetail && (
