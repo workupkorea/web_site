@@ -97,7 +97,7 @@ function Card({ title, children, className = "" }: { title: string; children: Re
 // 마케팅/분석 → 메뉴 분석: 기간 지정, 메뉴별 상세(추이·요일/시간대·유입 페이지·신규/재방문)
 export default function NavTab() {
   const today = useMemo(kstToday, []);
-  const [from, setFrom] = useState(shiftDate(today, -29));
+  const [from, setFrom] = useState(today); // 기본값: 오늘
   const [to, setTo] = useState(today);
   const [all, setAll] = useState(false);
   const [menu, setMenu] = useState("");
