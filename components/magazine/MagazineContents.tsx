@@ -23,14 +23,14 @@ export default function MagazineContents({ config }: { config: HomeMagazineConfi
 
   return (
     <section aria-labelledby="mag-contents" className="mag-sans px-5 py-12 md:px-14 md:py-24 bg-white text-[#1d1e20]">
-      <div className="flex items-baseline justify-between text-[10px] md:text-[11px] tracking-[0.28em] uppercase">
+      <div className="mag-label flex items-baseline justify-between text-[10px] md:text-[11px] tracking-[0.28em] uppercase">
         <b className="font-bold">Contents</b>
         <span className="text-[#1d1e20]/45">{config.issue.label}</span>
       </div>
 
       <div className="mt-6 md:mt-12 md:grid md:grid-cols-12 md:gap-x-8">
         <div className="md:col-span-4">
-          <h2 id="mag-contents" className="text-[34px] md:text-[56px] font-black tracking-tight leading-[1.05]">
+          <h2 id="mag-contents" className="mag-display text-[34px] md:text-[56px] font-black tracking-tight leading-[1.05]">
             {heading.map((line, i) => (
               <span key={i}>
                 {i > 0 && <br />}
@@ -38,7 +38,7 @@ export default function MagazineContents({ config }: { config: HomeMagazineConfi
               </span>
             ))}
           </h2>
-          {subtitle && <p className="mt-3 md:mt-5 text-[11px] tracking-[0.22em] uppercase text-[#1d1e20]/55">{subtitle}</p>}
+          {subtitle && <p className="mag-label mt-3 md:mt-5 text-[11px] tracking-[0.22em] uppercase text-[#1d1e20]/55">{subtitle}</p>}
         </div>
 
         <ol className="md:col-span-8 mt-8 md:mt-0">

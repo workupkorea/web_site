@@ -27,8 +27,8 @@ export type MagazineImage = {
 export type MagazineSlotSpec = { ratio: string; px: string; minW: number; note?: string };
 export const MAGAZINE_SLOT_SPECS = {
   // 아래 비율은 실제 화면에서 측정한 칸 크기 기준(PC 1440~1920 / 모바일 375)
-  coverPc: { ratio: "16:9 가로", px: "2400×1350", minW: 1600, note: "화면 크기에 따라 1.7:1~2.2:1로 위아래가 잘립니다 — 얼굴은 중앙~위쪽에" },
-  coverMobile: { ratio: "9:16 세로", px: "1080×1920", minW: 750, note: "얼굴은 위쪽 절반에(아래쪽은 글자가 올라감)" },
+  coverPc: { ratio: "16:9 가로", px: "2400×1350", minW: 1600, note: "16:9 비율 그대로 보입니다(잘리지 않음). 아래쪽엔 이름·버튼 글자가 올라가니 얼굴은 중앙~위쪽에" },
+  coverMobile: { ratio: "9:16 세로", px: "1080×1920", minW: 750, note: "9:16 비율 그대로 보입니다(잘리지 않음). 얼굴은 위쪽 절반에(아래쪽은 글자가 올라감)" },
   interview: { ratio: "4:5 세로", px: "1200×1500", minW: 800, note: "PC는 7:9, 모바일은 8:9로 보입니다" },
   interviewMobile: { ratio: "4:5 세로", px: "1080×1350", minW: 750 },
   chapterSplit: { ratio: "3:2 가로", px: "2400×1600", minW: 1600, note: "PC는 화면 폭에 따라 1.1:1~1.5:1로 보여 좌우가 가운데 기준으로 잘립니다" },

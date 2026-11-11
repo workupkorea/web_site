@@ -110,13 +110,16 @@ export default function MagazineWearing({
       >
         {items.map((item) => {
           const body = (
-            <>
+            // 제품 사진 + 제품명을 하나의 실선 박스로 묶고, 글자는 가운데 정렬
+            <div className="border border-[#1d1e20]/30 bg-white">
               <div className="relative aspect-[3/4] bg-[#c6bfb2] overflow-hidden">
                 <MagazineImg image={item.image} className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
               </div>
-              <p className="mt-2.5 text-[13px] md:text-sm font-bold">{item.name}</p>
-              {item.caption && <p className="text-xs text-[#55575b]">{item.caption}</p>}
-            </>
+              <div className="px-3 pb-4 pt-1 text-center">
+                <p className="text-[13px] md:text-sm font-bold">{item.name}</p>
+                {item.caption && <p className="mt-0.5 text-xs text-[#55575b]">{item.caption}</p>}
+              </div>
+            </div>
           );
           return (
             <li key={item.id} className="md:shrink-0 md:snap-start md:w-[calc((100%-60px)/4)]">

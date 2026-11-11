@@ -410,6 +410,17 @@ html {
   font-family: "Pretendard", "Noto Sans KR", sans-serif;
 }
 
+/* 메인 캠페인 매거진 — 영문 제목(디스플레이): 영문은 Playfair Display, 한글은 Pretendard 로 자동 분리.
+   (Pretendard 의 영문은 한글과 어울리게 만든 글꼴이라 영문 제목에선 밋밋해 보임. Playfair 는 layout.tsx 에서 이미 로드됨) */
+.mag-display {
+  font-family: "Playfair Display", "Pretendard", "Noto Sans KR", serif;
+}
+
+/* 메인 캠페인 매거진 — 영문 소제목·라벨: Montserrat(자간 넓게) + 한글은 Pretendard */
+.mag-label {
+  font-family: "Montserrat", "Pretendard", "Noto Sans KR", sans-serif;
+}
+
 /* 메인 캠페인 매거진 — 본문 텍스트 자간 -85 (포토샵 단위 = -0.085em) */
 .mag-body {
   letter-spacing: -0.085em;

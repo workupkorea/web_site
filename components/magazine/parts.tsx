@@ -8,7 +8,7 @@ export const MAGAZINE_ORANGE = "#E5541B";
 
 export function Kicker({ children, tone = "accent" }: { children: ReactNode; tone?: "accent" | "ink" | "light" }) {
   const color = tone === "accent" ? "text-[#E5541B]" : tone === "light" ? "text-white/85" : "text-[#1d1e20]";
-  return <p className={`text-[10px] md:text-xs tracking-[0.3em] uppercase ${color}`}>{children}</p>;
+  return <p className={`mag-label text-[10px] md:text-xs tracking-[0.3em] uppercase ${color}`}>{children}</p>;
 }
 
 // 챕터 번호 (01, 02 …)

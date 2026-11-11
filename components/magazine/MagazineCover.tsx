@@ -4,7 +4,7 @@ import MagazineImg from "./MagazineImg";
 
 // 매거진 커버 — 첫 화면에서 "이 배우가 워크업 모델"임을 바로 인지시키는 구간.
 // 커버 이미지는 LCP 대상이라 priority 로드. 문구는 모두 HTML 레이어.
-// 높이: 모바일은 상단 헤더 + 하단 탭바(BottomNav)를 뺀 값 → CTA가 탭바에 가리지 않게. PC는 헤더만 뺀 값.
+// 크기: 업로드 규격과 동일한 비율로 고정(PC 16:9 / 모바일 9:16) → 사진이 잘리지 않고 작업 규격 그대로 보인다.
 export default function MagazineCover({
   issue,
   cover,
@@ -12,9 +12,9 @@ export default function MagazineCover({
   return (
     <section
       aria-label={`${cover.eyebrow} ${cover.actorName}`.trim()}
-      className="mag-sans relative h-[calc(100svh-150px)] md:h-[calc(100svh-64px)] min-h-[520px] max-h-[860px] overflow-hidden bg-[#8b8880] text-white"
+      className="mag-sans relative aspect-[9/16] md:aspect-[16/9] overflow-hidden bg-[#8b8880] text-white"
     >
-      <MagazineImg image={cover.image} priority className="absolute inset-0 w-full h-full" />
+      <MagazineImg image={cover.image} priority rolling className="absolute inset-0 w-full h-full" />
       {/* 가독성용 상·하단 그라디언트 (이미지 위 별도 레이어) */}
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0" />
       <div aria-hidden className="absolute inset-x-0 top-0 h-1/3 bg-gradient-to-b from-black/45 to-transparent" />
