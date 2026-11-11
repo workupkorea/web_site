@@ -225,6 +225,10 @@ interface UserFlag {
   user: string;
   cherry: boolean;
   noFollow: boolean;
+  /** 악플·비정상 행동 계정 (옛 데이터에는 없음 → false 취급) */
+  bad?: boolean;
+  /** 악성 등록 사유 메모 */
+  reason?: string;
   /** 비팔로우로 표시된 이벤트 이름들 */
   events: string[];
   at: string;
@@ -266,8 +270,6 @@ export default function GiveawayTab() {
 
   // ── 조건 ────────────────────────────────────────────────────────────────
   const [backupsN, setBackupsN] = useState(2);
-  const [excludeCherry, setExcludeCherry] = useState(true);
-  const [excludeNoFollow, setExcludeNoFollow] = useState(false);
   const [minMentions, setMinMentions] = useState(0);
   const [keywords, setKeywords] = useState("");
   const [exclude, setExclude] = useState("workup_official_kr");
@@ -304,6 +306,7 @@ export default function GiveawayTab() {
   const [replaceInput, setReplaceInput] = useState("");
   const [flagQuery, setFlagQuery] = useState("");
   const [flagAdd, setFlagAdd] = useState("");
+  const [flagReason, setFlagReason] = useState("");
   const [stateMsg, setStateMsg] = useState("");
   const [histQuery, setHistQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -352,7 +355,7 @@ export default function GiveawayTab() {
           .filter(Boolean),
         // 체리피커·비팔로우 이력자 자동 제외 (표시 목록 기준)
         ...Object.values(flags)
-          .filter((f) => (excludeCherry && f.cherry) || (excludeNoFollow && f.noFollow))
+          .filter((f) => f.cherry || f.bad)
           .map((f) => f.user.toLowerCase()),
       ]),
       dedupe,
@@ -360,7 +363,7 @@ export default function GiveawayTab() {
       to: toStr ? Date.parse(toStr) : undefined,
       minLength: clamp(minLength || 0, 0, 500),
     }),
-    [minMentions, keywords, exclude, dedupe, fromStr, toStr, minLength, flags, excludeCherry, excludeNoFollow],
+    [minMentions, keywords, exclude, dedupe, fromStr, toStr, minLength, flags],
   );
 
   const an = useMemo(() => analyze(rows, opts), [rows, opts]);
@@ -461,13 +464,14 @@ export default function GiveawayTab() {
     [persist],
   );
   /** 표시 켜기/끄기. 둘 다 꺼지면 목록에서 제거 */
-  const toggleFlag = (user: string, kind: "cherry" | "noFollow", event?: string) => {
+  const toggleFlag = (user: string, kind: "cherry" | "noFollow" | "bad", event?: string, reason?: string) => {
     const key = user.toLowerCase();
-    const cur: UserFlag = stateRef.current.flags[key] ?? { user, cherry: false, noFollow: false, events: [], at: new Date().toLocaleString("ko-KR") };
+    const cur: UserFlag = stateRef.current.flags[key] ?? { user, cherry: false, noFollow: false, bad: false, events: [], at: new Date().toLocaleString("ko-KR") };
     const next: UserFlag = { ...cur, [kind]: !cur[kind] };
     if (kind === "noFollow") next.events = next.noFollow ? (event ? [...new Set([...cur.events, event])] : cur.events) : [];
+    if (kind === "bad") next.reason = next.bad ? reason?.trim() || cur.reason : undefined;
     const all = { ...stateRef.current.flags };
-    if (!next.cherry && !next.noFollow) delete all[key];
+    if (!next.cherry && !next.noFollow && !next.bad) delete all[key];
     else all[key] = next;
     saveFlags(all);
   };
@@ -501,7 +505,7 @@ export default function GiveawayTab() {
       /* 요약은 이미 삭제됨 — 상세만 남을 수 있음 */
     }
   };
-  const flagCount = (k: "cherry" | "noFollow") => Object.values(flags).filter((f) => f[k]).length;
+  const flagCount = (k: "cherry" | "noFollow" | "bad") => Object.values(flags).filter((f) => f[k]).length;
 
   // 최근 게시물 목록 (선택해서 불러오기)
   const loadMedia = async () => {
@@ -812,6 +816,7 @@ export default function GiveawayTab() {
         setMsg("이미 결과에 있는 아이디입니다.");
         return;
       }
+      if (stateRef.current.flags[u.toLowerCase()]?.bad && !confirm(`@${u}는 악성 계정으로 등록돼 있습니다. 그래도 교체 당첨자로 지정할까요?`)) return;
       const hit = an.valid.find((c) => c.user.toLowerCase() === u.toLowerCase());
       outside = !hit;
       comment = hit ?? { user: u, text: "" };
@@ -1269,14 +1274,15 @@ export default function GiveawayTab() {
             <input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} />
             1인 1회 응모
           </label>
-          <label className="flex items-center gap-1.5">
-            <input type="checkbox" checked={excludeCherry} onChange={(e) => setExcludeCherry(e.target.checked)} />
-            체리피커 제외 ({flagCount("cherry")})
-          </label>
-          <label className="flex items-center gap-1.5">
-            <input type="checkbox" checked={excludeNoFollow} onChange={(e) => setExcludeNoFollow(e.target.checked)} />
-            비팔로우 이력자 제외 ({flagCount("noFollow")})
-          </label>
+          <span className="flex items-center gap-1.5 text-gray-600" title="표시 관리에 등록된 체리피커는 항상 추첨에서 제외됩니다">
+            체리피커 자동 제외 ({flagCount("cherry")})
+          </span>
+          <span className="flex items-center gap-1.5 text-gray-600" title="비팔로우 이력자는 제외하지 않고 '비팔로우 이력' 표기만 합니다">
+            비팔로우 이력 표기만 ({flagCount("noFollow")})
+          </span>
+          <span className="flex items-center gap-1.5 text-gray-600" title="악플·비정상 행동으로 등록한 계정은 항상 추첨에서 제외됩니다">
+            악성 계정 자동 제외 ({flagCount("bad")})
+          </span>
         </div>
         <p className="mt-3 text-[14px] text-gray-600">
           {rows.length ? (
@@ -1325,6 +1331,7 @@ export default function GiveawayTab() {
                     {winBadge(r.comment.user)}
                     {f?.cherry && <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[11px] font-bold shrink-0">체리피커</span>}
                     {f?.noFollow && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-bold shrink-0">비팔로우 이력</span>}
+                    {f?.bad && <span className="px-1.5 py-0.5 rounded bg-gray-800 text-white text-[11px] font-bold shrink-0" title={f.reason || "악성 계정으로 등록됨"}>악성 계정</span>}
                     {r.note && <span className="text-[12px] text-emerald-700 shrink-0">{r.note}</span>}
                     {!live && !drawing && !record && (
                       <button className="min-h-[32px] text-[13px] font-semibold text-[#303236] hover:underline whitespace-nowrap shrink-0 ml-auto" onClick={() => undoVoid(i)}>
@@ -1346,6 +1353,9 @@ export default function GiveawayTab() {
                         )}
                         <button className="min-h-[32px] text-[13px] text-purple-700 hover:underline whitespace-nowrap" onClick={() => toggleFlag(r.comment.user, "cherry")}>
                           {f?.cherry ? "체리 해제" : "체리피커"}
+                        </button>
+                        <button className="min-h-[32px] text-[13px] text-gray-800 hover:underline whitespace-nowrap" onClick={() => toggleFlag(r.comment.user, "bad")} title="악플·비정상 행동 계정으로 등록 (다음 추첨부터 자동 제외)">
+                          {f?.bad ? "악성 해제" : "악성 등록"}
                         </button>
                         <button className="min-h-[32px] text-[13px] text-gray-600 hover:underline whitespace-nowrap" onClick={() => { setReplaceIdx(replaceIdx === i ? null : i); setReplaceInput(""); }}>
                           교체
@@ -1422,7 +1432,7 @@ export default function GiveawayTab() {
       <section className={card}>
         <div className="flex items-baseline gap-x-3 gap-y-1 flex-wrap mb-3">
           <h2 className="text-xl font-bold text-gray-800">4. 참여자 표시 관리</h2>
-          <span className="text-[13px] text-gray-400">표시한 사람은 다음 추첨에서 자동 제외할 수 있습니다 · 서버 저장(PC 공통)</span>
+          <span className="text-[13px] text-gray-400">비팔로우·체리피커·악성(악플·비정상 행동) 계정을 표시해 두면 다음 추첨에서 자동 제외할 수 있습니다 · 서버 저장(PC 공통)</span>
         </div>
         {stateMsg && <p className="mb-2 text-[14px] text-red-600">{stateMsg}</p>}
 
@@ -1435,20 +1445,26 @@ export default function GiveawayTab() {
           <button className="px-3 py-2 rounded-lg border border-purple-200 text-[13px] font-semibold text-purple-700 hover:bg-purple-50 disabled:opacity-40 whitespace-nowrap" disabled={!flagAdd} onClick={() => { if (!flags[flagAdd.toLowerCase()]?.cherry) toggleFlag(flagAdd, "cherry"); setFlagAdd(""); }}>
             체리피커 추가
           </button>
+          <input className={`${cInput} !w-44`} value={flagReason} onChange={(e) => setFlagReason(e.target.value.slice(0, 60))} placeholder="악성 사유 메모(선택)" />
+          <button className="px-3 py-2 rounded-lg border border-gray-800 text-[13px] font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-40 whitespace-nowrap" disabled={!flagAdd} onClick={() => { if (!flags[flagAdd.toLowerCase()]?.bad) toggleFlag(flagAdd, "bad", undefined, flagReason); setFlagAdd(""); setFlagReason(""); }}>
+            악성 계정 추가
+          </button>
           {rows.length > 0 && <input className={`${cInput} !w-52 md:ml-auto`} value={flagQuery} onChange={(e) => setFlagQuery(e.target.value)} placeholder="이번 게시물 참여자 검색" />}
         </div>
 
         {/* 표시된 참여자 — 있을 때만, 칩 형태로 */}
         {Object.keys(flags).length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5 items-center">
-            <span className="text-[13px] font-semibold text-gray-600 mr-1">표시됨 {flagCount("noFollow")}·{flagCount("cherry")}</span>
+            <span className="text-[13px] font-semibold text-gray-600 mr-1">표시됨 비팔로우 {flagCount("noFollow")} · 체리 {flagCount("cherry")} · 악성 {flagCount("bad")}</span>
             {Object.values(flags)
               .sort((x, y) => x.user.localeCompare(y.user))
               .map((f) => (
-                <span key={f.user} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-gray-100 text-[12px]" title={f.events.length ? `비팔로우: ${f.events.join(", ")}` : undefined}>
+                <span key={f.user} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-gray-100 text-[12px]" title={[f.events.length ? `비팔로우: ${f.events.join(", ")}` : "", f.bad && f.reason ? `악성 사유: ${f.reason}` : ""].filter(Boolean).join(" / ") || undefined}>
                   <a className="hover:underline" href={igUrl(f.user)} target="_blank" rel="noopener noreferrer">@{f.user}</a>
                   {f.noFollow && <button className="px-1 rounded bg-red-100 text-red-700 font-bold" onClick={() => toggleFlag(f.user, "noFollow", eventTitle())} title="비팔로우 해제">비</button>}
                   {f.cherry && <button className="px-1 rounded bg-purple-100 text-purple-700 font-bold" onClick={() => toggleFlag(f.user, "cherry")} title="체리피커 해제">체</button>}
+                  {f.bad && <button className="px-1 rounded bg-gray-800 text-white font-bold" onClick={() => toggleFlag(f.user, "bad")} title={`악성 해제${f.reason ? ` (사유: ${f.reason})` : ""}`}>악</button>}
+                  {f.bad && f.reason && <span className="text-gray-500 max-w-[10rem] truncate">{f.reason}</span>}
                   {winBadge(f.user)}
                 </span>
               ))}
@@ -1470,6 +1486,7 @@ export default function GiveawayTab() {
                     <span className="ml-auto flex gap-2 shrink-0">
                       <button className={`hover:underline ${f?.noFollow ? "text-red-600 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "noFollow", eventTitle())}>{f?.noFollow ? "비팔로우✓" : "비팔로우"}</button>
                       <button className={`hover:underline ${f?.cherry ? "text-purple-700 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "cherry")}>{f?.cherry ? "체리✓" : "체리"}</button>
+                      <button className={`hover:underline ${f?.bad ? "text-gray-900 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "bad")}>{f?.bad ? "악성✓" : "악성"}</button>
                     </span>
                   </li>
                 );

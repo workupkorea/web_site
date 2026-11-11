@@ -179,7 +179,8 @@ async function timedFetch(url: string, init: RequestInit) {
   return fetch(url, { ...init, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS), cache: "no-store" });
 }
 
-export async function fetchWjumunRows(sb: SupabaseClient): Promise<WjumunRow[]> {
+// 저장된 관리자 계정으로 로그인해 세션 쿠키 헤더를 돌려준다. (비밀번호는 이 함수 안에서만 복호화)
+async function loginCookie(sb: SupabaseClient): Promise<string> {
   const cred = await readSection<Credentials>(sb, CRED_SECTION);
   if (!cred?.userid || !cred.passwordEnc) throw new Error("wjumun 관리자 계정이 저장되어 있지 않습니다.");
   const password = decryptSecret(cred.passwordEnc);
@@ -194,8 +195,70 @@ export async function fetchWjumunRows(sb: SupabaseClient): Promise<WjumunRow[]> 
     body: new URLSearchParams({ a_userid: cred.userid, a_passwd: password }),
   });
   mergeCookies(jar, login);
+  return cookieHeader(jar);
+}
 
-  const res = await timedFetch(`${BASE_URL}${LIST_PATH}`, { method: "GET", headers: { Cookie: cookieHeader(jar) } });
+// ── 상품(품번) 조회 ──────────────────────────────────
+export type WjumunItem = {
+  name: string;
+  barcode: string;
+  posCode: string;
+  qty: string; // 입수량
+  cost: number; // 매입가(원가)
+  supply: number; // 공급가
+  price: number; // 판매가
+  stock: number | null;
+  imageUrl: string;
+  adminUrl: string; // wjumun 관리자 수정 화면
+};
+export type WjumunItemResult = { items: WjumunItem[]; searchUrl: string };
+
+const decodeAttr = (s: string) => decodeEntities(s).trim();
+const num = (s: string | undefined) => Number((s ?? "").replace(/[^0-9.-]/g, "")) || 0;
+
+// 품번(it_tag_code 앞부분 일치)으로 상품목록을 검색해 색상·사이즈별 행을 읽는다. 1페이지만 읽는다.
+export function parseWjumunItems(html: string): WjumunItem[] {
+  const items: WjumunItem[] = [];
+  for (const chunk of html.split(/<input type="hidden" name="it_id\[\d+\]"/i).slice(1)) {
+    const row = chunk.split(/<\/tr>/i)[0];
+    const field = (n: string) => decodeAttr(row.match(new RegExp(`name="${n}\\[\\d+\\]" value="([^"]*)"`))?.[1] ?? "");
+    const itId = row.match(/value="(\d+)"/)?.[1] ?? "";
+    const stockRaw = row.match(/padding-right: 3px;">\s*(-?[\d,]+)\s*<a href="\.\/item_stock/)?.[1];
+    const img = row.match(/<img src="([^"]+)" class="shop_img"/)?.[1] ?? "";
+    const name = field("it_name");
+    if (!name) continue;
+    items.push({
+      name,
+      barcode: field("it_code"),
+      posCode: field("it_maker"),
+      qty: field("it_ex1"),
+      cost: num(field("it_purchase_cost")),
+      supply: num(field("it_pay")),
+      price: num(field("it_supply_pay")),
+      stock: stockRaw == null ? null : num(stockRaw),
+      imageUrl: img ? `${BASE_URL}${img}` : "",
+      adminUrl: itId ? `${BASE_URL}/admin/shop/item_form.php?mode=E&it_id=${itId}` : "",
+    });
+  }
+  return items;
+}
+
+export async function searchWjumunItems(sb: SupabaseClient, code: string): Promise<WjumunItemResult> {
+  const query = `ius=&fmDt=&toDt=&search_field1=it_tag_code&search_word1=${encodeURIComponent(code)}`;
+  const searchUrl = `${BASE_URL}/admin/shop/item_list.php?${query}`;
+  const cookie = await loginCookie(sb);
+  const res = await timedFetch(searchUrl, { method: "GET", headers: { Cookie: cookie } });
+  if (!res.ok) throw new Error(`wjumun 상품 조회 실패 (HTTP ${res.status})`);
+  const html = await res.text();
+  if (!/item_list\.php/.test(html) || /name=["']?a_passwd/.test(html)) {
+    throw new Error("wjumun 로그인에 실패했습니다. 저장된 아이디/비밀번호를 확인해 주세요.");
+  }
+  return { items: parseWjumunItems(html), searchUrl };
+}
+
+export async function fetchWjumunRows(sb: SupabaseClient): Promise<WjumunRow[]> {
+  const cookie = await loginCookie(sb);
+  const res = await timedFetch(`${BASE_URL}${LIST_PATH}`, { method: "GET", headers: { Cookie: cookie } });
   if (!res.ok) throw new Error(`wjumun 목록 요청 실패 (HTTP ${res.status})`);
   const rows = parseWjumunTable(await res.text());
   if (rows.length === 0) {

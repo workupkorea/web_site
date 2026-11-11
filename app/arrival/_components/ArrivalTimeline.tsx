@@ -279,11 +279,88 @@ function fmtSize(raw?: string | null): string {
     .replace(/(\d+)N(?![A-Za-z])/g, "$1"); // 숫자 뒤 N 제거 (30N → 30)
 }
 
+// 관리자 전용 — 품번으로 wjumun 상품(색상·사이즈별 재고·가격)을 조회해 보여준다. (서버가 저장된 계정으로 대신 로그인)
+type WjumunItemRow = { name: string; barcode: string; posCode: string; qty: string; cost: number; supply: number; price: number; stock: number | null; imageUrl: string; adminUrl: string };
+function WjumunItemPopup({ code, onClose }: { code: string; onClose: () => void }) {
+  const [items, setItems] = useState<WjumunItemRow[] | null>(null);
+  const [searchUrl, setSearchUrl] = useState("");
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/admin/wjumun/item?code=${encodeURIComponent(code)}`)
+      .then(async r => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error ?? "조회에 실패했습니다.");
+        if (alive) { setItems(d.items); setSearchUrl(d.searchUrl); }
+      })
+      .catch(e => { if (alive) setError(e instanceof Error ? e.message : "조회에 실패했습니다."); });
+    return () => { alive = false; };
+  }, [code]);
+
+  const won = (n: number) => (n > 0 ? n.toLocaleString("ko-KR") : "—");
+  const totalStock = items?.reduce((s, i) => s + (i.stock ?? 0), 0) ?? 0;
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 bg-black/50" onClick={e => { e.stopPropagation(); onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <div>
+            <p className="text-[12px] text-gray-400 font-semibold">wjumun 상품 조회 (관리자)</p>
+            <p className="font-mono text-[16px] font-bold text-[#1a1a1a]">{code}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="닫기" className="min-w-[44px] min-h-[44px] text-[22px] text-gray-400 hover:text-gray-700">×</button>
+        </div>
+        <div className="overflow-auto px-5 py-3 flex-1">
+          {error && <p className="py-10 text-center text-red-500 text-[14px]">{error}</p>}
+          {!error && !items && <p className="py-10 text-center text-gray-400 text-[14px]">wjumun에서 불러오는 중...</p>}
+          {items && items.length === 0 && <p className="py-10 text-center text-gray-400 text-[14px]">검색 결과가 없습니다.</p>}
+          {items && items.length > 0 && (
+            <>
+              <p className="text-[13px] text-gray-500 mb-2">{items.length}개 옵션 · 총 재고 <b className="text-gray-800">{totalStock.toLocaleString("ko-KR")}</b></p>
+              <table className="w-full text-[13px] border-collapse">
+                <thead>
+                  <tr className="text-left text-gray-400 border-b border-gray-200">
+                    <th className="py-1.5 pr-2 font-semibold">상품명</th>
+                    <th className="py-1.5 pr-2 font-semibold">바코드</th>
+                    <th className="py-1.5 pr-2 font-semibold text-right">매입가</th>
+                    <th className="py-1.5 pr-2 font-semibold text-right">공급가</th>
+                    <th className="py-1.5 pr-2 font-semibold text-right">판매가</th>
+                    <th className="py-1.5 font-semibold text-right">재고</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map(i => (
+                    <tr key={i.barcode || i.name} className="border-b border-gray-50">
+                      <td className="py-1.5 pr-2">{i.name}</td>
+                      <td className="py-1.5 pr-2 font-mono text-gray-500">{i.barcode}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.cost)}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.supply)}</td>
+                      <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.price)}</td>
+                      <td className={`py-1.5 text-right tabular-nums font-bold ${i.stock === 0 ? "text-red-500" : ""}`}>{i.stock ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </div>
+        {searchUrl && (
+          <div className="px-5 py-3 border-t border-gray-100 text-right">
+            <a href={searchUrl} target="_blank" rel="noopener noreferrer" className="text-[13px] text-blue-600 underline underline-offset-4">wjumun 관리자에서 열기 ↗</a>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: ArrivalProduct; onClose: () => void; openOrderLink: (url: string, e: React.MouseEvent) => void; isAdmin?: boolean }) {
   const { full } = fmtDate(product.arrivalDate);
   const meta = STATUS_META[product.status] ?? STATUS_META["입고예정"];
   const history = product.changeHistory ?? [];
   const [copied, setCopied] = useState(false);
+  const [showWjumun, setShowWjumun] = useState(false);
 
   // 모바일 스와이프 다운으로 닫기
   const startY = useRef(0);
@@ -302,6 +379,9 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
 
   return (
     <div className="fixed inset-0 z-[80] overflow-y-auto bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      {isAdmin && showWjumun && product.productCode && (
+        <WjumunItemPopup code={product.productCode} onClose={() => setShowWjumun(false)} />
+      )}
       <div className="flex min-h-full items-center justify-center p-3 sm:p-6">
       <div
         className="bg-white w-full max-w-[1025px] flex flex-col rounded-2xl overflow-hidden shadow-2xl"
@@ -353,7 +433,21 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
                   </tr>
                   <tr className="border-b border-gray-100">
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">코드</td>
-                    <td className="py-2.5 font-mono text-[15px] text-[#1a1a1a] align-middle">{product.productCode}</td>
+                    <td className="py-2.5 font-mono text-[15px] text-[#1a1a1a] align-middle">
+                      {isAdmin && product.productCode ? (
+                        // 관리자 전용: 누르면 wjumun 상품(재고·가격)을 서버에서 조회해 팝업으로 표시
+                        <button
+                          type="button"
+                          onClick={() => setShowWjumun(true)}
+                          title="wjumun에서 이 품번 조회"
+                          className="font-mono underline decoration-dotted underline-offset-4 hover:text-blue-600 min-h-[44px]"
+                        >
+                          {product.productCode}
+                        </button>
+                      ) : (
+                        product.productCode
+                      )}
+                    </td>
                   </tr>
                   <tr className="border-b border-gray-100">
                     <td className="py-2.5 pr-4 text-[13px] tracking-widest text-gray-400 uppercase font-semibold whitespace-nowrap align-middle">카테고리</td>
