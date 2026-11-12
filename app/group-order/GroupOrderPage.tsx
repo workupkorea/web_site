@@ -316,7 +316,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                   </Field>
                   <Field id="go-phone" label="연락처" required error={errors.phone}>
                     <input
-                      id="go-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="010-0000-0000" maxLength={30}
+                      id="go-phone" type="tel" inputMode="numeric" autoComplete="tel" placeholder="01046233306" maxLength={30}
                       value={values.phone} onChange={(event) => setValue("phone")({ target: { value: formatPhone(event.target.value) } })}
                       aria-required="true" aria-invalid={!!errors.phone} aria-describedby={describedBy("phone", "go-phone")}
                       className={styles.input}
