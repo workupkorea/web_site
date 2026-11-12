@@ -161,7 +161,7 @@
   /* 가로 전체 폭 사용. 좌측 사진은 화면 왼쪽 끝까지 붙이고(왼쪽 여백 0), 우측만 70px 여백을 둔다. */
   .page { padding-top: 0; }
   .container { width: 100%; max-width: none; padding-inline: 0 clamp(32px, 4.9vw, 70px); }
-  .layout { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 0; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 0; }
   /* 좌측 사진은 헤더 아래부터 화면 하단까지 꽉 채워 고정하고(스크롤해도 그대로), 폼이 끝날 때까지는 오른쪽만 스크롤된다.
      세 사람이 사진 오른쪽에 모여 있어 오른쪽 기준으로 확대해 맞추고, 사람이 잘리지 않도록 좌측 칸을 넓게 잡는다. */
   .visual { display: block; align-self: stretch; }
