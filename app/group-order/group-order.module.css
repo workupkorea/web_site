@@ -166,7 +166,7 @@
   .visual { display: block; align-self: stretch; }
   .visualFrame {
     position: sticky; aspect-ratio: 3 / 2; width: 100%; overflow: hidden; background: #e9eae7;
-    top: calc(var(--wu-topbar-h, 0px) + 76px); border-radius: 0 8px 8px 0;
+    top: calc(var(--wu-topbar-h, 0px) + 76px); border-radius: 0;
   }
   .visualImage { object-fit: cover; }
   .content { padding-top: 48px; }
