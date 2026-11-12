@@ -3,6 +3,7 @@ import PopupBanner from "@/components/PopupBanner";
 import { getHomeLayout } from "@/lib/home-layout-server";
 import { getHomeMagazine } from "@/lib/home-magazine-server";
 import HomeSections from "@/components/HomeSections";
+import HomeClickTracker from "@/components/HomeClickTracker";
 
 export const metadata: Metadata = {
   title: "WORKUP — 일하는 사람을 위한 옷",
@@ -29,6 +30,7 @@ export default async function Home() {
     <main>
       {/* 팝업은 오버레이라 배치 대상에서 제외 — 항상 렌더 */}
       <PopupBanner />
+      <HomeClickTracker />
       <HomeSections sections={sections} magazine={magazine} />
     </main>
   );

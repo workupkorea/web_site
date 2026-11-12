@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 
-const ALLOWED = new Set(["nav_click", "dwell"]);
+const ALLOWED = new Set(["nav_click", "dwell", "home_click"]);
 const MAX_DWELL_SEC = 1800; // 30분 초과는 방치된 탭으로 보고 상한 처리
 
 // POST /api/track/nav — 상단 메뉴 클릭·체류시간 1건 기록 (공개, 개인정보 없음)

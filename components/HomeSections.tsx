@@ -31,6 +31,19 @@ const SECTION_RENDERERS: Record<HomeSectionKey, (ctx: RenderCtx) => ReactNode> =
   instagram: () => <HomeInstagramFeed />,
 };
 
+// 클릭 분석(관리자 메뉴 분석)에 표시되는 섹션 이름
+const SECTION_NAMES: Record<HomeSectionKey, string> = {
+  magazine: "매거진",
+  hero: "히어로 배너",
+  brandLogos: "브랜드 로고",
+  newArrivals: "신상품",
+  category: "카테고리",
+  editorial: "에디토리얼",
+  people: "피플",
+  youtube: "유튜브",
+  instagram: "인스타그램",
+};
+
 export default function HomeSections({
   sections,
   magazine,
@@ -57,7 +70,10 @@ export default function HomeSections({
         if (!render) return null;
         return (
           <Fragment key={s.key}>
-            {render(ctx)}
+            {/* display:contents라 레이아웃 영향 없이 클릭 분석용 섹션 이름만 붙인다 */}
+            <div data-home-section={SECTION_NAMES[s.key] ?? s.key} style={{ display: "contents" }}>
+              {render(ctx)}
+            </div>
             {/* 히어로가 첫 화면이면 검색창은 히어로 다음 (매거진이 첫 화면이면 커버 아래에 매거진이 직접 끼운다) */}
             {s.key === "hero" && searchBarAnchor === "hero" && <StoreSearchBar />}
           </Fragment>

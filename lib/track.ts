@@ -80,6 +80,12 @@ export function trackNavClick(label: string, href: string, newTab = false) {
   }
 }
 
+// 메인 페이지 본문 클릭 기록 (섹션 · 요소명). 체류시간 측정은 하지 않는다.
+export function trackHomeClick(label: string, href: string) {
+  if (typeof window === "undefined" || !label) return;
+  sendNav({ event_type: "home_click", nav_label: label, href, path: "/" });
+}
+
 export function takeNavPending(pathname: string): NavPending | null {
   try {
     const raw = sessionStorage.getItem(NAV_PENDING_KEY);

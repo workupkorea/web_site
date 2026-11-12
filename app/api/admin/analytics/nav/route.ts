@@ -13,6 +13,7 @@ const VISITOR_CHUNK = 25;
 type Ev = {
   event_type: string;
   nav_label: string;
+  href?: string | null;
   path?: string | null;
   duration_sec?: number | null;
   visitor_id?: string | null;
@@ -23,7 +24,7 @@ type Db = ReturnType<typeof createAdminClient>;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Apply = (q: any) => any;
 
-const COLS = "event_type,nav_label,path,duration_sec,visitor_id,created_at";
+const COLS = "event_type,nav_label,href,path,duration_sec,visitor_id,created_at";
 
 async function fetchPaged(db: Db, cols: string, apply: Apply): Promise<Ev[]> {
   const out: Ev[] = [];
@@ -173,6 +174,32 @@ export async function GET(req: Request) {
       returningVisitors = seenBefore.size;
     }
 
+    // 메인 페이지 클릭 (메뉴 선택과 무관, 기간 필터만 적용). 라벨은 "섹션 · 요소명"
+    const homeSections = new Map<string, number>();
+    const homeItems = new Map<string, { section: string; label: string; href: string; count: number }>();
+    let homeTotal = 0;
+    const homeVisitors = new Set<string>();
+    for (const e of events) {
+      if (e.event_type !== "home_click") continue;
+      homeTotal++;
+      if (e.visitor_id) homeVisitors.add(e.visitor_id);
+      const sep = e.nav_label.indexOf(" · ");
+      const section = sep > 0 ? e.nav_label.slice(0, sep) : "기타";
+      const label = sep > 0 ? e.nav_label.slice(sep + 3) : e.nav_label;
+      countMap(homeSections, section);
+      const href = e.href ?? "";
+      const k = `${e.nav_label}|${href}`;
+      const cur = homeItems.get(k);
+      if (cur) cur.count++;
+      else homeItems.set(k, { section, label, href, count: 1 });
+    }
+    const home = {
+      total: homeTotal,
+      visitors: homeVisitors.size,
+      sections: topList(homeSections, 12),
+      items: [...homeItems.values()].sort((a, b) => b.count - a.count).slice(0, 15),
+    };
+
     const dwellSum = dwells.reduce((s, e) => s + Number(e.duration_sec), 0);
 
     return NextResponse.json({
@@ -184,6 +211,7 @@ export async function GET(req: Request) {
         prevVisitors: prev?.visitors ?? null,
       },
       rows,
+      home,
       detail: {
         menu: menu || null,
         clicks: clicks.length,

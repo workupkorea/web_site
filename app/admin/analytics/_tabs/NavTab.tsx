@@ -25,6 +25,7 @@ type Resp = {
   range: { from: string; to: string; unit: "hour" | "day"; all: boolean };
   totals: { clicks: number; visitors: number; prevClicks: number | null; prevVisitors: number | null };
   rows: NavRow[];
+  home: { total: number; visitors: number; sections: KeyCount[]; items: { section: string; label: string; href: string; count: number }[] };
   detail: Detail;
 };
 
@@ -386,8 +387,28 @@ export default function NavTab() {
               </Card>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <Card title="어느 페이지에서 눌렀나 (클릭 발생 페이지)">
-                  <BarList items={detail.pages} total={detail.clicks} />
+                <Card title="메인 페이지 분석 (본문 클릭)">
+                  {!data?.home.total ? (
+                    <p className="text-[13px] text-gray-400">이 기간에 기록된 메인 페이지 클릭이 없습니다. (수집은 배포 후부터 시작됩니다)</p>
+                  ) : (
+                    <div className="space-y-4">
+                      <p className="text-[12px] text-gray-400">
+                        총 {data.home.total.toLocaleString()}회 · 방문자 {data.home.visitors.toLocaleString()}명 (상단/하단 메뉴 제외)
+                      </p>
+                      <div>
+                        <p className="text-[12px] font-bold text-gray-500 mb-2">섹션별</p>
+                        <BarList items={data.home.sections} total={data.home.total} />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-bold text-gray-500 mb-2">많이 클릭된 요소 TOP</p>
+                        <BarList
+                          total={data.home.total}
+                          items={data.home.items.map((i) => ({ key: `${i.section} · ${i.label}|${i.href}`, count: i.count }))}
+                          labels={Object.fromEntries(data.home.items.map((i) => [`${i.section} · ${i.label}|${i.href}`, `${i.section} · ${i.label}`]))}
+                        />
+                      </div>
+                    </div>
+                  )}
                 </Card>
                 <Card title="신규 / 재방문 방문자">
                   {detail.newVisitors == null ? (
