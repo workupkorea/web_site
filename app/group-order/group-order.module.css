@@ -161,14 +161,22 @@
   /* 가로 전체 폭 사용. 좌측 사진은 화면 왼쪽 끝까지 붙이고(왼쪽 여백 0), 우측만 70px 여백을 둔다. */
   .page { padding-top: 0; }
   .container { width: 100%; max-width: none; padding-inline: 0 clamp(32px, 4.9vw, 70px); }
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 56px; }
-  /* 사진 원본 비율(3:2)에 맞춰 칸을 잡아 사람이 잘리지 않게 하고, 화면 왼쪽 끝에 붙여 스크롤을 따라오게 고정한다. */
+  .layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 56px; }
+  /* 좌측 패널은 화면 높이만큼 채워 고정하고(스크롤해도 그대로) 폼이 끝날 때까지는 오른쪽만 스크롤된다.
+     선명한 사진은 사람이 잘리지 않는 비율로 가운데에 두고(세 사람이 오른쪽에 모여 있어 오른쪽 기준),
+     위아래 남는 부분은 같은 사진을 흐리게 이어 채운다. */
   .visual { display: block; align-self: stretch; }
   .visualFrame {
-    position: sticky; aspect-ratio: 6 / 5; width: 100%; overflow: hidden; background: #e9eae7;
-    top: calc(var(--wu-topbar-h, 0px) + 76px); border-radius: 0;
+    position: sticky; display: flex; align-items: center; width: 100%; overflow: hidden; border-radius: 0; background: #3a3d40;
+    top: calc(var(--wu-topbar-h, 0px) + var(--wu-header-h, 65px));
+    height: calc(100vh - var(--wu-topbar-h, 0px) - var(--wu-header-h, 65px)); min-height: 480px;
   }
-  /* 세 사람이 사진 오른쪽에 모여 있어, 칸을 키워 확대하되 오른쪽 기준으로 맞춰 왼쪽의 빈 창고만 잘리게 한다. */
+  .visualFrame::before {
+    content: ""; position: absolute; inset: -40px; background: url("/images/group-order-hero.webp") 100% 50% / cover no-repeat;
+    filter: blur(28px);
+  }
+  .visualFrame::after { content: ""; position: absolute; inset: 0; background: rgba(20, 24, 26, 0.25); }
+  .visualPhoto { position: relative; z-index: 1; flex: none; width: 100%; aspect-ratio: 6 / 5; max-height: 100%; }
   .visualImage { object-fit: cover; object-position: 100% 50%; }
   .content { padding-top: 48px; }
   .formSection { margin-bottom: 0; }
