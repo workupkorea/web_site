@@ -121,11 +121,11 @@
 .submit:disabled { background: #8a8f92; cursor: progress; }
 
 /* 접수 완료 */
-.done { padding: 20px 0 8px; }
+.done { padding: 20px 0 8px; text-align: center; }
 .done h2 { font-size: 24px; line-height: 1.35; font-weight: 700; letter-spacing: -0.04em; outline: none; }
 .done p { margin-top: 14px; color: var(--muted); font-size: 16px; line-height: 1.7; word-break: keep-all; }
 .done p span { display: block; }
-.doneActions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+.doneActions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 22px; }
 .doneLink, .doneLinkPrimary {
   display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 22px;
   border-radius: 6px; font-size: 15px; font-weight: 700; text-decoration: none; transition: background 0.15s, color 0.15s;
@@ -165,7 +165,7 @@
   .step strong { font-size: 18px; }
   .step span:last-child { font-size: 15px; line-height: 1.6; }
   .processNote { margin-top: 28px; font-size: 14px; line-height: 1.7; }
-  .done { padding: 36px 0 12px; }
+  .done { padding: 36px 0 12px; text-align: center; }
   .container { width: min(100% - 48px, 960px); }
   .title { font-size: 32px; }
   .intro { margin-bottom: 40px; }
