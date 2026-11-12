@@ -226,12 +226,6 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
   return (
     <main className={styles.page}>
       <div className={styles.container}>
-        {submitMode === "mock" && (
-          <p className={styles.previewNotice} role="note">
-            미리보기 환경입니다. 입력하신 문의는 실제로 접수되지 않습니다.
-          </p>
-        )}
-
         <div className={styles.layout}>
         {/* PC 좌측 이미지 — 순수 비주얼(글자는 HTML로만 표시). 모바일은 입력에 집중하도록 숨긴다. */}
         <aside className={styles.visual} aria-hidden="true">
