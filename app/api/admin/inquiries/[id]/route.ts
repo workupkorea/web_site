@@ -21,7 +21,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
 
   if ("type" in body) {
-    if (!["franchise", "wholesale", "support", "product"].includes(body.type)) {
+    if (!["franchise", "wholesale", "support", "product", "group_order"].includes(body.type)) {
       return NextResponse.json({ error: "잘못된 유형입니다." }, { status: 400 });
     }
     update.type = body.type;

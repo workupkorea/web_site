@@ -13,6 +13,7 @@ type Values = { organization: string; contact: string; phone: string; quantity: 
 
 const EMPTY_VALUES: Values = { organization: "", contact: "", phone: "", quantity: "", product: "", requiredDate: "", message: "" };
 
+const UNDECIDED = "미정"; // 필요한 날짜를 정하지 못한 경우 저장하는 값
 const FAIL_MESSAGE = "문의가 접수되지 않았습니다. 잠시 후 다시 시도해 주세요.";
 // 오류가 있을 때 첫 오류 항목으로 포커스를 옮기는 순서(화면 순서와 동일)
 const FIELD_ORDER: { key: FieldKey; id: string }[] = [
@@ -57,6 +58,20 @@ const STEPS = [
   { no: "03", title: "견적 안내", desc: "구매 견적과 진행 일정을 안내합니다." },
 ];
 
+// 숫자만 입력해도 하이픈을 자동으로 넣는다. 휴대폰(010-0000-0000)과 지역번호 일반 전화(02-000-0000, 031-000-0000),
+// 대표번호(1588-0000)를 지원하고, 해외번호(+로 시작)는 손대지 않는다.
+function formatPhone(raw: string): string {
+  if (raw.trim().startsWith("+")) return raw;
+  const d = raw.replace(/\D/g, "").slice(0, 11);
+  if (/^1[5-8]/.test(d)) return d.length <= 4 ? d : `${d.slice(0, 4)}-${d.slice(4, 8)}`;
+  const area = d.startsWith("02") ? 2 : 3;
+  if (d.length <= area) return d;
+  const rest = d.slice(area);
+  if (rest.length <= 3) return `${d.slice(0, area)}-${rest}`;
+  const mid = rest.length >= 8 ? 4 : 3; // 가운데 자리: 8자리 국번+번호면 4자리, 7자리 이하면 3자리
+  return `${d.slice(0, area)}-${rest.slice(0, mid)}-${rest.slice(mid)}`;
+}
+
 // 휴대폰·지역번호 일반 전화 모두 허용(공백·하이픈 허용). 실제 번호 소유 확인이 아니라 형식만 확인한다.
 function isPhoneValid(raw: string): boolean {
   const value = raw.trim();
@@ -92,6 +107,13 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
   const doneRef = useRef<HTMLHeadingElement>(null);
 
   const typeMeta = TYPES.find((t) => t.value === type);
+  const dateUndecided = values.requiredDate === UNDECIDED;
+  // 지난 날짜는 고를 수 없게 오늘을 최소값으로 둔다(서버·브라우저 날짜 차이로 인한 불일치를 피하려고 마운트 후 계산).
+  const [today, setToday] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const now = new Date();
+    setToday(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
+  }, []);
 
   // 폼이 완료 안내로 바뀌므로 화면 위치와 스크린리더 포커스를 완료 문구로 옮긴다.
   useEffect(() => {
@@ -142,10 +164,9 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: "support",
+          type: "group_order",
           payload: {
             subject: `[단체복·대량구매 / ${typeLabel}] ${organization}`,
-            inquiry_category: "group_order",
             inquiry_type: inquiryType,
             organization_name: organization,
             name: values.contact.trim(),
@@ -291,7 +312,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                   <Field id="go-phone" label="연락처" required error={errors.phone}>
                     <input
                       id="go-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="010-0000-0000" maxLength={30}
-                      value={values.phone} onChange={setValue("phone")}
+                      value={values.phone} onChange={(event) => setValue("phone")({ target: { value: formatPhone(event.target.value) } })}
                       aria-required="true" aria-invalid={!!errors.phone} aria-describedby={describedBy("phone", "go-phone")}
                       className={styles.input}
                     />
@@ -311,10 +332,19 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                     />
                   </Field>
                   <Field id="go-date" label="필요한 날짜">
+                    {/* 달력으로 날짜 선택. 정해지지 않았다면 '미정'을 체크한다(선택 항목이라 비워 둬도 된다). */}
                     <input
-                      id="go-date" type="text" placeholder="예: 12월 10일까지 / 미정" maxLength={50}
-                      value={values.requiredDate} onChange={setValue("requiredDate")} className={styles.input}
+                      id="go-date" type="date" min={today}
+                      value={dateUndecided ? "" : values.requiredDate} onChange={setValue("requiredDate")}
+                      disabled={dateUndecided} className={styles.input}
                     />
+                    <label className={styles.inlineCheck}>
+                      <input
+                        type="checkbox" checked={dateUndecided}
+                        onChange={(event) => setValues((prev) => ({ ...prev, requiredDate: event.target.checked ? UNDECIDED : "" }))}
+                      />
+                      날짜 미정
+                    </label>
                   </Field>
                   <div className={styles.fullRow}>
                     <Field id="go-message" label="추가 요청사항">

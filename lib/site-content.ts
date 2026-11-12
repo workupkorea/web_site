@@ -190,6 +190,7 @@ export const NOTIFY_TYPES = [
   { key: "wholesale", label: "입점·제휴" },
   { key: "product", label: "상품 문의" },
   { key: "support", label: "1:1 문의" },
+  { key: "group_order", label: "단체복 문의" },
 ] as const;
 export type NotifyType = (typeof NOTIFY_TYPES)[number]["key"];
 
@@ -202,7 +203,7 @@ export type NotificationConfig = {
 export const DEFAULT_NOTIFICATIONS: NotificationConfig = {
   email_enabled: false,
   manager_email: "",
-  emails_by_type: { franchise: [], wholesale: [], product: [], support: [] },
+  emails_by_type: { franchise: [], wholesale: [], product: [], support: [], group_order: [] },
 };
 
 export function normalizeNotifications(raw: Partial<NotificationConfig> | null | undefined): NotificationConfig {
@@ -218,13 +219,14 @@ export function normalizeNotifications(raw: Partial<NotificationConfig> | null |
       wholesale: arr(bt.wholesale),
       product: arr(bt.product),
       support: arr(bt.support),
+      group_order: arr(bt.group_order),
     },
   };
 }
 
 // 특정 유형의 알림 수신자 목록 — 형태별이 있으면 그것을, 없으면 공통을 사용.
 export function notifyRecipients(notif: NotificationConfig, type: string): string[] {
-  const key = (["franchise", "wholesale", "product", "support"] as const).find((k) => k === type);
+  const key = (["franchise", "wholesale", "product", "support", "group_order"] as const).find((k) => k === type);
   const perType = key ? notif.emails_by_type[key] : [];
   if (perType.length) return perType;
   const common = notif.manager_email.trim();

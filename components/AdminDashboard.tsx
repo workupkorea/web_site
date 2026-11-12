@@ -18,6 +18,7 @@ const INQUIRY_TYPE: Record<string, string> = {
   franchise: "가맹문의",
   wholesale: "도매문의",
   support:   "고객지원",
+  group_order: "단체복",
   product:   "상품문의",
 };
 

@@ -10,6 +10,7 @@ function typeLabelOf(type: string): string {
   return type === "wholesale" ? "입점·제휴"
     : type === "support" ? "고객 1:1"
     : type === "product" ? "상품 문의"
+    : type === "group_order" ? "단체복·대량구매"
     : "가맹·창업";
 }
 
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
   const payload = body.payload ?? {};
 
   // 허용 유형: 가맹·창업 / 입점·제휴 / 고객(1:1) / 상품 문의
-  if (type !== "franchise" && type !== "wholesale" && type !== "support" && type !== "product") {
+  if (type !== "franchise" && type !== "wholesale" && type !== "support" && type !== "product" && type !== "group_order") {
     return NextResponse.json({ error: "문의 유형이 올바르지 않습니다." }, { status: 400 });
   }
 
@@ -110,9 +111,14 @@ export async function POST(req: Request) {
     if (phoneDigits < 8 || phoneDigits > 15) {
       return NextResponse.json({ error: "연락처를 정확히 입력해주세요." }, { status: 400 });
     }
-    // 단체복·대량구매 견적 문의(/group-order)는 로그인 없이 접수하므로 필수값과 개인정보 동의를 서버에서도 검증한다.
-    // 기존 고객 1:1 문의 폼에는 inquiry_category 가 없어 영향이 없다.
-    if (p.inquiry_category === "group_order") {
+  } else if (type === "group_order") {
+    // 단체복·대량구매 견적 문의(/group-order)는 로그인 없이 접수하므로 필수값·연락처·개인정보 동의를 서버에서도 검증한다.
+    {
+      const phone = String(p.phone ?? "").trim();
+      const phoneDigits = phone.replace(/\D/g, "").length;
+      if (!phone || phoneDigits < 8 || phoneDigits > 15) {
+        return NextResponse.json({ error: "연락 가능한 전화번호를 확인해 주세요." }, { status: 400 });
+      }
       const required: [string, string][] = [
         ["organization_name", "회사 / 단체명"],
         ["name", "담당자명"],

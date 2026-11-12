@@ -90,6 +90,9 @@
 .input:hover { border-color: var(--ink); }
 .input[aria-invalid="true"] { border-color: var(--error); }
 .textarea { min-height: 128px; resize: vertical; }
+.input:disabled { background: #f3f4f2; color: #8a8f92; cursor: not-allowed; }
+.inlineCheck { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; cursor: pointer; }
+.inlineCheck input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
 
 .error { margin-top: 6px; color: var(--error); font-size: 14px; line-height: 1.5; }
 

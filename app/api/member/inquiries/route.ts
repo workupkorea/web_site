@@ -7,6 +7,7 @@ const TYPE_LABEL: Record<string, string> = {
   wholesale: "입점·제휴 문의",
   support:   "1:1 문의",
   product:   "상품 문의",
+  group_order: "단체복·대량구매 문의",
 };
 
 function str(v: unknown): string {

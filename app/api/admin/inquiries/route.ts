@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
 
-const VALID_TYPES = ["franchise", "wholesale", "support", "product"];
+const VALID_TYPES = ["franchise", "wholesale", "support", "product", "group_order"];
 
 // 접수된 문의 목록 조회 (관리자)
 export async function GET(req: Request) {
