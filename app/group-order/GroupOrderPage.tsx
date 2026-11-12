@@ -15,6 +15,12 @@ type Values = { organization: string; contact: string; phone: string; email: str
 
 const EMPTY_VALUES: Values = { organization: "", contact: "", phone: "", email: "", quantity: "", product: "", requiredDate: "", message: "" };
 
+// 접수 제목 앞머리: 로고·인쇄 단체복 → [단체복], 기성복 대량구매 → [대량구매]
+const TITLE_TAG: Record<InquiryType | "unspecified", string> = {
+  logo_print: "단체복",
+  bulk_purchase: "대량구매",
+  unspecified: "단체복·대량구매",
+};
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UNDECIDED = "미정"; // 필요한 날짜를 정하지 못한 경우 저장하는 값
 const FAIL_MESSAGE = "문의가 접수되지 않았습니다. 잠시 후 다시 시도해 주세요.";
@@ -173,9 +179,9 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
         body: JSON.stringify({
           type: "group_order",
           payload: {
-            // 관리자 목록에서 subject 는 구분 태그, title 은 제목으로 나뉘어 보이므로 각각 짧게 둔다.
-            subject: typeLabel,
-            title: `${organization} 견적 문의`,
+            // 관리자 목록 제목: "[단체복] 회사명 / 담당자명". 구분 태그(subject)는 제목과 겹치므로 비운다.
+            subject: "",
+            title: `[${TITLE_TAG[inquiryType]}] ${organization} / ${values.contact.trim()}`,
             inquiry_type: inquiryType,
             organization_name: organization,
             name: values.contact.trim(),
