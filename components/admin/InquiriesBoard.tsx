@@ -56,6 +56,46 @@ function isUnanswered(q: Inquiry): boolean {
   return q.status !== "done" && !q.payload._reply;
 }
 
+// ── 단체복·대량구매 문의 상세: 표로 정리해서 보여준다 ──
+const GROUP_ORDER_TYPE_LABEL: Record<string, string> = { logo_print: "로고·인쇄 단체복", bulk_purchase: "기성복 대량구매", unspecified: "유형 미선택" };
+
+// 접수 본문(message)의 "추가 요청사항: …" 이후를 꺼낸다(여러 줄 요청도 그대로).
+function groupOrderRequest(message: string): string {
+  const marker = "추가 요청사항: ";
+  const i = message.indexOf(marker);
+  const text = i >= 0 ? message.slice(i + marker.length).trim() : "";
+  return text === "미입력" ? "" : text;
+}
+
+function GroupOrderTable({ q }: { q: Inquiry }) {
+  const p = q.payload;
+  const rows: [string, React.ReactNode][] = [
+    ["문의 유형", GROUP_ORDER_TYPE_LABEL[String(p.inquiry_type)] ?? String(p.inquiry_type ?? "")],
+    ["회사 / 단체명", p.organization_name],
+    ["담당자명", p.name],
+    ["연락처", p.phone ? <a href={`tel:${p.phone}`} className="text-blue-600 hover:underline">{p.phone}</a> : ""],
+    ["이메일", p.email ? <a href={`mailto:${p.email}`} className="text-blue-600 hover:underline">{p.email}</a> : ""],
+    ["예상 수량", p.quantity_text],
+    ["희망 상품", p.product_text],
+    ["필요한 날짜", p.required_date_text],
+    ["추가 요청사항", groupOrderRequest(getBody(q))],
+  ];
+  return (
+    <table className="w-full text-sm border border-slate-200 bg-white rounded-lg overflow-hidden mb-3 border-collapse">
+      <tbody>
+        {rows.map(([label, value]) => (
+          <tr key={label} className="border-b border-slate-100 last:border-0">
+            <th className="w-32 bg-slate-50 text-left font-medium text-slate-500 px-3.5 py-2 align-top whitespace-nowrap">{label}</th>
+            <td className="px-3.5 py-2 text-slate-800 whitespace-pre-line break-words">
+              {value ? value : <span className="text-slate-300">미입력</span>}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ── 접수 목록 한 행 (아코디언: 제목 클릭 시 내용/답변 펼침) ──
 function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDelete, onSaveReply }: {
   q: Inquiry;
@@ -77,6 +117,8 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
   const subject = q.payload.subject ? String(q.payload.subject) : null;
   const email = Object.entries(q.payload).find(([k, v]) => !k.startsWith("_") && EMAIL_RE.test(String(v)))?.[1];
   const extras = Object.entries(q.payload).filter(([k, v]) => !k.startsWith("_") && !HIDE_FIELDS.has(k) && String(v).trim());
+  // 새 양식(회사명 등 구조화 항목이 있는 단체복 문의)만 표로 보여주고, 그 외에는 기존 방식으로 표시한다.
+  const isGroupOrder = (q.type as string) === "group_order" && !!q.payload.organization_name;
   const save = async () => { setSaving(true); try { await onSaveReply(q.id, draft); } finally { setSaving(false); } };
 
   return (
@@ -99,9 +141,11 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
 
       {open && (
         <div className="px-4 pb-4 pt-1 bg-slate-50/50">
-          <div className="text-sm text-slate-800 whitespace-pre-line break-words border border-slate-100 bg-white rounded-lg p-3.5 mb-3">{getBody(q) || "(내용 없음)"}</div>
+          {isGroupOrder ? <GroupOrderTable q={q} /> : (
+            <div className="text-sm text-slate-800 whitespace-pre-line break-words border border-slate-100 bg-white rounded-lg p-3.5 mb-3">{getBody(q) || "(내용 없음)"}</div>
+          )}
 
-          {extras.length > 0 && (
+          {!isGroupOrder && extras.length > 0 && (
             <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 mb-3">
               {extras.map(([k, v]) => (
                 <div key={k} className="flex gap-2 text-xs">
