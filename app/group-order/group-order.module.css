@@ -162,16 +162,11 @@
   .page { padding-top: 0; }
   .container { width: 100%; max-width: none; padding-inline: 0 clamp(32px, 4.9vw, 70px); }
   .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 56px; }
-  /* 좌측 칸은 행 높이만큼 끝까지 채운다. 같은 사진을 흐리게 깔고(배경), 선명한 원본(3:2, 잘림 없음)은 스크롤을 따라오게 고정한다. */
-  .visual { display: block; position: relative; align-self: stretch; overflow: clip; background: #d9dbd8; }
-  .visual::before {
-    content: ""; position: absolute; inset: -48px; background: url("/images/group-order-hero.webp") center / cover no-repeat;
-    filter: blur(32px) saturate(0.9);
-  }
-  .visual::after { content: ""; position: absolute; inset: 0; background: rgba(20, 24, 26, 0.18); }
+  /* 사진 원본 비율(3:2)에 맞춰 칸을 잡아 사람이 잘리지 않게 하고, 화면 왼쪽 끝에 붙여 스크롤을 따라오게 고정한다. */
+  .visual { display: block; align-self: stretch; }
   .visualFrame {
-    position: sticky; z-index: 1; aspect-ratio: 3 / 2; width: 100%; overflow: hidden;
-    top: calc(var(--wu-topbar-h, 0px) + 76px);
+    position: sticky; aspect-ratio: 3 / 2; width: 100%; overflow: hidden; background: #e9eae7;
+    top: calc(var(--wu-topbar-h, 0px) + 76px); border-radius: 0 8px 8px 0;
   }
   .visualImage { object-fit: cover; }
   .content { padding-top: 48px; }
