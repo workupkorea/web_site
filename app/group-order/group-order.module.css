@@ -165,10 +165,11 @@
   /* 사진 원본 비율(3:2)에 맞춰 칸을 잡아 사람이 잘리지 않게 하고, 화면 왼쪽 끝에 붙여 스크롤을 따라오게 고정한다. */
   .visual { display: block; align-self: stretch; }
   .visualFrame {
-    position: sticky; aspect-ratio: 3 / 2; width: 100%; overflow: hidden; background: #e9eae7;
+    position: sticky; aspect-ratio: 6 / 5; width: 100%; overflow: hidden; background: #e9eae7;
     top: calc(var(--wu-topbar-h, 0px) + 76px); border-radius: 0;
   }
-  .visualImage { object-fit: cover; }
+  /* 세 사람이 사진 오른쪽에 모여 있어, 칸을 키워 확대하되 오른쪽 기준으로 맞춰 왼쪽의 빈 창고만 잘리게 한다. */
+  .visualImage { object-fit: cover; object-position: 100% 50%; }
   .content { padding-top: 48px; }
   .formSection { margin-bottom: 0; }
   .process { padding-left: clamp(32px, 4.9vw, 70px); }
