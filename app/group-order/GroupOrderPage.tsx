@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Image from "next/image";
 import PrivacyConsentModal from "@/components/PrivacyConsentModal";
 import styles from "./group-order.module.css";
 
@@ -231,6 +232,16 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
           </p>
         )}
 
+        <div className={styles.layout}>
+        {/* PC 좌측 이미지 — 순수 비주얼(글자는 HTML로만 표시). 모바일은 입력에 집중하도록 숨긴다. */}
+        <aside className={styles.visual} aria-hidden="true">
+          <Image
+            src="/images/group-order-hero.webp" alt="" fill sizes="(min-width: 960px) 45vw, 0px"
+            className={styles.visualImage}
+          />
+        </aside>
+
+        <div className={styles.content}>
         {/* A. 메인 안내 */}
         <header className={styles.intro}>
           <h1 className={styles.title}>단체복·대량구매, 워크업에서 한 번에.</h1>
@@ -381,6 +392,8 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
             </>
           )}
         </section>
+        </div>
+        </div>
 
         {/* E. 진행 안내 */}
         <section className={styles.process} aria-labelledby="go-process-title">

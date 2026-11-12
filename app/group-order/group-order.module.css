@@ -153,6 +153,21 @@
   .step { padding-left: 0; padding-top: 14px; border-left: 0; border-top: 3px solid var(--line); }
 }
 
+/* PC: 좌측 이미지 + 우측 문의 접수 2단 */
+.visual { display: none; }
+.content { min-width: 0; }
+
+@media (min-width: 960px) {
+  .container { width: min(100% - 64px, 1200px); }
+  .layout { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 56px; align-items: start; margin-bottom: 56px; }
+  .visual {
+    display: block; position: sticky; border-radius: 8px; overflow: hidden; background: #e9eae7;
+    top: calc(var(--wu-topbar-h, 0px) + 96px); height: min(680px, calc(100vh - 140px)); min-height: 480px;
+  }
+  .visualImage { object-fit: cover; object-position: 38% center; }
+  .formSection { margin-bottom: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card, .submit { transition: none; }
 }
