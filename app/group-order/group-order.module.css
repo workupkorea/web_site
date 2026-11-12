@@ -11,7 +11,7 @@
   --error: #c0261b;
   background: #fff;
   color: var(--ink);
-  padding: 32px 0 64px;
+  padding: 20px 0 40px;
 }
 
 .page *,
@@ -38,46 +38,46 @@
 }
 
 /* A. 메인 안내 */
-.intro { margin-bottom: 32px; }
+.intro { margin-bottom: 18px; }
 .title {
-  font-size: 26px; line-height: 1.3; font-weight: 700; letter-spacing: -0.04em;
+  font-size: 24px; line-height: 1.3; font-weight: 700; letter-spacing: -0.04em;
   word-break: keep-all; text-wrap: balance;
 }
 .lead {
-  margin-top: 14px; color: var(--muted); font-size: 16px; line-height: 1.7; word-break: keep-all;
+  margin-top: 8px; color: var(--muted); font-size: 14px; line-height: 1.55; word-break: keep-all;
 }
 .lead span, .formLead span { display: block; }
 
 /* B. 문의 유형 카드 */
-.types { border: 0; margin: 0 0 40px; padding: 0; display: grid; grid-template-columns: 1fr; gap: 12px; min-width: 0; }
+.types { border: 0; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: 1fr; gap: 8px; min-width: 0; }
 .card {
-  position: relative; display: flex; align-items: flex-start; gap: 14px; min-height: 96px;
-  padding: 18px 18px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer;
+  position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 0;
+  padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 .card:hover { border-color: var(--ink); }
-.cardSelected, .cardSelected:hover { border: 2px solid var(--orange); padding: 17px 17px; background: var(--orange-soft); }
+.cardSelected, .cardSelected:hover { border: 2px solid var(--orange); padding: 13px; background: var(--orange-soft); }
 .cardIcon { flex: none; color: var(--ink); line-height: 0; margin-top: 2px; }
 .cardSelected .cardIcon { color: var(--orange-strong); }
-.cardText { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.cardText strong { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
-.cardText span { color: var(--muted); font-size: 15px; line-height: 1.55; word-break: keep-all; }
+.cardText { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cardText strong { font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
+.cardText span { color: var(--muted); font-size: 13px; line-height: 1.45; word-break: keep-all; }
 .cardCheck {
-  position: absolute; top: 12px; right: 14px; color: var(--orange-strong); font-size: 13px; font-weight: 700;
+  position: absolute; top: 10px; right: 12px; color: var(--orange-strong); font-size: 12px; font-weight: 700;
 }
 
 /* C. 문의폼 */
-.formSection { margin-bottom: 48px; scroll-margin-top: 90px; }
-.formTitle { font-size: 22px; line-height: 1.35; font-weight: 700; letter-spacing: -0.04em; word-break: keep-all; }
-.formLead { margin-top: 10px; color: var(--muted); font-size: 15px; line-height: 1.7; word-break: keep-all; }
-.requiredNote { margin-top: 18px; color: var(--muted); font-size: 14px; }
+.formSection { margin-bottom: 28px; scroll-margin-top: 90px; }
+.formTitle { font-size: 20px; line-height: 1.35; font-weight: 700; letter-spacing: -0.04em; word-break: keep-all; }
+.formLead { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.5; word-break: keep-all; }
+.requiredNote { margin-top: 10px; color: var(--muted); font-size: 13px; }
 .requiredNote span { color: var(--orange-strong); font-weight: 700; }
 
-.form { margin-top: 12px; }
-.grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+.form { margin-top: 8px; }
+.grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
 .fullRow { grid-column: 1 / -1; }
 .field { min-width: 0; }
-.label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+.label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
 .req { color: var(--orange-strong); font-weight: 700; }
 .opt { margin-left: 6px; color: var(--muted); font-size: 13px; font-weight: 400; }
 
@@ -94,16 +94,16 @@
 .inlineCheck { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; cursor: pointer; }
 .inlineCheck input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
 
-.error { margin-top: 6px; color: var(--error); font-size: 14px; line-height: 1.5; }
+.error { margin-top: 4px; color: var(--error); font-size: 13px; line-height: 1.4; }
 
 /* D. 개인정보 동의·버튼 */
-.consent { margin-top: 24px; }
+.consent { margin-top: 14px; }
 .consentRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 44px; }
 .checkbox { flex: none; width: 22px; height: 22px; margin: 0; accent-color: var(--ink); cursor: pointer; }
-.consentRow label { font-size: 15px; cursor: pointer; }
+.consentRow label { font-size: 14px; cursor: pointer; }
 .textButton {
   min-height: 44px; padding: 0 4px; background: none; border: 0; color: var(--ink);
-  font: inherit; font-size: 15px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
+  font: inherit; font-size: 14px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
 }
 .textButton:hover { color: var(--orange-strong); }
 
@@ -113,7 +113,7 @@
 }
 
 .submit {
-  display: block; width: 100%; min-height: 52px; margin-top: 24px; padding: 14px 24px;
+  display: block; width: 100%; min-height: 52px; margin-top: 14px; padding: 14px 24px;
   background: var(--orange-strong); color: #fff; border: 0; border-radius: 6px;
   font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; transition: background 0.15s;
 }
@@ -121,24 +121,42 @@
 .submit:disabled { background: #8a8f92; cursor: progress; }
 
 /* 접수 완료 */
-.done { padding: 36px 0 12px; }
+.done { padding: 20px 0 8px; }
 .done h2 { font-size: 24px; line-height: 1.35; font-weight: 700; letter-spacing: -0.04em; outline: none; }
 .done p { margin-top: 14px; color: var(--muted); font-size: 16px; line-height: 1.7; word-break: keep-all; }
 .done p span { display: block; }
 .done .previewNotice { margin-top: 24px; margin-bottom: 8px; }
 
 /* E. 진행 안내 */
-.process { padding-top: 40px; border-top: 1px solid var(--line); }
-.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 20px; }
-.step { display: flex; flex-direction: column; gap: 6px; padding-left: 16px; border-left: 3px solid var(--line); }
+.process { padding-top: 22px; border-top: 1px solid var(--line); }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 12px; }
+.step { display: flex; flex-direction: column; gap: 2px; padding-left: 16px; border-left: 3px solid var(--line); }
 .stepNo { color: var(--orange-strong); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
-.step strong { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; }
-.step span:last-child { color: var(--muted); font-size: 15px; line-height: 1.6; word-break: keep-all; }
-.processNote { margin-top: 28px; color: var(--muted); font-size: 14px; line-height: 1.7; word-break: keep-all; }
+.step strong { font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
+.step span:last-child { color: var(--muted); font-size: 13px; line-height: 1.5; word-break: keep-all; }
+.processNote { margin-top: 16px; color: var(--muted); font-size: 12.5px; line-height: 1.55; word-break: keep-all; }
 
 /* 태블릿·PC (기존 사이트 640px 기준에 맞춰 전환) */
 @media (min-width: 640px) {
   .page { padding: 48px 0 96px; }
+  .cardText { gap: 6px; }
+  .cardText strong { font-size: 18px; }
+  .cardText span { font-size: 15px; line-height: 1.55; }
+  .cardCheck { top: 12px; right: 14px; font-size: 13px; }
+  .formLead { margin-top: 10px; font-size: 15px; line-height: 1.7; }
+  .requiredNote { margin-top: 18px; font-size: 14px; }
+  .form { margin-top: 12px; }
+  .label { margin-bottom: 8px; }
+  .error { margin-top: 6px; font-size: 14px; line-height: 1.5; }
+  .consent { margin-top: 24px; }
+  .consentRow label, .textButton { font-size: 15px; }
+  .submit { margin-top: 24px; }
+  .process { padding-top: 40px; }
+  .step { gap: 6px; }
+  .step strong { font-size: 18px; }
+  .step span:last-child { font-size: 15px; line-height: 1.6; }
+  .processNote { margin-top: 28px; font-size: 14px; line-height: 1.7; }
+  .done { padding: 36px 0 12px; }
   .container { width: min(100% - 48px, 960px); }
   .title { font-size: 32px; }
   .intro { margin-bottom: 40px; }
