@@ -1,91 +1,141 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import Image from "next/image";
-import Link from "next/link";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import PrivacyConsentModal from "@/components/PrivacyConsentModal";
 import styles from "./group-order.module.css";
 
-export type Industry = "site" | "logistics" | "service";
-export type GroupProduct = { id: string; name: string; price: string; imageUrl: string };
+// 접수 방식: live = 운영 접수(/api/inquiries), mock = 로컬·Preview용 모의 응답(운영 접수처로 전송하지 않음)
+type SubmitMode = "live" | "mock";
+type InquiryType = "logo_print" | "bulk_purchase";
+type FieldKey = "organization" | "contact" | "phone" | "quantity" | "agree";
+type Errors = Partial<Record<FieldKey, string>>;
+type Values = { organization: string; contact: string; phone: string; quantity: string; product: string; requiredDate: string; message: string };
 
-const industries: { id: Industry; label: string; detail: string; title: string }[] = [
-  { id: "site", label: "건설·제조", detail: "움직임이 많고 수납이 필요한 현장", title: "현장에서 함께 입을 옷" },
-  { id: "logistics", label: "물류·배송", detail: "실내외를 오가며 일하는 팀", title: "이동이 많은 팀의 옷" },
-  { id: "service", label: "매장·서비스", detail: "고객을 마주하는 팀의 옷", title: "매장의 인상을 만드는 옷" },
-];
-const quantities = ["10벌 미만", "10~49벌", "50~99벌", "100벌 이상", "아직 미정"];
-const priorities = ["활동성", "기능", "통일감", "예산"];
-const logoPositions = [
-  { id: "chest", label: "가슴" },
-  { id: "back", label: "등판" },
-  { id: "sleeve", label: "소매" },
-] as const;
-type LogoPosition = (typeof logoPositions)[number]["id"];
+const EMPTY_VALUES: Values = { organization: "", contact: "", phone: "", quantity: "", product: "", requiredDate: "", message: "" };
 
-const faqs = [
-  { q: "몇 벌부터 문의할 수 있나요?", a: "필요한 수량을 알려주시면 제품별 공급 가능 여부를 확인해 안내합니다. 수량이 아직 정해지지 않아도 상담할 수 있습니다." },
-  { q: "사이즈를 섞어서 주문할 수 있나요?", a: "제품별 사이즈와 재고 상황이 달라 수량을 확인한 뒤 안내합니다. 필요한 사이즈가 정해져 있다면 문의 내용에 적어 주세요." },
-  { q: "회사 로고를 넣을 수 있나요?", a: "제품과 로고 작업 방식에 따라 가능 여부가 다릅니다. 원하는 위치와 로고 파일 유무를 알려주시면 확인해 안내합니다." },
-  { q: "언제 받을 수 있나요?", a: "제품, 수량, 로고 작업, 납품 지역에 따라 일정이 달라집니다. 희망 날짜를 남겨주시면 가능한 일정을 확인합니다." },
+const FAIL_MESSAGE = "문의가 접수되지 않았습니다. 잠시 후 다시 시도해 주세요.";
+// 오류가 있을 때 첫 오류 항목으로 포커스를 옮기는 순서(화면 순서와 동일)
+const FIELD_ORDER: { key: FieldKey; id: string }[] = [
+  { key: "organization", id: "go-organization" },
+  { key: "contact", id: "go-contact" },
+  { key: "phone", id: "go-phone" },
+  { key: "quantity", id: "go-quantity" },
+  { key: "agree", id: "go-agree" },
 ];
 
-function LogoPreview({ position }: { position: LogoPosition }) {
+const MESSAGE_PLACEHOLDER: Record<InquiryType | "none", string> = {
+  none: "사용 목적, 예산, 색상·사이즈 등을 남겨주세요.",
+  bulk_purchase: "사용 목적, 예산, 색상·사이즈 등을 남겨주세요.",
+  logo_print: "로고 작업 위치, 인쇄·자수 희망 여부 등을 남겨주세요. 자세한 내용은 상담 후 결정하셔도 됩니다.",
+};
+
+function ShirtIcon() {
   return (
-    <div className={styles.logoPreview} aria-label={`로고 ${logoPositions.find((item) => item.id === position)?.label} 배치 예시`}>
-      <svg className={styles.garmentDiagram} viewBox="0 0 720 360" role="img" aria-label="작업복 앞면과 뒷면을 단순화한 그림">
-        <path d="M126 52 178 33 221 63 264 33 316 52 354 118 319 139 302 107 302 332 139 332 139 107 122 139 87 118Z" fill="#e9eae7" stroke="#adb2ae" strokeWidth="3" />
-        <path d="M178 33 221 63 264 33 250 80 221 96 192 80Z" fill="#f8f8f6" stroke="#adb2ae" strokeWidth="3" />
-        <path d="M221 96V332M159 145h41v34h-41zM242 145h41v34h-41z" fill="none" stroke="#b8bcb8" strokeWidth="2" />
-        <path d="M453 52 505 33 548 52 591 33 643 52 681 118 646 139 629 107 629 332 466 332 466 107 449 139 414 118Z" fill="#dadcd8" stroke="#adb2ae" strokeWidth="3" />
-        <path d="M505 33q43 40 86 0" fill="none" stroke="#adb2ae" strokeWidth="3" />
-        <path d="M485 115h125" fill="none" stroke="#b8bcb8" strokeWidth="2" />
-      </svg>
-      <span className={`${styles.logoMarker} ${styles[position]}`}>로고</span>
-      <span className={styles.frontLabel}>앞면</span>
-      <span className={styles.backLabel}>뒷면</span>
+    <svg viewBox="0 0 32 32" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M11 4 4 8l2.5 6L10 12.5V28h12V12.5l3.5 1.5L28 8l-7-4a5 5 0 0 1-10 0Z" />
+    </svg>
+  );
+}
+
+function PackageIcon() {
+  return (
+    <svg viewBox="0 0 32 32" width="32" height="32" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="m16 3 11 6v14l-11 6-11-6V9l11-6Z" />
+      <path d="M5 9l11 6 11-6M16 15v14M10.5 6l11 6" />
+    </svg>
+  );
+}
+
+const TYPES: { value: InquiryType; title: string; desc: string; label: string; icon: ReactNode }[] = [
+  { value: "logo_print", title: "로고·인쇄 단체복", desc: "워크업 상품에 우리 회사·단체의 로고를 더하고 싶어요.", label: "로고·인쇄", icon: <ShirtIcon /> },
+  { value: "bulk_purchase", title: "기성복 대량구매", desc: "추가 작업 없이 필요한 상품을 여러 벌 구매하고 싶어요.", label: "기성복 대량구매", icon: <PackageIcon /> },
+];
+
+const STEPS = [
+  { no: "01", title: "문의 접수", desc: "필요한 상품과 수량을 남겨주세요." },
+  { no: "02", title: "조건 확인", desc: "상품·재고와 추가 작업 가능 여부를 확인합니다." },
+  { no: "03", title: "견적 안내", desc: "구매 견적과 진행 일정을 안내합니다." },
+];
+
+// 휴대폰·지역번호 일반 전화 모두 허용(공백·하이픈 허용). 실제 번호 소유 확인이 아니라 형식만 확인한다.
+function isPhoneValid(raw: string): boolean {
+  const value = raw.trim();
+  if (!/^[0-9+\-()\s]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, "").length;
+  return digits >= 8 && digits <= 15;
+}
+
+function Field({ id, label, required, error, children }: { id: string; label: string; required?: boolean; error?: string; children: ReactNode }) {
+  return (
+    <div className={styles.field}>
+      <label htmlFor={id} className={styles.label}>
+        {label}
+        {required ? <span className={styles.req} aria-hidden="true"> *</span> : <span className={styles.opt}>선택</span>}
+      </label>
+      {children}
+      {error && <p id={`${id}-error`} className={styles.error}>{error}</p>}
     </div>
   );
 }
 
-export default function GroupOrderPage({ products }: { products: Record<Industry, GroupProduct[]> }) {
-  const isLocalPreview = process.env.NODE_ENV === "development";
-  const [industry, setIndustry] = useState<Industry>("site");
-  const [quantity, setQuantity] = useState("아직 미정");
-  const [priority, setPriority] = useState("활동성");
-  const [logoPosition, setLogoPosition] = useState<LogoPosition>("chest");
-  const [selectedProduct, setSelectedProduct] = useState<GroupProduct | null>(null);
-  const [form, setForm] = useState({ company: "", name: "", phone: "", desiredDate: "", message: "", privacyAgree: false });
+export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode }) {
+  const [type, setType] = useState<InquiryType | null>(null);
+  const [values, setValues] = useState<Values>(EMPTY_VALUES);
+  const [agree, setAgree] = useState(false);
+  const [errors, setErrors] = useState<Errors>({});
+  const [consentOpen, setConsentOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState("");
-  const currentIndustry = industries.find((item) => item.id === industry)!;
+  const [failed, setFailed] = useState(false);
+  const [done, setDone] = useState(false);
+  const submittingRef = useRef(false); // 상태 반영 전 연속 클릭까지 막는 즉시 잠금
+  const consentButtonRef = useRef<HTMLButtonElement>(null);
+  const doneRef = useRef<HTMLHeadingElement>(null);
 
-  const chooseProduct = (product: GroupProduct) => {
-    setSelectedProduct(product);
-    document.getElementById("group-inquiry")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const typeMeta = TYPES.find((t) => t.value === type);
+
+  // 폼이 완료 안내로 바뀌므로 화면 위치와 스크린리더 포커스를 완료 문구로 옮긴다.
+  useEffect(() => {
+    if (done) doneRef.current?.focus();
+  }, [done]);
+
+  const setValue = (key: keyof Values) => (event: { target: { value: string } }) => {
+    const next = event.target.value;
+    setValues((prev) => ({ ...prev, [key]: next }));
+    // 입력을 고치기 시작하면 해당 항목의 오류 표시를 지운다(선택 항목은 오류가 없으므로 영향 없음).
+    setErrors((prev) => (prev[key as FieldKey] ? { ...prev, [key]: undefined } : prev));
   };
 
-  const submitInquiry = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!form.privacyAgree) {
-      setError("개인정보 수집·이용에 동의해 주세요.");
-      return;
+  const validate = (): Errors => {
+    const next: Errors = {};
+    if (!values.organization.trim()) next.organization = "회사 / 단체명을 입력해 주세요.";
+    if (!values.contact.trim()) next.contact = "담당자명을 입력해 주세요.";
+    if (!values.phone.trim()) next.phone = "연락처를 입력해 주세요.";
+    else if (!isPhoneValid(values.phone)) next.phone = "연락 가능한 전화번호를 확인해 주세요.";
+    if (!values.quantity.trim()) next.quantity = "예상 수량을 입력해 주세요. 정해지지 않았다면 ‘미정’이라고 적어주세요.";
+    if (!agree) next.agree = "개인정보 수집·이용에 동의해 주세요.";
+    return next;
+  };
+
+  const send = async (): Promise<boolean> => {
+    if (submitMode === "mock") {
+      // 보고용 확인 편의: 주소 끝에 ?mock=fail 을 붙이면 실패 화면을 확인할 수 있다.
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      return new URLSearchParams(window.location.search).get("mock") !== "fail";
     }
-    if (isLocalPreview) {
-      setError("");
-      setSubmitted(true);
-      return;
-    }
-    setSubmitting(true);
-    setError("");
-    const details = [
-      `업종: ${currentIndustry.label}`,
-      `예상 수량: ${quantity}`,
-      `중요 조건: ${priority}`,
-      `관심 상품: ${selectedProduct?.name ?? "미정"}`,
-      `희망 로고 위치(예시): ${logoPositions.find((item) => item.id === logoPosition)?.label}`,
-      `희망 납품일: ${form.desiredDate || "미정"}`,
-      `추가 요청: ${form.message.trim() || "없음"}`,
+    const inquiryType = type ?? "unspecified";
+    const typeLabel = typeMeta?.label ?? "유형 미선택";
+    const organization = values.organization.trim();
+    const none = "미입력";
+    // 기존 문의 관리 화면(고객 1:1)에서 그대로 보이도록 제목·본문에 구조화해 담는다.
+    const message = [
+      `문의 유형: ${typeLabel}`,
+      `회사·단체명: ${organization}`,
+      `담당자: ${values.contact.trim()}`,
+      `연락처: ${values.phone.trim()}`,
+      `예상 수량: ${values.quantity.trim()}`,
+      `희망 상품: ${values.product.trim() || none}`,
+      `필요한 날짜: ${values.requiredDate.trim() || none}`,
+      `추가 요청사항: ${values.message.trim() || none}`,
     ].join("\n");
     try {
       const response = await fetch("/api/inquiries", {
@@ -94,170 +144,236 @@ export default function GroupOrderPage({ products }: { products: Record<Industry
         body: JSON.stringify({
           type: "support",
           payload: {
-            subject: "단체복·대량구매",
-            name: form.name.trim(),
-            phone: form.phone.trim(),
-            company: form.company.trim(),
-            industry: currentIndustry.label,
-            quantity,
-            priority,
-            productId: selectedProduct?.id ?? "",
-            productName: selectedProduct?.name ?? "",
-            desiredDate: form.desiredDate,
-            logoPosition,
-            privacyAgree: "yes",
-            message: details,
+            subject: `[단체복·대량구매 / ${typeLabel}] ${organization}`,
+            inquiry_category: "group_order",
+            inquiry_type: inquiryType,
+            organization_name: organization,
+            name: values.contact.trim(),
+            phone: values.phone.trim(),
+            quantity_text: values.quantity.trim(),
+            product_text: values.product.trim(),
+            required_date_text: values.requiredDate.trim(),
+            message,
+            privacyAgree: "동의",
           },
         }),
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error ?? "문의 접수에 실패했습니다.");
-      setSubmitted(true);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "문의 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-    } finally {
-      setSubmitting(false);
+      return response.ok;
+    } catch {
+      return false;
     }
   };
 
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (submittingRef.current) return;
+
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    const firstError = FIELD_ORDER.find(({ key }) => nextErrors[key]);
+    if (firstError) {
+      setFailed(false);
+      document.getElementById(firstError.id)?.focus();
+      return;
+    }
+
+    submittingRef.current = true;
+    setSubmitting(true);
+    setFailed(false);
+    const ok = await send();
+    submittingRef.current = false;
+    setSubmitting(false);
+    if (ok) {
+      setDone(true);
+    } else {
+      setFailed(true); // 입력값·유형·동의 상태는 그대로 유지
+    }
+  };
+
+  const resetPreview = () => {
+    setType(null);
+    setValues(EMPTY_VALUES);
+    setAgree(false);
+    setErrors({});
+    setFailed(false);
+    setDone(false);
+  };
+
+  const describedBy = (key: FieldKey, id: string) => (errors[key] ? `${id}-error` : undefined);
+
   return (
     <main className={styles.page}>
-      <section className={styles.hero} aria-labelledby="group-order-heading">
-        <Image src="/images/group-order-hero.webp" alt="작업 현장에서 함께 일하는 세 사람의 연출 이미지" fill priority sizes="100vw" className={styles.heroImage} />
-        <div className={styles.heroShade} />
-        <div className={styles.heroInner}>
-          <p className={styles.heroKicker}>WORKUP / 단체복·대량구매</p>
-          <h1 id="group-order-heading">함께 입을 옷,<br />우리 일에 맞게.</h1>
-          <p className={styles.heroDescription}>팀의 일과 움직임에 맞는 옷을 살펴보세요.<br />수량부터 로고 계획까지, 필요한 내용을 모아 상담할 수 있습니다.</p>
-          <div className={styles.heroActions}>
-            <a href="#group-finder" className={styles.primaryButton}>우리 팀 단체복 찾아보기 <span aria-hidden>↗</span></a>
-            <a href="#group-inquiry" className={styles.ghostButton}>바로 견적 문의</a>
-          </div>
-        </div>
-        <span className={styles.imageNote}>연출 이미지 · 실제 상품은 아래에서 확인</span>
-      </section>
+      <div className={styles.container}>
+        {submitMode === "mock" && (
+          <p className={styles.previewNotice} role="note">
+            미리보기 환경입니다. 입력하신 문의는 실제로 접수되지 않습니다.
+          </p>
+        )}
 
-      <nav className={styles.anchorNav} aria-label="단체복 페이지 메뉴">
-        <a href="#group-finder">팀에 맞는 옷 찾기</a>
-        <a href="#group-logo">로고 위치 보기</a>
-        <a href="#group-guide">주문 안내</a>
-        <a href="#group-inquiry">견적 문의</a>
-      </nav>
+        {/* A. 메인 안내 */}
+        <header className={styles.intro}>
+          <h1 className={styles.title}>단체복·대량구매, 워크업에서 한 번에.</h1>
+          <p className={styles.lead}>
+            <span>기업 유니폼부터 행사복, 동호회 단체복까지.</span>
+            <span>필요한 상품과 수량을 남겨주시면 구매 방법과 견적을 안내해 드립니다.</span>
+          </p>
+        </header>
 
-      <section id="group-finder" className={`${styles.section} ${styles.finderSection}`} aria-labelledby="finder-heading">
-        <div className={styles.container}>
-          <div className={styles.sectionIntro}>
-            <p className={styles.sectionLabel}>01 / 찾아보기</p>
-            <h2 id="finder-heading">우리 팀은 어떤 옷이 필요할까요?</h2>
-            <p>업종에 맞춰 참고할 제품을 보여드립니다. 수량과 중요한 조건은 견적 문의에 함께 담깁니다.</p>
-          </div>
-          <div className={styles.finderPanel}>
-            <div className={styles.finderRow}>
-              <div className={styles.finderQuestion}><span>1</span><h3>어떤 팀이 입나요?</h3></div>
-              <div className={styles.industryOptions}>
-                {industries.map((item) => (
-                  <button key={item.id} type="button" aria-pressed={industry === item.id} onClick={() => { setIndustry(item.id); setSelectedProduct(null); }} className={`${styles.industryOption} ${industry === item.id ? styles.selected : ""}`}>
-                    <strong>{item.label}</strong><span>{item.detail}</span>
-                  </button>
-                ))}
-              </div>
+        {/* B. 문의 유형 카드 — 선택사항, 한 번에 하나만 선택 */}
+        <fieldset className={styles.types}>
+          <legend className={styles.srOnly}>문의 유형 (선택)</legend>
+          {TYPES.map((item) => {
+            const selected = type === item.value;
+            return (
+              <label key={item.value} className={`${styles.card} ${selected ? styles.cardSelected : ""}`}>
+                <input
+                  type="radio"
+                  name="inquiry_type"
+                  value={item.value}
+                  checked={selected}
+                  onChange={() => setType(item.value)}
+                  className={styles.srOnly}
+                />
+                <span className={styles.cardIcon}>{item.icon}</span>
+                <span className={styles.cardText}>
+                  <strong>{item.title}</strong>
+                  <span>{item.desc}</span>
+                </span>
+                <span className={styles.cardCheck} aria-hidden="true">{selected ? "✓ 선택됨" : ""}</span>
+              </label>
+            );
+          })}
+        </fieldset>
+
+        {/* C·D. 문의폼 */}
+        <section className={styles.formSection} aria-labelledby="go-form-title">
+          {done ? (
+            <div className={styles.done} role="status">
+              <h2 id="go-form-title" ref={doneRef} tabIndex={-1}>견적 문의가 접수되었습니다.</h2>
+              <p>
+                <span>남겨주신 내용을 확인한 후</span>
+                <span>입력하신 연락처로 안내해 드리겠습니다.</span>
+              </p>
+              {submitMode === "mock" && (
+                <>
+                  <p className={styles.previewNotice}>미리보기 화면입니다. 실제로 접수되지 않았습니다.</p>
+                  <button type="button" className={styles.textButton} onClick={resetPreview}>폼 다시 보기</button>
+                </>
+              )}
             </div>
-            <div className={styles.finderRow}>
-              <div className={styles.finderQuestion}><span>2</span><h3>몇 벌 정도 필요하신가요?</h3></div>
-              <div className={styles.chipOptions}>{quantities.map((item) => <button key={item} type="button" aria-pressed={quantity === item} onClick={() => setQuantity(item)} className={`${styles.chip} ${quantity === item ? styles.selectedChip : ""}`}>{item}</button>)}</div>
-            </div>
-            <div className={styles.finderRow}>
-              <div className={styles.finderQuestion}><span>3</span><h3>가장 중요한 조건은요?</h3></div>
-              <div className={styles.chipOptions}>{priorities.map((item) => <button key={item} type="button" aria-pressed={priority === item} onClick={() => setPriority(item)} className={`${styles.chip} ${priority === item ? styles.selectedChip : ""}`}>{item}</button>)}</div>
-            </div>
-          </div>
+          ) : (
+            <>
+              <h2 id="go-form-title" className={styles.formTitle}>어떤 단체복이 필요하세요?</h2>
+              <p className={styles.formLead}>
+                <span>상품이나 수량이 확정되지 않아도 괜찮습니다.</span>
+                <span>필요한 내용을 남겨주시면 확인 후 안내해 드립니다.</span>
+              </p>
+              <p className={styles.requiredNote}><span aria-hidden="true">*</span> 필수 입력</p>
 
-          <div className={styles.results} aria-live="polite">
-            <div className={styles.resultsHead}>
-              <div><p className={styles.sectionLabel}>살펴볼 제품</p><h3>{currentIndustry.title}</h3><p>표시된 가격은 제품 정보용입니다. 단체 견적과 로고 작업 가능 여부는 상담 시 확인합니다.</p></div>
-              <Link href="/products" className={styles.textLink}>전체 제품 보기 <span aria-hidden>↗</span></Link>
-            </div>
-            {products[industry].length > 0 ? (
-              <div className={styles.productGrid}>
-                {products[industry].map((product) => (
-                  <article key={product.id} className={styles.productCard}>
-                    <Link href={`/products/${encodeURIComponent(product.id)}`} className={styles.productImageLink} aria-label={`${product.name} 제품 정보 보기`}>
-                      <Image src={product.imageUrl} alt={product.name} width={560} height={580} unoptimized className={styles.productImage} />
-                    </Link>
-                    <div className={styles.productCopy}>
-                      <h4>{product.name}</h4>
-                      {product.price && <p className={styles.productPrice}>제품 표시가 {product.price}</p>}
-                      <div className={styles.productActions}>
-                        <Link href={`/products/${encodeURIComponent(product.id)}`}>제품 보기</Link>
-                        <button type="button" onClick={() => chooseProduct(product)}>이 제품 문의하기 <span aria-hidden>↗</span></button>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.productEmpty}><p>선택한 업종의 참고 상품을 불러오지 못했습니다.</p><Link href="/products">전체 제품에서 살펴보기</Link></div>
-            )}
-          </div>
-        </div>
-      </section>
+              <form onSubmit={handleSubmit} noValidate className={styles.form}>
+                <div className={styles.grid}>
+                  <Field id="go-organization" label="회사 / 단체명" required error={errors.organization}>
+                    <input
+                      id="go-organization" type="text" autoComplete="organization" placeholder="회사명 또는 단체명" maxLength={100}
+                      value={values.organization} onChange={setValue("organization")}
+                      aria-required="true" aria-invalid={!!errors.organization} aria-describedby={describedBy("organization", "go-organization")}
+                      className={styles.input}
+                    />
+                  </Field>
+                  <Field id="go-contact" label="담당자명" required error={errors.contact}>
+                    <input
+                      id="go-contact" type="text" autoComplete="name" placeholder="성함" maxLength={50}
+                      value={values.contact} onChange={setValue("contact")}
+                      aria-required="true" aria-invalid={!!errors.contact} aria-describedby={describedBy("contact", "go-contact")}
+                      className={styles.input}
+                    />
+                  </Field>
+                  <Field id="go-phone" label="연락처" required error={errors.phone}>
+                    <input
+                      id="go-phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="010-0000-0000" maxLength={30}
+                      value={values.phone} onChange={setValue("phone")}
+                      aria-required="true" aria-invalid={!!errors.phone} aria-describedby={describedBy("phone", "go-phone")}
+                      className={styles.input}
+                    />
+                  </Field>
+                  <Field id="go-quantity" label="예상 수량" required error={errors.quantity}>
+                    <input
+                      id="go-quantity" type="text" placeholder="예: 30벌 / 미정" maxLength={50}
+                      value={values.quantity} onChange={setValue("quantity")}
+                      aria-required="true" aria-invalid={!!errors.quantity} aria-describedby={describedBy("quantity", "go-quantity")}
+                      className={styles.input}
+                    />
+                  </Field>
+                  <Field id="go-product" label="희망 상품">
+                    <input
+                      id="go-product" type="text" placeholder="상품명·품번·상품 링크" maxLength={300}
+                      value={values.product} onChange={setValue("product")} className={styles.input}
+                    />
+                  </Field>
+                  <Field id="go-date" label="필요한 날짜">
+                    <input
+                      id="go-date" type="text" placeholder="예: 12월 10일까지 / 미정" maxLength={50}
+                      value={values.requiredDate} onChange={setValue("requiredDate")} className={styles.input}
+                    />
+                  </Field>
+                  <div className={styles.fullRow}>
+                    <Field id="go-message" label="추가 요청사항">
+                      <textarea
+                        id="go-message" rows={5} maxLength={1500}
+                        placeholder={MESSAGE_PLACEHOLDER[type ?? "none"]}
+                        value={values.message} onChange={setValue("message")} className={`${styles.input} ${styles.textarea}`}
+                      />
+                    </Field>
+                  </div>
+                </div>
 
-      <section id="group-logo" className={`${styles.section} ${styles.logoSection}`} aria-labelledby="logo-heading">
-        <div className={`${styles.container} ${styles.logoLayout}`}>
-          <div className={styles.logoCopy}>
-            <p className={styles.sectionLabel}>02 / 로고 계획</p>
-            <h2 id="logo-heading">로고는 어디에<br />두고 싶으신가요?</h2>
-            <p>위치를 골라 배치 느낌을 살펴보세요. 제품과 작업 방식에 따라 실제 적용 가능 위치는 달라질 수 있습니다.</p>
-            <div className={styles.logoButtons} role="group" aria-label="로고 위치 예시 선택">
-              {logoPositions.map((item) => <button key={item.id} type="button" aria-pressed={logoPosition === item.id} onClick={() => setLogoPosition(item.id)} className={logoPosition === item.id ? styles.activeLogoButton : ""}>{item.label}</button>)}
-            </div>
-            <p className={styles.exampleNote}>위 그림은 상담을 돕기 위한 배치 예시입니다. 제작 시안이나 확정 사양이 아닙니다.</p>
-          </div>
-          <LogoPreview position={logoPosition} />
-        </div>
-      </section>
+                {/* 개인정보 동의 */}
+                <div className={styles.consent}>
+                  <div className={styles.consentRow}>
+                    <input
+                      id="go-agree" type="checkbox" checked={agree}
+                      onChange={(event) => { setAgree(event.target.checked); if (event.target.checked) setErrors((prev) => ({ ...prev, agree: undefined })); }}
+                      aria-required="true" aria-invalid={!!errors.agree} aria-describedby={describedBy("agree", "go-agree")}
+                      className={styles.checkbox}
+                    />
+                    <label htmlFor="go-agree">개인정보 수집·이용에 동의합니다. (필수)</label>
+                    <button type="button" ref={consentButtonRef} className={styles.textButton} onClick={() => setConsentOpen(true)}>내용 보기</button>
+                  </div>
+                  {errors.agree && <p id="go-agree-error" className={styles.error}>{errors.agree}</p>}
+                </div>
 
-      <section id="group-guide" className={`${styles.section} ${styles.guideSection}`} aria-labelledby="guide-heading">
-        <div className={styles.container}>
-          <div className={styles.sectionIntro}><p className={styles.sectionLabel}>03 / 주문 안내</p><h2 id="guide-heading">견적 전에 확인할 것</h2><p>정확한 금액과 일정은 제품과 수량, 작업 내용을 확인한 뒤 안내합니다.</p></div>
-          <div className={styles.factorGrid}>
-            <div><span>제품과 수량</span><p>어떤 옷을 몇 벌 준비할지 알려주세요. 사이즈가 정해졌다면 함께 적어주시면 좋습니다.</p></div>
-            <div><span>로고 작업</span><p>로고가 필요한지, 원하는 위치가 있는지 알려주세요. 제품별 가능 여부를 확인합니다.</p></div>
-            <div><span>희망 일정</span><p>필요한 날짜와 지역을 알려주세요. 수량과 작업 내용에 맞춰 일정을 확인합니다.</p></div>
-          </div>
-          <div className={styles.process}>
-            {["제품·수량 전달", "옵션과 재고 확인", "견적·일정 안내", "상담 후 진행 결정"].map((step, index) => <div key={step}><strong>{String(index + 1).padStart(2, "0")}</strong><span>{step}</span></div>)}
-          </div>
-        </div>
-      </section>
+                {failed && <p className={styles.failBox} role="alert">{FAIL_MESSAGE}</p>}
 
-      <section className={`${styles.section} ${styles.visitSection}`} aria-labelledby="visit-heading">
-        <div className={styles.visitImage} role="img" aria-label="워크웨어가 진열된 매장 연출 사진" />
-        <div className={styles.visitContent}><p className={styles.sectionLabel}>실물 확인</p><h2 id="visit-heading">옷은 직접 보고<br />고르면 더 확실하니까요.</h2><p>소재와 착용감을 확인하고 싶다면 가까운 WORKUP 매장을 찾아보세요. 방문 전 원하는 제품의 취급 여부를 매장에 문의해 주세요.</p><Link href="/store" className={styles.darkButton}>가까운 매장 찾기 <span aria-hidden>↗</span></Link></div>
-      </section>
-
-      <section className={`${styles.section} ${styles.faqSection}`} aria-labelledby="faq-heading"><div className={`${styles.container} ${styles.faqLayout}`}><div><p className={styles.sectionLabel}>04 / 자주 묻는 질문</p><h2 id="faq-heading">궁금한 점부터<br />확인하세요.</h2></div><div className={styles.faqList}>{faqs.map((item) => <details key={item.q}><summary>{item.q}<span aria-hidden>+</span></summary><p>{item.a}</p></details>)}</div></div></section>
-
-      <section id="group-inquiry" className={`${styles.section} ${styles.inquirySection}`} aria-labelledby="inquiry-heading"><div className={`${styles.container} ${styles.inquiryLayout}`}><div className={styles.inquiryIntro}><p className={styles.sectionLabel}>05 / 견적 문의</p><h2 id="inquiry-heading">팀에 필요한 옷을<br />함께 찾아보겠습니다.</h2><p>아는 내용만 먼저 남겨주세요. 제품·수량·로고 계획을 확인해 상담을 이어갑니다.</p><div className={styles.selectionSummary}><span>현재 선택</span><p>{currentIndustry.label} · {quantity} · {priority}</p><p>{selectedProduct ? selectedProduct.name : "관심 상품 미정"} · 로고 {logoPositions.find((item) => item.id === logoPosition)?.label} 예시</p></div></div>
-        <div className={styles.formCard}>
-          {submitted ? <div className={styles.success} role="status"><span aria-hidden>✓</span><h3>{isLocalPreview ? "로컬 시안을 확인했습니다." : "문의가 접수되었습니다."}</h3><p>{isLocalPreview ? "미리보기에서는 문의가 저장되지 않습니다." : "남겨주신 연락처로 상담을 이어가겠습니다."}</p><button type="button" onClick={() => setSubmitted(false)}>다시 문의하기</button></div> : (
-            <form onSubmit={submitInquiry}>
-              <div className={styles.formGrid}>
-                <label>회사·단체명 <span>(선택)</span><input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} autoComplete="organization" placeholder="회사 또는 단체 이름" maxLength={80} /></label>
-                <label>담당자명 <em>*</em><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoComplete="name" placeholder="이름" maxLength={40} required /></label>
-                <label>연락처 <em>*</em><input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} autoComplete="tel" placeholder="010-0000-0000" minLength={8} maxLength={20} required /></label>
-                <label>희망 납품일 <span>(선택)</span><input type="date" value={form.desiredDate} onChange={(e) => setForm({ ...form, desiredDate: e.target.value })} /></label>
-              </div>
-              <label className={styles.messageLabel}>추가 요청 <span>(선택)</span><textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="원하는 상품, 색상, 사이즈, 로고 작업 계획 등을 적어 주세요." rows={4} maxLength={1500} /></label>
-              <label className={styles.privacyLabel}><input type="checkbox" checked={form.privacyAgree} onChange={(e) => setForm({ ...form, privacyAgree: e.target.checked })} required /><span><strong>[필수]</strong> 문의 접수와 상담을 위한 개인정보 수집·이용에 동의합니다. <Link href="/privacy" target="_blank">내용 보기</Link></span></label>
-              {error && <p className={styles.formError} role="alert">{error}</p>}
-              <button type="submit" disabled={submitting} className={styles.submitButton}>{submitting ? "접수 중…" : isLocalPreview ? "문의 화면 확인하기 (로컬 시안)" : "선택한 내용으로 견적 문의"}<span aria-hidden>↗</span></button>
-            </form>
+                <button type="submit" className={styles.submit} disabled={submitting}>
+                  {submitting ? "접수 중…" : "견적 문의하기"}
+                </button>
+              </form>
+            </>
           )}
-        </div>
-      </div></section>
+        </section>
 
-      <div className={styles.mobileCta}><a href="#group-inquiry">견적 문의하기 <span aria-hidden>↗</span></a></div>
+        {/* E. 진행 안내 */}
+        <section className={styles.process} aria-labelledby="go-process-title">
+          <h2 id="go-process-title" className={styles.srOnly}>진행 안내</h2>
+          <ol className={styles.steps}>
+            {STEPS.map((step) => (
+              <li key={step.no} className={styles.step}>
+                <span className={styles.stepNo}>{step.no}</span>
+                <strong>{step.title}</strong>
+                <span>{step.desc}</span>
+              </li>
+            ))}
+          </ol>
+          <p className={styles.processNote}>상품과 수량, 인쇄·자수 여부에 따라 견적과 납기가 달라질 수 있습니다.</p>
+        </section>
+      </div>
+
+      {consentOpen && (
+        <PrivacyConsentModal
+          collectedItems="회사/단체명, 담당자명, 연락처, 문의 내용(예상 수량·희망 상품·필요한 날짜·추가 요청사항)"
+          onClose={() => { setConsentOpen(false); requestAnimationFrame(() => consentButtonRef.current?.focus()); }}
+        />
+      )}
     </main>
   );
 }

@@ -110,6 +110,26 @@ export async function POST(req: Request) {
     if (phoneDigits < 8 || phoneDigits > 15) {
       return NextResponse.json({ error: "연락처를 정확히 입력해주세요." }, { status: 400 });
     }
+    // 단체복·대량구매 견적 문의(/group-order)는 로그인 없이 접수하므로 필수값과 개인정보 동의를 서버에서도 검증한다.
+    // 기존 고객 1:1 문의 폼에는 inquiry_category 가 없어 영향이 없다.
+    if (p.inquiry_category === "group_order") {
+      const required: [string, string][] = [
+        ["organization_name", "회사 / 단체명"],
+        ["name", "담당자명"],
+        ["quantity_text", "예상 수량"],
+      ];
+      for (const [key, label] of required) {
+        if (!String(p[key] ?? "").trim()) {
+          return NextResponse.json({ error: `${label}을(를) 입력해 주세요.` }, { status: 400 });
+        }
+      }
+      if (!String(p.privacyAgree ?? "").trim()) {
+        return NextResponse.json({ error: "개인정보 수집·이용에 동의해 주세요." }, { status: 400 });
+      }
+      if (!["logo_print", "bulk_purchase", "unspecified"].includes(String(p.inquiry_type ?? ""))) {
+        return NextResponse.json({ error: "문의 유형이 올바르지 않습니다." }, { status: 400 });
+      }
+    }
   } else if (type === "product") {
     // 상품 문의는 연락처를 받지 않지만 제목·내용은 필수(클라이언트 우회 방지).
     if (!String(p.title ?? "").trim()) {
