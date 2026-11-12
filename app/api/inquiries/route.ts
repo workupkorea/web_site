@@ -129,6 +129,10 @@ export async function POST(req: Request) {
           return NextResponse.json({ error: `${label}을(를) 입력해 주세요.` }, { status: 400 });
         }
       }
+      const email = String(p.email ?? "").trim();
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return NextResponse.json({ error: "이메일 주소를 확인해 주세요." }, { status: 400 });
+      }
       if (!String(p.privacyAgree ?? "").trim()) {
         return NextResponse.json({ error: "개인정보 수집·이용에 동의해 주세요." }, { status: 400 });
       }

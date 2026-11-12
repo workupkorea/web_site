@@ -8,12 +8,13 @@ import styles from "./group-order.module.css";
 // 접수 방식: live = 운영 접수(/api/inquiries), mock = 로컬·Preview용 모의 응답(운영 접수처로 전송하지 않음)
 type SubmitMode = "live" | "mock";
 type InquiryType = "logo_print" | "bulk_purchase";
-type FieldKey = "organization" | "contact" | "phone" | "quantity" | "agree";
+type FieldKey = "organization" | "contact" | "phone" | "email" | "quantity" | "agree";
 type Errors = Partial<Record<FieldKey, string>>;
-type Values = { organization: string; contact: string; phone: string; quantity: string; product: string; requiredDate: string; message: string };
+type Values = { organization: string; contact: string; phone: string; email: string; quantity: string; product: string; requiredDate: string; message: string };
 
-const EMPTY_VALUES: Values = { organization: "", contact: "", phone: "", quantity: "", product: "", requiredDate: "", message: "" };
+const EMPTY_VALUES: Values = { organization: "", contact: "", phone: "", email: "", quantity: "", product: "", requiredDate: "", message: "" };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const UNDECIDED = "미정"; // 필요한 날짜를 정하지 못한 경우 저장하는 값
 const FAIL_MESSAGE = "문의가 접수되지 않았습니다. 잠시 후 다시 시도해 주세요.";
 // 오류가 있을 때 첫 오류 항목으로 포커스를 옮기는 순서(화면 순서와 동일)
@@ -21,6 +22,7 @@ const FIELD_ORDER: { key: FieldKey; id: string }[] = [
   { key: "organization", id: "go-organization" },
   { key: "contact", id: "go-contact" },
   { key: "phone", id: "go-phone" },
+  { key: "email", id: "go-email" },
   { key: "quantity", id: "go-quantity" },
   { key: "agree", id: "go-agree" },
 ];
@@ -134,7 +136,9 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
     if (!values.contact.trim()) next.contact = "담당자명을 입력해 주세요.";
     if (!values.phone.trim()) next.phone = "연락처를 입력해 주세요.";
     else if (!isPhoneValid(values.phone)) next.phone = "연락 가능한 전화번호를 확인해 주세요.";
-    if (!values.quantity.trim()) next.quantity = "예상 수량을 입력해 주세요. 정해지지 않았다면 ‘미정’이라고 적어주세요.";
+    // 이메일은 선택 — 입력했다면 형식만 확인한다.
+    if (values.email.trim() && !EMAIL_RE.test(values.email.trim())) next.email = "이메일 주소를 확인해 주세요.";
+    if (!values.quantity.trim()) next.quantity = "예상 수량을 입력해 주세요. (‘미정’도 가능)";
     if (!agree) next.agree = "개인정보 수집·이용에 동의해 주세요.";
     return next;
   };
@@ -155,6 +159,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
       `회사·단체명: ${organization}`,
       `담당자: ${values.contact.trim()}`,
       `연락처: ${values.phone.trim()}`,
+      `이메일: ${values.email.trim() || none}`,
       `예상 수량: ${values.quantity.trim()}`,
       `희망 상품: ${values.product.trim() || none}`,
       `필요한 날짜: ${values.requiredDate.trim() || none}`,
@@ -172,6 +177,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
             organization_name: organization,
             name: values.contact.trim(),
             phone: values.phone.trim(),
+            email: values.email.trim(),
             quantity_text: values.quantity.trim(),
             product_text: values.product.trim(),
             required_date_text: values.requiredDate.trim(),
@@ -322,18 +328,20 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                       className={styles.input}
                     />
                   </Field>
+                  <Field id="go-email" label="이메일" error={errors.email}>
+                    <input
+                      id="go-email" type="email" inputMode="email" autoComplete="email" placeholder="example@company.com" maxLength={100}
+                      value={values.email} onChange={setValue("email")}
+                      aria-invalid={!!errors.email} aria-describedby={describedBy("email", "go-email")}
+                      className={styles.input}
+                    />
+                  </Field>
                   <Field id="go-quantity" label="예상 수량" required error={errors.quantity}>
                     <input
                       id="go-quantity" type="text" placeholder="예: 30벌 / 미정" maxLength={50}
                       value={values.quantity} onChange={setValue("quantity")}
                       aria-required="true" aria-invalid={!!errors.quantity} aria-describedby={describedBy("quantity", "go-quantity")}
                       className={styles.input}
-                    />
-                  </Field>
-                  <Field id="go-product" label="희망 상품">
-                    <input
-                      id="go-product" type="text" placeholder="상품명·품번·상품 링크" maxLength={300}
-                      value={values.product} onChange={setValue("product")} className={styles.input}
                     />
                   </Field>
                   <Field id="go-date" label="필요한 날짜">
@@ -351,6 +359,14 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                       날짜 미정
                     </label>
                   </Field>
+                  <div className={styles.fullRow}>
+                    <Field id="go-product" label="희망 상품">
+                      <input
+                        id="go-product" type="text" placeholder="상품명·품번·상품 링크" maxLength={300}
+                        value={values.product} onChange={setValue("product")} className={styles.input}
+                      />
+                    </Field>
+                  </div>
                   <div className={styles.fullRow}>
                     <Field id="go-message" label="추가 요청사항">
                       <textarea
@@ -407,7 +423,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
 
       {consentOpen && (
         <PrivacyConsentModal
-          collectedItems="회사/단체명, 담당자명, 연락처, 문의 내용(예상 수량·희망 상품·필요한 날짜·추가 요청사항)"
+          collectedItems="회사/단체명, 담당자명, 연락처, 이메일(선택), 문의 내용(예상 수량·희망 상품·필요한 날짜·추가 요청사항)"
           onClose={() => { setConsentOpen(false); requestAnimationFrame(() => consentButtonRef.current?.focus()); }}
         />
       )}

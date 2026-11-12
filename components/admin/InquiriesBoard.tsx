@@ -7,7 +7,7 @@ import { DEFAULT_NOTIFICATIONS, normalizeNotifications, NOTIFY_TYPES, type Notif
 const FIELD_LABELS: Record<string, string> = {
   name: "이름", phone: "연락처", region: "창업 희망 지역", message: "문의 내용",
   brand: "브랜드명", manager: "담당자명", category: "취급 품목", link: "브랜드 링크",
-  subject: "문의 구분", organization_name: "회사·단체명", quantity_text: "예상 수량", product_text: "희망 상품", required_date_text: "필요한 날짜", inquiry_type: "문의 유형", privacyAgree: "개인정보 동의", title: "제목",
+  subject: "문의 구분", organization_name: "회사·단체명", email: "이메일", quantity_text: "예상 수량", product_text: "희망 상품", required_date_text: "필요한 날짜", inquiry_type: "문의 유형", privacyAgree: "개인정보 동의", title: "제목",
   productName: "문의 상품", productId: "상품 ID", sku: "제품번호",
   content: "내용", secret: "공개 여부", notifyConsent: "알림 동의",
 };
