@@ -235,10 +235,12 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
         <div className={styles.layout}>
         {/* PC 좌측 이미지 — 순수 비주얼(글자는 HTML로만 표시). 모바일은 입력에 집중하도록 숨긴다. */}
         <aside className={styles.visual} aria-hidden="true">
-          <Image
-            src="/images/group-order-hero.webp" alt="" fill sizes="(min-width: 960px) 45vw, 0px"
-            className={styles.visualImage}
-          />
+          <div className={styles.visualFrame}>
+            <Image
+              src="/images/group-order-hero.webp" alt="" fill sizes="(min-width: 960px) 50vw, 0px"
+              className={styles.visualImage}
+            />
+          </div>
         </aside>
 
         <div className={styles.content}>

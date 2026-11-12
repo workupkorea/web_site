@@ -158,15 +158,25 @@
 .content { min-width: 0; }
 
 @media (min-width: 960px) {
-  /* 가로 전체 폭 사용(가맹·입점 페이지와 같은 70px 좌우 여백) */
-  .container { width: 100%; max-width: none; padding-inline: clamp(32px, 4.9vw, 70px); }
-  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); align-items: start; margin-bottom: 56px; }
-  .visual {
-    display: block; position: sticky; border-radius: 8px; overflow: hidden; background: #e9eae7;
-    top: calc(var(--wu-topbar-h, 0px) + 96px); height: min(680px, calc(100vh - 140px)); min-height: 480px;
+  /* 가로 전체 폭 사용. 좌측 사진은 화면 왼쪽 끝까지 붙이고(왼쪽 여백 0), 우측만 70px 여백을 둔다. */
+  .page { padding-top: 0; }
+  .container { width: 100%; max-width: none; padding-inline: 0 clamp(32px, 4.9vw, 70px); }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 56px; }
+  /* 좌측 칸은 행 높이만큼 끝까지 채운다. 같은 사진을 흐리게 깔고(배경), 선명한 원본(3:2, 잘림 없음)은 스크롤을 따라오게 고정한다. */
+  .visual { display: block; position: relative; align-self: stretch; overflow: clip; background: #d9dbd8; }
+  .visual::before {
+    content: ""; position: absolute; inset: -48px; background: url("/images/group-order-hero.webp") center / cover no-repeat;
+    filter: blur(32px) saturate(0.9);
   }
-  .visualImage { object-fit: cover; object-position: 38% center; }
+  .visual::after { content: ""; position: absolute; inset: 0; background: rgba(20, 24, 26, 0.18); }
+  .visualFrame {
+    position: sticky; z-index: 1; aspect-ratio: 3 / 2; width: 100%; overflow: hidden;
+    top: calc(var(--wu-topbar-h, 0px) + 76px);
+  }
+  .visualImage { object-fit: cover; }
+  .content { padding-top: 48px; }
   .formSection { margin-bottom: 0; }
+  .process { padding-left: clamp(32px, 4.9vw, 70px); }
 }
 
 @media (prefers-reduced-motion: reduce) {
