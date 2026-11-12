@@ -247,7 +247,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
           <div className={styles.visualFrame}>
             <div className={styles.visualPhoto}>
               <Image
-                src="/images/group-order-team.webp" alt="" fill sizes="(min-width: 960px) 55vw, 0px"
+                src="/images/group-order-team.webp" alt="" fill sizes="(min-width: 960px) 55vw, 0px" unoptimized
                 className={styles.visualImage}
               />
             </div>
