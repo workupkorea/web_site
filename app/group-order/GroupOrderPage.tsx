@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import PrivacyConsentModal from "@/components/PrivacyConsentModal";
 import styles from "./group-order.module.css";
 
@@ -172,7 +173,9 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
         body: JSON.stringify({
           type: "group_order",
           payload: {
-            subject: `[단체복·대량구매 / ${typeLabel}] ${organization}`,
+            // 관리자 목록에서 subject 는 구분 태그, title 은 제목으로 나뉘어 보이므로 각각 짧게 둔다.
+            subject: typeLabel,
+            title: `${organization} 견적 문의`,
             inquiry_type: inquiryType,
             organization_name: organization,
             name: values.contact.trim(),
@@ -290,6 +293,10 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                 <span>남겨주신 내용을 확인한 후</span>
                 <span>입력하신 연락처로 안내해 드리겠습니다.</span>
               </p>
+              <div className={styles.doneActions}>
+                <Link href="/store" className={styles.doneLinkPrimary}>가까운 매장 찾기</Link>
+                <Link href="/" className={styles.doneLink}>홈으로</Link>
+              </div>
               {submitMode === "mock" && (
                 <>
                   <p className={styles.previewNotice}>미리보기 화면입니다. 실제로 접수되지 않았습니다.</p>

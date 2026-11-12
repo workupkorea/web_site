@@ -42,11 +42,6 @@ function getBody(q: Inquiry): string {
 function getTitle(q: Inquiry): string {
   const t = String(q.payload.title ?? "").trim();
   if (t) return t;
-  // 단체복 문의는 제목 필드 대신 "[단체복·대량구매 / 유형] 회사명" 형태의 subject 를 제목으로 쓴다.
-  if ((q.type as string) === "group_order") {
-    const subject = String(q.payload.subject ?? "").trim();
-    if (subject) return subject;
-  }
   const first = getBody(q).split("\n").map((s) => s.trim()).filter(Boolean)[0] ?? "";
   if (!first) return "(제목 없음)";
   return first.length > 50 ? first.slice(0, 50) + "…" : first;
