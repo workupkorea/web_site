@@ -34,11 +34,7 @@ const FIELD_ORDER: { key: FieldKey; id: string }[] = [
   { key: "agree", id: "go-agree" },
 ];
 
-const MESSAGE_PLACEHOLDER: Record<InquiryType | "none", string> = {
-  none: "사용 목적, 예산, 색상·사이즈 등을 남겨주세요.",
-  bulk_purchase: "사용 목적, 예산, 색상·사이즈 등을 남겨주세요.",
-  logo_print: "로고 작업 위치, 인쇄·자수 희망 여부 등을 남겨주세요. 자세한 내용은 상담 후 결정하셔도 됩니다.",
-};
+const MESSAGE_PLACEHOLDER = "추가 요청사항이 있을 경우 기재해 주세요.";
 
 function ShirtIcon() {
   return (
@@ -58,8 +54,8 @@ function PackageIcon() {
 }
 
 const TYPES: { value: InquiryType; title: string; desc: string; label: string; icon: ReactNode }[] = [
-  { value: "logo_print", title: "로고·인쇄 단체복", desc: "워크업 상품에 우리 회사·단체의 로고를 더하고 싶어요.", label: "로고·인쇄", icon: <ShirtIcon /> },
-  { value: "bulk_purchase", title: "기성복 대량구매", desc: "추가 작업 없이 필요한 상품을 여러 벌 구매하고 싶어요.", label: "기성복 대량구매", icon: <PackageIcon /> },
+  { value: "logo_print", title: "로고·인쇄 단체복", desc: "우리 회사·단체 로고를 넣고 싶어요.", label: "로고·인쇄", icon: <ShirtIcon /> },
+  { value: "bulk_purchase", title: "기성복 대량구매", desc: "로고 없이 여러 벌 구매하고 싶어요.", label: "기성복 대량구매", icon: <PackageIcon /> },
 ];
 
 const STEPS = [
@@ -90,13 +86,17 @@ function isPhoneValid(raw: string): boolean {
   return digits >= 8 && digits <= 15;
 }
 
-function Field({ id, label, required, error, children }: { id: string; label: string; required?: boolean; error?: string; children: ReactNode }) {
+function Field({ id, label, required, error, aside, children }: { id: string; label: string; required?: boolean; error?: string; aside?: ReactNode; children: ReactNode }) {
+  const labelEl = (
+    <label htmlFor={id} className={styles.label}>
+      {label}
+      {required ? <span className={styles.req} aria-hidden="true"> *</span> : <span className={styles.opt}>선택</span>}
+    </label>
+  );
   return (
     <div className={styles.field}>
-      <label htmlFor={id} className={styles.label}>
-        {label}
-        {required ? <span className={styles.req} aria-hidden="true"> *</span> : <span className={styles.opt}>선택</span>}
-      </label>
+      {/* aside: 라벨 줄 오른쪽 끝에 붙이는 보조 표시(예: '필수 입력' 안내) */}
+      {aside ? <div className={styles.labelRow}>{labelEl}{aside}</div> : labelEl}
       {children}
       {error && <p id={`${id}-error`} className={styles.error}>{error}</p>}
     </div>
@@ -259,10 +259,18 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
         <header className={styles.intro}>
           <h1 className={styles.title}>단체복·대량구매, 워크업에서 한 번에.</h1>
           <p className={styles.lead}>
-            <span>기업 유니폼부터 행사복, 동호회 단체복까지.</span>
+            <span>기업 유니폼부터 행사복, 동호회 단체복까지.</span>{" "}
             <span>필요한 상품과 수량을 남겨주시면 구매 방법과 견적을 안내해 드립니다.</span>
           </p>
         </header>
+
+        {/* 모바일·태블릿 배너 이미지 — 순수 비주얼(글자는 HTML로만). PC(960px~)는 좌측 큰 사진이 있어 숨긴다. */}
+        <div className={styles.banner} aria-hidden="true">
+          <Image
+            src="/images/group-order-hero.webp" alt="" fill sizes="(min-width: 960px) 0px, 100vw" unoptimized
+            className={styles.bannerImage}
+          />
+        </div>
 
         {/* B. 문의 유형 카드 — 선택사항, 한 번에 하나만 선택 */}
         <fieldset className={styles.types}>
@@ -317,11 +325,13 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                 <span>상품이나 수량이 확정되지 않아도 괜찮습니다.</span>
                 <span>필요한 내용을 남겨주시면 확인 후 안내해 드립니다.</span>
               </p>
-              <p className={styles.requiredNote}><span aria-hidden="true">*</span> 필수 입력</p>
 
               <form onSubmit={handleSubmit} noValidate className={styles.form}>
                 <div className={styles.grid}>
-                  <Field id="go-organization" label="회사 / 단체명" required error={errors.organization}>
+                  <Field
+                    id="go-organization" label="회사 / 단체명" required error={errors.organization}
+                    aside={<p className={styles.requiredNote}><span aria-hidden="true">*</span> 필수 입력</p>}
+                  >
                     <input
                       id="go-organization" type="text" autoComplete="organization" placeholder="회사명 또는 단체명" maxLength={100}
                       value={values.organization} onChange={setValue("organization")}
@@ -363,18 +373,20 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                   </Field>
                   <Field id="go-date" label="필요한 날짜">
                     {/* 달력으로 날짜 선택. 정해지지 않았다면 '미정'을 체크한다(선택 항목이라 비워 둬도 된다). */}
-                    <input
-                      id="go-date" type="date" min={today}
-                      value={dateUndecided ? "" : values.requiredDate} onChange={setValue("requiredDate")}
-                      disabled={dateUndecided} className={styles.input}
-                    />
-                    <label className={styles.inlineCheck}>
+                    <div className={styles.dateRow}>
                       <input
-                        type="checkbox" checked={dateUndecided}
-                        onChange={(event) => setValues((prev) => ({ ...prev, requiredDate: event.target.checked ? UNDECIDED : "" }))}
+                        id="go-date" type="date" min={today}
+                        value={dateUndecided ? "" : values.requiredDate} onChange={setValue("requiredDate")}
+                        disabled={dateUndecided} className={styles.input}
                       />
-                      날짜 미정
-                    </label>
+                      <label className={styles.inlineCheck}>
+                        <input
+                          type="checkbox" checked={dateUndecided}
+                          onChange={(event) => setValues((prev) => ({ ...prev, requiredDate: event.target.checked ? UNDECIDED : "" }))}
+                        />
+                        미정
+                      </label>
+                    </div>
                   </Field>
                   <div className={styles.fullRow}>
                     <Field id="go-product" label="희망 상품">
@@ -387,8 +399,8 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
                   <div className={styles.fullRow}>
                     <Field id="go-message" label="추가 요청사항">
                       <textarea
-                        id="go-message" rows={5} maxLength={1500}
-                        placeholder={MESSAGE_PLACEHOLDER[type ?? "none"]}
+                        id="go-message" rows={3} maxLength={1500}
+                        placeholder={MESSAGE_PLACEHOLDER}
                         value={values.message} onChange={setValue("message")} className={`${styles.input} ${styles.textarea}`}
                       />
                     </Field>

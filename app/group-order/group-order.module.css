@@ -46,10 +46,11 @@
 .lead {
   margin-top: 8px; color: var(--muted); font-size: 14px; line-height: 1.55; word-break: keep-all;
 }
-.lead span, .formLead span { display: block; }
+.formLead span { display: block; }
+.lead span { display: inline; } /* 두 문장을 줄바꿈 없이 이어서 표시 */
 
 /* B. 문의 유형 카드 */
-.types { border: 0; margin: 0 0 24px; padding: 0; display: grid; grid-template-columns: 1fr; gap: 8px; min-width: 0; }
+.types { border: 0; border-bottom: 1px solid var(--line); margin: 0 0 24px; padding: 0 0 24px; display: grid; grid-template-columns: 1fr; gap: 8px; min-width: 0; }
 .card {
   position: relative; display: flex; align-items: flex-start; gap: 12px; min-height: 0;
   padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer;
@@ -69,12 +70,15 @@
 /* C. 문의폼 */
 .formSection { margin-bottom: 28px; scroll-margin-top: 90px; }
 .formTitle { font-size: 20px; line-height: 1.35; font-weight: 700; letter-spacing: -0.04em; word-break: keep-all; }
-.formLead { margin-top: 6px; color: var(--muted); font-size: 13px; line-height: 1.5; word-break: keep-all; }
-.requiredNote { margin-top: 10px; color: var(--muted); font-size: 13px; }
+.formLead { margin-top: 12px; color: var(--muted); font-size: 13px; line-height: 1.5; word-break: keep-all; }
+/* 라벨 줄 오른쪽 끝에 '필수 입력' 안내 배치(별도 줄을 차지하지 않음) */
+.labelRow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.labelRow .label { margin-bottom: 0; }
+.requiredNote { margin: 0; padding: 3px 9px; border-radius: 4px; background: #f1f2ef; color: var(--muted); font-size: 12px; line-height: 1.4; white-space: nowrap; }
 .requiredNote span { color: var(--orange-strong); font-weight: 700; }
 
-.form { margin-top: 8px; }
-.grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.form { margin-top: 22px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 .fullRow { grid-column: 1 / -1; }
 .field { min-width: 0; }
 .label { display: block; margin-bottom: 5px; font-size: 14px; font-weight: 600; }
@@ -87,10 +91,17 @@
   font: inherit; font-size: 16px; line-height: 1.5;
 }
 .input::placeholder { color: #8a8f92; }
+/* 모바일 date 입력은 기본 고유 너비가 있어 칸 밖으로 넘칠 수 있다 — 칸 폭에 맞추고 iOS 기본 외형을 정리한다. */
+.input[type="date"] { min-width: 0; max-width: 100%; -webkit-appearance: none; appearance: none; text-align: left; }
+.input[type="date"]::-webkit-date-and-time-value { text-align: left; min-width: 0; }
 .input:hover { border-color: var(--ink); }
 .input[aria-invalid="true"] { border-color: var(--error); }
-.textarea { min-height: 128px; resize: vertical; }
+.textarea { min-height: 88px; resize: vertical; }
 .input:disabled { background: #f3f4f2; color: #8a8f92; cursor: not-allowed; }
+/* 날짜 입력칸 + '미정' 체크를 한 줄에 배치 */
+.dateRow { display: flex; align-items: center; gap: 12px; }
+.dateRow .input { flex: 1 1 0; width: auto; }
+.dateRow .inlineCheck { flex: none; white-space: nowrap; }
 .inlineCheck { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; cursor: pointer; }
 .inlineCheck input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
 
@@ -152,10 +163,11 @@
   .cardText strong { font-size: 18px; }
   .cardText span { font-size: 15px; line-height: 1.55; }
   .cardCheck { top: 12px; right: 14px; font-size: 13px; }
-  .formLead { margin-top: 10px; font-size: 15px; line-height: 1.7; }
-  .requiredNote { margin-top: 18px; font-size: 14px; }
-  .form { margin-top: 12px; }
+  .formLead { margin-top: 16px; font-size: 15px; line-height: 1.7; }
+  .requiredNote { font-size: 13px; }
+  .form { margin-top: 28px; }
   .label { margin-bottom: 8px; }
+  .labelRow { margin-bottom: 8px; }
   .error { margin-top: 6px; font-size: 14px; line-height: 1.5; }
   .consent { margin-top: 24px; }
   .consentRow label, .textButton { font-size: 15px; }
@@ -170,7 +182,7 @@
   .title { font-size: 32px; }
   .intro { margin-bottom: 40px; }
   .lead { font-size: 17px; }
-  .types { grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 48px; }
+  .types { grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; padding-bottom: 32px; }
   .card { min-height: 132px; padding: 22px; flex-direction: column; gap: 14px; }
   .cardSelected, .cardSelected:hover { padding: 21px; }
   .formTitle { font-size: 24px; }
@@ -182,6 +194,9 @@
 
 /* PC: 좌측 이미지 + 우측 문의 접수 2단 */
 .visual { display: none; }
+/* 모바일·태블릿 배너 — 3:2 가로 사진, 인물이 잘리지 않도록 중앙 기준 */
+.banner { position: relative; width: 100%; aspect-ratio: 3 / 2; margin: 0 0 20px; overflow: hidden; border-radius: 10px; background: #e9eae7; }
+.bannerImage { object-fit: cover; object-position: 50% 40%; }
 .content { min-width: 0; }
 
 @media (min-width: 960px) {
@@ -191,6 +206,7 @@
   .layout { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(40px, 4vw, 72px); margin-bottom: 0; }
   /* 좌측 사진은 헤더 아래부터 화면 하단까지 꽉 채워 고정하고(스크롤해도 그대로), 폼이 끝날 때까지는 오른쪽만 스크롤된다.
      세로형 사진이라 세 사람이 잘리지 않으며, 위쪽(천장)만 조금 잘리도록 아래 기준으로 맞춘다. */
+  .banner { display: none; }
   .visual { display: block; align-self: stretch; }
   .visualFrame {
     position: sticky; width: 100%; overflow: hidden; border-radius: 0; background: #e9eae7;
