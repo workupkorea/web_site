@@ -132,6 +132,8 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {slides.map((slide, idx) => {
+          // 배너 이미지 alt — 슬라이드 제목/부제를 쓰고, 둘 다 비어 있으면 기본 문구(SEO: alt 누락 방지)
+          const slideAlt = slide.title?.trim() || slide.subtitle?.trim() || "워크업 WORKUP 메인 배너";
           const pcImage = slide.pc_image_url;
           const mobileImage = slide.mobile_image_url || pcImage;
           const pcVideo = slide.pc_video_url;
@@ -190,7 +192,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={ikSrc(pcImage, 1920)}
-                    alt=""
+                    alt={slideAlt}
                     className="absolute inset-0 w-full h-full object-cover hidden md:block"
                     style={{
                       objectPosition: slide.pc_image_position || "50% 50%",
@@ -201,7 +203,7 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={ikSrc(mobileImage || pcImage, 800)}
-                    alt=""
+                    alt={slideAlt}
                     className="absolute inset-0 w-full h-full object-cover md:hidden"
                     style={{
                       objectPosition: slide.mobile_image_position || "50% 50%",
