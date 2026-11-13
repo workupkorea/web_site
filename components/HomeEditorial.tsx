@@ -6,7 +6,7 @@ export default async function HomeEditorial() {
   return (
     <section>
       {items.map(({ editorial, reversed }, i) => (
-        <FeatureHeroLayout key={editorial.slug || i} editorial={editorial} reversed={reversed} />
+        <FeatureHeroLayout key={editorial.slug || i} editorial={editorial} reversed={reversed} headingTag="h2" />
       ))}
     </section>
   );

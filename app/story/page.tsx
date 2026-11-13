@@ -6,6 +6,7 @@ import StoryHeroView from "@/components/StoryHeroView";
 import StorySectionView from "@/components/StorySectionView";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/story" },
   title: "워크업 소개",
   description: "현장에서 시작한 워크업의 철학과 이야기.",
 };

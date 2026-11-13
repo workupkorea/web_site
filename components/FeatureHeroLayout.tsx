@@ -318,9 +318,11 @@ function WhiteBox({
 export default function FeatureHeroLayout({
   editorial,
   reversed = false,
+  headingTag: HeadingTag = "h1",
 }: {
   editorial: Editorial;
   reversed?: boolean;
+  headingTag?: "h1" | "h2";
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -424,7 +426,8 @@ export default function FeatureHeroLayout({
   return (
     <>
       {/* 페이지 대표 H1 — 반응형 3개 레이아웃이 모두 DOM에 있으므로 H1은 여기 한 곳에만 둔다 (SEO: H1 1개) */}
-      <h1 className="sr-only">{editorial.title}</h1>
+      {/* 홈처럼 다른 페이지에 여러 개 삽입되는 경우엔 headingTag="h2"로 내려 H1 중복을 막는다. */}
+      <HeadingTag className="sr-only">{editorial.title}</HeadingTag>
 
       {/* ── PC 레이아웃 (xl+) — 1280px 이상 ── */}
       <div

@@ -10,6 +10,7 @@ const DEFAULT_HEADER = {
 };
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/field-test" },
   title: "제품 검증 콘텐츠",
   description: "현장에서 직접 검증한 제품 테스트 결과.",
 };

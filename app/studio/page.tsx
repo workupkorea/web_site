@@ -4,6 +4,7 @@ import { getFooterConfig } from "@/lib/footer-server";
 import { getStudioSettings } from "@/lib/studio-server";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/studio" },
   // 레이아웃 템플릿("%s | WORKUP")을 거치면 WORKUP이 중복되므로 절대 제목 사용
   title: { absolute: "나만의 티셔츠 꾸미기 | 워크업 스튜디오" },
   description:

@@ -10,7 +10,7 @@ import { getActiveStoreCount } from "@/lib/publicStores";
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteSection<PartnershipConfig>("partnership_page");
   const info = normalizePartnership(config).franchise;
-  return { title: { absolute: info.seo_title }, description: info.seo_desc };
+  return { title: { absolute: info.seo_title }, description: info.seo_desc, alternates: { canonical: "/partnership/franchise" } };
 }
 
 export default async function FranchisePage() {

@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import CareersClient from "./_components/CareersClient";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/careers" },
   title: "채용공고",
   description: "워크업 전국 매장 채용공고.",
 };

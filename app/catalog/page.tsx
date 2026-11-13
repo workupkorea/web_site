@@ -10,6 +10,7 @@ import { BRANDS } from "@/lib/brands-data";
 import { brandSlug } from "@/lib/brandCatalog-server";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/catalog" },
   title: "2026 SS 카탈로그",
   description: "신제품과 입점 브랜드 카탈로그.",
 };

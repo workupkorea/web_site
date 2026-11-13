@@ -52,10 +52,10 @@ export const metadata: Metadata = {
   // 페이지별 상대경로 OG 이미지/링크가 절대 URL로 해석되도록 기준 URL 설정
   metadataBase: new URL(siteUrl),
   title: {
-    default: "워크업 — 일하는 사람을 위한 옷",
-    template: "%s | 워크업",
+    default: "워크업 WORKUP 공식 사이트",
+    template: "%s｜워크업 WORKUP",
   },
-  description: "현장부터 일상까지. 기능성 워크웨어 브랜드 워크업.",
+  description: "워크업 공식 사이트. 작업복·안전화부터 일상에서 입는 캐주얼까지, 신상품과 전국 매장 정보를 확인하세요.",
   // 네이버 서치어드바이저 소유 확인용
   verification: {
     other: {
@@ -65,11 +65,11 @@ export const metadata: Metadata = {
   // 카톡·SNS·문자 공유 시 노출되는 기본 미리보기 (페이지별 openGraph가 있으면 그것이 우선)
   openGraph: {
     type: "website",
-    siteName: "워크업",
+    siteName: "워크업 WORKUP",
     locale: "ko_KR",
-    title: "워크업 — 일하는 사람을 위한 옷",
-    description: "현장부터 일상까지. 기능성 워크웨어 브랜드 워크업.",
-    url: siteUrl,
+    title: "워크업 WORKUP 공식 사이트",
+    description: "워크업 공식 사이트. 작업복·안전화부터 일상에서 입는 캐주얼까지, 신상품과 전국 매장 정보를 확인하세요.",
+    // url은 페이지마다 달라야 하므로 여기서 고정하지 않는다(홈은 app/page.tsx에서 지정, 하위 페이지는 canonical과 일치시킴).
     images: [
       {
         url: "/og-image.jpg",

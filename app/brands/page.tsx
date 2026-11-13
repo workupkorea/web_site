@@ -7,6 +7,7 @@ import type { Brand } from "@/data/brands";
 import BrandsPageClient from "@/components/BrandsPageClient";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/brands" },
   title: "브랜드 라인업",
   description: "워크업 매장의 입점 브랜드를 한눈에.",
 };

@@ -2,6 +2,7 @@
 import Link from "next/link";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/partnership" },
   title: "파트너십 문의",
   description: "가맹·창업, 브랜드 입점·제휴 문의 안내.",
 };

@@ -7,6 +7,7 @@ import SupportForm from "@/components/SupportForm";
 import { ikSrc } from "@/lib/imageSrc";
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/support" },
   title: "고객센터 · 1:1 문의",
   description: "제품·사이즈·매장 방문 등 1:1 문의.",
 };

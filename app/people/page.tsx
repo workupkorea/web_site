@@ -8,6 +8,7 @@ type PageHeader = { title: string; description: string };
 type PageData = { header?: PageHeader; items?: Person[] };
 
 export const metadata: Metadata = {
+  alternates: { canonical: "/people" },
   title: "워크업 메이트",
   description: "현장에서 일하는 사람들의 이야기.",
 };
