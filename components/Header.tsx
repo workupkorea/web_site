@@ -248,7 +248,7 @@ export default function Header({
           // globals.css 가 .font-bold 를 500 으로 낮춰 두므로 굵기는 인라인으로 지정한다(다른 메뉴와 동일)
           <div
             style={{ fontWeight: 700 }}
-            className={`flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0 text-[10px] md:text-[11px] whitespace-nowrap ${white ? "text-white/90" : "text-gray-500"}`}
+            className={`flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0 text-[10px] md:text-[12px] whitespace-nowrap ${white ? "text-white/90" : "text-gray-500"}`}
           >
             {topbarItems.map((it, idx) => {
               const href = safeHref(it.href) || "/";
