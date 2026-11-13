@@ -154,7 +154,8 @@
 .stepNo { color: var(--orange-strong); font-size: 14px; font-weight: 700; letter-spacing: 0.04em; }
 .step strong { font-size: 16px; font-weight: 700; letter-spacing: -0.03em; }
 .step span:last-child { color: var(--muted); font-size: 13px; line-height: 1.5; word-break: keep-all; }
-.processNote { margin-top: 16px; color: var(--muted); font-size: 12.5px; line-height: 1.55; word-break: keep-all; }
+/* 포인트 박스 — 연한 주황 배경 + 왼쪽 강조선(상단 안내 박스와 같은 톤) */
+.processNote { margin-top: 16px; padding: 12px 14px; background: var(--orange-soft); border-left: 3px solid var(--orange); border-radius: 0 6px 6px 0; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.55; text-align: left; word-break: keep-all; }
 
 /* 태블릿·PC (기존 사이트 640px 기준에 맞춰 전환) */
 @media (min-width: 640px) {
@@ -176,7 +177,7 @@
   .step { gap: 6px; }
   .step strong { font-size: 18px; }
   .step span:last-child { font-size: 15px; line-height: 1.6; }
-  .processNote { margin-top: 28px; font-size: 14px; line-height: 1.7; }
+  .processNote { margin-top: 28px; padding: 16px 20px; font-size: 15px; line-height: 1.7; }
   .done { padding: 36px 0 12px; text-align: center; }
   .container { width: min(100% - 48px, 960px); }
   .title { font-size: 32px; }
