@@ -257,7 +257,7 @@ export default function GroupOrderPage({ submitMode }: { submitMode: SubmitMode 
         <div className={styles.content}>
         {/* A. 메인 안내 */}
         <header className={styles.intro}>
-          <h1 className={styles.title}>단체복·대량구매, 워크업에서 한 번에.</h1>
+          <h1 className={styles.title}>단체복·대량구매,<br />워크업에서 한 번에.</h1>
           <p className={styles.lead}>
             <span>기업 유니폼부터 행사복, 동호회 단체복까지.</span>{" "}
             <span>필요한 상품과 수량을 남겨주시면 구매 방법과 견적을 안내해 드립니다.</span>
