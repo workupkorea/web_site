@@ -63,12 +63,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const pages = await getPopupPages();
   const page = pages.find(p => p.id === id);
-  if (!page) return { title: "WORKUP" };
+  if (!page) return { title: "워크업" };
   return {
-    title: `${page.title} — WORKUP`,
+    title: `${page.title} — 워크업`,
     description: page.description || `${page.title}. 워크업 매장에서 직접 체험해보세요.`,
     openGraph: {
-      title: `${page.title} — WORKUP`,
+      title: `${page.title} — 워크업`,
       description: page.description,
       images: page.hero_image_url ? [page.hero_image_url] : undefined,
     },

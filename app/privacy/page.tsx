@@ -4,7 +4,7 @@ import { DEFAULT_PRIVACY, normalizeLegal, type LegalConfig } from "@/lib/site-co
 import LegalDoc from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "개인정보처리방침 — WORKUP",
+  title: "개인정보처리방침 — 워크업",
   description: "워크업(WORKUP) 개인정보처리방침.",
 };
 

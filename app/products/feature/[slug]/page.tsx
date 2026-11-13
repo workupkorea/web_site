@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const editorial = editorials.find((ed) => ed.slug === slug);
   if (!editorial) return { title: "기획 특집" };
   return {
-    title: `${editorial.title} — WORKUP`,
+    title: `${editorial.title} — 워크업`,
     description: editorial.desc,
   };
 }

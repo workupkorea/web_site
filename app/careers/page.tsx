@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import CareersClient from "./_components/CareersClient";
 
 export const metadata: Metadata = {
-  title: "채용공고 — WORKUP",
+  title: "채용공고 — 워크업",
   description: "워크업 전국 매장 채용공고. 함께 일할 워크업 팀원을 찾습니다.",
 };
 

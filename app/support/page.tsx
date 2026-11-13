@@ -7,7 +7,7 @@ import SupportForm from "@/components/SupportForm";
 import { ikSrc } from "@/lib/imageSrc";
 
 export const metadata: Metadata = {
-  title: "고객센터 · 1:1 문의 — WORKUP",
+  title: "고객센터 · 1:1 문의 — 워크업",
   description: "워크업 고객센터. 제품·사이즈, 매장 방문, 교환/반품 등 무엇이든 1:1로 문의하세요.",
 };
 

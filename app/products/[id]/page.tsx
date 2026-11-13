@@ -71,7 +71,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const isHidden = productsNav ? productsNav.isVisible === false : false;
 
   // 관리자가 지정한 metaTitle/metaDesc 우선, 없으면 제품명·태그라인으로 자동 생성
-  const title = product.metaTitle?.trim() || `${product.name} — WORKUP ${product.line}`;
+  const title = product.metaTitle?.trim() || `${product.name} — 워크업 ${product.line}`;
   const description = product.metaDesc?.trim() || product.tagline;
   const ogImage = absoluteUrl(product.imageUrl);
   return {

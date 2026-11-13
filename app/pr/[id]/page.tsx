@@ -26,7 +26,7 @@ async function findPost(id: string) {
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
   const post = await findPost(id);
-  if (!post) return { title: "공지사항 — WORKUP" };
+  if (!post) return { title: "공지사항 — 워크업" };
   const desc = post.summary || post.body.slice(0, 120) || "워크업의 새로운 소식";
   return {
     title: `${post.title} — 공지사항`,

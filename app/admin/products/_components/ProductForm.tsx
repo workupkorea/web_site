@@ -392,7 +392,7 @@ export default function ProductForm({ initial, isEdit }: { initial?: Product; is
   // SEO 자동 입력
   useEffect(() => {
     setForm((prev) => {
-      if (prev.name && !prev.metaTitle) return { ...prev, metaTitle: `${prev.name} | WORKUP 작업복` };
+      if (prev.name && !prev.metaTitle) return { ...prev, metaTitle: `${prev.name} | 워크업 작업복` };
       return prev;
     });
   }, [form.name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -412,7 +412,7 @@ export default function ProductForm({ initial, isEdit }: { initial?: Product; is
 
   const autoGenSeo = () => {
     const featList = form.features.split("\n").map((s) => s.trim()).filter(Boolean).slice(0, 2);
-    set("metaTitle", form.name ? `${form.name} | WORKUP 작업복` : "");
+    set("metaTitle", form.name ? `${form.name} | 워크업 작업복` : "");
     set("metaDesc", featList.length > 0 ? `${form.tagline} ${featList.join(", ")}.` : form.tagline);
   };
 

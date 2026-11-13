@@ -6,13 +6,13 @@ import HomeSections from "@/components/HomeSections";
 import HomeClickTracker from "@/components/HomeClickTracker";
 
 export const metadata: Metadata = {
-  title: "WORKUP — 일하는 사람을 위한 옷",
+  title: "워크업 — 일하는 사람을 위한 옷",
   description: "현장부터 일상까지. 기능성 워크웨어 브랜드 워크업. 전국 매장에서 직접 체험하세요.",
   openGraph: {
-    title: "WORKUP — 일하는 사람을 위한 옷",
+    title: "워크업 — 일하는 사람을 위한 옷",
     description: "현장부터 일상까지. 기능성 워크웨어 브랜드 워크업.",
     type: "website",
-    siteName: "WORKUP",
+    siteName: "워크업",
     images: [
       {
         url: "/og-image.jpg",

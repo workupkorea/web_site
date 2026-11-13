@@ -16,10 +16,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const detail = await loadDetail(slug, banner);
   if (!detail) return { title: "기획전" };
   return {
-    title: `${detail.title} — WORKUP`,
+    title: `${detail.title} — 워크업`,
     description: detail.desc || `${detail.title} 기획전. 워크업 매장에서 직접 체험해보세요.`,
     openGraph: {
-      title: `${detail.title} — WORKUP`,
+      title: `${detail.title} — 워크업`,
       description: detail.desc,
       images: detail.imageUrl ? [detail.imageUrl] : undefined,
     },
