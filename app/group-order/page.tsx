@@ -3,7 +3,7 @@ import GroupOrderPage from "./GroupOrderPage";
 
 export const metadata: Metadata = {
   title: "단체복·대량구매 견적 문의",
-  description: "기업 유니폼부터 행사복, 동호회 단체복까지. 필요한 상품과 수량을 남겨주시면 구매 방법과 견적을 안내해 드립니다.",
+  description: "단체복·대량구매 견적을 안내해 드립니다.",
   // 정식 공개 전 검토 단계. 공개 시 검색 노출과 사이트맵 등록을 함께 결정한다.
   robots: { index: false, follow: false },
 };

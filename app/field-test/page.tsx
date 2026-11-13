@@ -10,8 +10,8 @@ const DEFAULT_HEADER = {
 };
 
 export const metadata: Metadata = {
-  title: "FIELD TEST — 제품 검증 콘텐츠",
-  description: "워크업이 현장에서 직접 검증한 제품 테스트 결과를 공개합니다.",
+  title: "제품 검증 콘텐츠",
+  description: "현장에서 직접 검증한 제품 테스트 결과.",
 };
 
 export default async function FieldTestPage() {

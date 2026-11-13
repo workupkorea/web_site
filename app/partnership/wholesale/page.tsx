@@ -7,7 +7,7 @@ import { getSiteSection } from "@/lib/site-settings";
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteSection<PartnershipConfig>("partnership_page");
   const info = normalizePartnership(config).wholesale;
-  return { title: info.seo_title, description: info.seo_desc };
+  return { title: { absolute: info.seo_title }, description: info.seo_desc };
 }
 
 export default async function WholesalePage() {

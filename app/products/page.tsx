@@ -14,8 +14,8 @@ export async function generateMetadata(): Promise<Metadata> {
   const isHidden = productsNav ? productsNav.isVisible === false : false;
 
   return {
-    title: "PRODUCTS — 제품",
-    description: "워크업이 검증한 기능성 워크웨어. 카테고리별로 찾아보세요.",
+    title: "제품",
+    description: "기능성 워크웨어를 카테고리별로.",
     // 카테고리·검색 등 쿼리스트링 조합(?cat=, ?q= 등)은 전부 이 페이지의 변형일 뿐이므로
     // 표준 URL을 명시해 구글이 "표준 없는 중복 페이지"로 잘못 판단하지 않게 한다.
     alternates: { canonical: "/products" },
@@ -46,10 +46,10 @@ async function getCategories(): Promise<CatItem[]> {
 const collectionLd = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
-  name: "PRODUCTS — 제품 | WORKUP",
-  description: "워크업이 검증한 기능성 워크웨어. 카테고리별로 찾아보세요.",
+  name: "제품 | 워크업",
+  description: "기능성 워크웨어를 카테고리별로.",
   url: absoluteUrl("/products"),
-  isPartOf: { "@type": "WebSite", name: "WORKUP", url: siteUrl },
+  isPartOf: { "@type": "WebSite", name: "워크업", url: siteUrl },
 };
 
 export default async function ProductsPage() {

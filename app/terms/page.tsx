@@ -4,8 +4,8 @@ import { DEFAULT_TERMS, normalizeLegal, type LegalConfig } from "@/lib/site-cont
 import LegalDoc from "@/components/LegalDoc";
 
 export const metadata: Metadata = {
-  title: "이용약관 — 워크업",
-  description: "워크업(WORKUP) 웹사이트 이용약관.",
+  title: "이용약관",
+  description: "워크업 웹사이트 이용약관.",
 };
 
 export default async function TermsPage() {

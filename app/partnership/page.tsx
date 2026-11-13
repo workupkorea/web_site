@@ -2,8 +2,8 @@
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "파트너십 — 가맹·창업 / 입점·제휴 문의",
-  description: "WORKUP 가맹·창업 및 브랜드 입점·제휴 문의 안내.",
+  title: "파트너십 문의",
+  description: "가맹·창업, 브랜드 입점·제휴 문의 안내.",
 };
 
 const CHOICES = [
@@ -11,14 +11,14 @@ const CHOICES = [
     href: "/partnership/franchise",
     eyebrow: "Franchise",
     title: "가맹·창업 문의",
-    desc: "WORKUP 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 안내입니다.",
+    desc: "워크업 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 안내입니다.",
     bg: "#303236",
   },
   {
     href: "/partnership/wholesale",
     eyebrow: "Partnership",
     title: "브랜드 입점·제휴 문의",
-    desc: "내 브랜드 제품을 WORKUP 매장에 납품·입점하고 싶은 브랜드를 위한 안내입니다.",
+    desc: "내 브랜드 제품을 워크업 매장에 납품·입점하고 싶은 브랜드를 위한 안내입니다.",
     bg: "#2d4f72",
   },
 ];

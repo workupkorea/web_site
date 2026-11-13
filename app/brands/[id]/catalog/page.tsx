@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const name = data.brand.name;
   return {
     title: `${name} 카탈로그`,
-    description: `${name} 제품 카탈로그. WORKUP K-WORKER STORE.`,
+    description: `${name} 제품 카탈로그. 워크업 K-WORKER STORE.`,
   };
 }
 

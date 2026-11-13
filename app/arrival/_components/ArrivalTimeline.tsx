@@ -1083,7 +1083,7 @@ function buildCalendarPDF(
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>WORKUP Arrival Calendar</title>
+<title>워크업 입고 캘린더</title>
 <style>
   @page { size: A4 landscape; margin: 6mm 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }

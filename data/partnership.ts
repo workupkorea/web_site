@@ -151,7 +151,7 @@ export const DEFAULT_PARTNERSHIP: PartnershipConfig = {
     form_desc: "",
     panel_bg: "#1c1d1f",
     seo_title: "가맹·창업 문의 | 워크업",
-    seo_desc: "WORKUP 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 가맹·창업 문의 안내.",
+    seo_desc: "워크업 브랜드로 독립 매장을 창업하고 싶으신 분을 위한 가맹·창업 문의 안내.",
     styles: BASE_STYLES,
     form: FRANCHISE_FORM,
   },
@@ -175,7 +175,7 @@ export const DEFAULT_PARTNERSHIP: PartnershipConfig = {
     form_desc: "",
     panel_bg: "#081a2e",
     seo_title: "브랜드 입점·제휴 문의 | 워크업",
-    seo_desc: "내 브랜드 제품을 WORKUP 매장에 납품하고 싶은 분을 위한 입점·제휴 문의 안내.",
+    seo_desc: "내 브랜드 제품을 워크업 매장에 납품하고 싶은 분을 위한 입점·제휴 문의 안내.",
     styles: BASE_STYLES,
     form: WHOLESALE_FORM,
   },
@@ -263,8 +263,8 @@ function normInfo(raw: unknown, def: PartnerInfo): PartnerInfo {
     form_desc: str(r.form_desc, def.form_desc),
     // 옛 기본 배경(제휴 #2d4f72·슬레이트 #0f172a)이 저장돼 있으면 새 네이비 기본값으로 대체(가맹은 별도 기본값이라 제외)
     panel_bg: def.panel_bg === "#081a2e" && ["#2d4f72", "#0f172a"].includes(String(r.panel_bg).toLowerCase()) ? def.panel_bg : str(r.panel_bg, def.panel_bg) || def.panel_bg,
-    seo_title: str(r.seo_title, def.seo_title),
-    seo_desc: str(r.seo_desc, def.seo_desc),
+    seo_title: str(r.seo_title, def.seo_title).replace(/WORKUP/g, "워크업"),
+    seo_desc: str(r.seo_desc, def.seo_desc).replace(/WORKUP/g, "워크업"),
     styles: {
       eyebrow: normStyle(rs.eyebrow, def.styles.eyebrow),
       panel_title: normStyle(rs.panel_title, def.styles.panel_title),

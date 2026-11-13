@@ -6,8 +6,8 @@ import StoryHeroView from "@/components/StoryHeroView";
 import StorySectionView from "@/components/StorySectionView";
 
 export const metadata: Metadata = {
-  title: "STORY — 브랜드 철학",
-  description: "워크업이 왜 존재하는가. 일하는 사람을 위한 브랜드의 철학.",
+  title: "워크업 소개",
+  description: "현장에서 시작한 워크업의 철학과 이야기.",
 };
 
 // 관리자(/admin/main/story)에서 저장한 구성을 읽는다. 없으면 DEFAULT_STORY로 폴백 → 편집 전엔 기존과 동일.

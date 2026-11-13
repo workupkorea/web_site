@@ -53,7 +53,7 @@ export type FranchiseGuideConfig = {
 const ts = (size: number, color: string, tracking = 0, leading = 1.4): TextStyle => ({ size, color, tracking, leading });
 
 export const DEFAULT_FRANCHISE_GUIDE: FranchiseGuideConfig = {
-  title: "워크업창업안내 | WORKUP FRANCHISE INFORMATION",
+  title: "워크업 창업안내",
   hero_eyebrow: "WORKUP FRANCHISE",
   hero_title: "일하는 사람들의 발걸음이,\n매출이 되는 브랜드.",
   hero_desc: "전국 {count}개 매장이 선택한 워크웨어 전문 비즈니스입니다.\n상권 보호부터 상품 공급, 지역 마케팅까지 함께합니다.",

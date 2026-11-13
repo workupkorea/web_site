@@ -11,7 +11,7 @@ import { brandSlug } from "@/lib/brandCatalog-server";
 
 export const metadata: Metadata = {
   title: "2026 SS 카탈로그",
-  description: "WORKUP 2026 Spring/Summer 신제품 카탈로그와 입점 브랜드 카탈로그를 한곳에서.",
+  description: "신제품과 입점 브랜드 카탈로그.",
 };
 
 type CatalogData = {

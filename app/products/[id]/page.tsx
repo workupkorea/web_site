@@ -75,7 +75,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = product.metaDesc?.trim() || product.tagline;
   const ogImage = absoluteUrl(product.imageUrl);
   return {
-    title,
+    title: { absolute: title },
     description,
     // 표준 URL 명시 — 같은 상품이 다른 쿼리스트링으로 접근돼도 구글이 이 URL을 정본으로 보게 함
     alternates: { canonical: `/products/${id}` },

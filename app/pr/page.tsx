@@ -4,11 +4,11 @@ import { getPrRoom } from "@/lib/pr-room-server";
 import { visiblePosts, PR_CATEGORIES, prCategoryLabel, type PrPost, type PrCategory } from "@/lib/pr-room";
 
 export const metadata: Metadata = {
-  title: "공지사항 — 워크업 새소식",
+  title: "공지사항",
   description:
     "워크업의 새로운 소식, 매장 오픈, 이벤트 소식을 한눈에 확인하세요. 가까운 워크업 매장에서 직접 만나보실 수 있습니다.",
   openGraph: {
-    title: "공지사항 — 워크업 새소식",
+    title: "공지사항 — 새소식",
     description: "워크업의 새로운 소식과 이야기를 전해드립니다.",
     type: "website",
   },

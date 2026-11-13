@@ -77,9 +77,9 @@ async function getStoreProducts(ids: string[]): Promise<StoreProduct[]> {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const store = await getStore(id);
-  if (!store) return { title: "매장 없음 — 워크업" };
+  if (!store) return { title: "매장 없음" };
   return {
-    title: `${store.name} — 워크업`,
+    title: `${store.name}`,
     description: store.description || `${store.name} | ${store.address} | ${store.hours}`,
     openGraph: {
       title: `${store.name} — 워크업`,

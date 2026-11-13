@@ -14,7 +14,7 @@ export type InstagramFeedConfig = {
 
 export const DEFAULT_INSTAGRAM_FEED: InstagramFeedConfig = {
   is_visible: true,
-  title: "인스타그램 속 WORKUP",
+  title: "인스타그램 속 워크업",
   subtitle: "실제 현장에서 만나는 워크업",
   account: "",
   columns_desktop: 4,

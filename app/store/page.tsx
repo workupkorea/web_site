@@ -5,8 +5,8 @@ import { getSiteSection } from "@/lib/site-settings";
 import { normalizeStorePage, type StorePageConfig } from "@/lib/store-page";
 
 export const metadata: Metadata = {
-  title: "매장 찾기 — 워크업",
-  description: "전국 워크업 매장. 내 주변 매장을 찾아 직접 방문해 보세요.",
+  title: "매장 찾기",
+  description: "전국 워크업 매장 위치와 운영시간.",
 };
 
 export default async function StorePage() {
