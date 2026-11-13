@@ -101,10 +101,10 @@ export default function Header({
 
   // PC 메뉴 공통 스타일 — 메뉴 사이에 연한 회색 세로 바(::before)를 두고, 첫 메뉴 앞에는 숨긴다.
   const navLinkBase =
-    `group relative grid place-items-center whitespace-nowrap px-3 xl:px-6 py-2 transition-colors ` +
+    `group relative grid place-items-center whitespace-nowrap px-2.5 xl:px-4 py-2 transition-colors duration-300 outline-none ` +
     `before:content-[''] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-3 before:w-px first:before:hidden ` +
     (white ? "before:bg-white/35" : "before:bg-gray-300");
-  const navLinkColor = white ? "text-white hover:text-white/70" : "text-[#303236] hover:text-[#E5541B]";
+  const navLinkColor = white ? "text-white hover:text-white/70 focus-visible:text-white/70" : "text-[#303236] hover:text-[#D9744A] focus-visible:text-[#D9744A]";
 
   // ── 로고 / 내비게이션 / 가맹·제휴문의 / 로그인 행 ──
   const topRow = (
@@ -128,14 +128,14 @@ export default function Header({
                   onMouseEnter={openBrands}
                   onMouseLeave={closeBrandsDelayed}
                   onClick={() => trackNavClick(item.labelKo ?? BRANDS_LABEL_KO, "/brands")}
-                  className={`${navLinkBase} ${brandsOpen ? "text-[#E5541B]" : navLinkColor}`}
+                  className={`${navLinkBase} ${brandsOpen ? "text-[#D9744A]" : navLinkColor}`}
                   style={{ fontWeight: 650 }}
                   aria-expanded={brandsOpen}
                   aria-haspopup="true"
                 >
                   <span
                     style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                    className="text-[14px] leading-none tracking-tighter"
+                    className="text-[13px] leading-none tracking-tighter"
                   >
                     {item.labelKo ?? BRANDS_LABEL_KO}
                   </span>
@@ -157,7 +157,7 @@ export default function Header({
                 {item.labelKo ? (
                   <span
                     style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                    className="text-[14px] leading-none tracking-tighter"
+                    className="text-[13px] leading-none tracking-tighter"
                   >
                     {item.labelKo}
                   </span>
@@ -180,14 +180,14 @@ export default function Header({
               onMouseEnter={openBrands}
               onMouseLeave={closeBrandsDelayed}
               onClick={() => trackNavClick(BRANDS_LABEL_KO, "/brands")}
-              className={`${navLinkBase} ${brandsOpen ? "text-[#E5541B]" : navLinkColor}`}
+              className={`${navLinkBase} ${brandsOpen ? "text-[#D9744A]" : navLinkColor}`}
               style={{ fontWeight: 650 }}
               aria-expanded={brandsOpen}
               aria-haspopup="true"
             >
               <span
                 style={{ gridArea: "1 / 1", fontWeight: 700 }}
-                className="text-[14px] leading-none tracking-tighter"
+                className="text-[13px] leading-none tracking-tighter"
               >
                 {BRANDS_LABEL_KO}
               </span>
@@ -248,7 +248,7 @@ export default function Header({
           // globals.css 가 .font-bold 를 500 으로 낮춰 두므로 굵기는 인라인으로 지정한다(다른 메뉴와 동일)
           <div
             style={{ fontWeight: 700 }}
-            className={`flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0 text-[10px] md:text-[12px] whitespace-nowrap ${white ? "text-white/90" : "text-gray-500"}`}
+            className={`flex items-center gap-1.5 flex-shrink-0 ml-auto md:ml-0 text-[10px] md:text-[11px] whitespace-nowrap ${white ? "text-white/90" : "text-gray-500"}`}
           >
             {topbarItems.map((it, idx) => {
               const href = safeHref(it.href) || "/";
@@ -281,16 +281,16 @@ export default function Header({
         {memberSession ? (
           <Link
             href="/mypage"
-            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-2 xl:px-3 py-1.5 rounded-md bg-[#303236] text-white text-[11px] font-semibold tracking-wide whitespace-nowrap hover:bg-[#243d5e] transition-colors"
+            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-2.5 xl:px-3 py-1.5 rounded-md border border-gray-300 bg-white text-[#303236] text-[11px] font-semibold tracking-wide whitespace-nowrap hover:border-[#303236] hover:bg-gray-50 transition-colors"
           >
             마이페이지
           </Link>
         ) : (
           <button
             onClick={() => router.push("/member/login")}
-            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-2 xl:px-3 py-1.5 rounded-md bg-[#303236] text-white text-[11px] font-semibold tracking-wide whitespace-nowrap hover:bg-[#243d5e] transition-colors"
+            className="hidden md:inline-flex items-center justify-center flex-shrink-0 px-2.5 xl:px-3 py-1.5 rounded-md border border-gray-300 bg-white text-[#303236] text-[11px] font-semibold tracking-wide whitespace-nowrap hover:border-[#303236] hover:bg-gray-50 transition-colors"
           >
-            로그인 / 회원가입
+            로그인
           </button>
         )}
 

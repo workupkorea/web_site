@@ -34,6 +34,7 @@ import { siteUrl } from "@/lib/site";
 const HEADER_FALLBACK_ITEMS: TopbarItem[] = [
   { id: "header-franchise", label: "가맹문의", href: "/partnership/franchise", icon: "none", newTab: false },
   { id: "header-wholesale", label: "제휴문의", href: "/partnership/wholesale", icon: "none", newTab: false },
+  { id: "header-group-order", label: "단체복문의", href: "/group-order", icon: "none", newTab: false },
 ];
 
 const notoSansKR = Noto_Sans_KR({ weight: ["400", "700", "900"], display: "optional" });
