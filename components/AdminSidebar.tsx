@@ -86,6 +86,7 @@ export const navGroups: NavGroup[] = [
   {
     label: "지점 및 상품관리",
     items: [
+      { label: "전단 스튜디오", href: "/admin/print-studio", newTab: true, icon: <span className="text-lg">▦</span> },
       {
         label: "입고 스케쥴 · 출고 패스",
         href: "/admin/arrival",
