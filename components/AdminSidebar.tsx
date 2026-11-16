@@ -23,7 +23,7 @@ export const navGroups: NavGroup[] = [
     items: [
       {
         label: "전단 스튜디오",
-        href: "https://web-site-git-codex-workup-print-studio-web-workup-s-projects.vercel.app/admin/print-studio",
+        href: "/admin/print-studio",
         newTab: true,
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">

@@ -34,3 +34,7 @@ scratchpad_dev.log
 
 # graphify output
 graphify-out/
+
+# Private catalog seeds are stored in Supabase, never in the public repository.
+/data/print-studio/catalog.json
+/data/print-studio/photos/
