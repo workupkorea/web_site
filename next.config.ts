@@ -17,6 +17,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  outputFileTracingIncludes: { "/api/admin/print-studio/editor": ["./data/print-studio/editor.html"] },
   transpilePackages: ["react-pdf", "pdfjs-dist"],
   // 응답 헤더에서 x-powered-by 제거 (불필요한 정보 노출 차단)
   poweredByHeader: false,

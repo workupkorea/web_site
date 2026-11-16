@@ -412,3 +412,16 @@ export async function getBulkShipStoreIds(sb: SupabaseClient): Promise<Set<numbe
   const status = await readSection<{ rows: StatusRow[] }>(sb, STATUS_SECTION).catch(() => null);
   return new Set((status?.rows ?? []).filter((r) => isBulkShip(r.openedAt)).map((r) => r.storeId));
 }
+
+// 전단 스튜디오 전용: 기존 암호화 계정으로 상품 목록만 읽는다.
+export async function readWjumunPrintProducts(sb: SupabaseClient, query: string, field: "it_name" | "it_tag_code" | "it_code", page: number): Promise<string> {
+  const cookie = await loginCookie(sb);
+  const params = new URLSearchParams({ search_field1: field, search_word1: query, item_list_num: "30", page: String(page) });
+  const response = await timedFetch(`${BASE_URL}/admin/shop/item_list.php?${params}`, { method: "GET", headers: { Cookie: cookie } });
+  if (!response.ok) throw new Error("W주문 상품 조회 실패");
+  const bytes = await response.arrayBuffer();
+  let html = new TextDecoder("utf-8").decode(bytes);
+  if (html.includes("\ufffd")) html = new TextDecoder("euc-kr").decode(bytes);
+  if (/name=[\"\']?a_passwd/.test(html) || !/item_list/.test(html)) throw new Error("W주문 로그인 실패");
+  return html;
+}
