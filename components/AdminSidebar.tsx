@@ -18,6 +18,21 @@ export function isDropdown(item: NavItem): item is NavDropdown {
 }
 
 export const navGroups: NavGroup[] = [
+  {
+    label: "전단 스튜디오",
+    items: [
+      {
+        label: "전단 스튜디오",
+        href: "https://web-site-git-codex-workup-print-studio-web-workup-s-projects.vercel.app/admin/print-studio",
+        newTab: true,
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 8V3h10v5M7 17H5a2 2 0 01-2-2v-5a2 2 0 012-2h14a2 2 0 012 2v5a2 2 0 01-2 2h-2M7 14h10v7H7zM17 11h.01" />
+          </svg>
+        ),
+      },
+    ],
+  },
   // ── 1. 사이트관리 (디자인·UI 변경 요소 전체 통합: 메인 배치·메뉴바·팝업·탑바·푸터·콘텐츠 페이지) ──
   {
     label: "사이트관리",
