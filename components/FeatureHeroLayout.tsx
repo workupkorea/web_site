@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { createPortal } from "react-dom";
 import type { Editorial, EditorialSection, EditorialSectionTag, EditorialTag } from "@/data/editorial";
 import { ikSrc } from "@/lib/imageSrc";
 import { heroPanelHeight } from "@/lib/heroPanel";
@@ -11,11 +12,15 @@ import { heroPanelHeight } from "@/lib/heroPanel";
 // inline=true(모바일·태블릿): 좌표 없이 목록 안에 일반 흐름으로 배치한다.
 function TagChip({ tag, x, y, compact, px, inline }: { tag: EditorialTag; x?: number; y?: number; compact?: boolean; px?: boolean; inline?: boolean }) {
   const unit = px ? "px" : "%";
+  const [anchor, setAnchor] = useState<DOMRect | null>(null);
   return (
-    <Link
-      href={tag.href ?? `/products/${tag.productId}`}
-      aria-label={`${tag.brand ? tag.brand + " " : ""}${tag.name}`}
-      className={`${inline ? "relative items-start" : "absolute z-10 items-end"} flex flex-col min-h-[44px] justify-center group`}
+    <>
+    <button
+      type="button"
+      onClick={(e) => setAnchor(e.currentTarget.getBoundingClientRect())}
+      aria-haspopup="dialog"
+      aria-label={`${tag.brand ? tag.brand + " " : ""}${tag.name} 제품 정보 보기`}
+      className={`${inline ? "relative items-start" : "absolute z-10 items-end"} flex flex-col min-h-[44px] justify-center group text-left`}
       style={inline ? undefined : { left: `${x}${unit}`, top: `${y}${unit}`, transform: "translate(-50%, -50%)" }}
     >
       {tag.brandLogo ? (
@@ -45,7 +50,111 @@ function TagChip({ tag, x, y, compact, px, inline }: { tag: EditorialTag; x?: nu
       >
         <span className="inline-block" style={{ transform: "scaleX(0.94)", margin: `0 -${(tag.name.length * 0.03).toFixed(2)}em` }}>{tag.name}</span>
       </span>
-    </Link>
+    </button>
+    {/* body로 포털 — 상위 요소의 쌓임 맥락(z-index)에 갇혀 하단 메뉴 뒤로 가려지는 것을 방지 */}
+    {anchor && createPortal(<TagInfoPopup tag={tag} anchor={anchor} sheet={!!inline} onClose={() => setAnchor(null)} />, document.body)}
+    </>
+  );
+}
+
+// 태그 클릭 시 뜨는 제품 정보 창 — PC(sheet=false)는 태그 옆 작은 팝오버, 모바일·태블릿(sheet=true)은 하단에서 올라오는 시트.
+// 큰 제품 사진·브랜드·제품명·품번과 (있으면) 스마트스토어 버튼을 보여준다. 바깥 클릭·Esc·✕로 닫는다.
+function TagInfoPopup({ tag, anchor, sheet, onClose }: { tag: EditorialTag; anchor: DOMRect; sheet: boolean; onClose: () => void }) {
+  const [shown, setShown] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setShown(true)); // 다음 프레임에 활성화해야 슬라이드/페이드가 걸린다
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onScrollResize = () => { if (!sheet) onClose(); };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onScrollResize, true);
+    window.addEventListener("resize", onScrollResize);
+    closeRef.current?.focus();
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onScrollResize, true);
+      window.removeEventListener("resize", onScrollResize);
+    };
+  }, [onClose, sheet]);
+
+  const image = tag.info?.image || tag.imageUrl;
+  const storeUrl = tag.info?.storeUrl && /^https?:\/\//.test(tag.info.storeUrl) ? tag.info.storeUrl : undefined;
+
+  const content = (
+    <div>
+      {/* 제품 이미지 — 크게 보여준다 (PC: 팝업 폭 가득 정사각형 / 모바일: 화면 높이의 약 42%까지) */}
+      <div className={`bg-gray-100 overflow-hidden ${sheet ? "aspect-square max-h-[40vh] mx-auto" : "aspect-square w-full"}`}>
+        {image ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={ikSrc(image, 800)} alt={tag.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-300 font-black text-3xl select-none">WU</div>
+        )}
+      </div>
+      <div className={sheet ? "px-5 pt-4 pb-[max(1.75rem,env(safe-area-inset-bottom))]" : "px-4 pt-3 pb-4"}>
+        {tag.brand && <p className="text-[11px] font-bold tracking-wider text-gray-500 uppercase mb-0.5">{tag.brand}</p>}
+        <p className="text-[16px] font-semibold text-[#303236] leading-snug break-keep">{tag.name}</p>
+        {tag.price && <p className="text-[13px] text-[#303236] mt-1">{tag.price}</p>}
+        {(tag.info?.colors?.length || tag.info?.sizes?.length) ? (
+          <dl className="mt-3 space-y-1 text-[13px] text-[#303236]">
+            {!!tag.info?.colors?.length && (
+              <div className="flex gap-3"><dt className="w-12 flex-shrink-0 text-gray-500">컬러</dt><dd>{tag.info.colors.join(" · ")}</dd></div>
+            )}
+            {!!tag.info?.sizes?.length && (
+              <div className="flex gap-3"><dt className="w-12 flex-shrink-0 text-gray-500">사이즈</dt><dd>{tag.info.sizes.join(" ")}</dd></div>
+            )}
+          </dl>
+        ) : null}
+        {storeUrl && (
+          <a href={storeUrl} target="_blank" rel="noopener noreferrer"
+            className="mt-3 flex items-center justify-center gap-1 min-h-[44px] border border-[#303236] text-[#303236] text-[13px] font-semibold hover:bg-[#303236] hover:text-white transition-colors">
+            스마트스토어에서 보기 <span aria-hidden>↗</span>
+          </a>
+        )}
+      </div>
+    </div>
+  );
+
+  const closeBtn = (
+    <button ref={closeRef} type="button" onClick={onClose} aria-label="닫기"
+      className="absolute top-2 right-2 z-10 w-9 h-9 rounded-full bg-white/85 flex items-center justify-center text-gray-600 hover:text-black text-base leading-none shadow">
+      ✕
+    </button>
+  );
+
+  if (sheet) {
+    return (
+      <div className="fixed inset-0 z-[1000]" role="dialog" aria-modal="true" aria-label={`${tag.name} 제품 정보`}>
+        <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ${shown ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
+        <div
+          className="absolute bottom-0 inset-x-0 bg-white rounded-t-2xl shadow-2xl transition-transform duration-300 ease-out max-h-[92vh] overflow-y-auto"
+          style={{ transform: shown ? "translateY(0)" : "translateY(100%)" }}
+        >
+          <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-gray-300" aria-hidden />
+          {closeBtn}
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  // PC 팝오버 — 태그 아래(공간이 부족하면 위)에 가운데 정렬, 화면 밖으로 나가지 않게 보정
+  const W = 300;
+  const left = Math.min(window.innerWidth - W - 12, Math.max(12, anchor.left + anchor.width / 2 - W / 2));
+  const below = anchor.bottom + 8 + 480 < window.innerHeight;
+  return (
+    <div className="fixed inset-0 z-[1000]" onClick={onClose}>
+      <div
+        role="dialog" aria-label={`${tag.name} 제품 정보`}
+        onClick={(e) => e.stopPropagation()}
+        className={`absolute bg-white shadow-xl border border-gray-200 transition-all duration-200 ${shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"}`}
+        style={{ width: W, left, ...(below ? { top: anchor.bottom + 8 } : { bottom: window.innerHeight - anchor.top + 8 }) }}
+      >
+        {closeBtn}
+        {content}
+      </div>
+    </div>
   );
 }
 
@@ -169,6 +278,90 @@ function RotatingImage({ urls, alt, className }: { urls: string[]; alt: string; 
       className={className}
       style={count > 1 ? { animation: "imgFade 0.7s ease-out" } : undefined}
     />
+  );
+}
+
+// ── 메인 대배너 롤링 ──
+// 첫 노출은 대표 이미지 그대로. 추가 이미지가 있으면 일정 간격마다 다음 사진으로 "천천히" 크로스페이드한다.
+// 다음 사진은 미리 내려받은 뒤에만 전환(빈 화면·깜빡임 방지) — 전환 때 한 장씩만 받아 트래픽을 아낀다.
+// 탭이 숨겨졌거나 '동작 줄이기' 설정이면 멈춘다. PC·모바일 레이아웃이 한 인덱스를 공유한다.
+const HERO_ROLL_INTERVAL_MS = 7000;
+const HERO_FADE_MS = 2200;
+
+function useHeroRoll(pools: string[][]) {
+  const count = Math.max(...pools.map((p) => p.length));
+  const [idx, setIdx] = useState(0);
+  const [prev, setPrev] = useState<number | null>(null);
+  const [loaded, setLoaded] = useState<number[]>([0]);
+  const poolsKey = pools.map((p) => p.join("|")).join("||");
+
+  useEffect(() => {
+    if (count < 2 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let cancelled = false;
+    let current = 0;
+    const timers: number[] = [];
+    const interval = window.setInterval(() => {
+      if (document.hidden) return;
+      const next = (current + 1) % count;
+      const urls = [...new Set(pools.map((p) => p[next]).filter(Boolean))].map((u) => ikSrc(u, 1600));
+      Promise.all(urls.map((u) => new Promise<void>((res) => { const im = new Image(); im.onload = im.onerror = () => res(); im.src = u; }))).then(() => {
+        if (cancelled) return;
+        // 새 사진을 투명 상태로 먼저 올린 뒤, 다음 프레임에 활성화해야 페이드가 걸린다
+        setLoaded((l) => (l.includes(next) ? l : [...l, next]));
+        timers.push(window.setTimeout(() => {
+          if (cancelled) return;
+          setPrev(current);
+          current = next;
+          setIdx(next);
+        }, 60));
+      });
+    }, HERO_ROLL_INTERVAL_MS);
+    return () => { cancelled = true; window.clearInterval(interval); timers.forEach(window.clearTimeout); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [count, poolsKey]);
+
+  return { idx, prev, loaded };
+}
+
+// 겹쳐 쌓은 사진 — 새 사진은 위에서 서서히 나타나고, 이전 사진은 아래에서 그대로 받쳐 준다(중간에 배경이 비쳐 보이는 현상 방지).
+function HeroFadeStack({
+  pool, roll, alt, className, style,
+}: {
+  pool: string[]; roll: { idx: number; prev: number | null; loaded: number[] }; alt: string; className: string; style?: React.CSSProperties;
+}) {
+  return (
+    <>
+      {roll.loaded.map((i) => {
+        const url = pool[i % pool.length];
+        if (!url) return null;
+        const active = i === roll.idx;
+        return (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={i}
+            src={ikSrc(url, 1600)}
+            alt={active ? alt : ""}
+            aria-hidden={!active}
+            className={className}
+            style={{ ...style, opacity: active || i === roll.prev ? 1 : 0, zIndex: active ? 1 : 0, transition: `opacity ${HERO_FADE_MS}ms ease-in-out` }}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+// 대배너 이동 버튼 (예: 매거진 보기) — 주소가 있을 때만 노출. 터치 영역 44px 이상.
+function HeroCta({ label, href }: { label?: string; href?: string }) {
+  if (!href) return null;
+  const text = label || "자세히 보기";
+  const cls =
+    "inline-flex items-center gap-2 min-h-[44px] px-5 bg-white text-[#303236] text-[13px] font-semibold tracking-wide hover:bg-[#E5541B] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+  const arrow = <span aria-hidden>→</span>;
+  return /^https?:\/\//.test(href) ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{text}{arrow}</a>
+  ) : (
+    <Link href={href} className={cls}>{text}{arrow}</Link>
   );
 }
 
@@ -357,6 +550,20 @@ export default function FeatureHeroLayout({
 
   const { tags, sections } = editorial;
 
+  // 대배너 롤링 — 대표 이미지(0번) + 추가 이미지. PC/모바일 대표·추가 이미지는 각자(PC 추가 이미지가 없으면 모바일 것을 공통 사용).
+  const heroExtras = editorial.heroImageUrls ?? [];
+  const pcExtras = editorial.heroImageUrlsPc?.length ? editorial.heroImageUrlsPc : heroExtras;
+  const pcPool = [editorial.heroImageUrlPc || editorial.heroImageUrl, ...pcExtras].filter((u): u is string => !!u);
+  const mobilePool = [editorial.heroImageUrl || editorial.heroImageUrlPc, ...heroExtras].filter((u): u is string => !!u);
+  const roll = useHeroRoll([pcPool, mobilePool]);
+  // 제품 태그는 대표 이미지 좌표 기준이라 다른 사진일 땐 서서히 숨긴다
+  // (숨길 땐 페이드가 끝난 뒤 visibility:hidden — 보이지 않는 태그가 클릭되는 것을 막는다)
+  const tagFade = HERO_FADE_MS / 2;
+  const tagStyle: React.CSSProperties =
+    roll.idx === 0
+      ? { opacity: 1, visibility: "visible", transition: `opacity ${tagFade}ms ease-in-out` }
+      : { opacity: 0, visibility: "hidden", transition: `opacity ${tagFade}ms ease-in-out, visibility 0s linear ${tagFade}ms` };
+
   // ── PC 히어로 패널 ──────────────────────────────────────────
   const imgPos = editorial.heroImagePosition ?? "50% 0%";
   const heroImageUrlPc = editorial.heroImageUrlPc || editorial.heroImageUrl;
@@ -367,8 +574,9 @@ export default function FeatureHeroLayout({
     >
       <>
         {heroImageUrlPc && (
-          <img
-            src={ikSrc(heroImageUrlPc, 1600)}
+          <HeroFadeStack
+            pool={pcPool}
+            roll={roll}
             alt={editorial.title}
             className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
             style={{ objectPosition: imgPos }}
@@ -377,11 +585,18 @@ export default function FeatureHeroLayout({
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
         {/* 태그 — PC는 pcX/pcY 우선, 없으면 x/y 사용 */}
-        {heroImageUrlPc && <PcTagLayer tags={tags} imageUrl={ikSrc(heroImageUrlPc, 1600)} position={imgPos} />}
+        {heroImageUrlPc && (
+          <div className="absolute inset-0 z-10 pointer-events-none" style={tagStyle}>
+            <PcTagLayer tags={tags} imageUrl={ikSrc(heroImageUrlPc, 1600)} position={imgPos} />
+          </div>
+        )}
 
         <div className="absolute bottom-10 left-8 z-[2] text-white">
           <p className="text-sm mb-2 opacity-80 tracking-wide">{editorial.heroSubtitle}</p>
           <p className="text-3xl font-bold leading-tight">{editorial.title}</p>
+          {editorial.heroCtaHref && (
+            <div className="mt-5"><HeroCta label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
+          )}
         </div>
       </>
     </div>
@@ -455,9 +670,10 @@ export default function FeatureHeroLayout({
           className="relative w-full overflow-hidden bg-gray-100"
           style={{ aspectRatio: "3 / 4" }}
         >
-          {editorial.heroImageUrl && (
-            <img
-              src={ikSrc(editorial.heroImageUrl, 1200)}
+          {mobilePool.length > 0 && (
+            <HeroFadeStack
+              pool={mobilePool}
+              roll={roll}
               alt={editorial.title}
               className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
             />
@@ -465,9 +681,12 @@ export default function FeatureHeroLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
           <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
-            <MobileTagList tags={tags} />
+            <div style={tagStyle}><MobileTagList tags={tags} /></div>
             <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
             <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
+            {editorial.heroCtaHref && (
+              <div className="mt-3"><HeroCta label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
+            )}
           </div>
         </div>
 
@@ -588,9 +807,10 @@ export default function FeatureHeroLayout({
           className="relative w-full overflow-hidden bg-gray-100"
           style={{ aspectRatio: "3 / 4" }}
         >
-          {editorial.heroImageUrl && (
-            <img
-              src={ikSrc(editorial.heroImageUrl, 1200)}
+          {mobilePool.length > 0 && (
+            <HeroFadeStack
+              pool={mobilePool}
+              roll={roll}
               alt={editorial.title}
               className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
             />
@@ -598,9 +818,12 @@ export default function FeatureHeroLayout({
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
 
           <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
-            <MobileTagList tags={tags} />
+            <div style={tagStyle}><MobileTagList tags={tags} /></div>
             <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
             <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
+            {editorial.heroCtaHref && (
+              <div className="mt-3"><HeroCta label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
+            )}
           </div>
         </div>
 

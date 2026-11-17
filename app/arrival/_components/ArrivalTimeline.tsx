@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { Fragment, useState, useMemo, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import type { ArrivalProduct, ArrivalStatus } from "@/lib/arrival";
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
@@ -281,6 +281,33 @@ function fmtSize(raw?: string | null): string {
 
 // 관리자 전용 — 품번으로 wjumun 상품(색상·사이즈별 재고·가격)을 조회해 보여준다. (서버가 저장된 계정으로 대신 로그인)
 type WjumunItemRow = { name: string; barcode: string; posCode: string; qty: string; cost: number; supply: number; price: number; stock: number | null; imageUrl: string; adminUrl: string };
+// 상품명 "디트로잇 DT6WUAJP126BR4XL 시어 ..." → 제목(품번 토큰 제외) + 컬러(BR) + 사이즈(4XL)로 분해
+const WJUMUN_SIZE_ORDER = ["XXS", "XS", "S", "M", "L", "XL", "2XL", "3XL", "4XL", "5XL", "FREE", "F"];
+function sizeRank(size: string): number {
+  const idx = WJUMUN_SIZE_ORDER.indexOf(size.toUpperCase());
+  if (idx >= 0) return idx;
+  const n = parseFloat(size);
+  return Number.isNaN(n) ? 999 : 100 + n; // 숫자 사이즈(95, 100, 28…)는 오름차순
+}
+const normSize = (s: string) => s.replace(/^0{1,2}(?=[A-Za-z])/, "").replace(/^(\d+)N$/, "$1"); // 00S→S, 0XL→XL, 30N→30
+function parseWjumunName(name: string, code: string) {
+  // 언더바 형식: "GRBD GSGFUTS02_CG_4XL_소로나 웜 ..." → 컬러 CG, 사이즈 4XL, 제목 "GRBD 소로나 웜 ..."
+  // 이름 속 품번이 조회 품번과 달라도(예: VC6FUATL104 ↔ VWGFUTS04) 동작하도록 코드와 무관하게 매칭
+  const m = name.match(/[A-Za-z0-9]+_([A-Za-z0-9]+)_([A-Za-z0-9]+)_?(\S*)/);
+  if (m && m.index !== undefined) {
+    const title = (name.slice(0, m.index) + m[3] + name.slice(m.index + m[0].length)).replace(/\s+/g, " ").trim();
+    return { title, color: m[1], size: normSize(m[2]) };
+  }
+  const tokens = name.split(/\s+/);
+  const ti = tokens.findIndex(t => t.toUpperCase().startsWith(code.toUpperCase()));
+  if (ti < 0) return { title: name, color: "", size: "" };
+  const suffix = tokens[ti].slice(code.length);
+  const color = suffix.slice(0, 2);
+  const size = normSize(suffix.slice(2));
+  const title = tokens.filter((_, i) => i !== ti).join(" ");
+  return { title, color, size };
+}
+
 function WjumunItemPopup({ code, onClose }: { code: string; onClose: () => void }) {
   const [items, setItems] = useState<WjumunItemRow[] | null>(null);
   const [searchUrl, setSearchUrl] = useState("");
@@ -300,6 +327,12 @@ function WjumunItemPopup({ code, onClose }: { code: string; onClose: () => void 
 
   const won = (n: number) => (n > 0 ? n.toLocaleString("ko-KR") : "—");
   const totalStock = items?.reduce((s, i) => s + (i.stock ?? 0), 0) ?? 0;
+  // 컬러별(첫 등장 순) → 작은 사이즈부터 큰 사이즈 순으로 정렬
+  const rows = (items ?? []).map(i => ({ ...i, ...parseWjumunName(i.name, code) }));
+  const colorOrder: string[] = [];
+  rows.forEach(r => { if (!colorOrder.includes(r.color)) colorOrder.push(r.color); });
+  rows.sort((a, b) => colorOrder.indexOf(a.color) - colorOrder.indexOf(b.color) || sizeRank(a.size) - sizeRank(b.size));
+  const productTitle = rows[0]?.title ?? "";
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-3 bg-black/50" onClick={e => { e.stopPropagation(); onClose(); }}>
@@ -308,6 +341,7 @@ function WjumunItemPopup({ code, onClose }: { code: string; onClose: () => void 
           <div>
             <p className="text-[12px] text-gray-400 font-semibold">wjumun 상품 조회 (관리자)</p>
             <p className="font-mono text-[16px] font-bold text-[#1a1a1a]">{code}</p>
+            {productTitle && <p className="text-[13px] text-gray-600">{productTitle}</p>}
           </div>
           <button type="button" onClick={onClose} aria-label="닫기" className="min-w-[44px] min-h-[44px] text-[22px] text-gray-400 hover:text-gray-700">×</button>
         </div>
@@ -321,8 +355,7 @@ function WjumunItemPopup({ code, onClose }: { code: string; onClose: () => void 
               <table className="w-full text-[13px] border-collapse">
                 <thead>
                   <tr className="text-left text-gray-400 border-b border-gray-200">
-                    <th className="py-1.5 pr-2 font-semibold">상품명</th>
-                    <th className="py-1.5 pr-2 font-semibold">바코드</th>
+                    <th className="py-1.5 pr-2 font-semibold">컬러 / 사이즈</th>
                     <th className="py-1.5 pr-2 font-semibold text-right">매입가</th>
                     <th className="py-1.5 pr-2 font-semibold text-right">공급가</th>
                     <th className="py-1.5 pr-2 font-semibold text-right">판매가</th>
@@ -330,16 +363,25 @@ function WjumunItemPopup({ code, onClose }: { code: string; onClose: () => void 
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(i => (
-                    <tr key={i.barcode || i.name} className="border-b border-gray-50">
-                      <td className="py-1.5 pr-2">{i.name}</td>
-                      <td className="py-1.5 pr-2 font-mono text-gray-500">{i.barcode}</td>
-                      <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.cost)}</td>
-                      <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.supply)}</td>
-                      <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.price)}</td>
-                      <td className={`py-1.5 text-right tabular-nums font-bold ${i.stock === 0 ? "text-red-500" : ""}`}>{i.stock ?? "—"}</td>
-                    </tr>
-                  ))}
+                  {colorOrder.map(color => {
+                    const group = rows.filter(r => r.color === color);
+                    return (
+                      <Fragment key={color || "none"}>
+                        <tr className="bg-gray-50">
+                          <td colSpan={5} className="py-1.5 px-2 font-bold text-gray-800">{color || "—"}</td>
+                        </tr>
+                        {group.map(i => (
+                          <tr key={i.barcode || i.name} className={i.stock === 0 ? "border-b border-red-100 bg-red-50 text-red-500" : "border-b border-gray-50"}>
+                            <td className="py-1.5 pl-5 pr-2">{i.size || i.name}</td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.cost)}</td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.supply)}</td>
+                            <td className="py-1.5 pr-2 text-right tabular-nums">{won(i.price)}</td>
+                            <td className={`py-1.5 text-right tabular-nums font-bold ${i.stock === 0 ? "text-red-500" : ""}`}>{i.stock ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </>

@@ -59,9 +59,26 @@ type HeroSlide = {
   is_visible: boolean;
   scheduled_start: string | null;
   scheduled_end: string | null;
+  image_schedules: ImageSchedule[];    // 이미지 교체 예약
   slide_type: string;
   sort_order: number;
 };
+
+type ImageSchedule = {
+  start: string | null;
+  end: string | null;
+  pc_image_url: string | null;
+  mobile_image_url: string | null;
+};
+
+// ISO(UTC) → datetime-local 입력용 로컬 시각 문자열
+function toLocalInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 
 type SlideType = "main" | "product";
 
@@ -103,6 +120,7 @@ const EMPTY: Omit<HeroSlide, "id"> = {
   is_visible: true,
   scheduled_start: null,
   scheduled_end: null,
+  image_schedules: [],
   sort_order: 0,
 };
 
@@ -182,8 +200,15 @@ export default function AdminMainVisualPage() {
     setSaving(true);
 
     const id = isNew ? crypto.randomUUID() : editing.id;
+    // 이미지 교체 예약: 이미지가 하나도 없는 항목 제거, 동영상 모드면 비움
+    const cleanedSchedules = mediaTab === "video" ? [] : (editing.image_schedules ?? []).filter((r) => r.pc_image_url || r.mobile_image_url);
+    // 컬럼 미생성(SQL 미실행) 상태에서 저장이 깨지지 않도록, 값이 있거나 기존 행에 컬럼이 있을 때만 전송
+    const sendSchedules = cleanedSchedules.length > 0 || (!isNew && "image_schedules" in editing);
+    const { image_schedules: _omit, ...editingRest } = editing;
+    void _omit;
     const payload = {
-      ...editing,
+      ...editingRest,
+      ...(sendSchedules ? { image_schedules: cleanedSchedules } : {}),
       id,
       // 빈 문자열 → null 변환 (TIMESTAMPTZ 오류 방지)
       scheduled_start: useSchedule ? (editing.scheduled_start || null) : null,
@@ -291,6 +316,39 @@ export default function AdminMainVisualPage() {
 
   const set = (key: keyof HeroSlide, value: string | boolean | number | null | TextLayer[]) => {
     setEditing((prev) => prev ? { ...prev, [key]: value } : prev);
+  };
+
+  // ── 이미지 교체 예약 ──
+  const [schedUploading, setSchedUploading] = useState<string | null>(null);
+  const updateSchedule = (idx: number, patch: Partial<ImageSchedule>) => {
+    setEditing((prev) => prev ? {
+      ...prev,
+      image_schedules: (prev.image_schedules ?? []).map((r, i) => i === idx ? { ...r, ...patch } : r),
+    } : prev);
+  };
+  const addSchedule = () => {
+    setEditing((prev) => prev ? {
+      ...prev,
+      image_schedules: [...(prev.image_schedules ?? []), { start: null, end: null, pc_image_url: null, mobile_image_url: null }],
+    } : prev);
+  };
+  const removeSchedule = (idx: number) => {
+    setEditing((prev) => prev ? { ...prev, image_schedules: (prev.image_schedules ?? []).filter((_, i) => i !== idx) } : prev);
+  };
+  const uploadScheduleImage = async (file: File, idx: number, field: "pc_image_url" | "mobile_image_url") => {
+    const key = `${idx}-${field}`;
+    setSchedUploading(key);
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/admin/upload", { method: "POST", body: form });
+    setSchedUploading(null);
+    if (res.ok) {
+      const { url } = await res.json();
+      updateSchedule(idx, { [field]: url });
+    } else {
+      const err = await res.json().catch(() => ({}));
+      flash(`업로드 실패: ${err.error ?? res.status}`, "err");
+    }
   };
 
   const handleDrop = async (targetIndex: number) => {
@@ -413,7 +471,8 @@ ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS mobile_image_scale NUMERIC DEFA
 ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS text_layers JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS video_duration NUMERIC;
 ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS link_url TEXT;
-ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS link_new_tab BOOLEAN NOT NULL DEFAULT FALSE;`}</pre>
+ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS link_new_tab BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS image_schedules JSONB NOT NULL DEFAULT '[]'::jsonb;`}</pre>
         </div>
       )}
 
@@ -493,6 +552,9 @@ ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS link_new_tab BOOLEAN NOT NULL D
                         <span className="text-[11px] text-slate-400 truncate">
                           · {fmtDate(slide.scheduled_start) ?? "∞"} ~ {fmtDate(slide.scheduled_end) ?? "∞"}
                         </span>
+                      )}
+                      {(slide.image_schedules?.length ?? 0) > 0 && (
+                        <span className="text-[11px] font-medium text-violet-500">· 이미지 교체 예약 {slide.image_schedules.length}건</span>
                       )}
                     </div>
                   </div>
@@ -605,6 +667,63 @@ ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS link_new_tab BOOLEAN NOT NULL D
               </div>
             )}
           </div>
+
+          {/* 이미지 교체 예약 (이미지 슬라이드 전용) */}
+          {mediaTab === "image" && (
+            <div className="pb-7 border-b border-slate-100 space-y-4">
+              <SectionTitle title="이미지 교체 예약" accent="bg-violet-500" desc="지정한 일시에 이 슬라이드의 PC/모바일 이미지가 자동으로 교체됩니다. 종료 일시를 비우면 계속 유지되고, 구간이 끝나면 기본 이미지로 돌아갑니다. (반영까지 최대 2분)" />
+              {(editing.image_schedules ?? []).map((r, idx) => (
+                <div key={idx} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-600">예약 {idx + 1}</span>
+                    <button type="button" onClick={() => removeSchedule(idx)} className="text-xs font-semibold text-red-500 hover:underline">삭제</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="교체 시작">
+                      <input type="datetime-local" value={toLocalInput(r.start)}
+                        onChange={(e) => updateSchedule(idx, { start: toIsoOrNull(e.target.value) })}
+                        className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#303236] rounded bg-white" />
+                    </Field>
+                    <Field label="교체 종료 (선택)">
+                      <input type="datetime-local" value={toLocalInput(r.end)}
+                        onChange={(e) => updateSchedule(idx, { end: toIsoOrNull(e.target.value) })}
+                        className="w-full border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:border-[#303236] rounded bg-white" />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(["pc_image_url", "mobile_image_url"] as const).map((field) => (
+                      <div key={field} className="space-y-1.5">
+                        <p className="text-xs font-semibold text-slate-500">{field === "pc_image_url" ? "PC 교체 이미지" : "모바일 교체 이미지 (비우면 PC 이미지)"}</p>
+                        <div className="h-24 rounded-lg bg-white ring-1 ring-slate-200 overflow-hidden flex items-center justify-center">
+                          {r[field] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r[field] as string} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-[11px] text-slate-300">이미지 없음</span>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <label className="flex-1 text-center text-[11px] font-semibold border border-slate-200 bg-white rounded-lg py-1.5 cursor-pointer hover:bg-slate-100">
+                            {schedUploading === `${idx}-${field}` ? "업로드 중..." : "이미지 선택"}
+                            <input type="file" accept="image/*" className="hidden"
+                              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadScheduleImage(f, idx, field); e.target.value = ""; }} />
+                          </label>
+                          {r[field] && (
+                            <button type="button" onClick={() => updateSchedule(idx, { [field]: null })}
+                              className="text-[11px] font-semibold text-slate-400 border border-slate-200 bg-white rounded-lg px-2.5 hover:bg-slate-100">제거</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button type="button" onClick={addSchedule}
+                className="text-sm font-semibold text-violet-600 border border-violet-200 bg-white rounded-lg px-4 py-2 hover:bg-violet-50 transition-colors">
+                + 이미지 교체 예약 추가
+              </button>
+            </div>
+          )}
 
           {/* 관리용 타이틀 (기획 컨셉) */}
           <div className="pb-7 border-b border-slate-100 space-y-4">

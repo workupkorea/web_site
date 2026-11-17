@@ -1,4 +1,5 @@
 "use client";
+import { cleanSizeLabel } from "@/lib/sizeLabel";
 import { useState, useEffect, useRef } from "react";
 import { BRANDS } from "@/lib/brands-data";
 
@@ -15,6 +16,7 @@ export type ProductCardDetail = {
   sizes: ProductCardSize[];
   styleNo?: string;
   brand?: string;
+  storeUrl?: string;
   detailText: string;
   materialText: string;
   essentialText: string;
@@ -280,7 +282,6 @@ export function ImageField({
         </div>
         {value && (
           <div className="mt-1.5 space-y-0.5">
-            <p className="text-[10px] text-gray-500 truncate">{value.split("/").pop()}</p>
             <p className="text-[10px] text-gray-400 leading-snug">{hint}</p>
             <div className="flex items-center gap-2 mt-0.5">
               <button type="button" onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
@@ -316,7 +317,6 @@ export function ImageField({
           <div className="flex items-center gap-3 p-3" onClick={e => e.stopPropagation()}>
             <img src={value} alt="" className="w-20 h-14 object-cover rounded-lg flex-shrink-0 border border-gray-100" />
             <div className="flex-1 min-w-0">
-              <p className="text-[12px] text-gray-600 truncate">{value.split("/").pop()}</p>
               <p className="text-[11px] text-gray-400 mt-0.5">{hint}</p>
               <button
                 onClick={(e) => { e.stopPropagation(); ref.current?.click(); }}
@@ -657,6 +657,35 @@ export function CardDetailEditor({ detail, onChange }: {
 }
 
 
+// 입고 스케쥴 사이즈런 → 표시용: "M~4XL"·"M ~ 4XL"·"M - 4XL" 모두 "M-4XL"로 통일
+function formatSizeRun(size?: string): string {
+  return cleanSizeLabel(size);
+}
+
+type ArrivalPick = { productCode?: string; productName: string; brand?: string; color?: string; size?: string; image?: string | null };
+
+// ── 콤마로 구분해 입력하는 짧은 목록 필드 (컬러·사이즈용) — 입력 중 콤마가 사라지지 않도록 로컬 문자열을 유지 ──
+function CsvField({ label, value, onCommit, placeholder }: {
+  label: string; value: string[]; onCommit: (list: string[]) => void; placeholder: string;
+}) {
+  const [text, setText] = useState(value.join(", "));
+  // 입고스케쥴 불러오기 등 외부에서 값이 바뀌면 입력 칸에도 반영 (직접 입력 중에는 건드리지 않음)
+  const valueKey = value.join(",");
+  useEffect(() => {
+    const typed = text.split(",").map((t) => t.trim()).filter(Boolean).join(",");
+    if (typed !== valueKey) setText(value.join(", "));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [valueKey]);
+  return (
+    <Field
+      label={label}
+      value={text}
+      onChange={(v) => { setText(v); onCommit(v.split(",").map((t) => t.trim()).filter(Boolean)); }}
+      placeholder={placeholder}
+    />
+  );
+}
+
 // ── 서브 컴포넌트: 연결상품 슬롯 에디터 (탭 내부) ───────────
 export function SlotItemEditor({ item, onChange }: {
   item: ProductItem;
@@ -664,11 +693,24 @@ export function SlotItemEditor({ item, onChange }: {
 }) {
   // 입고 스케쥴에 등록된 브랜드만 노출 (중복 제거). 불러오기 실패 시 정적 BRANDS로 대체
   const [brandNames, setBrandNames] = useState<string[]>(BRANDS.map((b) => b.name));
+  // 입고 스케쥴 상품 목록 — "입고스케쥴에서 가져오기" 검색용
+  const [arrivals, setArrivals] = useState<ArrivalPick[]>([]);
+  const [pickQuery, setPickQuery] = useState("");
+  const [pickOpen, setPickOpen] = useState(false);
   useEffect(() => {
     fetch("/api/admin/arrival")
       .then((r) => (r.ok ? r.json() : []))
       .then((data: unknown) => {
         if (!Array.isArray(data)) return;
+        const seen = new Set<string>();
+        setArrivals(
+          (data as ArrivalPick[]).filter((p) => {
+            const k = `${p.productCode ?? ""}::${p.productName ?? ""}`;
+            if (!p.productName || seen.has(k)) return false;
+            seen.add(k);
+            return true;
+          })
+        );
         const names = [...new Set(data.map((p: { brand?: string }) => (p.brand ?? "").trim()).filter(Boolean))]
           .sort((a, b) => a.localeCompare(b));
         if (names.length) setBrandNames(names);
@@ -677,47 +719,162 @@ export function SlotItemEditor({ item, onChange }: {
   }, []);
   const currentBrand = item.card_detail?.brand;
 
+  // 입고 스케쥴 상품을 골라 브랜드·상품명·컬러·사이즈(·사진)를 한 번에 채운다. 스마트스토어 링크 등 다른 값은 유지.
+  function applyArrival(a: ArrivalPick) {
+    const base = item.card_detail ?? emptyCardDetail();
+    const colorNames = (a.color ?? "").split(/[,/·]/).map((t) => t.trim()).filter(Boolean);
+    const sizeText = formatSizeRun(a.size);
+    onChange({
+      name: a.productName,
+      card_detail: {
+        ...base,
+        brand: a.brand?.trim() || base.brand,
+        colors: colorNames.map((n) => base.colors.find((c) => c.name === n) ?? { id: uid(), name: n, hex: "#303236", imageIndexes: [] }),
+        sizes: sizeText ? [{ id: uid(), label: sizeText }] : base.sizes,
+        images: base.images.length || !a.image ? base.images : [a.image],
+      },
+    });
+    setPickOpen(false);
+    setPickQuery("");
+  }
+  // 이미 입력된 상품명으로 입고 스케쥴을 찾아 컬러·사이즈만 불러온다
+  const [fillMsg, setFillMsg] = useState("");
+  function fillColorSize() {
+    const norm = (v?: string) => (v ?? "").replace(/\s+/g, "").toLowerCase();
+    const n = norm(item.name);
+    const hit = n ? (arrivals.find((a) => norm(a.productName) === n) ?? arrivals.find((a) => norm(a.productName).includes(n) || n.includes(norm(a.productName)))) : undefined;
+    if (!hit) { setFillMsg("입고 스케쥴에서 같은 상품명을 찾지 못했습니다."); return; }
+    const base = item.card_detail ?? emptyCardDetail();
+    const colorNames = (hit.color ?? "").split(/[,/·]/).map((t) => t.trim()).filter(Boolean);
+    const sizeText = formatSizeRun(hit.size);
+    onChange({
+      card_detail: {
+        ...base,
+        colors: colorNames.length ? colorNames.map((nm) => base.colors.find((c) => c.name === nm) ?? { id: uid(), name: nm, hex: "#303236", imageIndexes: [] }) : base.colors,
+        sizes: sizeText ? [{ id: uid(), label: sizeText }] : base.sizes,
+      },
+    });
+    setFillMsg(colorNames.length || sizeText ? `불러옴: ${[colorNames.join(", "), sizeText].filter(Boolean).join(" / ")}` : "입고 스케쥴에 컬러·사이즈 정보가 없습니다.");
+  }
+  const q = pickQuery.trim().toLowerCase();
+  const pickResults = q
+    ? arrivals.filter((a) => `${a.productName} ${a.productCode ?? ""} ${a.brand ?? ""}`.toLowerCase().includes(q)).slice(0, 8)
+    : [];
+
   return (
     <div>
-      {/* 브랜드(제품명 위에 표시) + 품번 + 상품명 한 줄 */}
-      <div className="flex gap-3 items-end">
-        <div className="w-40 flex-shrink-0">
-          <label className="block text-xs font-medium text-gray-600 mb-1.5">브랜드</label>
-          <select
-            value={item.card_detail?.brand ?? ""}
-            onChange={(e) => onChange({ card_detail: { ...(item.card_detail ?? emptyCardDetail()), brand: e.target.value || undefined } })}
-            className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 bg-white"
-          >
-            <option value="">선택 안 함</option>
-            {brandNames.map((n) => <option key={n} value={n}>{n}</option>)}
-            {currentBrand && !brandNames.includes(currentBrand) && <option value={currentBrand}>{currentBrand}</option>}
-          </select>
-        </div>
-        <div className="w-48 flex-shrink-0">
-          <StyleNoField
-            value={item.card_detail?.styleNo ?? ""}
-            onChange={(v) => onChange({ card_detail: { ...(item.card_detail ?? emptyCardDetail()), styleNo: v } })}
-          />
-        </div>
-        <div className="flex-1 min-w-0">
-          <Field label="상품명" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
-        </div>
+    {/* 입고 스케쥴에서 가져오기 — 상품명·품번·브랜드로 검색해 선택하면 입력 칸이 자동으로 채워진다 */}
+    <div className="relative mb-3">
+      <label className="block text-xs font-medium text-gray-600 mb-1.5">입고스케쥴에서 가져오기</label>
+      <input
+        type="text"
+        value={pickQuery}
+        onChange={(e) => { setPickQuery(e.target.value); setPickOpen(true); }}
+        onFocus={() => setPickOpen(true)}
+        onBlur={() => setTimeout(() => setPickOpen(false), 150)}
+        placeholder={arrivals.length ? "상품명·품번·브랜드로 검색 후 선택 (브랜드·상품명·컬러·사이즈 자동 입력)" : "입고 스케쥴 불러오는 중…"}
+        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#303236]/30"
+      />
+      {pickOpen && pickResults.length > 0 && (
+        <ul className="absolute z-20 left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+          {pickResults.map((a, i) => (
+            <li key={`${a.productCode}-${i}`}>
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => applyArrival(a)}
+                className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm">
+                <span className="font-medium text-[#303236]">{a.productName}</span>
+                <span className="ml-2 text-xs text-gray-400">{[a.brand, a.productCode].filter(Boolean).join(" · ")}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+    <div className="flex gap-4 items-start">
+      {/* 좌: 대표 사진 — 기획전 상세 카드에 노출(첫 번째 이미지). 비우면 상품 기본 이미지 사용.
+          사이즈·컬러·상세정보는 카드에 쓰이지 않아 입력란을 두지 않는다(기존 저장값은 보존). */}
+      <div className="w-32 flex-shrink-0">
+        <ImageField
+          label="대표 사진 (선택)"
+          hint="1200×1200px"
+          compact
+          aspectRatio="1/1"
+          value={item.card_detail?.images?.[0] ?? ""}
+          onChange={(url) => {
+            const base = item.card_detail ?? emptyCardDetail();
+            const rest = base.images.slice(1);
+            onChange({ card_detail: { ...base, images: url ? [url, ...rest] : rest } });
+          }}
+        />
       </div>
 
-      <CardDetailEditor
-        detail={item.card_detail}
-        onChange={(card_detail) => onChange({ card_detail })}
-      />
+      {/* 우: 브랜드 + 품번 + 상품명 / 스마트스토어 링크 */}
+      <div className="flex-1 min-w-0 space-y-3">
+        <div className="flex gap-3 items-end">
+          <div className="w-32 flex-shrink-0">
+            <label className="block text-xs font-medium text-gray-600 mb-1.5">브랜드</label>
+            <select
+              value={item.card_detail?.brand ?? ""}
+              onChange={(e) => onChange({ card_detail: { ...(item.card_detail ?? emptyCardDetail()), brand: e.target.value || undefined } })}
+              className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 bg-white"
+            >
+              <option value="">선택 안 함</option>
+              {brandNames.map((n) => <option key={n} value={n}>{n}</option>)}
+              {currentBrand && !brandNames.includes(currentBrand) && <option value={currentBrand}>{currentBrand}</option>}
+            </select>
+          </div>
+          <div className="flex-1 min-w-0">
+            <Field label="상품명" value={item.name} onChange={(v) => onChange({ name: v })} placeholder="쿨링 반팔 티셔츠" />
+          </div>
+        </div>
+        {/* 컬러·사이즈 — 콤마로 구분 (제품 정보 창·기획전 카드에 노출) */}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={fillColorSize}
+            className="text-[11px] font-medium text-white bg-[#303236] hover:bg-black px-3 py-1.5 rounded-lg transition-colors">
+            입고스케쥴에서 컬러·사이즈 불러오기
+          </button>
+          {fillMsg && <span className="text-[11px] text-gray-500">{fillMsg}</span>}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <CsvField
+            label="컬러 (콤마로 구분)"
+            value={(item.card_detail?.colors ?? []).map((c) => c.name)}
+            placeholder="블랙, 네이비, 카키"
+            onCommit={(names) => {
+              const base = item.card_detail ?? emptyCardDetail();
+              onChange({ card_detail: { ...base, colors: names.map((n) => base.colors.find((c) => c.name === n) ?? { id: uid(), name: n, hex: "#303236", imageIndexes: [] }) } });
+            }}
+          />
+          <CsvField
+            label="사이즈 (예: M - 4XL 또는 콤마 구분)"
+            value={(item.card_detail?.sizes ?? []).map((z) => z.label)}
+            placeholder="M - 4XL"
+            onCommit={(labels) => {
+              const base = item.card_detail ?? emptyCardDetail();
+              onChange({ card_detail: { ...base, sizes: labels.map((l) => base.sizes.find((z) => z.label === l) ?? { id: uid(), label: l }) } });
+            }}
+          />
+        </div>
+        {/* 스마트스토어 링크 — 입력하면 카드에 "스마트스토어에서 보기" 버튼 노출 (비우면 숨김) */}
+        <Field
+          label="스마트스토어 링크 (선택)"
+          value={item.card_detail?.storeUrl ?? ""}
+          onChange={(v) => onChange({ card_detail: { ...(item.card_detail ?? emptyCardDetail()), storeUrl: v.trim() || undefined } })}
+          placeholder="https://smartstore.naver.com/..."
+        />
+      </div>
+    </div>
     </div>
   );
 }
 
 // ── 서브 컴포넌트: 배너 에디터 (배너1/배너2 공용) ─────────
-export function BannerEditor({ banner, label, onChange, products }: {
+export function BannerEditor({ banner, label, onChange, products, productsOnly = false }: {
   banner: Banner;
   label: string;
   onChange: (patch: Partial<Banner>) => void;
   products: SearchProduct[];
+  /** true면 제목·설명·섹션 이미지·랜덤 이미지를 숨기고 제품 탭만 표시(메인 상세: 태그용 제품만 등록) */
+  productsOnly?: boolean;
 }) {
   const [itemTab, setItemTab] = useState(0);
 
@@ -737,6 +894,18 @@ export function BannerEditor({ banner, label, onChange, products }: {
     onChange({ detail_items: [...extraItems, emptyItem()] });
     setItemTab(allItems.length);
   }
+  // 상품 순서 변경 — 전체 목록에서 옮긴 뒤 앞 3개는 메인 카드 슬롯, 나머지는 상세 전용으로 다시 나눈다.
+  // 선택된 탭이 옮긴 상품을 따라가도록 itemTab도 함께 갱신한다. (태그는 상품 id로 연결돼 순서가 바뀌어도 유지)
+  function moveItem(from: number, to: number) {
+    if (from === to || to < 0 || to >= allItems.length) return;
+    const next = [...allItems];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    onChange({ items: next.slice(0, 3), detail_items: next.slice(3) });
+    if (itemTab === from) setItemTab(to);
+    else if (from < to && itemTab > from && itemTab <= to) setItemTab(itemTab - 1);
+    else if (from > to && itemTab >= to && itemTab < from) setItemTab(itemTab + 1);
+  }
   function removeExtraItem(idx: number) {
     onChange({ detail_items: extraItems.filter((_, i) => i !== idx - 3) });
     setItemTab(idx - 1);
@@ -744,7 +913,7 @@ export function BannerEditor({ banner, label, onChange, products }: {
 
   return (
     <div className="space-y-4">
-      {(banner.card_type ?? "product") === "image" ? (
+      {!productsOnly && (banner.card_type ?? "product") === "image" ? (
         /* ── 통이미지형 — 이미지 한 장 + 링크 ── */
         <div className="flex gap-4 items-start">
           <div className="flex-shrink-0" style={{ width: "160px" }}>
@@ -775,6 +944,7 @@ export function BannerEditor({ banner, label, onChange, products }: {
       <>
       {/* 상단 라벨 (상세페이지 상단 기획전명 — 배너별로 개별 노출) */}
       {/* 라벨 + 타이틀 + 설명 한 줄 (single-line inputs) */}
+      {!productsOnly && (
       <div className="flex gap-3 items-end">
         <div className="flex-shrink-0" style={{ width: "200px" }}>
           <Field
@@ -793,10 +963,12 @@ export function BannerEditor({ banner, label, onChange, products }: {
             placeholder="섹션 설명을 입력하세요" showCount />
         </div>
       </div>
+      )}
 
       {/* 섹션 이미지 + 연결상품 탭 — 한 줄 배치 */}
       <div className="flex gap-4 items-start">
         {/* 좌: 섹션 이미지 — 8:9 비율. 태블릿·PC 등 큰 화면에서도 흐려지지 않도록 실제 노출 크기(440×495px)의 2배 이상 권장 */}
+        {!productsOnly && (
         <div className="flex-shrink-0" style={{ width: "160px" }}>
           <ImageField
             label="섹션 이미지"
@@ -806,60 +978,80 @@ export function BannerEditor({ banner, label, onChange, products }: {
             compact
             aspectRatio="8/9"
           />
-          <p className="mt-2 text-[11px] text-gray-500 leading-relaxed">
-            이미지 배치 후 ChatGPT로 기획 이미지 생성
-          </p>
           {/* 랜덤 로테이션 — 추가 이미지를 등록하면 대표 이미지와 함께 접속할 때마다 랜덤·8초 간격으로 교체 노출 */}
           <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
             <p className="text-[11px] font-semibold text-gray-700">
-              랜덤 이미지 ({1 + (banner.image_urls?.length ?? 0)}장)
+              랜덤 이미지 ({1 + (banner.image_urls?.length ?? 0)}장) <span className="font-normal text-gray-400">· 2장 이상이면 번갈아 노출</span>
             </p>
-            {(banner.image_urls ?? []).map((url, i) => (
-              <div key={`${url}-${i}`} className="relative rounded-lg overflow-hidden border border-gray-200" style={{ aspectRatio: "8/9" }}>
-                <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                <button
-                  type="button"
-                  aria-label="랜덤 이미지 삭제"
-                  onClick={() => onChange({ image_urls: (banner.image_urls ?? []).filter((_, j) => j !== i) })}
-                  className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs leading-none hover:bg-black/80"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            <ImageField
-              label="추가"
-              hint="880 × 990px 이상 권장"
-              value=""
-              onChange={(url) => onChange({ image_urls: [...(banner.image_urls ?? []), url] })}
-              compact
-              aspectRatio="8/9"
-            />
-            <p className="text-[10px] text-gray-400 leading-snug">대표 이미지 + 추가 이미지가 번갈아 노출됩니다. (2장 이상일 때)</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {(banner.image_urls ?? []).map((url, i) => (
+                <div key={`${url}-${i}`} className="relative rounded-md overflow-hidden border border-gray-200" style={{ aspectRatio: "8/9" }}>
+                  <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    aria-label="랜덤 이미지 삭제"
+                    onClick={() => onChange({ image_urls: (banner.image_urls ?? []).filter((_, j) => j !== i) })}
+                    className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] leading-none hover:bg-black/80"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <ImageField
+                label=""
+                hint="880 × 990px 이상 권장"
+                value=""
+                onChange={(url) => onChange({ image_urls: [...(banner.image_urls ?? []), url] })}
+                compact
+                aspectRatio="8/9"
+              />
+            </div>
           </div>
         </div>
+        )}
 
         {/* 우: 연결상품 3개 탭 */}
         <div className="flex-1 min-w-0">
           {/* 탭 바 — 좌측 정렬, 자연 너비 */}
           <div className="flex flex-wrap border border-gray-200 rounded-t-xl overflow-hidden">
             {allItems.map((_, i) => (
-              <button
+              <div
                 key={i}
-                onClick={() => setItemTab(i)}
-                className={`px-5 py-2.5 text-sm font-semibold transition-colors border-r last:border-r-0 border-gray-200 text-left whitespace-nowrap ${
-                  itemTab === i
-                    ? "bg-[#303236] text-white"
-                    : "bg-gray-50 text-gray-500 hover:bg-gray-100"
-                }`}
+                className="relative flex border-r border-b border-gray-200"
+                draggable
+                onDragStart={(e) => e.dataTransfer.setData("text/plain", `item:${i}`)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const raw = e.dataTransfer.getData("text/plain");
+                  if (raw.startsWith("item:")) moveItem(Number(raw.slice(5)), i);
+                }}
               >
-                {i + 1}
-                {allItems[i].name && (
-                  <span className={`ml-1.5 text-xs font-normal ${itemTab === i ? "text-white/70" : "text-gray-400"}`}>
-                    · {allItems[i].name}
-                  </span>
+                <button
+                  type="button"
+                  onClick={() => setItemTab(i)}
+                  className={`px-5 py-2.5 text-sm font-semibold transition-colors text-left whitespace-nowrap cursor-grab ${
+                    itemTab === i
+                      ? "bg-[#303236] text-white pr-14"
+                      : "bg-gray-50 text-gray-500 hover:bg-gray-100"
+                  }`}
+                >
+                  {i + 1}
+                  {allItems[i].name && (
+                    <span className={`ml-1.5 text-xs font-normal ${itemTab === i ? "text-white/70" : "text-gray-400"}`}>
+                      · {allItems[i].name}
+                    </span>
+                  )}
+                </button>
+                {itemTab === i && (
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5">
+                    <button type="button" title="앞으로" disabled={i === 0} onClick={() => moveItem(i, i - 1)}
+                      className="w-5 h-5 rounded bg-white/20 hover:bg-white/40 text-white text-[10px] leading-none disabled:opacity-30">◀</button>
+                    <button type="button" title="뒤로" disabled={i === allItems.length - 1} onClick={() => moveItem(i, i + 1)}
+                      className="w-5 h-5 rounded bg-white/20 hover:bg-white/40 text-white text-[10px] leading-none disabled:opacity-30">▶</button>
+                  </div>
                 )}
-              </button>
+              </div>
             ))}
             <button type="button" onClick={addExtraItem}
               className="px-4 py-2.5 text-sm font-semibold text-[#303236] bg-white hover:bg-gray-50 whitespace-nowrap">

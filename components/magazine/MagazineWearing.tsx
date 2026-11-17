@@ -9,7 +9,7 @@ import { useChapter } from "./ChapterContext";
 // 배우가 입은 제품 — 착용컷 크롭 + 제품명. 가격·구매 버튼 없음(제품 상세·매장 찾기로 연결).
 //  · 챕터 연동: 상단 챕터를 전환하면 그 챕터에 연결된 제품(+ 공통 제품)으로 바뀐다. "전체 제품 보기"로 모두 볼 수도 있다.
 //  · PC에서 4개를 넘으면 가로로 스크롤(화살표/스와이프). 모바일은 2열로 이어서 쌓는다.
-const PC_VISIBLE = 4;
+const PC_VISIBLE = 5;
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // 매장 방문 유도 버튼 — PC는 헤더 오른쪽, 모바일은 목록 아래에 한 번씩만 노출한다.
@@ -112,7 +112,8 @@ export default function MagazineWearing({
           const body = (
             // 제품 사진 + 제품명을 하나의 실선 박스로 묶고, 글자는 가운데 정렬
             <div className="border border-[#1d1e20]/30 bg-white">
-              <div className="relative aspect-[3/4] bg-[#c6bfb2] overflow-hidden">
+              {/* 제품 상세(기획전) 이미지와 같은 1:1 비율 */}
+              <div className="relative aspect-square bg-[#c6bfb2] overflow-hidden">
                 <MagazineImg image={item.image} className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
               </div>
               <div className="px-3 pb-4 pt-1 text-center">
@@ -122,7 +123,7 @@ export default function MagazineWearing({
             </div>
           );
           return (
-            <li key={item.id} className="md:shrink-0 md:snap-start md:w-[calc((100%-60px)/4)]">
+            <li key={item.id} className="md:shrink-0 md:snap-start md:w-[calc((100%-80px)/5)] md:max-w-[280px]">
               {item.href ? (
                 <Link href={item.href} className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B]">
                   {body}

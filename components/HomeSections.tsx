@@ -10,22 +10,22 @@ import HomeYoutubeLongform from "@/components/HomeYoutubeLongform";
 import StoreSearchBar from "@/components/StoreSearchBar";
 import HomeMagazine from "@/components/HomeMagazine";
 import { isMagazinePublishable, type HomeMagazineConfig } from "@/lib/home-magazine";
-import type { HomeSectionKey, HomeSectionLayout } from "@/lib/home-layout";
+import type { HeroFilter, HomeSectionKey, HomeSectionLayout } from "@/lib/home-layout";
 
 // 메인 페이지의 섹션 렌더링(배치 순서·노출 반영). 실제 메인(app/page.tsx)과
 // 관리자용 "실제 사이트 미리보기"(app/magazine-preview)가 같은 코드를 써서 화면이 어긋나지 않게 한다.
-type RenderCtx = { magazine: HomeMagazineConfig; searchBarInMagazine: boolean };
+type RenderCtx = { magazine: HomeMagazineConfig; searchBarInMagazine: boolean; heroFilter: HeroFilter; editorialFilter?: HeroFilter };
 
 // 섹션 키 → 렌더러. 관리자 "메인 배치"에서 정한 순서·노출에 따라 렌더링된다.
 const SECTION_RENDERERS: Record<HomeSectionKey, (ctx: RenderCtx) => ReactNode> = {
   magazine: ({ magazine, searchBarInMagazine }) => (
     <HomeMagazine config={magazine} afterCover={searchBarInMagazine ? <StoreSearchBar /> : undefined} />
   ),
-  hero: () => <Hero />,
+  hero: ({ heroFilter }) => <Hero heroFilter={heroFilter} />,
   brandLogos: () => <HomeBrandLogos />,
   newArrivals: () => <HomeNewArrivals />,
   category: () => <HomeCategoryGrid />,
-  editorial: () => <HomeEditorial />,
+  editorial: ({ editorialFilter }) => <HomeEditorial editorialFilter={editorialFilter} />,
   people: () => <HomePeopleTeaser />,
   youtube: () => <HomeYoutubeLongform />,
   instagram: () => <HomeInstagramFeed />,
@@ -47,9 +47,13 @@ const SECTION_NAMES: Record<HomeSectionKey, string> = {
 export default function HomeSections({
   sections,
   magazine,
+  heroFilter = null,
+  editorialFilter,
 }: {
   sections: HomeSectionLayout[];
   magazine: HomeMagazineConfig;
+  heroFilter?: HeroFilter;
+  editorialFilter?: HeroFilter;
 }) {
   // 매거진은 배치에서 보이게 했어도 공개 OFF·커버 미입력이면 렌더되지 않으므로 실제 노출 여부로 거른다.
   const magazineLive = isMagazinePublishable(magazine);
@@ -61,7 +65,7 @@ export default function HomeSections({
   // 매장 검색창은 첫 화면(히어로 또는 매거진 커버) 바로 아래에 붙인다 — 둘 중 먼저 나오는 쪽.
   // 둘 다 숨김이면 따라붙을 자리가 없으니 맨 위에서 노출한다.
   const searchBarAnchor = visibleSections.find((s) => s.key === "hero" || (s.key === "magazine" && magazineBanner))?.key;
-  const ctx: RenderCtx = { magazine, searchBarInMagazine: searchBarAnchor === "magazine" };
+  const ctx: RenderCtx = { magazine, searchBarInMagazine: searchBarAnchor === "magazine", heroFilter, editorialFilter };
   return (
     <>
       {!searchBarAnchor && <StoreSearchBar />}

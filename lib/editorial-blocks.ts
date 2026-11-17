@@ -1,6 +1,9 @@
+import { cleanSizeLabel } from "@/lib/sizeLabel";
 import { createAdminClient } from "@/lib/supabase-server";
 import { editorials } from "@/data/editorial";
 import { productDisplayName } from "@/data/products";
+import { getHomeLayout } from "@/lib/home-layout-server";
+import { resolveHomeLayout, passesIdFilter, type HeroFilter } from "@/lib/home-layout";
 import type { Editorial, EditorialSection, EditorialSectionItem, EditorialCardDetail } from "@/data/editorial";
 
 // ── DB 원본 타입 ──────────────────────────────────────────────
@@ -18,7 +21,7 @@ export type Banner = {
 };
 export type DBBlock = {
   id: string; sort_order: number; is_visible: boolean; reversed: boolean;
-  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_position?: string; link: string; tags: HeroTag[]; detail?: Banner };
+  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_urls?: string[]; image_urls_pc?: string[]; image_position?: string; cta_label?: string; cta_link?: string; link: string; tags: HeroTag[]; detail?: Banner };
   banner1: Banner; banner2: Banner; banner3?: Banner; banner4?: Banner;
 };
 
@@ -127,6 +130,10 @@ export function blockToEditorial(block: DBBlock): Editorial {
     heroImageUrl: block.hero?.image_url || undefined,
     heroImageUrlPc: block.hero?.image_url_pc || undefined,
     heroImagePosition: block.hero?.image_position || undefined,
+    heroImageUrls: (block.hero?.image_urls ?? []).filter((u): u is string => !!u),
+    heroImageUrlsPc: (block.hero?.image_urls_pc ?? []).filter((u): u is string => !!u),
+    heroCtaLabel: block.hero?.cta_label?.trim() || undefined,
+    heroCtaHref: block.hero?.cta_link?.trim() || undefined,
     textAccent: "#E5541B",
     heroSubtitle: block.hero?.hero_subtitle || "",
     tags: (block.hero?.tags ?? []).map((t) => {
@@ -139,6 +146,12 @@ export function blockToEditorial(block: DBBlock): Editorial {
         bg: t.bg || "#303236", imageUrl: t.image_url || undefined,
         itemId: item?.id,
         brand: item?.card_detail?.brand,
+        info: {
+          image: item?.card_detail?.images?.[0] || item?.image_url || t.image_url || undefined,
+          storeUrl: item?.card_detail?.storeUrl?.trim() || undefined,
+          colors: (item?.card_detail?.colors ?? []).map((c) => c.name.trim()).filter(Boolean),
+          sizes: (item?.card_detail?.sizes ?? []).map((z) => cleanSizeLabel(z.label)).filter(Boolean),
+        },
       };
     }),
     sections: [s1, s2, s3, s4],
@@ -198,13 +211,28 @@ async function fetchBrandLogoMap(): Promise<Record<string, string>> {
 }
 
 // ── 홈 에디토리얼 목록 ────────────────────────────────────────
-export async function getHomeEditorials(): Promise<{ editorial: Editorial; reversed: boolean }[]> {
+// 예약 메인(캠페인)의 기획전 필터 — 접속 시각 기준. 목록과 상세페이지가 같은 규칙을 쓴다.
+// 예약 기간 밖: 예약 전용 기획전 제외 / 기간 중: 예약 전용 기획전만 노출 (예약 미설정이면 필터 없음)
+async function getCampaignEditorialFilter(): Promise<HeroFilter> {
+  try {
+    return resolveHomeLayout(await getHomeLayout()).editorialFilter;
+  } catch {
+    return null;
+  }
+}
+
+// filter 를 직접 넘기면(관리자 미리보기) 그 값을, 생략하면 접속 시각 기준 값을 쓴다.
+export async function getHomeEditorials(filter?: HeroFilter): Promise<{ editorial: Editorial; reversed: boolean }[]> {
   const blockList = await fetchBlocks();
   if (blockList) {
-    const blocks = blockList
+    const visible = blockList
       .filter((b) => b.is_visible !== false)
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
-    if (blocks.length > 0) {
+    if (visible.length > 0) {
+      const f = filter === undefined ? await getCampaignEditorialFilter() : filter;
+      const blocks = visible.filter((b) => passesIdFilter(f, b.id));
+      // 예약 필터로 전부 걸러져도 정적 기본 데이터로 되돌리지 않고 빈 목록을 돌려준다.
+      if (blocks.length === 0) return [];
       const list = blocks.map((b) => ({ editorial: blockToEditorial(b), reversed: b.reversed ?? false }));
       return enrichEditorialBrands(list);
     }
@@ -274,14 +302,16 @@ async function buildBannerDetail(
   };
 }
 
-export async function getBannerDetail(blockId: string, bannerIndex: number): Promise<BannerDetail | null> {
+// preview=true(관리자 예약 미리보기)면 예약 오픈 전/종료 후 필터를 건너뛴다. 공개 접속에는 쓰지 않는다.
+export async function getBannerDetail(blockId: string, bannerIndex: number, preview = false): Promise<BannerDetail | null> {
   if (bannerIndex < 1 || bannerIndex > 4) return null;
   const blockList = await fetchBlocks();
   if (!blockList) return null;
   const block = blockList.find((b) => b.id === blockId);
   if (!block || block.is_visible === false) return null;
+  if (!preview && !passesIdFilter(await getCampaignEditorialFilter(), block.id)) return null; // 예약 오픈 전/종료 후
 
-  const banner = [block.banner1, block.banner2, block.banner3, block.banner4][bannerIndex - 1];
+  const banner =[block.banner1, block.banner2, block.banner3, block.banner4][bannerIndex - 1];
   if (!banner) return null;
   return buildBannerDetail(banner, { blockId: block.id, bannerIndex, editorialTitle: block.hero?.title || "" });
 }
@@ -289,11 +319,12 @@ export async function getBannerDetail(blockId: string, bannerIndex: number): Pro
 // 메인 기획전(hero) 상세페이지 — hero.detail(서브 배너와 같은 Banner 구조)로 같은 화면을 만든다.
 // 주소: /products/feature/<기획전 id>/main. 숨김 기획전·제품 없는 상세는 null.
 // 제목·설명·이미지를 비워 두면 메인 기획전(hero)의 값을 쓴다.
-export async function getHeroDetail(blockId: string): Promise<BannerDetail | null> {
+export async function getHeroDetail(blockId: string, preview = false): Promise<BannerDetail | null> {
   const blockList = await fetchBlocks();
   const block = blockList?.find((b) => b.id === blockId);
   const detail = block?.hero?.detail;
   if (!block || block.is_visible === false || !detail) return null;
+  if (!preview && !passesIdFilter(await getCampaignEditorialFilter(), block.id)) return null; // 예약 오픈 전/종료 후
   if (![...(detail.items ?? []), ...(detail.detail_items ?? [])].some((i) => i.product_id || i.name)) return null;
   return buildBannerDetail(
     {

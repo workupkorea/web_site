@@ -40,7 +40,7 @@ export const MAGAZINE_SLOT_SPECS = {
   chapterSubSplit: { ratio: "4:5 세로", px: "1000×1250", minW: 600, note: "오른쪽 단에 세로로 2장 나란히 들어갑니다(소재·포켓 등 디테일)" },
   chapterSubMosaic: { ratio: "2:3 세로", px: "1000×1500", minW: 600, note: "칸마다 비율이 달라요 — 번호별 권장 참고" },
   behind: { ratio: "4:5 세로", px: "1600×2000", minW: 1000, note: "목록은 PC 정사각·모바일 4:5로 잘리고, 누르면 원본 비율로 크게 보입니다" },
-  wearing: { ratio: "3:4 세로", px: "1000×1333", minW: 700, note: "제품이 보이도록 크롭" },
+  wearing: { ratio: "1:1 정사각", px: "1000×1000", minW: 700, note: "제품이 보이도록 크롭" },
   closing: { ratio: "3.4:1 와이드", px: "2400×700", minW: 1600, note: "PC에서 아주 납작하게 보입니다 — 가로로 긴 사진(가운데 기준)" },
   closingMobile: { ratio: "1:1 정사각", px: "1080×1080", minW: 750, note: "위에 어두운 막(60%)이 덮입니다" },
 } satisfies Record<string, MagazineSlotSpec>;

@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-server";
 import HeroCarousel from "./HeroCarousel";
+import type { HeroFilter } from "@/lib/home-layout";
 
 type HeroSlide = {
   id: string;
@@ -28,8 +29,32 @@ type HeroSlide = {
   is_visible: boolean;
   scheduled_start: string | null;
   scheduled_end: string | null;
+  image_schedules?: ImageSchedule[] | null;
   sort_order: number;
 };
+
+// 슬라이드 안에서 지정 일시에 PC/모바일 이미지를 교체하는 예약 (종료 비우면 계속 유지)
+type ImageSchedule = {
+  start: string | null;
+  end: string | null;
+  pc_image_url: string | null;
+  mobile_image_url: string | null;
+};
+
+// 현재 시각이 구간 안인 예약 중 가장 늦게 시작한 것을 적용. 이미지 슬라이드에만 적용(동영상 제외).
+function applyImageSchedule(s: HeroSlide, now: string): HeroSlide {
+  if (s.pc_video_url || !Array.isArray(s.image_schedules)) return s;
+  const active = s.image_schedules
+    .filter((r) => (!r.start || r.start <= now) && (!r.end || r.end >= now) && (r.pc_image_url || r.mobile_image_url))
+    .sort((a, b) => (a.start ?? "").localeCompare(b.start ?? ""))
+    .pop();
+  if (!active) return s;
+  return {
+    ...s,
+    pc_image_url: active.pc_image_url || s.pc_image_url,
+    mobile_image_url: active.mobile_image_url || active.pc_image_url || s.mobile_image_url,
+  };
+}
 
 // 홈페이지 최고 트래픽 구간이라 noStore() 대신 unstable_cache로 감싼다.
 // 관리자 저장 시 hero-slides API 의 revalidateTag("hero_slides")로 즉시 갱신되고,
@@ -46,11 +71,13 @@ const getActiveSlides = unstable_cache(
         .eq("slide_type", slideType)
         .order("sort_order", { ascending: true });
       if (!data || data.length === 0) return [];
-      return data.filter((s: HeroSlide) => {
-        if (s.scheduled_start && s.scheduled_start > now) return false;
-        if (s.scheduled_end && s.scheduled_end < now) return false;
-        return true;
-      });
+      return data
+        .filter((s: HeroSlide) => {
+          if (s.scheduled_start && s.scheduled_start > now) return false;
+          if (s.scheduled_end && s.scheduled_end < now) return false;
+          return true;
+        })
+        .map((s: HeroSlide) => applyImageSchedule(s, now));
     } catch {
       return [];
     }
@@ -60,8 +87,13 @@ const getActiveSlides = unstable_cache(
 );
 
 // slideType: "main"(홈) | "product"(프로덕트 상단). product는 슬라이드가 없으면 아무것도 렌더하지 않음.
-export default async function Hero({ slideType = "main" }: { slideType?: string }) {
-  const slides = await getActiveSlides(slideType);
+// heroFilter: 메인 전체 예약(캠페인) 시 노출할/제외할 슬라이드. 캐시 밖에서 거르므로 캐시 키는 그대로.
+export default async function Hero({ slideType = "main", heroFilter = null }: { slideType?: string; heroFilter?: HeroFilter }) {
+  let slides = await getActiveSlides(slideType);
+  if (heroFilter && slideType === "main") {
+    const ids = new Set(heroFilter.ids);
+    slides = slides.filter((s) => (heroFilter.mode === "only" ? ids.has(s.id) : !ids.has(s.id)));
+  }
   if (slides.length === 0) return slideType === "main" ? <HeroDefault /> : null;
   return <HeroCarousel slides={slides} />;
 }

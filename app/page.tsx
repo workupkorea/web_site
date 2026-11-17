@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import PopupBanner from "@/components/PopupBanner";
 import { getHomeLayout } from "@/lib/home-layout-server";
 import { getHomeMagazine } from "@/lib/home-magazine-server";
+import { resolveHomeLayout } from "@/lib/home-layout";
 import HomeSections from "@/components/HomeSections";
 import HomeClickTracker from "@/components/HomeClickTracker";
 import JsonLd from "@/components/JsonLd";
@@ -66,7 +67,9 @@ const brandLd = {
 };
 
 export default async function Home() {
-  const [{ sections }, magazine] = await Promise.all([getHomeLayout(), getHomeMagazine()]);
+  const [layout, magazine] = await Promise.all([getHomeLayout(), getHomeMagazine()]);
+  // 메인 전체 예약 오픈: 접속 시각 기준으로 기본/예약 배치와 히어로 구성을 고른다.
+  const { sections, heroFilter, editorialFilter } = resolveHomeLayout(layout);
   return (
     <main>
       <JsonLd data={brandLd} />
@@ -75,7 +78,7 @@ export default async function Home() {
       {/* 팝업은 오버레이라 배치 대상에서 제외 — 항상 렌더 */}
       <PopupBanner />
       <HomeClickTracker />
-      <HomeSections sections={sections} magazine={magazine} />
+      <HomeSections sections={sections} magazine={magazine} heroFilter={heroFilter} editorialFilter={editorialFilter} />
     </main>
   );
 }

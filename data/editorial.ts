@@ -13,6 +13,7 @@ export type EditorialTag = {
   href?: string;    // 클릭 이동 주소 — 제품이 속한 기획전 배너 상세(?product=). 없으면 제품 상세
   brandLogo?: string; // 브랜드 카탈로그(brands 테이블)에 등록된 로고 — 있으면 브랜드 텍스트 대신 표시
   brand?: string;   // 태그 라벨에 표시할 브랜드 — itemId 태그는 배너 제품의 브랜드, 옛 태그는 제품 DB 브랜드
+  info?: { image?: string; storeUrl?: string; colors?: string[]; sizes?: string[] }; // 태그 클릭 시 뜨는 제품 정보 창용 (배너 제품 입력값)
   itemId?: string;  // 연결된 배너 제품(ProductItem.id) — 있으면 제품 DB 대신 배너 제품 기준
 };
 
@@ -25,6 +26,7 @@ export type EditorialCardDetail = {
   sizes: EditorialCardSize[];
   styleNo?: string;      // 품번(Style No.) — 입고 스케쥴에서 가져오거나 직접 입력
   brand?: string;        // 카드 제품명 위에 표시할 브랜드명 (BRANDS 중 선택)
+  storeUrl?: string;     // 네이버 스마트스토어 등 외부 상품 링크 — 입력하면 기획전 카드에 "스마트스토어에서 보기" 버튼 노출
   detailText: string;
   materialText: string;
   essentialText: string;
@@ -76,6 +78,10 @@ export type Editorial = {
   heroImageUrl?: string;        // 히어로 배경 이미지 (모바일/태블릿 기준, PC 전용 이미지 없으면 PC에서도 사용)
   heroImageUrlPc?: string;      // PC(1280px 이상) 전용 이미지 — 없으면 heroImageUrl로 대체
   heroImagePosition?: string;   // CSS objectPosition (예: "50% 20%"), 기본값 "50% 0%"
+  heroImageUrlsPc?: string[];   // PC 전용 추가 이미지 — 없으면 heroImageUrls를 PC에서도 사용
+  heroImageUrls?: string[];     // 추가 이미지 — 대표 이미지는 그대로 먼저 노출하고, 이후 이 이미지들로 천천히 크로스페이드 교체
+  heroCtaLabel?: string;        // 대배너 이동 버튼 문구 (예: "매거진 보기")
+  heroCtaHref?: string;         // 대배너 이동 버튼 주소 (사이트 내부 "/…", "#…" 또는 https://…) — 비우면 버튼 숨김
   textAccent: string;
   heroSubtitle: string;
   tags: EditorialTag[];

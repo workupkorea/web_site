@@ -22,6 +22,10 @@ type EditorialBlock = {
     desc: string;
     image_url: string;
     image_url_pc?: string;   // 없으면 image_url을 PC에서도 그대로 사용 (하위호환)
+    image_urls_pc?: string[]; // PC 전용 추가 이미지 — 없으면 image_urls를 PC에서도 사용
+    image_urls?: string[];   // 추가 이미지 — 대표 이미지 다음에 천천히 크로스페이드로 교체 노출
+    cta_label?: string;      // 대배너 이동 버튼 문구
+    cta_link?: string;       // 대배너 이동 버튼 주소 (비우면 버튼 숨김)
     image_position?: string;
     image_position_mobile?: string;
     image_scale?: number;
@@ -454,12 +458,35 @@ function BannerTagEditor({ tags, imageUrl, onChange, products }: {
 // ── 서브 컴포넌트: 메인 기획전 에디터 ──────────────────────
 // 확대/축소 기능은 제거했다(공개 렌더러도 스케일은 애초에 반영하지 않았다).
 // 이미지 위치(크롭 기준점) 드래그 조정만 남기고 미리보기를 크게 키웠다. 제품 태그는 HeroTagEditor가 담당.
-function HeroEditor({ hero, onChange, products }: {
+// 설명을 ⓘ 아이콘으로 접어 두는 작은 툴팁 (hover·키보드 포커스 시 표시)
+function InfoTip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="relative inline-flex group align-middle ml-1">
+      <button type="button" aria-label="설명 보기"
+        className="w-4 h-4 rounded-full border border-gray-300 text-gray-400 text-[10px] leading-none font-bold italic hover:text-gray-600 hover:border-gray-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#303236]/40">
+        i
+      </button>
+      <span role="tooltip"
+        className="pointer-events-none absolute left-0 top-5 z-20 w-48 rounded-lg bg-gray-800 text-white text-[11px] font-normal not-italic leading-snug p-2 shadow-lg opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        {children}
+      </span>
+    </span>
+  );
+}
+
+// 추가 이미지 타일 너비(px)
+const EXTRA_TILE_W = 130;
+
+function HeroEditor({ hero, onChange, products, productSection }: {
   hero: EditorialBlock["hero"];
+  productSection?: React.ReactNode;
   onChange: (patch: Partial<EditorialBlock["hero"]>) => void;
   products: SearchProduct[];
 }) {
   const [posView, setPosView] = useState<"pc" | "mobile">("pc");
+  // PC 이미지 따로 등록 모드. 이미지가 아직 없는 새 블록은 처음부터 켜 둔다
+  // (image_url_pc 가 빈 값이면 체크 상태를 저장할 수 없어서, 화면 상태로 따로 관리).
+  const [pcMode, setPcMode] = useState(!!hero.image_url_pc || !hero.image_url);
   // 실제 PC 히어로 패널은 "화면 폭의 약 절반 × 화면 높이"(FeatureHeroLayout)라 object-cover로 아래가 잘린다.
   // 미리보기도 현재 브라우저 창 기준 같은 비율로 맞춰, 보이는 그대로 노출 위치를 조정하게 한다.
   const [pcPanelRatio, setPcPanelRatio] = useState("1/1");
@@ -477,7 +504,8 @@ function HeroEditor({ hero, onChange, products }: {
     return () => window.removeEventListener("resize", update);
   }, []);
   // 미리보기 편집 모드: 이미지 위치(드래그로 크롭 이동) / 제품 태그(클릭 추가·드래그 이동)
-  const [editMode, setEditMode] = useState<"position" | "tag">("position");
+  // null = 접힘(기본). 버튼을 누르면 해당 설정 패널이 펼쳐지고, 같은 버튼을 다시 누르면 접힌다.
+  const [editMode, setEditMode] = useState<"position" | "tag" | null>(null);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [draggingIdx, setDraggingIdx] = useState<number | null>(null);
   const wasDraggingRef = useRef(false);
@@ -574,41 +602,123 @@ function HeroEditor({ hero, onChange, products }: {
     posDragRef.current = null;
   }
 
+  // 이동 버튼 — 주소를 입력하면 대배너 제목 아래에 버튼이 생긴다
+  const ctaFields = (
+    <div className="space-y-2">
+      <p className="text-[11px] font-semibold text-gray-700">
+        이동 버튼
+        <InfoTip>메인 매거진으로 이동하려면 #magazine 을 입력하세요. 비우면 버튼이 숨겨집니다.</InfoTip>
+      </p>
+      <div className="grid grid-cols-1 gap-2">
+        <Field label="버튼 문구" value={hero.cta_label ?? ""} onChange={(v) => onChange({ cta_label: v })} placeholder="매거진 보기" />
+        <Field label="이동 주소" value={hero.cta_link ?? ""} onChange={(v) => onChange({ cta_link: v })} placeholder="#magazine" />
+      </div>
+    </div>
+  );
+
   return (
     <div className="flex gap-4 items-start">
 
       {/* 이미지 업로드 */}
-      <div className="flex-shrink-0 space-y-2" style={{ width: "180px" }}>
-        <ImageField
-          label="모바일 이미지"
-          hint="950 × 1280px (3:4)"
-          value={hero.image_url}
-          onChange={(url) => onChange({ image_url: url })}
-          compact
-        />
-        <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={!!hero.image_url_pc}
-            onChange={(e) => onChange({ image_url_pc: e.target.checked ? (hero.image_url_pc || hero.image_url) : "" })}
-          />
-          PC 이미지 다르게 등록
-        </label>
-        <p className="text-[10px] text-gray-400 leading-snug">
-          PC 화면은 가로형 패널(약 10:11~8:9)이라 모바일용 3:4 세로 이미지를 쓰면 위·아래가 잘립니다.
-          안 잘리게 하려면 PC 이미지를 <b className="text-gray-600">1600 × 1800px (8:9)</b>로 따로 등록하세요.
-        </p>
-        {!!hero.image_url_pc && (
-          <ImageField
-            label="PC 이미지"
-            hint="1600 × 1800px (8:9) 권장 — 인물 전신은 하단 여백을 두고 중앙에 배치"
-            value={hero.image_url_pc}
-            onChange={(url) => onChange({ image_url_pc: url })}
-            compact
-          />
-        )}
+      <div className="flex-shrink-0 space-y-3" style={{ width: "400px" }}>
+        {/* 1행: 모바일 이미지 | PC 이미지 (가로 배치) */}
+        <div className="grid grid-cols-2 gap-3 items-start">
+          <div className="space-y-2">
+            <ImageField
+              label="모바일 이미지"
+              hint="950 × 1280px (3:4)"
+              value={hero.image_url}
+              onChange={(url) => onChange({ image_url: url })}
+              compact
+            />
+            <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={pcMode}
+                onChange={(e) => {
+                  setPcMode(e.target.checked);
+                  onChange({ image_url_pc: e.target.checked ? (hero.image_url_pc || hero.image_url) : "" });
+                }}
+              />
+              PC 이미지 다르게 등록
+            </label>
+          </div>
+          <div>
+            {pcMode ? (
+              <ImageField
+                label="PC 이미지"
+                hint="1600 × 1800px (8:9) 권장"
+                value={hero.image_url_pc ?? ""}
+                onChange={(url) => onChange({ image_url_pc: url })}
+                compact
+              />
+            ) : (
+              <p className="text-[10px] text-gray-400 leading-snug pt-6">
+                PC는 8:9(1600×1800px) 이미지를 따로 등록하면 안 잘립니다. 왼쪽 체크박스를 켜세요.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 2행: 추가 이미지(모바일 | PC) */}
+        {(() => {
+          const hasPc = pcMode;
+          // 추가 이미지 한 묶음 — 대표 이미지 다음에 천천히 크로스페이드로 교체 노출
+          const extras = (label: string, key: "image_urls" | "image_urls_pc") => {
+            const list = hero[key] ?? [];
+            return (
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-gray-700">
+                  {label} ({list.length}장)
+                  <InfoTip>2장 이상이면 약 7초마다 교체됩니다. 제품 태그는 대표 이미지일 때만 보입니다. 권장 {key === "image_urls" && hasPc ? "950 × 1280px (3:4)" : "1600 × 1800px (8:9)"}</InfoTip>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {list.map((url, i) => (
+                    <div key={`${url}-${i}`} className="relative rounded-md overflow-hidden border border-gray-200" style={{ width: EXTRA_TILE_W, aspectRatio: key === "image_urls" && hasPc ? "3/4" : "8/9" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        aria-label="추가 이미지 삭제"
+                        onClick={() => onChange({ [key]: list.filter((_, j) => j !== i) })}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] leading-none hover:bg-black/80"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  <div style={{ width: EXTRA_TILE_W }}>
+                    <ImageField
+                      label=""
+                      hint=""
+                      value=""
+                      onChange={(url) => onChange({ [key]: [...list, url] })}
+                      compact
+                      aspectRatio={key === "image_urls" && hasPc ? "3/4" : "8/9"}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          };
+          return (
+            <>
+              <div className="grid grid-cols-2 gap-3 items-start pt-3 border-t border-gray-200">
+                {extras(hasPc ? "추가 이미지 · 모바일" : "추가 이미지", "image_urls")}
+                {hasPc ? extras("추가 이미지 · PC", "image_urls_pc") : (
+                  /* 이동 버튼 — 주소를 입력하면 대배너 제목 아래에 버튼이 생깁니다 */
+                  ctaFields
+                )}
+              </div>
+              {hasPc && <div className="pt-3 border-t border-gray-200">{ctaFields}</div>}
+            </>
+          );
+        })()}
       </div>
 
+      {/* 오른쪽: 상품 등록(위) + 이미지 위치·제품 태그(접기/펴기) */}
+      <div className="flex-1 min-w-0 space-y-4">
+      {productSection}
       {/* 이미지 위치 조정 */}
       {!hero.image_url && (
         <div className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-[12px] text-gray-400" style={{ minHeight: "260px" }}>
@@ -618,27 +728,32 @@ function HeroEditor({ hero, onChange, products }: {
       {hero.image_url && (
         <div className="flex-1 min-w-0 space-y-2">
           <div className="flex items-center justify-between">
+            {editMode ? (
+              <div className="flex gap-1">
+                {(["pc", "mobile"] as const).map((v) => (
+                  <button key={v} type="button" onClick={() => setPosView(v)}
+                    className={`text-[11px] font-semibold px-3 py-1 rounded border transition-colors ${
+                      posView === v
+                        ? (v === "pc" ? "bg-indigo-600 text-white border-indigo-600" : "bg-[#303236] text-white border-[#303236]")
+                        : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                    }`}>
+                    {v === "pc" ? "🖥️ PC" : "📱 모바일"}
+                  </button>
+                ))}
+              </div>
+            ) : <span />}
             <div className="flex gap-1">
-              {(["pc", "mobile"] as const).map((v) => (
-                <button key={v} type="button" onClick={() => setPosView(v)}
+              {([["position", "↔ 이미지 위치"], ["tag", "📍 제품 태그"]] as const).map(([m, label]) => (
+                <button key={m} type="button" aria-expanded={editMode === m}
+                  onClick={() => setEditMode(editMode === m ? null : m)}
                   className={`text-[11px] font-semibold px-3 py-1 rounded border transition-colors ${
-                    posView === v
-                      ? (v === "pc" ? "bg-indigo-600 text-white border-indigo-600" : "bg-[#303236] text-white border-[#303236]")
-                      : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
+                    editMode === m ? "bg-[#E5541B] text-white border-[#E5541B]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
                   }`}>
-                  {v === "pc" ? "🖥️ PC" : "📱 모바일"}
+                  {label}{m === "tag" && tags.length > 0 ? ` (${tags.length})` : ""} {editMode === m ? "▴" : "▾"}
                 </button>
               ))}
             </div>
-            <div className="flex gap-1">
-              {([["position", "↔ 이미지 위치"], ["tag", "📍 제품 태그"]] as const).map(([m, label]) => (
-                <button key={m} type="button" onClick={() => setEditMode(m)}
-                  className={`text-[11px] font-semibold px-3 py-1 rounded border transition-colors ${
-                    editMode === m ? "bg-[#E5541B] text-white border-[#E5541B]" : "bg-white text-gray-500 border-gray-200 hover:border-gray-400"
-                  }`}>{label}</button>
-              ))}
-            </div>
-            {editMode === "position" ? (
+            {editMode === null ? <span /> : editMode === "position" ? (
               <button type="button"
                 onClick={() => {
                   if (posView === "pc") onChange({ image_position: "50% 0%" });
@@ -652,6 +767,10 @@ function HeroEditor({ hero, onChange, products }: {
               ) : <span />
             )}
           </div>
+          {editMode === null && (
+            <p className="text-[11px] text-gray-400 py-3">위 버튼을 눌러 이미지 위치·제품 태그를 설정하세요.</p>
+          )}
+          {editMode !== null && (
           <p className="text-[10px] text-gray-400">
             {editMode === "position"
               ? "이미지를 드래그해 노출 위치를 조정합니다."
@@ -659,6 +778,8 @@ function HeroEditor({ hero, onChange, products }: {
               ? "이미지를 클릭하면 태그가 추가되고, 드래그하면 위치가 이동합니다. (PC 전용 위치)"
               : "모바일·태블릿은 태그가 이미지 오른쪽 아래에 목록으로 자동 정렬됩니다. 위치 조정 없이 PC에서 추가한 태그 순서대로 나옵니다."}
           </p>
+          )}
+          {editMode !== null && (
           <div
             ref={posPreviewRef}
             onPointerDown={handlePosDragStart}
@@ -708,6 +829,7 @@ function HeroEditor({ hero, onChange, products }: {
               );
             })}
           </div>
+          )}
 
           {/* 태그 편집 — 선택한 태그의 제품 지정 */}
           {editMode === "tag" && (
@@ -740,6 +862,7 @@ function HeroEditor({ hero, onChange, products }: {
           )}
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -794,10 +917,10 @@ function BlockCard({
 
   const TABS = [
     { key: "hero" as const,    label: "메인 기획전" },
-    { key: "banner1" as const, label: "배너 1" },
-    { key: "banner2" as const, label: "배너 2" },
-    { key: "banner3" as const, label: "배너 3" },
-    { key: "banner4" as const, label: "배너 4" },
+    { key: "banner1" as const, label: "1" },
+    { key: "banner2" as const, label: "2" },
+    { key: "banner3" as const, label: "3" },
+    { key: "banner4" as const, label: "4" },
   ];
 
   return (
@@ -916,6 +1039,17 @@ function BlockCard({
                 className="flex-1 min-w-0 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#303236]"
               />
             </div>
+            {/* 부제목 — 이미지 위 제목 위에 뜨는 작은 문구 (예: 가볍고 따뜻하게) */}
+            <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              <span className="text-xs text-gray-500 flex-shrink-0">부제목</span>
+              <input
+                type="text"
+                value={block.hero.subtitle}
+                onChange={(e) => onUpdate({ hero: { ...block.hero, subtitle: e.target.value, hero_subtitle: e.target.value } })}
+                placeholder="이미지 위 작은 문구"
+                className="flex-1 min-w-0 text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#303236]"
+              />
+            </div>
             {/* 카드 타입 — 선택된 배너 탭 기준 (메인 기획전 탭에서는 숨김) */}
             {tab !== "hero" && (
               <div className="flex items-center gap-2 flex-shrink-0">
@@ -966,8 +1100,8 @@ function BlockCard({
                   >
                     {t.label}
                     {t.key !== "hero" && block[t.key].label && (
-                      <span className={`ml-1.5 text-xs font-normal ${tab === t.key ? "text-gray-500" : "text-gray-400"}`}>
-                        · {block[t.key].label}
+                      <span className={`font-medium ${tab === t.key ? "text-[#303236]" : "text-gray-400"}`}>
+                        . {block[t.key].label}
                       </span>
                     )}
                   </button>
@@ -991,26 +1125,29 @@ function BlockCard({
             {tab === "hero" && (
               <HeroEditor
                 hero={block.hero}
-                products={bannerProducts}
-                onChange={(patch) => onUpdate({ hero: { ...block.hero, ...patch } })}
-              />
-            )}
-            {tab === "hero" && (
-              <div className="mt-8 pt-6 border-t-2 border-gray-200 space-y-4">
-                <div>
-                  <h4 className="text-sm font-bold text-gray-800">메인 상세페이지 (제품 여러 개)</h4>
-                  <p className="text-[12px] text-gray-500 mt-1 leading-relaxed">
-                    서브 배너 상세페이지와 같은 화면입니다. 여기에 넣은 제품을 위 메인 이미지 태그에서 고르면, 태그 클릭 시 이 상세페이지의 해당 제품 탭이 열립니다.
-                    제목·설명·이미지를 비워 두면 메인 기획전 값을 씁니다. 주소: <code>/products/feature/{block.id}/main</code>
-                  </p>
-                </div>
+                productSection={(
+              /* 접기/펼치기 — 제품이 이미 등록돼 있으면 펼친 상태로 시작. 이미지·태그 설정 위에 둔다 */
+              <details className="pb-4 border-b-2 border-gray-200 group" open={(block.hero.detail?.items ?? []).some((i) => i.name.trim())}>
+                <summary className="cursor-pointer list-none flex items-center justify-between select-none">
+                  <span className="text-sm font-bold text-gray-800">메인 상세페이지 (제품 여러 개)</span>
+                  <span className="text-[11px] text-gray-400 group-open:hidden">펼치기 ▾</span>
+                  <span className="text-[11px] text-gray-400 hidden group-open:inline">접기 ▴</span>
+                </summary>
+                <p className="text-[11px] text-gray-500 mt-2 mb-3 leading-relaxed">
+                  태그로 연결할 제품만 등록하세요. 제목·설명·이미지는 메인 기획전 값을 씁니다. 주소: <code>/products/feature/{block.id}/main</code>
+                </p>
                 <BannerEditor
                   label="메인 상세"
+                  productsOnly
                   banner={block.hero.detail ?? emptyBanner()}
                   onChange={(patch) => onUpdate({ hero: { ...block.hero, detail: { ...(block.hero.detail ?? emptyBanner()), ...patch } } })}
                   products={products}
                 />
-              </div>
+              </details>
+                )}
+                products={bannerProducts}
+                onChange={(patch) => onUpdate({ hero: { ...block.hero, ...patch } })}
+              />
             )}
             {tab === "banner1" && (
               <BannerEditor

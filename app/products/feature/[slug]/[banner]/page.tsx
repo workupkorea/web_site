@@ -3,17 +3,25 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getBannerDetail, getHeroDetail, MAIN_DETAIL_SLUG } from "@/lib/editorial-blocks";
 import { ikSrc } from "@/lib/imageSrc";
-import ProductFeatureTabs from "@/components/ProductFeatureTabs";
+import ProductFeatureGrid from "@/components/ProductFeatureGrid";
+import { isAdmin } from "@/lib/admin-auth";
 
 // banner가 "main"이면 메인 기획전 상세, 숫자면 서브 배너 상세
-const loadDetail = (slug: string, banner: string) =>
-  banner === MAIN_DETAIL_SLUG ? getHeroDetail(slug) : getBannerDetail(slug, Number(banner));
+const loadDetail = (slug: string, banner: string, preview: boolean) =>
+  banner === MAIN_DETAIL_SLUG ? getHeroDetail(slug, preview) : getBannerDetail(slug, Number(banner), preview);
 
-type Props = { params: Promise<{ slug: string; banner: string }>; searchParams: Promise<{ product?: string; item?: string }> };
+// ?campaign=1 : 관리자 예약 미리보기(/magazine-preview)에서 이동한 경우에만 예약 오픈 전 기획전도 열어 준다.
+// 공개 접속(관리자 아님)에는 영향이 없고, 파라미터가 있을 때만 로그인 쿠키를 확인한다.
+async function isCampaignPreview(campaign?: string) {
+  if (campaign !== "1") return false;
+  return process.env.NODE_ENV !== "production" || (await isAdmin());
+}
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+type Props = { params: Promise<{ slug: string; banner: string }>; searchParams: Promise<{ product?: string; item?: string; campaign?: string }> };
+
+export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   const { slug, banner } = await params;
-  const detail = await loadDetail(slug, banner);
+  const detail = await loadDetail(slug, banner, await isCampaignPreview((await searchParams).campaign));
   if (!detail) return { title: "기획전" };
   return {
     title: `${detail.title}`,
@@ -28,8 +36,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BannerDetailPage({ params, searchParams }: Props) {
   const { slug, banner } = await params;
-  const { product: initialProductId, item: initialItemId } = await searchParams;
-  const detail = await loadDetail(slug, banner);
+  const { product: initialProductId, item: initialItemId, campaign } = await searchParams;
+  const detail = await loadDetail(slug, banner, await isCampaignPreview(campaign));
   if (!detail) notFound();
 
   const products = detail.products.filter((p) => p.productId || p.name);
@@ -52,7 +60,7 @@ export default async function BannerDetailPage({ params, searchParams }: Props) 
           </div>
 
           {/* 우: 배너 섹션 이미지 (8:9) — PC에서는 폭을 줄여 하단 제품 리스트가 빨리 보이게 */}
-          <div className="md:flex-none md:w-[300px] lg:w-[340px] order-1 md:order-2 max-md:max-w-[320px] max-md:mx-auto max-md:w-full">
+          <div className="md:flex-none md:w-[300px] lg:w-[340px] order-1 md:order-2 max-md:w-full">
             <div
               className="relative w-full overflow-hidden bg-gray-100 flex items-center justify-center"
               style={{ aspectRatio: "440 / 495" }}
@@ -68,35 +76,22 @@ export default async function BannerDetailPage({ params, searchParams }: Props) 
         </div>
       </section>
 
-      {/* ── 하단: 제품 탭(제품명 클릭 시 이미지·컬러·사이즈·아코디언 전환) ─── */}
+      {/* ── 하단: 제품 카드 목록(사진+제품명, 클릭 시 제품 상세로 이동) ─── */}
       {products.length > 0 && (
         <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24">
-          <ProductFeatureTabs products={products} initialProductId={initialProductId} initialItemId={initialItemId} />
+          <ProductFeatureGrid products={products} initialProductId={initialProductId} initialItemId={initialItemId} />
         </section>
       )}
 
-      {/* ── 최종 CTA: 매장 방문 유도 ──────────────────────────── */}
-      <section className="bg-[#303236] py-14 md:py-20">
-        <div className="max-w-screen-xl mx-auto px-6 md:px-12 text-center">
-          <p className="text-[11px] tracking-[0.3em] text-[#E5541B] uppercase mb-5">VISIT US</p>
-          <h2 className="text-2xl md:text-3xl font-bold text-white mb-4 leading-snug">
-            직접 입어봐야<br className="sm:hidden" /> 알 수 있습니다
-          </h2>
-          <p className="text-gray-300 text-sm md:text-base leading-relaxed mb-9">
-            사진으로는 느낄 수 없는 착용감과 소재감을<br />
-            가까운 워크업 매장에서 직접 확인하세요.
-          </p>
-          <Link
-            href="/store"
-            className="inline-flex items-center gap-2 bg-[#E5541B] text-white font-bold px-10 md:px-12 py-4 text-sm tracking-widest hover:bg-[#e04a0a] transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            가까운 매장 찾기
-          </Link>
-        </div>
+      {/* ── 하단: 메인페이지로 이동 ─────────────────────────── */}
+      <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24 text-center">
+        <Link
+          href="/"
+          className="inline-flex items-center justify-center gap-2 min-h-[48px] px-10 bg-[#303236] text-white text-sm font-bold tracking-wide hover:bg-black transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303236]"
+        >
+          <span aria-hidden>←</span>
+          메인페이지로
+        </Link>
       </section>
     </main>
   );

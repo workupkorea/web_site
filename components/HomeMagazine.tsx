@@ -66,7 +66,8 @@ export default function HomeMagazine({
 
   return (
     <ChapterProvider ids={config.chapters.map((c) => c.id)} tabs={config.chapterView === "tabs"}>
-    <div className="bg-[#f6f4ef] text-[#1d1e20]">
+    {/* id="magazine": 메인 대배너의 "매거진 보기" 버튼 등이 이 위치(커버)로 이동하는 앵커 */}
+    <div id="magazine" className="scroll-mt-16 bg-[#f6f4ef] text-[#1d1e20]">
       {config.topBanner === "magazine" && (
         <>
           <MagazineCover issue={config.issue} cover={config.cover} />

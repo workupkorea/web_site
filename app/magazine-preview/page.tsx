@@ -7,6 +7,8 @@ import { isAdmin } from "@/lib/admin-auth";
 import { getHomeLayout } from "@/lib/home-layout-server";
 import { getHomeMagazine } from "@/lib/home-magazine-server";
 import { fillMagazinePlaceholders } from "@/lib/home-magazine";
+import { resolveHomeLayout } from "@/lib/home-layout";
+import PreviewCampaignLinks from "@/components/admin/PreviewCampaignLinks";
 
 // 관리자 전용 "실제 사이트 미리보기" — 공개 사이트와 같은 헤더·푸터·하단 탭바(모바일) 안에서
 // 저장된 캠페인 매거진을 보여준다. 비어 있는 자리는 회색 안내 블록(자리 이름·권장 비율·크기)으로 채운다.
@@ -16,19 +18,22 @@ import { fillMagazinePlaceholders } from "@/lib/home-magazine";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "매거진 미리보기", robots: { index: false, follow: false } };
 
-export default async function MagazinePreviewPage({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+export default async function MagazinePreviewPage({ searchParams }: { searchParams: Promise<{ view?: string; campaign?: string }> }) {
   if (process.env.NODE_ENV === "production" && !(await isAdmin())) notFound();
 
-  const { view } = await searchParams;
+  const sp = await searchParams;
+  const { view } = sp;
   const magazine = fillMagazinePlaceholders({ ...(await getHomeMagazine()), enabled: true });
 
   if (view === "home") {
-    const { sections } = await getHomeLayout();
+    // ?campaign=1 : 예약 오픈 이후의 메인 모습(예약 배치 + 예약 히어로)을 미리 확인
+    const { sections, heroFilter, editorialFilter } = resolveHomeLayout(await getHomeLayout(), Date.now(), sp.campaign === "1");
     // 미리보기에서는 매거진 섹션을 항상 보이게 한다(배치에서 숨김이어도 위치는 유지)
     const forced = sections.map((s) => (s.key === "magazine" ? { ...s, visible: true } : s));
     return (
       <main>
-        <HomeSections sections={forced} magazine={magazine} />
+        {sp.campaign === "1" && <PreviewCampaignLinks />}
+        <HomeSections sections={forced} magazine={magazine} heroFilter={heroFilter} editorialFilter={editorialFilter} />
       </main>
     );
   }
