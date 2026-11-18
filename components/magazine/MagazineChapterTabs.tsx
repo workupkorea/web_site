@@ -47,6 +47,17 @@ export default function MagazineChapterTabs({ chapters }: { chapters: ChapterTab
     return () => io.disconnect();
   }, [tabs]);
 
+  // 활성 탭이 가려진 채로 롤링되지 않도록, 탭 줄을 가로로만 움직여 활성 탭을 가운데로 가져온다(페이지 세로 스크롤은 건드리지 않음)
+  useEffect(() => {
+    const list = barRef.current?.querySelector<HTMLElement>('[role="tablist"]');
+    const tab = list?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!list || !tab) return;
+    const l = list.getBoundingClientRect();
+    const t = tab.getBoundingClientRect();
+    const left = list.scrollLeft + (t.left - l.left) - (list.clientWidth - t.width) / 2;
+    list.scrollTo({ left: Math.max(0, left), behavior: reduced ? "auto" : "smooth" });
+  }, [active, tabs, reduced]);
+
   if (chapters.length === 0) return null;
 
   const auto = tabs && !reduced && !ctx?.autoStopped; // 자동 롤링 사용 여부

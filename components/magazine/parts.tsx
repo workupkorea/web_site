@@ -50,7 +50,7 @@ export function Credits({ credits, tone = "dark" }: { credits: MagazineCredit[];
   const plain = tone === "dark" ? "border-[#1d1e20]/15 text-[#55575b]" : "border-white/30 text-white/80";
   return (
     <div className="flex flex-wrap items-center gap-x-1.5 text-xs md:text-[13px]">
-      <span className={`mr-2 text-[10px] tracking-[0.25em] uppercase ${label}`}>Wearing</span>
+      <span className={`mr-2 text-[10px] tracking-[0.25em] uppercase ${label}`}>Keyword</span>
       {credits.map((c, i) =>
         c.href ? (
           <TagLink key={i} href={c.href} className={`group inline-flex items-center min-h-[44px]`}>

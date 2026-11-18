@@ -84,6 +84,9 @@ export type MagazineWearingItem = {
   image: MagazineImage;
   name: string;
   caption?: string; // 예: "CH.01 착용"
+  styleNo?: string; // 품번 — 제품명 아래 표기
+  colors?: string; // 컬러 — 쉼표로 구분 입력 (예: "네이비, 블랙")
+  sizes?: string; // 사이즈 — 쉼표로 구분 입력 (예: "95, 100, 105")
   href?: string; // 제품 상세(사이트 내부)
   chapterId?: string; // 연결된 챕터 — 챕터를 전환하면 이 챕터의 제품이 나온다(비우면 모든 챕터에서 공통 노출)
 };
@@ -230,7 +233,9 @@ export type HomeMagazineConfig = {
   videosEnabled: boolean; // 유튜브 영상 구간 노출
   topBanner: MagazineTopBanner;
   // 커버 아래 목차(In this issue). items 가 없으면 노출 구간을 자동 나열하고, 있으면 관리자가 편집한 목록을 쓴다.
-  contents: { enabled: boolean; heading?: string; subtitle?: string; items?: MagazineContentsItem[] };
+  // 목차는 "섹션 순서"를 그대로 따른다(노출되는 구간이 순서대로 자동 나열). 구간별 목차 문구만 labels 로 덮어쓴다.
+  // items 는 예전 "직접 편집" 저장본 호환용 — 정규화할 때 labels 로 옮기고 비운다.
+  contents: { enabled: boolean; heading?: string; subtitle?: string; labels?: Partial<Record<MagazineSectionKey, { title?: string; note?: string }>>; items?: MagazineContentsItem[] };
   issue: { label: string; season: string }; // 예: "ISSUE 01", "2026 SUMMER CAMPAIGN"
   cover: {
     image: MagazineImage;
@@ -405,15 +410,30 @@ function normalizeSectionBg(v: unknown): HomeMagazineConfig["sectionBg"] {
   return out;
 }
 
+const TOC_SECTION_KEYS = ["videos", "chapters", "wearing", "interview", "behind"] as const;
 function normalizeContents(v: unknown): HomeMagazineConfig["contents"] {
   const o = obj(v);
   const out: HomeMagazineConfig["contents"] = { enabled: bool(o.enabled, true), heading: optStr(o.heading), subtitle: optStr(o.subtitle) };
-  if (Array.isArray(o.items)) {
-    out.items = o.items.map((x, i) => {
-      const it = obj(x);
-      return { id: str(it.id) || `toc-${i + 1}`, title: str(it.title), note: str(it.note), target: str(it.target) || "custom", href: optStr(it.href) };
-    });
+  const labels: NonNullable<HomeMagazineConfig["contents"]["labels"]> = {};
+  const lab = obj(o.labels);
+  for (const k of TOC_SECTION_KEYS) {
+    const l = obj(lab[k]);
+    const title = optStr(l.title);
+    const note = optStr(l.note);
+    if (title || note) labels[k] = { title, note };
   }
+  // 예전 "직접 편집" 목차 → 구간별 문구(labels)로 이전. 구간을 가리키지 않는 항목(챕터 개별·직접 주소)은 버린다.
+  if (Array.isArray(o.items)) {
+    for (const x of o.items) {
+      const it = obj(x);
+      const t = str(it.target) as (typeof TOC_SECTION_KEYS)[number];
+      if (!TOC_SECTION_KEYS.includes(t) || labels[t]) continue;
+      const title = optStr(it.title);
+      const note = optStr(it.note);
+      if (title || note) labels[t] = { title, note };
+    }
+  }
+  if (Object.keys(labels).length) out.labels = labels;
   return out;
 }
 
@@ -460,7 +480,10 @@ function applyDefaultAlts(cfg: HomeMagazineConfig): HomeMagazineConfig {
 // forEditor: 관리자 편집기용 — 입력 중인 빈 항목(사진 없는 챕터·빈 문답 등)을 지우지 않는다.
 export function normalizeHomeMagazine(raw: unknown, opts: { forEditor?: boolean } = {}): HomeMagazineConfig {
   const cfg = normalizeHomeMagazineBase(raw, opts);
-  return opts.forEditor ? cfg : applyDefaultAlts(cfg);
+  if (opts.forEditor) return cfg;
+  const withAlts = applyDefaultAlts(cfg);
+  // 커버 우측 상단 문구를 비워 두면 목차에 맞춰 자동으로 채운다
+  return withAlts.cover.coverLines.length ? withAlts : { ...withAlts, cover: { ...withAlts.cover, coverLines: autoCoverLines(withAlts) } };
 }
 
 function normalizeHomeMagazineBase(raw: unknown, { forEditor = false }: { forEditor?: boolean } = {}): HomeMagazineConfig {
@@ -527,6 +550,9 @@ function normalizeHomeMagazineBase(raw: unknown, { forEditor = false }: { forEdi
             image: normalizeImage(o.image, false, keep),
             name: keep ? str(o.name) : str(o.name).trim(),
             caption: optStr(o.caption),
+            styleNo: optStr(o.styleNo),
+            colors: optStr(o.colors),
+            sizes: optStr(o.sizes),
             href: optStr(o.href),
             chapterId: optStr(o.chapterId),
           };
@@ -604,7 +630,7 @@ export function fillMagazinePlaceholders(cfg: HomeMagazineConfig): HomeMagazineC
       image: fill(cfg.cover.image, "커버 (A컷)", S.coverPc),
       actorName: cfg.cover.actorName.trim() || "배우 이름",
       quote: cfg.cover.quote || "배우 한마디가 여기에 들어갑니다.",
-      coverLines: cfg.cover.coverLines.length ? cfg.cover.coverLines : ["INTERVIEW", "CHAPTER 01–03", "BEHIND THE SCENES"],
+      coverLines: cfg.cover.coverLines.length ? cfg.cover.coverLines : (() => { const a = autoCoverLines(cfg); return a.length ? a : ["INTERVIEW", "CHAPTER 01–03", "BEHIND THE SCENES"]; })(),
     },
     interview: {
       ...cfg.interview,
@@ -662,14 +688,34 @@ export function withSectionEnabled(cfg: HomeMagazineConfig, key: MagazineOrderKe
 // ── 목차 ──
 // 현재 노출 구간을 섹션 순서대로 자동 나열한 목차 항목(편집기에서 "직접 편집"으로 전환할 때의 시작 목록이기도 하다)
 export function buildAutoContentsItems(cfg: HomeMagazineConfig): MagazineContentsItem[] {
+  const L = cfg.contents.labels ?? {};
   const out: MagazineContentsItem[] = [];
   for (const key of cfg.sectionOrder) {
-    if (key === "interview") out.push({ id: "toc-interview", title: "Interview", note: cfg.interview.quote, target: "interview" });
-    else if (key === "chapters") out.push({ id: "toc-chapters", title: "Chapters", note: "", target: "chapters" });
-    else if (key === "behind") out.push({ id: "toc-behind", title: cfg.behind.title, note: "Behind the scenes", target: "behind" });
-    else if (key === "wearing") out.push({ id: "toc-wearing", title: cfg.wearing.title, note: "Wearing", target: "wearing" });
+    const l = L[key as MagazineSectionKey] ?? {};
+    if (key === "videos") out.push({ id: "toc-videos", title: l.title ?? (cfg.videos[0]?.title || "Film"), note: l.note ?? "Film", target: "videos" });
+    else if (key === "interview") out.push({ id: "toc-interview", title: l.title ?? "Interview", note: l.note ?? cfg.interview.quote, target: "interview" });
+    else if (key === "chapters") out.push({ id: "toc-chapters", title: l.title ?? "Chapters", note: l.note ?? "", target: "chapters" });
+    else if (key === "behind") out.push({ id: "toc-behind", title: l.title ?? cfg.behind.title, note: l.note ?? "Behind the scenes", target: "behind" });
+    else if (key === "wearing") out.push({ id: "toc-wearing", title: l.title ?? cfg.wearing.title, note: l.note ?? "Wearing", target: "wearing" });
   }
   return out.filter((it) => isContentsItemAvailable(cfg, it));
+}
+
+// 커버 우측 상단 목차 문구 — 목차(섹션 순서)를 그대로 따라 영문 대문자로 자동 생성. 예: "ON SET SKETCHES / CHAPTER 01–08 / WEARING / BEHIND THE SCENES"
+// 목차 보조 문구가 영문이면 그것을, 아니면 구간 기본 영문 이름을 쓴다. 관리자가 직접 입력한 문구(coverLines)가 있으면 그쪽이 우선.
+export function autoCoverLines(cfg: HomeMagazineConfig): string[] {
+  const DEFAULT: Record<string, string> = { videos: "FILM", interview: "INTERVIEW", wearing: "WEARING", behind: "BEHIND THE SCENES" };
+  const out: string[] = [];
+  for (const it of buildAutoContentsItems(cfg)) {
+    if (it.target === "chapters") {
+      const n = cfg.chapters.length;
+      out.push(n > 1 ? `CHAPTER 01–${String(n).padStart(2, "0")}` : "CHAPTER 01");
+    } else if (DEFAULT[it.target]) {
+      const note = (it.note || "").trim();
+      out.push(it.target !== "interview" && note && /^[ -~]+$/.test(note) ? note.toUpperCase() : DEFAULT[it.target]);
+    }
+  }
+  return out;
 }
 
 // 항목이 가리키는 구간이 실제로 노출될 때만 목차에 보여준다

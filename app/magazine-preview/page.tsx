@@ -29,10 +29,11 @@ export default async function MagazinePreviewPage({ searchParams }: { searchPara
     // ?campaign=1 : 예약 오픈 이후의 메인 모습(예약 배치 + 예약 히어로)을 미리 확인
     const { sections, heroFilter, editorialFilter } = resolveHomeLayout(await getHomeLayout(), Date.now(), sp.campaign === "1");
     // 미리보기에서는 매거진 섹션을 항상 보이게 한다(배치에서 숨김이어도 위치는 유지)
+    const campaignView = sp.campaign === "1";
     const forced = sections.map((s) => (s.key === "magazine" ? { ...s, visible: true } : s));
     return (
       <main>
-        {sp.campaign === "1" && <PreviewCampaignLinks />}
+        {campaignView && <PreviewCampaignLinks />}
         <HomeSections sections={forced} magazine={magazine} heroFilter={heroFilter} editorialFilter={editorialFilter} />
       </main>
     );
@@ -46,7 +47,7 @@ export default async function MagazinePreviewPage({ searchParams }: { searchPara
           <StoreSearchBar />
         </>
       )}
-      <HomeMagazine config={magazine} afterCover={<StoreSearchBar />} />
+      <HomeMagazine config={magazine} />
     </main>
   );
 }

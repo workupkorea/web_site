@@ -343,9 +343,8 @@ function EditModal({
             </label>
             {/* 이미지 사이즈 가이드 */}
             <div className="flex gap-2 mb-2">
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">이미지 리스트·캘린더 1:1</span>
-              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">상세 모달 3:4</span>
-              <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-medium">권장 1200×1600px</span>
+              <span className="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">리스트·캘린더·상세 모달 모두 1:1</span>
+              <span className="text-[10px] bg-blue-50 text-blue-500 px-2 py-0.5 rounded-full font-medium">권장 1000×1000px (다른 크기는 자동으로 맞춤)</span>
             </div>
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
             {images.length > 0 && (

@@ -75,7 +75,7 @@ interface DrawRecord {
   fingerprint: string;
   conditions: string;
   prizes?: { name: string; count: number }[];
-  winners: { label: string; prize?: string; user: string; status: string; followOk?: boolean; note?: string }[];
+  winners: { label: string; prize?: string; user: string; status: string; followOk?: boolean; note?: string; commentId?: string }[];
   /** 추첨 당시 참여자 명단이 서버에 저장돼 있는지 (옛 기록은 없음) */
   hasDetail?: boolean;
   /** 참여 분석 결과(지표·차트·제품 선택). 확정 시 자동 저장되고, 기록에서 갱신할 수 있다 */
@@ -342,6 +342,21 @@ export default function GiveawayTab() {
   };
 
   const rows = useMemo<GwComment[]>(() => (source === "api" ? apiRows : parseComments(pasteText)), [source, apiRows, pasteText]);
+  // 불러온 댓글에서 아이디별 가장 최근 댓글 ID — 기록에 댓글 ID가 없을 때(예전 기록·복원) DM 발송 대상 찾기용
+  const commentIdByUser = useMemo(() => {
+    const m: Record<string, string> = {};
+    const ts: Record<string, number> = {};
+    for (const c of rows) {
+      if (!c.id) continue;
+      const k = c.user.toLowerCase();
+      const t = c.ts ? Date.parse(c.ts) : 0;
+      if (!(k in m) || t >= ts[k]) {
+        m[k] = c.id;
+        ts[k] = t;
+      }
+    }
+    return m;
+  }, [rows]);
 
   const opts = useMemo<GwOptions>(
     () => ({
@@ -788,6 +803,7 @@ export default function GiveawayTab() {
       status: i.status === "void" ? "취소" : "확정",
       followOk: i.followOk,
       note: i.note,
+      commentId: i.comment.id, // DM 자동 발송(댓글 비공개 답장)용
     }));
     if (prev) return { ...prev, winners };
     const snap = drawSnap.current;
@@ -1547,10 +1563,17 @@ export default function GiveawayTab() {
 
         {results.length > 0 && (
           <>
-            <p className="mt-4 text-[14px] text-gray-600">
-              팔로우 확인 <b>{results.filter((r) => r.status === "ok" && r.role === "winner" && r.followOk).length}</b> /{" "}
-              {results.filter((r) => r.status === "ok" && r.role === "winner").length}명 · 인스타 프로필에서 팔로우를 확인한 뒤 체크하세요.
-            </p>
+            <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
+              <p className="text-[14px] text-gray-600">
+                팔로우 확인 <b>{results.filter((r) => r.status === "ok" && r.role === "winner" && r.followOk).length}</b> /{" "}
+                {results.filter((r) => r.status === "ok" && r.role === "winner").length}명 · 인스타 프로필에서 팔로우를 확인한 뒤 체크하세요.
+              </p>
+              {!record && !drawing && (
+                <button className="px-3 py-1.5 rounded-lg border border-red-200 text-[13px] font-semibold text-red-600 hover:bg-red-50 whitespace-nowrap" onClick={discardDraw} title="당첨자·예비 명단을 한 번에 모두 비웁니다. 불러온 댓글과 조건은 그대로 남습니다.">
+                  🗑 추첨 리스트 전체 비우기
+                </button>
+              )}
+            </div>
             <datalist id="gw-users">
               {[...new Set(an.valid.map((c) => c.user))].slice(0, 1000).map((u) => (
                 <option key={u} value={u} />
@@ -1674,7 +1697,7 @@ export default function GiveawayTab() {
                 🎬 당첨 발표 영상 만들기
               </button>
             </div>
-            {record && <GiveawayClaimPanel key={record.id} record={record} />}
+            {record && <GiveawayClaimPanel key={record.id} record={record} commentIdByUser={commentIdByUser} />}
           </div>
         )}
       </section>
@@ -1859,7 +1882,7 @@ export default function GiveawayTab() {
                             )}
                           </div>
                         </details>
-                        <GiveawayClaimPanel record={h} />
+                        <GiveawayClaimPanel record={h} commentIdByUser={commentIdByUser} />
                         <div className="flex items-center gap-4">
                           {h.hasDetail && (
                             <button className="text-[13px] font-semibold text-[#303236] hover:underline" onClick={() => openDetail(h)}>

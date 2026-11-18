@@ -7,7 +7,7 @@ import type { ClaimDoc } from "@/lib/giveaway-claims";
 interface RecordLike {
   id: string;
   eventName?: string;
-  winners: { label: string; prize?: string; user: string; status: string; note?: string }[];
+  winners: { label: string; prize?: string; user: string; status: string; note?: string; commentId?: string }[];
 }
 
 const cInput =
@@ -54,7 +54,17 @@ const readDmCopied = (): Record<string, string> => {
   }
 };
 
-export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
+/** DM 자동 발송 시각 (토큰별, 이 브라우저에 저장) */
+const DM_SENT_KEY = "workup_dm_sent_v1";
+const readDmSent = (): Record<string, string> => {
+  try {
+    return JSON.parse(localStorage.getItem(DM_SENT_KEY) || "{}") as Record<string, string>;
+  } catch {
+    return {};
+  }
+};
+
+export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { record: RecordLike; commentIdByUser?: Record<string, string> }) {
   const [doc, setDoc] = useState<ClaimDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -64,6 +74,10 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
   const [openUser, setOpenUser] = useState<string | null>(null);
   const [copied, setCopied] = useState("");
   const [dmCopied, setDmCopied] = useState<Record<string, string>>(() => (typeof window === "undefined" ? {} : readDmCopied()));
+  // DM 자동 발송 결과 — 발송 시각(이 브라우저에 저장, 중복 발송 방지)과 이번 실패 사유
+  const [dmSent, setDmSent] = useState<Record<string, string>>(() => (typeof window === "undefined" ? {} : readDmSent()));
+  const [dmErr, setDmErr] = useState<Record<string, string>>({});
+  const [dmSending, setDmSending] = useState(false);
 
   const winners = winnersOf(record);
   const base = () => (typeof window === "undefined" ? "" : window.location.origin);
@@ -177,6 +191,54 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
   const dmText = (user: string, prize: string, token: string) =>
     `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDt(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}\n\n※ 링크에서 입력만 해 주시면 되고, 이 DM에는 따로 답장하지 않으셔도 됩니다.`;
 
+  /** 댓글 ID: 기록(당첨 당시)에 저장된 값 → 없으면 지금 불러온 댓글에서 찾는다 */
+  const commentIdOf = (user: string) =>
+    record.winners.find((w) => w.user.toLowerCase() === user.toLowerCase() && w.commentId)?.commentId || commentIdByUser[user.toLowerCase()] || "";
+
+  /** DM 자동 발송(댓글 비공개 답장) — targets 각각에 안내문+신청 링크를 보낸다. 성공한 사람은 발송 시각을 기록해 중복 발송을 막는다. */
+  const sendDms = async (targets: { token: string; user: string; prize: string }[]) => {
+    if (!targets.length) return;
+    setDmSending(true);
+    setDmErr({});
+    try {
+      const r = await fetch("/api/admin/giveaway/dm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: targets.map((t) => ({ user: t.user, commentId: commentIdOf(t.user), text: dmText(t.user, t.prize, t.token) })) }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { results?: { user: string; ok: boolean; error?: string }[]; error?: string };
+      if (!r.ok) throw new Error(j.error || "발송 요청에 실패했습니다.");
+      const nextSent = { ...readDmSent() };
+      const errs: Record<string, string> = {};
+      let ok = 0;
+      for (const res of j.results ?? []) {
+        const t = targets.find((x) => x.user === res.user);
+        if (!t) continue;
+        if (res.ok) {
+          nextSent[t.token] = new Date().toISOString();
+          ok++;
+        } else errs[t.token] = res.error || "발송 실패";
+      }
+      try {
+        localStorage.setItem(DM_SENT_KEY, JSON.stringify(nextSent));
+      } catch {}
+      setDmSent(nextSent);
+      setDmErr(errs);
+      setMsg(`DM 발송 완료 ${ok}명${Object.keys(errs).length ? ` · 실패 ${Object.keys(errs).length}명 (아래 사유 확인)` : ""}`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "DM 발송에 실패했습니다.");
+    } finally {
+      setDmSending(false);
+    }
+  };
+  const sendAllDms = () => {
+    if (!doc) return;
+    const targets = doc.entries.filter((e) => !dmSent[e.token]).map((e) => ({ token: e.token, user: e.user, prize: e.prize }));
+    if (!targets.length) return setMsg("모두 이미 발송했습니다.");
+    if (!confirm(`${targets.length}명에게 DM을 자동 발송할까요? (이미 발송한 ${doc.entries.length - targets.length}명은 제외 · 댓글 작성 후 7일 이내만 가능)`)) return;
+    void sendDms(targets);
+  };
+
   const submittedN = doc?.entries.filter((e) => e.submitted).length ?? 0;
   // 확정 이후 당첨자가 바뀌었는지 (링크 갱신 필요)
   const stale =
@@ -284,6 +346,9 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
         {msg && <span className="text-[13px] text-gray-500">{msg}</span>}
         {doc && (
           <div className="ml-auto flex flex-wrap gap-2">
+                <button className={`${smallBtn} !bg-sky-50 !border-sky-300 !text-sky-800`} onClick={sendAllDms} disabled={dmSending} title="당첨자의 댓글에 비공개 답장(DM)으로 안내문과 신청 링크를 자동 발송합니다. 이미 발송한 사람은 제외됩니다.">
+                  {dmSending ? "DM 발송 중…" : `DM 자동 발송 (${doc.entries.filter((e) => !dmSent[e.token]).length}명)`}
+                </button>
                 <button className={smallBtn} onClick={() => copy("all", doc.entries.map((e) => `@${e.user}${e.prize ? ` (${e.prize})` : ""} ${linkOf(e.token)}`).join("\n"))}>
                   {copied === "all" ? "복사됨" : "전체 링크 복사"}
                 </button>
@@ -333,6 +398,11 @@ export default function GiveawayClaimPanel({ record }: { record: RecordLike }) {
                       {e.prize && <span className="text-gray-500">{e.prize}</span>}
                       <span className={e.submitted ? "text-emerald-600 font-semibold" : "text-amber-600"}>{e.submitted ? `✓ 제출 ${fmtDt(e.submitted.at)}` : "미제출"}</span>
                       <span className="ml-auto flex gap-2">
+                        {dmSent[e.token] && <span className="text-[12px] text-sky-700 font-semibold">✓ DM 발송 {fmtDt(dmSent[e.token])}</span>}
+                        {dmErr[e.token] && <span className="text-[12px] text-red-600 max-w-[22rem] truncate" title={dmErr[e.token]}>✗ {dmErr[e.token]}</span>}
+                        <button className="text-sky-700 hover:underline disabled:opacity-50" disabled={dmSending} onClick={() => sendDms([{ token: e.token, user: e.user, prize: e.prize }])} title="이 당첨자에게만 DM을 자동 발송합니다.">
+                          {dmSent[e.token] ? "다시 발송" : "DM 발송"}
+                        </button>
                         {dmCopied[e.token] && <span className="text-[12px] text-gray-400">DM 복사 {fmtDt(dmCopied[e.token])}</span>}
                         <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
                           {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "DM 문구 복사"}

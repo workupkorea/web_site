@@ -106,24 +106,31 @@ export default function MagazineWearing({
       <ul
         ref={scroller}
         key={`${active}-${showAll}`}
-        className="grid grid-cols-2 gap-3 md:flex md:gap-5 md:overflow-x-auto md:snap-x md:snap-mandatory md:pb-3 [scrollbar-width:thin]"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-5"
       >
         {items.map((item) => {
           const body = (
             // 제품 사진 + 제품명을 하나의 실선 박스로 묶고, 글자는 가운데 정렬
-            <div className="border border-[#1d1e20]/30 bg-white">
+            <div className="border border-gray-200 bg-white h-full">
               {/* 제품 상세(기획전) 이미지와 같은 1:1 비율 */}
-              <div className="relative aspect-square bg-[#c6bfb2] overflow-hidden">
-                <MagazineImg image={item.image} className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
+              <div className="relative aspect-square bg-gray-100 overflow-hidden">
+                <MagazineImg image={{ ...item.image, mobileUrl: undefined, mobilePosition: undefined, more: undefined, mobileMore: undefined, random: undefined }} className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
               </div>
-              <div className="px-3 pb-4 pt-1 text-center">
-                <p className="text-[13px] md:text-sm font-bold">{item.name}</p>
-                {item.caption && <p className="mt-0.5 text-xs text-[#55575b]">{item.caption}</p>}
+              <div className="px-3 pt-4 pb-4 md:px-4 text-center">
+                <p className="text-sm md:text-[15px] font-semibold text-[#303236] leading-snug break-keep">{item.name}</p>
+                {/* 품번·컬러·사이즈 — 메인 에디토리얼 제품 정보와 같은 항목 */}
+                {(item.styleNo || item.colors || item.sizes) && (
+                  <dl className="mt-1.5 space-y-0.5 text-[12px] text-gray-500 break-keep">
+                    {item.styleNo && <div><dt className="inline">품번 : </dt><dd className="inline">{item.styleNo}</dd></div>}
+                    {item.colors && <div><dt className="inline">컬러 : </dt><dd className="inline">{item.colors}</dd></div>}
+                    {item.sizes && <div><dt className="inline">사이즈 : </dt><dd className="inline">{item.sizes}</dd></div>}
+                  </dl>
+                )}
               </div>
             </div>
           );
           return (
-            <li key={item.id} className="md:shrink-0 md:snap-start md:w-[calc((100%-80px)/5)] md:max-w-[280px]">
+            <li key={item.id}>
               {item.href ? (
                 <Link href={item.href} className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B]">
                   {body}

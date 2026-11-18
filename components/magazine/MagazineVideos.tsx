@@ -14,27 +14,36 @@ export default function MagazineVideos({ block }: { block: MagazineVideoBlock })
   const headingId = `mag-video-${block.id}`;
   const grid = block.layout === "grid" && videos.length > 1;
   return (
-    <section aria-labelledby={block.title ? headingId : undefined} className="px-5 py-10 md:px-14 md:py-16 bg-[#1d1e20] text-white">
-      {(block.title || block.kicker) && (
-        <div className="mb-5 md:mb-8">
-          {block.kicker && <Kicker>{block.kicker}</Kicker>}
+    <section
+      aria-labelledby={block.title ? headingId : undefined}
+      className={`relative overflow-hidden text-white ${block.title ? "pt-14 md:pt-24" : ""}`}
+      style={{ background: "radial-gradient(ellipse at 8% 0%, rgba(229,84,27,0.20), transparent 55%), linear-gradient(180deg,#1d1e20 0%,#141517 100%)" }}
+    >
+      {block.title && (
+        <div className="mb-8 md:mb-12 px-5 md:px-14">
+          <div className="flex items-center gap-4">
+            <Kicker>{block.kicker || "Film"}</Kicker>
+            <span aria-hidden className="h-px flex-1 bg-white/15" />
+            <span aria-hidden className="text-[10px] md:text-xs tracking-[0.3em] text-white/40">{String(videos.length).padStart(2, "0")} {videos.length > 1 ? "FILMS" : "FILM"}</span>
+          </div>
           {block.title && (
-            <h2 id={headingId} className="mt-2 text-[22px] md:text-4xl font-bold break-keep">
+            <h2 id={headingId} className="mt-4 md:mt-6 text-[26px] md:text-5xl font-black tracking-tight leading-[1.15] break-keep">
               {block.title}
             </h2>
           )}
         </div>
       )}
-      <div className={grid ? `grid gap-5 md:gap-6 items-start grid-cols-1 ${videos.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}` : "space-y-8 md:space-y-10"}>
-        {videos.map(({ it, parsed }) => (
-          <figure key={it.id} className={grid ? "" : parsed.vertical ? "mx-auto max-w-[340px]" : "mx-auto max-w-5xl"}>
-            <YouTubePlayer id={parsed.id} vertical={parsed.vertical} title={it.title || block.title || "캠페인 영상"} />
-            {(it.title || it.caption) && (
-              <figcaption className="mt-3">
-                {it.title && <p className="text-sm md:text-base font-bold">{it.title}</p>}
-                {it.caption && <p className="text-xs md:text-[13px] text-white/65 mt-0.5">{it.caption}</p>}
-              </figcaption>
-            )}
+      <div className={grid ? `grid gap-1 md:gap-1.5 items-start grid-cols-1 ${videos.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}` : "space-y-1 md:space-y-1.5"}>
+        {videos.map(({ it, parsed }, n) => (
+          <figure key={it.id} className={grid ? "" : parsed.vertical ? "mx-auto max-w-[340px] px-5 py-6" : ""}>
+            <YouTubePlayer
+              id={parsed.id}
+              vertical={parsed.vertical}
+              title={it.title || block.title || "캠페인 영상"}
+              heading={it.title}
+              caption={it.caption}
+              index={videos.length > 1 ? n + 1 : undefined}
+            />
           </figure>
         ))}
       </div>

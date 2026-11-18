@@ -89,7 +89,6 @@ function CreditBox({ chapter, tone = "dark" }: { chapter: Chapter; tone?: "dark"
   if (chapter.credits.length === 0 && !productHref) return null;
   return (
     <div className={`border-t pt-3 ${tone === "light" ? "border-white/40 text-white" : "border-[#1d1e20]"}`}>
-      <p className={`mb-1 text-[10px] tracking-[0.28em] uppercase ${tone === "light" ? "text-white/70" : "text-[#1d1e20]/45"}`}>Credits</p>
       <Credits credits={chapter.credits} tone={tone} />
       {productHref && <TextLink href={productHref}>제품 자세히 보기 →</TextLink>}
     </div>
@@ -115,14 +114,14 @@ function Split({ chapter, no, headingId, lead, rest, tight }: Props) {
         <figure className="md:col-span-8 flex flex-col">
           <div className="relative -mx-5 md:mx-0 h-[460px] md:h-auto md:flex-1 md:min-h-[760px] bg-[#a7a397] overflow-hidden">
             <MagazineImg image={chapter.main} className="absolute inset-0 w-full h-full" />
-            <ChapterNo n={no} className="md:hidden absolute left-4 bottom-1 text-[96px] font-black text-[#ff8a5c]" />
+            <ChapterNo n={no} className="md:hidden absolute left-4 bottom-1 text-[96px] font-black text-white/60" />
           </div>
           <Caption n={1} />
         </figure>
 
         <div className={`md:col-span-4 mt-8 md:mt-0 flex flex-col ${sparse ? "md:justify-center" : ""}`}>
           {/* 번호가 도판 모서리를 살짝 넘어 겹친다 */}
-          <ChapterNo n={no} className="hidden md:block relative z-10 md:-ml-14 text-[190px] font-black text-[#E5541B]" />
+          <ChapterNo n={no} className="hidden md:block relative z-10 md:-ml-14 text-[190px] font-black text-[#a9a59b]/45" />
           <h2 id={headingId} className="scroll-mt-24 md:mt-8 text-[28px] md:text-[42px] font-black tracking-tight leading-[1.2] break-keep">
             {chapter.title}
           </h2>
@@ -196,7 +195,7 @@ function Fullbleed({ chapter, no, headingId, lead, rest, tight }: Props) {
 
       <div className="absolute inset-x-5 bottom-6 md:inset-x-14 md:bottom-10 md:grid md:grid-cols-12 md:gap-x-8 items-end">
         <div className="md:col-span-5">
-          <ChapterNo n={no} className="text-[84px] md:text-[150px] font-black text-[#ff8a5c]" />
+          <ChapterNo n={no} className="text-[84px] md:text-[150px] font-black text-white/55" />
           <h2 id={headingId} className="scroll-mt-24 mt-3 md:mt-5 text-[26px] md:text-[40px] font-black tracking-tight leading-[1.2] break-keep">
             {chapter.title}
           </h2>
@@ -231,7 +230,7 @@ function Mosaic({ chapter, no, headingId, lead, rest, tight }: Props) {
 
       <div className={`${tight ? "" : "mt-5 md:mt-10"} md:grid md:grid-cols-12 md:gap-x-8 items-end`}>
         <div className="md:col-span-7 flex items-end gap-4 md:gap-6">
-          <ChapterNo n={no} className="text-[72px] md:text-[150px] font-black text-[#E5541B]" />
+          <ChapterNo n={no} className="text-[72px] md:text-[150px] font-black text-[#a9a59b]/45" />
           <h2 id={headingId} className="scroll-mt-24 pb-1 md:pb-3 text-[24px] md:text-[44px] font-black tracking-tight leading-[1.2] break-keep">
             {chapter.title}
           </h2>

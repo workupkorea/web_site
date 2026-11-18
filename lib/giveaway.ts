@@ -1,6 +1,8 @@
 // 인스타그램 댓글 추첨기 — 순수 계산 로직 (UI/네트워크와 분리)
 
 export interface GwComment {
+  /** 인스타 댓글 ID — 당첨자에게 DM(댓글 비공개 답장)을 보낼 때 필요. 직접 붙여넣기 입력이면 없음 */
+  id?: string;
   user: string;
   text: string;
   /** ISO 문자열. 직접 붙여넣기 입력이면 없음 */
@@ -348,10 +350,10 @@ export async function fetchInstagramComments(a: FetchArgs): Promise<GwComment[]>
   // 2) 댓글(+대댓글, 시간, 좋아요) 읽기. 필드 오류 시 기본 필드로 한 번 재시도
   const fieldSets = [
     a.includeReplies
-      ? "username,text,timestamp,like_count,replies{username,text,timestamp,like_count}"
-      : "username,text,timestamp,like_count",
-    "username,text,timestamp",
-    "username,text",
+      ? "id,username,text,timestamp,like_count,replies{id,username,text,timestamp,like_count}"
+      : "id,username,text,timestamp,like_count",
+    "id,username,text,timestamp",
+    "id,username,text",
   ];
   let lastErr: unknown = null;
   for (const fields of fieldSets) {
@@ -365,6 +367,7 @@ export async function fetchInstagramComments(a: FetchArgs): Promise<GwComment[]>
           const push = (x: Record<string, unknown>, isReply: boolean) => {
             if (!x.username) return;
             out.push({
+              id: x.id ? String(x.id) : undefined,
               user: String(x.username),
               text: String(x.text || "").replace(/\s+/g, " "),
               ts: x.timestamp ? String(x.timestamp) : undefined,
@@ -385,6 +388,28 @@ export async function fetchInstagramComments(a: FetchArgs): Promise<GwComment[]>
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error("댓글을 불러오지 못했습니다.");
+}
+
+/**
+ * 당첨자에게 DM 보내기 — 인스타 "댓글 비공개 답장(Private Reply)".
+ * 댓글을 단 지 7일 이내, 댓글 1개당 1통만 가능. 토큰에 메시지 권한(instagram_manage_messages)이 있어야 한다.
+ */
+export async function sendPrivateReply(args: { token: string; igId?: string; commentId: string; text: string }): Promise<void> {
+  const { o, igId } = await resolveAccount(args.token, args.igId, () => {});
+  const r = await fetch(`${o.base}/${igId || "me"}/messages?access_token=${encodeURIComponent(o.token)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient: { comment_id: args.commentId }, message: { text: args.text } }),
+  });
+  const j = (await r.json().catch(() => ({}))) as { error?: { message?: string; code?: number; error_subcode?: number } };
+  if (!r.ok || j.error) {
+    const e = j.error;
+    const hint =
+      e?.code === 10 || e?.code === 200 ? " (메시지 권한이 없는 토큰입니다 — instagram_manage_messages 권한 필요)"
+      : e?.error_subcode === 2534014 || /7 days|expired/i.test(e?.message || "") ? " (댓글 작성 후 7일이 지나 보낼 수 없습니다)"
+      : "";
+    throw new Error((e?.message || `요청 실패 (${r.status})`) + hint);
+  }
 }
 
 // ── 브라우저 연출/시각 유틸 (컴포넌트 렌더 규칙 밖에 두기 위해 lib로 분리) ─────────

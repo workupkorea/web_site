@@ -156,7 +156,7 @@ function ProductImage({ product, size = "md" }: { product: ArrivalProduct; size?
   const imgs = parseImages(product);
   const src = imgs[0] ?? `/images/arrival/${product.productCode}.jpg`;
   const [failed, setFailed] = useState(imgs.length === 0);
-  const aspectCls = "aspect-[3/4]";
+  const aspectCls = "aspect-square";
   if (failed) {
     return (
       <div className={`w-full ${aspectCls} bg-white flex flex-col items-center justify-center gap-1`}>
@@ -175,7 +175,7 @@ function ProductImage({ product, size = "md" }: { product: ArrivalProduct; size?
 }
 
 // ─── 이미지 갤러리 (모달용) ───────────────────────────────────────────────────
-function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: ArrivalProduct; aspectCls?: string }) {
+function ImageGallery({ product, aspectCls = "aspect-square" }: { product: ArrivalProduct; aspectCls?: string }) {
   const customImages = parseImages(product);
   const fallback = `/images/arrival/${product.productCode}.jpg`;
   const images = customImages.length > 0 ? customImages : [fallback];
@@ -247,18 +247,16 @@ function ImageGallery({ product, aspectCls = "aspect-[3/4]" }: { product: Arriva
         )}
       </div>
 
-      {/* 썸네일 스트립 */}
+      {/* 썸네일 — 큰 정사각 타일로 아래 공간을 채운다(여러 장이면 줄바꿈) */}
       {images.length > 1 && (
-        <div className="px-11">
-          <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:thin] [scrollbar-color:#d1d5db_transparent] [&::-webkit-scrollbar]:h-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full pb-1.5 pt-0.5 pl-0.5">
+        <div className="px-11 pt-1">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(104px,1fr))] gap-2.5">
             {images.map((src, i) => (
               <button key={i} onClick={() => setIndex(i)}
-                className={`shrink-0 w-14 h-14 rounded transition-all ${i === index ? "ring-2 ring-[#1a1a1a]" : "opacity-45 hover:opacity-75"}`}>
-                <div className="w-full h-full overflow-hidden rounded">
-                  {!failedSet.has(i) && (
-                    <img src={src} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" onError={() => markFailed(i)} />
-                  )}
-                </div>
+                className={`aspect-square rounded-md border bg-white overflow-hidden transition-all ${i === index ? "border-[#1a1a1a] ring-2 ring-[#1a1a1a]" : "border-gray-200 opacity-55 hover:opacity-90"}`}>
+                {!failedSet.has(i) && (
+                  <img src={src} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" onError={() => markFailed(i)} />
+                )}
               </button>
             ))}
           </div>
@@ -451,7 +449,7 @@ function ProductModal({ product, onClose, openOrderLink, isAdmin }: { product: A
             {/* 이미지 영역 */}
             <div className="w-full sm:w-[520px] shrink-0">
               <div className="relative px-3 pt-1 pb-1 sm:px-4 sm:pt-4 sm:pb-4">
-                <ImageGallery product={product} aspectCls="aspect-square sm:aspect-[3/4]" />
+                <ImageGallery product={product} aspectCls="aspect-square" />
                 {isAdmin && product.marketingUsage && (
                   <span className="sm:hidden absolute top-4 left-6 inline-flex items-center gap-1 px-2 py-0.5 bg-orange-500 text-white text-[12px] font-bold rounded-full shadow">
                     마케팅
@@ -769,11 +767,11 @@ function ProductCard({ product, onSelect, showDate, showMarketing, showRates, ra
               <span className="text-gray-500">원가 <b className="font-semibold text-gray-700">{num(product.costPrice)}</b></span>
               <span className="text-gray-500">판매가 <b className="text-[12px] font-bold text-[#1a1a1a]">{num(product.price)}</b></span>
             </div>
-            <div className="mt-1 flex items-center justify-between border-t border-gray-200 pt-1">
-              {/* 판매량순·주문량순 정렬 중에는 비율(%) 대신 주문·판매 수량을 표기 */}
-              <span className="text-gray-500">주문 <b className="font-bold text-blue-600">{qtyMode ? num(product.orderQuantity) : o != null ? `${o}%` : dash}</b></span>
-              <span className="text-gray-500">판매 <b className="font-bold text-green-600">{qtyMode ? num(product.salesQuantity) : sr != null ? `${sr}%` : dash}</b></span>
-              <span className="text-gray-500">재고 <b className="font-bold text-[#1a1a1a]">{stock != null ? stock.toLocaleString("ko-KR") : dash}</b></span>
+            <div className="mt-1 grid grid-cols-3 border-t border-gray-200 pt-1 text-center">
+              {/* 판매량순·주문량순 정렬 중에는 비율(%) 대신 주문·판매 수량을 표기 — 라벨 위, 값 아래 2줄·중앙 정렬 */}
+              <span className="flex flex-col items-center gap-0.5 text-gray-500">주문 <b className="font-bold text-blue-600">{qtyMode ? num(product.orderQuantity) : o != null ? `${o}%` : dash}</b></span>
+              <span className="flex flex-col items-center gap-0.5 text-gray-500">판매 <b className="font-bold text-green-600">{qtyMode ? num(product.salesQuantity) : sr != null ? `${sr}%` : dash}</b></span>
+              <span className="flex flex-col items-center gap-0.5 text-gray-500">재고 <b className="font-bold text-[#1a1a1a]">{stock != null ? stock.toLocaleString("ko-KR") : dash}</b></span>
             </div>
           </div>
         );
@@ -1898,7 +1896,7 @@ function TimelineView({ products, onSelect, showMarketing, showRates }: {
                                   onClick={() => onSelect(p)}
                                   className="shrink-0 w-[130px] sm:w-[200px] text-left hover:opacity-75 transition-opacity"
                                 >
-                                  <div className={`w-[130px] sm:w-[145px] aspect-[3/4] border ${showMarketing && p.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
+                                  <div className={`w-[130px] sm:w-[145px] aspect-square border ${showMarketing && p.marketingUsage ? "border-blue-500 border-2" : "border-[#979797]"}`}>
                                     <div className="relative w-full h-full overflow-hidden bg-white">
                                       <MiniThumb product={p} fit="contain" />
                                       <span className={`absolute top-1 left-1 text-[11px] font-bold px-1 py-0.5 rounded leading-none ${meta.cls}`}>

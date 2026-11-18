@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import HomeMagazine from "@/components/HomeMagazine";
-import StoreSearchBar from "@/components/StoreSearchBar";
 import { getHomeMagazine } from "@/lib/home-magazine-server";
 import { isMagazinePublishable } from "@/lib/home-magazine";
 
@@ -19,7 +18,7 @@ export default async function MagazineInternalPage() {
 
   return (
     <main>
-      <HomeMagazine config={magazine} afterCover={<StoreSearchBar />} />
+      <HomeMagazine config={magazine} />
     </main>
   );
 }

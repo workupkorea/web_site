@@ -7,7 +7,7 @@ export const dynamic    = "force-dynamic";
 export const maxDuration = 60;
 
 const BUCKET       = "arrival-images";
-const MAX_EDGE     = 1200; // 긴 변 최대 px
+const SQUARE       = 1000; // 정사각(1:1) 한 변 px — 입고 스케쥴·매거진 제품 카드가 모두 1:1이라 처음부터 맞춰 저장
 const WEBP_QUALITY = 80;
 
 /**
@@ -56,11 +56,12 @@ export async function POST(req: NextRequest) {
       let buffer: Buffer = Buffer.from(await file.arrayBuffer());
       let contentType = file.type || "image/jpeg";
 
-      // 로딩 속도를 위해 긴 변 MAX_EDGE 이하 WebP로 변환 (실패 시 원본 그대로 저장)
+      // 1000×1000 정사각 WebP로 변환 — 제품을 비율 그대로 가운데에 놓고 남는 곳은 흰색으로 채운다 (실패 시 원본 그대로 저장)
       try {
         buffer = await sharp(buffer)
           .rotate() // EXIF 회전 반영
-          .resize(MAX_EDGE, MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+          .flatten({ background: "#ffffff" }) // 투명 배경은 흰색으로
+          .resize(SQUARE, SQUARE, { fit: "contain", background: "#ffffff" })
           .webp({ quality: WEBP_QUALITY })
           .toBuffer();
         filename    = filename.replace(/\.[^.]*$/, "") + ".webp";

@@ -90,14 +90,27 @@ export default function MagazineBehind({ title, images: source, shuffle = false 
         })}
       </ul>
 
-      {!expanded && (hiddenOnMobile > 0 || hiddenOnPc > 0) && (
+      {(hiddenOnMobile > 0 || hiddenOnPc > 0) && (
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => {
+            if (expanded) {
+              // 접을 때는 섹션 맨 위로 되돌려, 긴 목록 한가운데에 남지 않게 한다
+              setExpanded(false);
+              document.getElementById("mag-behind")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            } else setExpanded(true);
+          }}
+          aria-expanded={expanded}
           className={`mt-3 min-h-[44px] text-[13px] text-white/70 hover:text-white ${hiddenOnPc > 0 ? "" : "md:hidden"}`}
         >
-          <span className="md:hidden">+{Math.max(hiddenOnMobile, 0)}장 더 보기 →</span>
-          <span className="hidden md:inline">+{Math.max(hiddenOnPc, 0)}장 더 보기 →</span>
+          {expanded ? (
+            <span>접기 ↑</span>
+          ) : (
+            <>
+              <span className="md:hidden">+{Math.max(hiddenOnMobile, 0)}장 더 보기 →</span>
+              <span className="hidden md:inline">+{Math.max(hiddenOnPc, 0)}장 더 보기 →</span>
+            </>
+          )}
         </button>
       )}
 

@@ -59,12 +59,12 @@ export default function ContentsChapterRow({ number, items, interval = 7000 }: {
         onMouseLeave={() => setPaused(false)}
         onFocus={() => setPaused(true)}
         onBlur={() => setPaused(false)}
-        className="group flex items-baseline gap-4 md:gap-8 py-4 md:py-6 min-h-[44px] hover:bg-[#f6f4ef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B] transition-colors"
+        className="group flex items-baseline gap-4 md:gap-8 py-3 md:py-4 min-h-[44px] hover:bg-[#f6f4ef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B] transition-colors"
       >
         <span className="shrink-0 w-8 md:w-14 text-[13px] md:text-[18px] font-black text-[#E5541B]">{number}</span>
         <span className="min-w-0 flex-1">
           {/* 제목 롤링 */}
-          <span className="block overflow-hidden text-[18px] md:text-[28px] font-bold tracking-tight" style={{ height: `${LINE}em`, lineHeight: LINE }}>
+          <span className="block overflow-hidden text-[17px] md:text-[24px] font-bold tracking-tight" style={{ height: `${LINE}em`, lineHeight: LINE }}>
             <span className="block will-change-transform" style={track(LINE)}>
               {rolled.map((it, i) => (
                 <span key={i} className="block truncate" style={{ height: `${LINE}em` }} aria-hidden={i === len ? true : undefined}>
