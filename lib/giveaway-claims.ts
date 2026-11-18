@@ -12,8 +12,14 @@ export interface ClaimSubmission {
   addr1: string;
   addr2: string;
   size: string;
-  /** 제출 시각 (ISO) */
+  /** 제출 시각 (ISO) — 수정하면 마지막 수정 시각으로 갱신된다 */
   at: string;
+  /** 마감 전 직접 수정한 횟수 */
+  editCount?: number;
+  /** 송장 처리 시각 (ISO) — 이 값이 있으면 당첨자가 링크에서 수정할 수 없다 */
+  lockedAt?: string;
+  /** 수정 이전 내용 (최근 5건) — 수정 이력 확인용 */
+  history?: { name: string; phone: string; addr1: string; addr2: string; size: string; at: string }[];
 }
 
 export interface ClaimEntry {
@@ -47,5 +53,14 @@ export const claimSection = (eventId: string) => `giveaway_claims_${eventId}`;
 /** 당첨자 1명의 제출 내용 저장 행 (동시 제출 시 서로 덮어쓰지 않도록 이벤트 문서와 분리) */
 export const subSection = (token: string) => `giveaway_claimsub_${token}`;
 export const validEventId = (id: string) => /^[a-z0-9]{6,40}$/.test(id);
-export const eventIdOfToken = (token: string) => token.split("-")[0] ?? "";
-export const validToken = (token: string) => /^[a-z0-9]{6,40}-[a-f0-9]{32}$/.test(token);
+// 링크 토큰 형식
+//  · 예전(긴 링크): <이벤트ID>-<무작위 32자 hex>
+//  · 짧은 링크   : k<이벤트ID(숫자)를 36진수로>-<무작위 10자>  예) k2n4c9x1a-h7k2m9q3pz  (이미 발급한 긴 링크도 계속 동작)
+export const eventIdOfToken = (token: string) => {
+  const head = token.split("-")[0] ?? "";
+  if (/^k[a-z0-9]{3,12}$/.test(head)) return String(parseInt(head.slice(1), 36));
+  return head;
+};
+export const validToken = (token: string) => /^(?:[a-z0-9]{6,40}-[a-f0-9]{32}|k[a-z0-9]{3,12}-[a-z0-9]{8,16})$/.test(token);
+/** 이벤트 ID가 숫자(타임스탬프)일 때만 짧은 토큰을 만들 수 있다. 아니면 null. */
+export const shortTokenHead = (eventId: string) => (/^[1-9][0-9]{9,15}$/.test(eventId) ? `k${Number(eventId).toString(36)}` : null);

@@ -63,6 +63,21 @@ export async function saveSubmission(token: string, sub: ClaimSubmission): Promi
   if (error) throw new Error(error.message);
 }
 
+/** 송장 처리(잠금)·해제 — 제출 내용이 있는 당첨자만. 잠기면 당첨자는 링크에서 수정할 수 없다. */
+export async function setSubmissionsLocked(tokens: string[], locked: boolean): Promise<number> {
+  let n = 0;
+  for (const token of tokens) {
+    const sub = await getSubmission(token);
+    if (!sub) continue;
+    const next: ClaimSubmission = { ...sub };
+    if (locked) next.lockedAt = sub.lockedAt ?? new Date().toISOString();
+    else delete next.lockedAt;
+    await saveSubmission(token, next);
+    n++;
+  }
+  return n;
+}
+
 /** 링크에서 빠진 당첨자의 제출 내용 삭제 */
 export async function deleteSubmissions(tokens: string[]): Promise<void> {
   await deleteSections(tokens.map(subSection));

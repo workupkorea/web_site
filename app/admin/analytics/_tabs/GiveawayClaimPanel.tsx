@@ -103,7 +103,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
     void load();
   }, [load]);
 
-  const save = async () => {
+  const save = async (reissueShort = false) => {
     if (!winners.length) return setMsg("당첨자가 없습니다.");
     setBusy(true);
     setMsg("");
@@ -116,12 +116,13 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
           deadline: new Date(deadline).toISOString(),
           sizes: sizesText.split(/[,\n]/).map((s) => s.trim()).filter(Boolean),
           winners: winners.map((w) => ({ user: w.user, prize: w.prize || "", label: w.label })),
+          reissueShort,
         }),
       });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || "저장하지 못했습니다.");
       setDoc(j.doc as ClaimDoc);
-      setMsg("링크를 저장했습니다.");
+      setMsg(reissueShort ? "짧은 링크로 다시 만들었습니다. DM 문구를 새로 복사·발송해 주세요." : "링크를 저장했습니다.");
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "저장하지 못했습니다.");
     } finally {
@@ -189,7 +190,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
     setTimeout(() => setCopied(""), 1500);
   };
   const dmText = (user: string, prize: string, token: string) =>
-    `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDt(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}\n\n※ 링크에서 입력만 해 주시면 되고, 이 DM에는 따로 답장하지 않으셔도 됩니다.`;
+    `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDt(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}\n\n※ 링크에서 입력만 해 주시면 되고, 이 DM에는 따로 답장하지 않으셔도 됩니다.\n※ 제출 후에도 ${doc ? fmtDt(doc.deadline) : "마감"}까지는 같은 링크에서 수정할 수 있어요. 단, 배송 준비(송장 처리)가 시작되면 수정이 어려우니 미리 꼭 확인해 주세요.`;
 
   /** 댓글 ID: 기록(당첨 당시)에 저장된 값 → 없으면 지금 불러온 댓글에서 찾는다 */
   const commentIdOf = (user: string) =>
@@ -237,6 +238,23 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
     if (!targets.length) return setMsg("모두 이미 발송했습니다.");
     if (!confirm(`${targets.length}명에게 DM을 자동 발송할까요? (이미 발송한 ${doc.entries.length - targets.length}명은 제외 · 댓글 작성 후 7일 이내만 가능)`)) return;
     void sendDms(targets);
+  };
+
+  /** 송장 처리(잠금)·해제 */
+  const lockEntries = async (tokens: string[], unlock = false) => {
+    try {
+      const r = await fetch(`/api/admin/giveaway/claims/${record.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokens, action: unlock ? "unlock" : "lock" }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "처리하지 못했습니다.");
+      setDoc(j.doc as ClaimDoc);
+      setMsg(unlock ? "잠금을 풀었습니다 — 당첨자가 마감 전까지 다시 수정할 수 있습니다." : `송장 처리: ${tokens.length}명의 제출 내용을 잠갔습니다 (당첨자 수정 불가).`);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "처리하지 못했습니다.");
+    }
   };
 
   const submittedN = doc?.entries.filter((e) => e.submitted).length ?? 0;
@@ -318,6 +336,8 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
       setMsg("");
+      // 송장에 담은 당첨자는 잠근다 — 이후 당첨자가 링크에서 수정할 수 없다(필요하면 목록에서 잠금 해제)
+      await lockEntries(rows.map((e) => e.token));
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "송장양식을 만들지 못했습니다.");
     }
@@ -346,6 +366,16 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
         {msg && <span className="text-[13px] text-gray-500">{msg}</span>}
         {doc && (
           <div className="ml-auto flex flex-wrap gap-2">
+                {doc.entries.some((e) => !e.token.startsWith("k") && !e.submitted) && (
+                  <button
+                    className={`${smallBtn} !border-amber-300 !text-amber-800`}
+                    disabled={busy}
+                    onClick={() => confirm("아직 제출하지 않은 당첨자의 링크를 짧은 형식으로 다시 만들까요?\n기존(긴) 링크는 더 이상 쓸 수 없게 됩니다. 이미 DM으로 보낸 링크는 새 링크로 다시 안내해야 해요. (이미 제출한 사람의 링크는 그대로 유지됩니다)") && save(true)}
+                    title="링크 길이를 약 90자에서 50자 안팎으로 줄입니다."
+                  >
+                    짧은 링크로 재발급
+                  </button>
+                )}
                 <button className={`${smallBtn} !bg-sky-50 !border-sky-300 !text-sky-800`} onClick={sendAllDms} disabled={dmSending} title="당첨자의 댓글에 비공개 답장(DM)으로 안내문과 신청 링크를 자동 발송합니다. 이미 발송한 사람은 제외됩니다.">
                   {dmSending ? "DM 발송 중…" : `DM 자동 발송 (${doc.entries.filter((e) => !dmSent[e.token]).length}명)`}
                 </button>
@@ -373,7 +403,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
               <span className="whitespace-nowrap">사이즈 선택지</span>
               <input className={`${cInput} flex-1 min-w-0`} value={sizesText} onChange={(e) => setSizesText(e.target.value)} placeholder="S, M, L, XL (쉼표 구분, 비우면 사이즈 입력 없음)" />
             </label>
-            <button className={`${smallBtn} !bg-[#303236] !text-white !border-[#303236]`} onClick={save} disabled={busy || !winners.length} title={doc ? "바뀐 마감·사이즈·당첨자를 기존 신청 링크에 반영합니다. 링크 주소는 그대로입니다." : "당첨자별 신청 링크를 만듭니다."}>
+            <button className={`${smallBtn} !bg-[#303236] !text-white !border-[#303236]`} onClick={() => save()} disabled={busy || !winners.length} title={doc ? "바뀐 마감·사이즈·당첨자를 기존 신청 링크에 반영합니다. 링크 주소는 그대로입니다." : "당첨자별 신청 링크를 만듭니다."}>
               {doc ? "마감·사이즈 저장" : "신청 링크 만들기"}
             </button>
           </div>
@@ -396,7 +426,9 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-semibold text-gray-800">@{e.user}</span>
                       {e.prize && <span className="text-gray-500">{e.prize}</span>}
-                      <span className={e.submitted ? "text-emerald-600 font-semibold" : "text-amber-600"}>{e.submitted ? `✓ 제출 ${fmtDt(e.submitted.at)}` : "미제출"}</span>
+                      <span className={e.submitted ? "text-emerald-600 font-semibold" : "text-amber-600"}>{e.submitted ? `✓ ${e.submitted.editCount ? "수정" : "제출"} ${fmtDt(e.submitted.at)}` : "미제출"}</span>
+                      {!!e.submitted?.editCount && <span className="text-[12px] text-violet-600 font-semibold" title="당첨자가 링크에서 직접 수정했습니다. 상세 보기에서 이전 내용을 확인할 수 있습니다.">수정 {e.submitted.editCount}회</span>}
+                      {e.submitted?.lockedAt && <span className="text-[12px] text-gray-500 font-semibold" title={`송장 처리 ${fmtDt(e.submitted.lockedAt)} — 당첨자는 수정할 수 없습니다`}>🔒 송장 처리</span>}
                       <span className="ml-auto flex flex-wrap justify-end gap-x-2 gap-y-0.5">
                         {dmSent[e.token] && <span className="text-[12px] text-sky-700 font-semibold">✓ DM 발송 {fmtDt(dmSent[e.token])}</span>}
                         {dmErr[e.token] && <span className="text-[12px] text-red-600 max-w-[22rem] truncate" title={dmErr[e.token]}>✗ {dmErr[e.token]}</span>}
@@ -407,6 +439,9 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
                         <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
                           {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "문구 복사"}
                         </button>
+                        {e.submitted?.lockedAt && (
+                          <button className="text-gray-600 hover:underline" onClick={() => lockEntries([e.token], true)} title="잠금을 풀어 당첨자가 마감 전까지 다시 수정할 수 있게 합니다.">잠금 해제</button>
+                        )}
                         {e.submitted && (
                           <button className="text-red-600 hover:underline disabled:opacity-50" disabled={busy} onClick={() => resetEntry(e)} title="제출 내용을 지우고 같은 링크로 다시 입력받습니다.">
                             초기화
@@ -425,6 +460,18 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
                         <dt className="text-gray-400">연락처</dt><dd>{e.submitted.phone}</dd>
                         <dt className="text-gray-400">주소</dt><dd>{[e.submitted.addr1, e.submitted.addr2].filter(Boolean).join(" ")}</dd>
                         {e.submitted.size && (<><dt className="text-gray-400">사이즈</dt><dd>{e.submitted.size}</dd></>)}
+                        {!!e.submitted.history?.length && (
+                          <>
+                            <dt className="text-violet-500">수정 이력</dt>
+                            <dd className="space-y-1">
+                              {e.submitted.history.map((h, k) => (
+                                <p key={k} className="text-[12px] text-gray-500">
+                                  {fmtDt(h.at)} 이전 · {h.name} / {h.phone} / {[h.addr1, h.addr2].filter(Boolean).join(" ")}{h.size ? ` / ${h.size}` : ""}
+                                </p>
+                              ))}
+                            </dd>
+                          </>
+                        )}
                       </dl>
                     )}
                   </li>

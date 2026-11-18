@@ -13,6 +13,11 @@ interface Info {
   sizes: string[];
   submitted: boolean;
   closed: boolean;
+  /** 송장 처리되어 더 수정할 수 없음 */
+  locked?: boolean;
+  editCount?: number;
+  /** 이미 제출한 내용(본인) — 수정할 때 폼에 채워 준다 */
+  submission?: { name: string; phone: string; addr1: string; addr2: string; size: string } | null;
 }
 
 const input =
@@ -36,7 +41,13 @@ export default function ClaimPage() {
     fetch(`/api/giveaway-claim/${encodeURIComponent(token)}`)
       .then(async (r) => {
         if (!r.ok) throw new Error("invalid");
-        setInfo((await r.json()) as Info);
+        const data = (await r.json()) as Info;
+        setInfo(data);
+        // 이미 제출했다면 폼에 기존 내용을 채워 둔다 (마감 전·송장 처리 전에는 수정 가능)
+        if (data.submission) {
+          setForm({ ...data.submission });
+          setConsent(true);
+        }
         setState("ok");
       })
       .catch(() => setState("invalid"));
@@ -100,22 +111,32 @@ export default function ClaimPage() {
     return shell(
       <div className="text-center py-8">
         <p className="text-4xl">🎉</p>
-        <p className="mt-3 text-lg font-bold text-gray-900">제출이 완료되었습니다</p>
+        <p className="mt-3 text-lg font-bold text-gray-900">{info.submitted ? "수정이 완료되었습니다" : "제출이 완료되었습니다"}</p>
         <p className="mt-2 text-[14px] text-gray-500">
-          입력하신 정보로 경품을 보내드립니다. 제출 후에는 수정할 수 없으니, 수정이 필요하면 안내를 보내드린 계정으로 문의해 주세요.
+          입력하신 정보로 경품을 보내드립니다. {fmtDeadline(info.deadline)}까지는 같은 링크에서 다시 수정할 수 있어요. 단, 배송 준비(송장 처리)가 시작되면 수정이 어렵습니다.
         </p>
       </div>,
     );
 
-  // 이미 제출한 링크는 폼을 다시 보여주지 않는다 (수정 불가)
-  if (info.submitted)
+  // 제출했지만 송장 처리되었거나 마감이 지난 링크는 수정할 수 없다 — 제출 내용만 보여준다
+  if (info.submitted && (info.locked || info.closed))
     return shell(
-      <div className="text-center py-8">
-        <p className="text-4xl">✅</p>
-        <p className="mt-3 text-lg font-bold text-gray-900">이미 제출하셨습니다</p>
-        <p className="mt-2 text-[14px] text-gray-500">
-          입력하신 정보로 경품을 보내드립니다. 제출 후에는 수정할 수 없으니, 수정이 필요하면 안내를 보내드린 계정으로 문의해 주세요.
-        </p>
+      <div className="py-4">
+        <div className="text-center">
+          <p className="text-4xl">✅</p>
+          <p className="mt-3 text-lg font-bold text-gray-900">제출이 완료되었습니다</p>
+          <p className="mt-2 text-[14px] text-gray-500">
+            {info.locked ? "배송 준비(송장 처리)가 시작되어 더 이상 수정할 수 없어요." : "신청 기간이 끝나 수정할 수 없어요."} 수정이 필요하면 안내를 보내드린 계정으로 문의해 주세요.
+          </p>
+        </div>
+        {info.submission && (
+          <dl className="mt-5 rounded-xl bg-gray-50 p-4 text-[14px] text-gray-700 space-y-1.5">
+            <div><dt className="inline text-gray-400">이름 </dt><dd className="inline">{info.submission.name}</dd></div>
+            <div><dt className="inline text-gray-400">연락처 </dt><dd className="inline">{info.submission.phone}</dd></div>
+            <div><dt className="inline text-gray-400">주소 </dt><dd className="inline">{info.submission.addr1} {info.submission.addr2}</dd></div>
+            {info.submission.size && <div><dt className="inline text-gray-400">사이즈 </dt><dd className="inline">{info.submission.size}</dd></div>}
+          </dl>
+        )}
       </div>,
     );
 
@@ -134,7 +155,11 @@ export default function ClaimPage() {
         <h1 className="text-xl font-black text-gray-900 mt-0.5">@{info.user}님, 당첨을 축하드립니다!</h1>
         {info.prize && <p className="mt-1 text-[15px] text-[#E5541B] font-bold">🎁 {info.prize}</p>}
         <p className="mt-2 text-[13px] text-gray-500">
-          경품 배송을 위해 아래 정보를 입력해 주세요. 마감: <b>{fmtDeadline(info.deadline)}</b>
+          {info.submitted ? (
+            <>이미 제출하셨어요. 마감(<b>{fmtDeadline(info.deadline)}</b>) 전까지는 아래에서 수정할 수 있습니다. 단, 배송 준비(송장 처리)가 시작되면 수정이 어렵습니다.</>
+          ) : (
+            <>경품 배송을 위해 아래 정보를 입력해 주세요. 마감: <b>{fmtDeadline(info.deadline)}</b> · 제출 후에도 마감 전까지는 같은 링크에서 수정할 수 있어요.</>
+          )}
         </p>
       </div>
 
@@ -187,7 +212,7 @@ export default function ClaimPage() {
 
       {err && <p className="text-[14px] text-red-600" role="alert">{err}</p>}
       <button type="submit" disabled={busy || !consent || (info.sizes.length > 0 && !form.size)} className="w-full min-h-[52px] rounded-xl bg-[#E5541B] text-white text-[16px] font-bold disabled:opacity-40">
-        {busy ? "제출 중…" : "제출하기"}
+        {busy ? "저장 중…" : info.submitted ? "수정 내용 저장" : "제출하기"}
       </button>
     </form>,
   );
