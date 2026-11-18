@@ -22,6 +22,7 @@ type EditorialBlock = {
     desc: string;
     image_url: string;
     image_url_pc?: string;   // 없으면 image_url을 PC에서도 그대로 사용 (하위호환)
+    image_order?: "sequential" | "random"; // 이미지 노출 순서 — 기본 순서대로
     image_urls_pc?: string[]; // PC 전용 추가 이미지 — 없으면 image_urls를 PC에서도 사용
     image_urls?: string[];   // 추가 이미지 — 대표 이미지 다음에 천천히 크로스페이드로 교체 노출
     cta_label?: string;      // 대배너 이동 버튼 문구
@@ -604,26 +605,117 @@ function HeroEditor({ hero, onChange, products, productSection }: {
 
   // 이동 버튼 — 주소를 입력하면 대배너 제목 아래에 버튼이 생긴다
   const ctaFields = (
-    <div className="space-y-2">
-      <p className="text-[11px] font-semibold text-gray-700">
+    <div className="flex items-end gap-3 flex-wrap rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3">
+      <p className="text-[11px] font-semibold text-gray-700 self-center whitespace-nowrap">
         이동 버튼
-        <InfoTip>메인 매거진으로 이동하려면 #magazine 을 입력하세요. 비우면 버튼이 숨겨집니다.</InfoTip>
+        <InfoTip>캠페인 매거진 페이지로 이동하려면 /magazine 을 입력하세요. 비우면 버튼이 숨겨집니다.</InfoTip>
       </p>
-      <div className="grid grid-cols-1 gap-2">
+      <div className="flex-1 min-w-[160px]">
         <Field label="버튼 문구" value={hero.cta_label ?? ""} onChange={(v) => onChange({ cta_label: v })} placeholder="매거진 보기" />
-        <Field label="이동 주소" value={hero.cta_link ?? ""} onChange={(v) => onChange({ cta_link: v })} placeholder="#magazine" />
+      </div>
+      <div className="flex-1 min-w-[160px]">
+        <Field label="이동 주소" value={hero.cta_link ?? ""} onChange={(v) => onChange({ cta_link: v })} placeholder="/magazine" />
       </div>
     </div>
   );
 
-  return (
-    <div className="flex gap-4 items-start">
+  const hasPc = pcMode;
+  // 추가 이미지 순서 변경 (드래그 또는 ◀ ▶)
+  const dragFrom = useRef<{ key: "image_urls" | "image_urls_pc"; i: number } | null>(null);
+  const moveExtra = (key: "image_urls" | "image_urls_pc", from: number, to: number) => {
+    const list = [...(hero[key] ?? [])];
+    if (from === to || to < 0 || to >= list.length) return;
+    const [it] = list.splice(from, 1);
+    list.splice(to, 0, it);
+    onChange({ [key]: list });
+  };
+  // 추가 이미지 한 묶음 — 대표 이미지 다음에 천천히 크로스페이드로 교체 노출 (가로로 길게)
+  const extras = (label: string, key: "image_urls" | "image_urls_pc") => {
+    const list = hero[key] ?? [];
+    const ratio = key === "image_urls" && hasPc ? "3/4" : "8/9";
+    return (
+      <div className="space-y-2 flex-1 min-w-0">
+        <p className="text-[11px] font-semibold text-gray-700">
+          {label} ({list.length}장)
+          <InfoTip>2장 이상이면 약 7초마다 교체됩니다. 제품 태그는 대표 이미지일 때만 보입니다. 권장 {key === "image_urls" && hasPc ? "950 × 1280px (3:4)" : "1600 × 1800px (8:9)"}</InfoTip>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {list.map((url, i) => (
+            <div
+              key={`${url}-${i}`}
+              draggable
+              onDragStart={(e) => { dragFrom.current = { key, i }; e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={(e) => { if (dragFrom.current?.key === key) e.preventDefault(); }}
+              onDrop={(e) => {
+                const f = dragFrom.current;
+                if (!f || f.key !== key) return;
+                e.preventDefault(); e.stopPropagation();
+                dragFrom.current = null;
+                moveExtra(key, f.i, i);
+              }}
+              className="relative rounded-md overflow-hidden border border-gray-200 cursor-grab active:cursor-grabbing"
+              style={{ width: EXTRA_TILE_W, aspectRatio: ratio }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" draggable={false} className="absolute inset-0 w-full h-full object-cover" />
+              <span className="absolute top-0.5 left-0.5 min-w-5 h-5 px-1 rounded-full bg-black/60 text-white text-[10px] leading-5 text-center">{i + 1}</span>
+              <button
+                type="button"
+                aria-label="추가 이미지 삭제"
+                onClick={() => onChange({ [key]: list.filter((_, j) => j !== i) })}
+                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] leading-none hover:bg-black/80"
+              >
+                ✕
+              </button>
+              <div className="absolute bottom-0.5 inset-x-0 flex justify-center gap-1">
+                <button type="button" aria-label="앞으로" disabled={i === 0} onClick={() => moveExtra(key, i, i - 1)}
+                  className="w-6 h-5 rounded bg-black/60 text-white text-[10px] leading-none hover:bg-black/80 disabled:opacity-30">◀</button>
+                <button type="button" aria-label="뒤로" disabled={i === list.length - 1} onClick={() => moveExtra(key, i, i + 1)}
+                  className="w-6 h-5 rounded bg-black/60 text-white text-[10px] leading-none hover:bg-black/80 disabled:opacity-30">▶</button>
+              </div>
+            </div>
+          ))}
+          <div style={{ width: EXTRA_TILE_W }}>
+            <ImageField
+              label=""
+              hint=""
+              value=""
+              onChange={(url) => onChange({ [key]: [...list, url] })}
+              onChangeMany={(urls) => onChange({ [key]: [...list, ...urls] })}
+              compact
+              aspectRatio={ratio}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-      {/* 이미지 업로드 */}
-      <div className="flex-shrink-0 space-y-3" style={{ width: "400px" }}>
-        {/* 1행: 모바일 이미지 | PC 이미지 (가로 배치) */}
-        <div className="grid grid-cols-2 gap-3 items-start">
-          <div className="space-y-2">
+  return (
+    <div className="space-y-5">
+
+      {/* 이미지 업로드 — 대표 이미지(왼쪽) + 추가 이미지(오른쪽, 가로로 길게). 모바일 / PC 위아래 */}
+      <div className="space-y-4">
+        {/* 노출 순서 옵션 — 대표 이미지 + 추가 이미지 (모바일·PC 공통) */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-gray-700">이미지 노출 순서</span>
+          <div className="flex rounded-lg overflow-hidden border border-gray-200">
+            {([["sequential", "순서대로"], ["random", "랜덤"]] as const).map(([v, label]) => {
+              const on = (hero.image_order ?? "sequential") === v;
+              return (
+                <button key={v} type="button" onClick={() => onChange({ image_order: v })}
+                  className={`px-3 py-1 text-[11px] font-semibold transition-colors ${on ? "bg-[#303236] text-white" : "bg-white text-gray-500 hover:bg-gray-50"}`}>
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <InfoTip>순서대로: 대표 → 추가 이미지 1, 2, 3… 순서로 노출. 랜덤: 교체될 때마다 무작위로 선택합니다. 2장 이상일 때 적용되며 모바일·PC에 함께 적용됩니다.</InfoTip>
+        </div>
+
+        {/* 모바일 */}
+        <div className="flex gap-4 items-start">
+          <div className="flex-shrink-0 space-y-2" style={{ width: 200 }}>
             <ImageField
               label="모바일 이미지"
               hint="950 × 1280px (3:4)"
@@ -631,95 +723,52 @@ function HeroEditor({ hero, onChange, products, productSection }: {
               onChange={(url) => onChange({ image_url: url })}
               compact
             />
-            <label className="flex items-center gap-1.5 text-[10px] text-gray-500 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={pcMode}
-                onChange={(e) => {
-                  setPcMode(e.target.checked);
-                  onChange({ image_url_pc: e.target.checked ? (hero.image_url_pc || hero.image_url) : "" });
-                }}
-              />
-              PC 이미지 다르게 등록
-            </label>
           </div>
-          <div>
-            {pcMode ? (
-              <ImageField
-                label="PC 이미지"
-                hint="1600 × 1800px (8:9) 권장"
-                value={hero.image_url_pc ?? ""}
-                onChange={(url) => onChange({ image_url_pc: url })}
-                compact
-              />
-            ) : (
-              <p className="text-[10px] text-gray-400 leading-snug pt-6">
-                PC는 8:9(1600×1800px) 이미지를 따로 등록하면 안 잘립니다. 왼쪽 체크박스를 켜세요.
-              </p>
-            )}
-          </div>
+          {extras(hasPc ? "추가 이미지 · 모바일" : "추가 이미지", "image_urls")}
         </div>
 
-        {/* 2행: 추가 이미지(모바일 | PC) */}
-        {(() => {
-          const hasPc = pcMode;
-          // 추가 이미지 한 묶음 — 대표 이미지 다음에 천천히 크로스페이드로 교체 노출
-          const extras = (label: string, key: "image_urls" | "image_urls_pc") => {
-            const list = hero[key] ?? [];
-            return (
-              <div className="space-y-2">
-                <p className="text-[11px] font-semibold text-gray-700">
-                  {label} ({list.length}장)
-                  <InfoTip>2장 이상이면 약 7초마다 교체됩니다. 제품 태그는 대표 이미지일 때만 보입니다. 권장 {key === "image_urls" && hasPc ? "950 × 1280px (3:4)" : "1600 × 1800px (8:9)"}</InfoTip>
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {list.map((url, i) => (
-                    <div key={`${url}-${i}`} className="relative rounded-md overflow-hidden border border-gray-200" style={{ width: EXTRA_TILE_W, aspectRatio: key === "image_urls" && hasPc ? "3/4" : "8/9" }}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        aria-label="추가 이미지 삭제"
-                        onClick={() => onChange({ [key]: list.filter((_, j) => j !== i) })}
-                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white text-[10px] leading-none hover:bg-black/80"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                  <div style={{ width: EXTRA_TILE_W }}>
-                    <ImageField
-                      label=""
-                      hint=""
-                      value=""
-                      onChange={(url) => onChange({ [key]: [...list, url] })}
-                      compact
-                      aspectRatio={key === "image_urls" && hasPc ? "3/4" : "8/9"}
-                    />
-                  </div>
-                </div>
+        {/* PC — 체크박스를 타이틀 앞에 붙여 "PC 이미지 다르게 등록" 토글로 사용 */}
+        <div className="pt-4 border-t border-gray-200 space-y-2">
+          <label className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={pcMode}
+              onChange={(e) => {
+                setPcMode(e.target.checked);
+                onChange({ image_url_pc: e.target.checked ? (hero.image_url_pc || hero.image_url) : "" });
+              }}
+            />
+            PC 이미지
+          </label>
+          {hasPc ? (
+            <div className="flex gap-4 items-start">
+              <div className="flex-shrink-0" style={{ width: 200 }}>
+                <ImageField
+                  label=""
+                  hint="1600 × 1800px (8:9) 권장"
+                  value={hero.image_url_pc ?? ""}
+                  onChange={(url) => onChange({ image_url_pc: url })}
+                  compact
+                />
               </div>
-            );
-          };
-          return (
-            <>
-              <div className="grid grid-cols-2 gap-3 items-start pt-3 border-t border-gray-200">
-                {extras(hasPc ? "추가 이미지 · 모바일" : "추가 이미지", "image_urls")}
-                {hasPc ? extras("추가 이미지 · PC", "image_urls_pc") : (
-                  /* 이동 버튼 — 주소를 입력하면 대배너 제목 아래에 버튼이 생깁니다 */
-                  ctaFields
-                )}
-              </div>
-              {hasPc && <div className="pt-3 border-t border-gray-200">{ctaFields}</div>}
-            </>
-          );
-        })()}
+              {extras("추가 이미지 · PC", "image_urls_pc")}
+            </div>
+          ) : (
+            <p className="text-[10px] text-gray-400 leading-snug">
+              체크하면 PC 전용 이미지(1600×1800px, 8:9)를 따로 등록할 수 있습니다. 체크 해제 시 모바일 이미지를 PC에서도 사용합니다.
+            </p>
+          )}
+        </div>
+
+        <div className="pt-4 border-t border-gray-200">{ctaFields}</div>
       </div>
 
-      {/* 오른쪽: 상품 등록(위) + 이미지 위치·제품 태그(접기/펴기) */}
+      {/* 아래: 상품 등록 + 이미지 위치·제품 태그(접기/펴기) */}
       <div className="flex-1 min-w-0 space-y-4">
       {productSection}
-      {/* 이미지 위치 조정 */}
+      {/* 이미지 위치·제품 태그 그룹 */}
+      <div className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 space-y-3">
+      <p className="text-sm font-bold text-gray-800">이미지 위치 · 제품 태그</p>
       {!hero.image_url && (
         <div className="flex-1 flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200 text-[12px] text-gray-400" style={{ minHeight: "260px" }}>
           이미지를 업로드하면 위치 조절 가능
@@ -862,6 +911,7 @@ function HeroEditor({ hero, onChange, products, productSection }: {
           )}
         </div>
       )}
+      </div>
       </div>
     </div>
   );
@@ -1127,7 +1177,7 @@ function BlockCard({
                 hero={block.hero}
                 productSection={(
               /* 접기/펼치기 — 제품이 이미 등록돼 있으면 펼친 상태로 시작. 이미지·태그 설정 위에 둔다 */
-              <details className="pb-4 border-b-2 border-gray-200 group" open={(block.hero.detail?.items ?? []).some((i) => i.name.trim())}>
+              <details className="rounded-xl border border-gray-200 bg-gray-50/60 px-4 py-3 group" open={(block.hero.detail?.items ?? []).some((i) => i.name.trim())}>
                 <summary className="cursor-pointer list-none flex items-center justify-between select-none">
                   <span className="text-sm font-bold text-gray-800">메인 상세페이지 (제품 여러 개)</span>
                   <span className="text-[11px] text-gray-400 group-open:hidden">펼치기 ▾</span>

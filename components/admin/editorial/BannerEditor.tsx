@@ -53,6 +53,7 @@ export type Banner = {
   section_bg: string;
   image_url: string;
   image_urls?: string[];  // 랜덤 로테이션용 추가 이미지 (대표 image_url과 번갈아 노출)
+  spin_frames?: string[]; // 360° 회전 이미지(프레임 순서대로) — 있으면 섹션 이미지 대신 드래그 회전 뷰어로 노출
   card_type?: "product" | "image"; // "image" = 통이미지 카드 (제목/설명/썸네일 없이 이미지 한 장)
   link?: string;      // 통이미지 카드 클릭 시 이동할 링크 (PR 소식 등)
   items: ProductItem[];
@@ -213,6 +214,7 @@ export function ImageField({
   onChange,
   compact = false,
   aspectRatio,
+  onChangeMany,
 }: {
   label: string;
   hint: string;
@@ -220,6 +222,8 @@ export function ImageField({
   onChange: (url: string) => void;
   compact?: boolean;
   aspectRatio?: string;
+  /** 지정하면 여러 장을 한 번에 선택·드래그해 순서대로 업로드한다 */
+  onChangeMany?: (urls: string[]) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -238,13 +242,27 @@ export function ImageField({
     } finally { setUploading(false); }
   }
 
+  async function handleFiles(files: File[]) {
+    if (!onChangeMany) { if (files[0]) handleFile(files[0]); return; }
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    if (!imgs.length) { setErr("이미지 파일만 업로드 가능합니다."); return; }
+    setErr(""); setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const f of imgs) urls.push(await uploadImage(await resizeImage(f)));
+      onChangeMany(urls);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "업로드 실패");
+    } finally { setUploading(false); }
+  }
+
   function onDragOver(e: React.DragEvent)  { e.preventDefault(); setDragging(true); }
   function onDragEnter(e: React.DragEvent) { e.preventDefault(); setDragging(true); }
   function onDragLeave(e: React.DragEvent) { e.preventDefault(); setDragging(false); }
   function onDrop(e: React.DragEvent) {
     e.preventDefault(); setDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) handleFile(file);
+    const fl = Array.from(e.dataTransfer.files ?? []);
+    if (fl.length) handleFiles(fl);
   }
 
   if (compact) {
@@ -262,8 +280,8 @@ export function ImageField({
           }`}
           style={{ aspectRatio: aspectRatio ?? "3/4" }}
         >
-          <input ref={ref} type="file" accept="image/*" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+          <input ref={ref} type="file" accept="image/*" className="hidden" multiple={!!onChangeMany}
+            onChange={(e) => { const fl = Array.from(e.target.files ?? []); if (fl.length) handleFiles(fl); e.target.value = ""; }} />
           {value ? (
             <img src={value} alt="" className="absolute inset-0 w-full h-full object-cover" />
           ) : (
@@ -1006,6 +1024,42 @@ export function BannerEditor({ banner, label, onChange, products, productsOnly =
                 aspectRatio="8/9"
               />
             </div>
+          </div>
+          {/* 회전 이미지 — 한 바퀴 돌린 사진을 순서대로 올리면(여러 장 한 번에 선택) 사용자가 드래그로 돌려볼 수 있다 */}
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] font-semibold text-gray-700">
+                회전 이미지 ({banner.spin_frames?.length ?? 0}장) <span className="font-normal text-gray-400">· 24~36장 권장, 파일명 순서대로</span>
+              </p>
+              {(banner.spin_frames?.length ?? 0) > 0 && (
+                <button type="button" onClick={() => onChange({ spin_frames: [] })} className="text-[10px] text-red-500 hover:underline">전체 삭제</button>
+              )}
+            </div>
+            <div className="grid grid-cols-6 gap-1">
+              {(banner.spin_frames ?? []).map((url, i) => (
+                <div key={`${url}-${i}`} className="relative rounded overflow-hidden border border-gray-200" style={{ aspectRatio: "1/1" }}>
+                  <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  <span className="absolute left-0 top-0 bg-black/60 text-white text-[8px] px-1">{i + 1}</span>
+                  <button
+                    type="button"
+                    aria-label="프레임 삭제"
+                    onClick={() => onChange({ spin_frames: (banner.spin_frames ?? []).filter((_, j) => j !== i) })}
+                    className="absolute top-0 right-0 w-4 h-4 bg-black/60 text-white text-[9px] leading-none hover:bg-black/80"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <ImageField
+              label=""
+              hint=""
+              value=""
+              onChange={(url) => onChange({ spin_frames: [...(banner.spin_frames ?? []), url] })}
+              onChangeMany={(urls) => onChange({ spin_frames: [...(banner.spin_frames ?? []), ...urls] })}
+              compact
+              aspectRatio="5/1"
+            />
           </div>
         </div>
         )}

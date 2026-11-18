@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import GiveawayClaimPanel from "./GiveawayClaimPanel";
 import { useStageRecorder } from "./useStageRecorder";
 import {
@@ -82,6 +82,27 @@ async function fetchClaimDeadline(eventId: string): Promise<string> {
   }
 }
 
+/** 기록 시각("2026. 11. 18. 오전 10:49:58") → 간결하게 "11/18 10:49" */
+const shortAt = (at: string) => {
+  const m = at.match(/(\d{4})\.\s*(\d+)\.\s*(\d+)\.\s*(오전|오후)\s*(\d+):(\d+)/);
+  if (!m) return at;
+  let h = Number(m[5]) % 12;
+  if (m[4] === "오후") h += 12;
+  return `${Number(m[2])}/${Number(m[3])} ${String(h).padStart(2, "0")}:${m[6]}`;
+};
+const DAY_MS = 86400000;
+/** 11/18(수) */
+const fmtMD = (ms: number) => {
+  const d = new Date(ms);
+  return `${d.getMonth() + 1}/${d.getDate()}(${["일", "월", "화", "수", "목", "금", "토"][d.getDay()]})`;
+};
+/** datetime-local 입력용 "YYYY-MM-DDTHH:mm" (로컬 시각) */
+const toLocalInputMs = (ms: number) => {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
 const HISTORY_KEY = "workup_giveaway_history_v1";
 const DRAFT_KEY = "workup_giveaway_draft_v1";
 const SAMPLE = [
@@ -136,6 +157,11 @@ interface DrawRecord {
   hasDetail?: boolean;
   /** 참여 분석 결과(지표·차트·제품 선택). 확정 시 자동 저장되고, 기록에서 갱신할 수 있다 */
   analysis?: { ins: GwInsights; choices?: GwChoiceAnalysis };
+  /** 이벤트 완료 처리 시각 (모든 당첨자 발송 후) */
+  completedAt?: string;
+  /** 같은 이벤트를 상품별로 나눠 만든 기록을 하나로 묶는 그룹 (기록은 각각 유지되고 목록에서만 한 줄로 보인다) */
+  groupId?: string;
+  groupName?: string;
 }
 
 /** 제품 선택 분석 결과 표시 (참여 분석·이벤트 기록에서 함께 사용) */
@@ -399,6 +425,27 @@ export default function GiveawayTab() {
 
   const rows = useMemo<GwComment[]>(() => (source === "api" ? apiRows : parseComments(pasteText)), [source, apiRows, pasteText]);
   // 불러온 댓글에서 아이디별 가장 최근 댓글 ID — 기록에 댓글 ID가 없을 때(예전 기록·복원) DM 발송 대상 찾기용
+  // DM 자동 발송(댓글 비공개 답장)은 "댓글을 단 지 7일 이내"만 가능 → 이벤트 기간을 정할 때 참고하는 추천 일정
+  //  · 가장 이른 댓글(아직 댓글이 없으면 오늘)을 시작으로 보고, 그날 + 7일이 자동 DM 가능 기한
+  //  · 추천 마감 = 기한 − 2일 (마감 후 2일 안에 추첨·확정·DM 발송을 끝낼 여유)
+  const dmPlan = useMemo(() => {
+    const times = rows.map((r) => (r.ts ? Date.parse(r.ts) : NaN)).filter((n) => !Number.isNaN(n));
+    const first = times.length ? Math.min(...times) : null;
+    const now = Date.now();
+    const base = first ?? now;
+    const limit = base + 7 * DAY_MS;
+    const end = new Date(base + 5 * DAY_MS);
+    end.setHours(23, 59, 0, 0);
+    return {
+      hasComments: first !== null,
+      base,
+      limit,
+      recommendedEnd: end.getTime(),
+      expired: times.filter((t) => now - t > 7 * DAY_MS).length,
+      total: times.length,
+      daysLeft: Math.floor((limit - now) / DAY_MS),
+    };
+  }, [rows]);
   const [fetchedIds, setFetchedIds] = useState<Record<string, string>>({});
   const commentIdByUser = useMemo(() => {
     const m: Record<string, string> = { ...fetchedIds };
@@ -496,6 +543,51 @@ export default function GiveawayTab() {
       }),
     [history, supersedeId, record, results.length, url, eventName],
   );
+
+  // ── 이벤트 기록 병합(묶기): 같은 이벤트를 상품별로 나눠 추첨한 기록을 한 줄로 묶어 본다 ──
+  const [mergeSel, setMergeSel] = useState<string[]>([]);
+  const [openGroups, setOpenGroups] = useState<string[]>([]);
+  const historyView = useMemo(() => {
+    const shown = pastHistory.filter((h) => !histQuery.trim() || ((h.eventName || "") + (h.groupName || "")).toLowerCase().includes(histQuery.trim().toLowerCase()));
+    const groups: Record<string, DrawRecord[]> = {};
+    for (const h of shown) if (h.groupId) (groups[h.groupId] ||= []).push(h);
+    const seen = new Set<string>();
+    const ordered: DrawRecord[] = [];
+    for (const h of shown) {
+      if (!h.groupId) ordered.push(h);
+      else if (!seen.has(h.groupId)) {
+        seen.add(h.groupId);
+        ordered.push(...groups[h.groupId]);
+      }
+    }
+    return { ordered, groups };
+  }, [pastHistory, histQuery]);
+  /** 이름들의 공통 앞부분 ("…(패딩)" / "…(스웻셔츠)" → "…") — 병합 이름 기본값 */
+  const commonName = (names: string[]) => {
+    if (!names.length) return "";
+    let p = names[0];
+    for (const n of names.slice(1)) {
+      let i = 0;
+      while (i < p.length && i < n.length && p[i] === n[i]) i++;
+      p = p.slice(0, i);
+    }
+    return p.replace(/[\s(（\[\-–·,]+$/, "").trim();
+  };
+  const mergeSelected = () => {
+    const recs = stateRef.current.history.filter((h) => mergeSel.includes(h.id));
+    if (recs.length < 2) return;
+    const name = prompt("병합한 이벤트 이름을 입력해 주세요. 기록은 각각 그대로 유지되고, 목록에서 한 줄로 묶여 보입니다.", commonName(recs.map((r) => r.eventName || "")));
+    if (name === null) return;
+    const gid = `g${Date.now().toString(36)}`;
+    const nm = name.trim() || recs[0].eventName || "병합된 이벤트";
+    saveHistory(stateRef.current.history.map((h) => (mergeSel.includes(h.id) ? { ...h, groupId: gid, groupName: nm } : h)));
+    setMergeSel([]);
+    setOpenGroups((g) => [...g, gid]);
+  };
+  const ungroup = (gid: string) => {
+    if (!confirm("병합을 해제할까요? 기록은 그대로 남고 각각 따로 보입니다.")) return;
+    saveHistory(stateRef.current.history.map((h) => (h.groupId === gid ? { ...h, groupId: undefined, groupName: undefined } : h)));
+  };
   /** 확정된 당첨자로 발표 영상 제작 (예비·취소·교체로 빠진 사람 제외, 승급자는 포함) */
   const makeVideo = (h: DrawRecord) => {
     const winners = h.winners
@@ -649,7 +741,6 @@ export default function GiveawayTab() {
   };
   /** 배송까지 끝난 이벤트 정리: 임시 저장·화면을 비운다(이 이벤트는 이벤트 기록 목록에 들어간다) */
   const finishSession = () => {
-    if (!confirm("이 이벤트 작업을 마칠까요? 불러온 댓글과 임시 저장이 정리되고, 이벤트는 이벤트 기록에 남습니다.")) return;
     clearDraft();
     setApiRows([]);
     setPasteText("");
@@ -660,6 +751,19 @@ export default function GiveawayTab() {
     drawSnap.current = null;
     setStageLabel("");
     setStageName("");
+  };
+  /**
+   * 이벤트 완료 처리/취소 — 배송 정보 수집 패널의 "이벤트 완료 처리"에서 호출(모든 당첨자 발송 후에만 활성화).
+   * 현재 진행 중인 이벤트를 완료하면 불러온 댓글·임시 저장을 정리하고 이벤트는 이벤트 기록(완료)으로 들어간다.
+   */
+  const completeEvent = (id: string, done: boolean) => {
+    const at = done ? new Date().toISOString() : undefined;
+    const next = stateRef.current.history.map((h) => (h.id === id ? { ...h, completedAt: at } : h));
+    saveHistory(next);
+    if (record?.id === id) {
+      if (done) finishSession();
+      else setRecord({ ...record, completedAt: undefined });
+    }
   };
   const clearDraft = () => {
     try {
@@ -1220,14 +1324,6 @@ export default function GiveawayTab() {
       .filter((r) => r.status === "ok")
       .map((r) => `${r.role === "winner" ? "당첨" : "예비"} @${r.comment.user}`)
       .join("\n");
-  const copyResult = async () => {
-    try {
-      await navigator.clipboard.writeText(resultText());
-      flash("copy");
-    } catch {
-      flash("fail");
-    }
-  };
   const announceText = (deadline: string) => {
     const live = results.filter((r) => r.status === "ok" && r.role === "winner");
     return buildAnnounce((record?.eventName || eventName).trim(), live.map((r) => ({ prize: r.prize || "상품", user: r.comment.user })), deadline);
@@ -1242,14 +1338,17 @@ export default function GiveawayTab() {
     }
   };
   const stamp = () => new Date().toISOString().slice(0, 10);
-  const exportParticipants = () =>
+  /** 응모자 CSV — 불러온 댓글 전체(필터 적용 전). "추첨 대상" 열로 조건을 통과한 댓글과 제외된 댓글을 구분한다. */
+  const exportParticipants = () => {
+    const validSet = new Set(an.valid);
     downloadText(
       `giveaway-participants-${stamp()}.csv`,
       toCsv(
-        ["아이디", "댓글", "작성시각", "좋아요", "대댓글"],
-        an.valid.map((r) => [r.user, r.text, r.ts || "", r.likes ?? "", r.isReply ? "Y" : ""]),
+        ["아이디", "댓글", "작성시각", "좋아요", "대댓글", "추첨 대상"],
+        rows.map((r) => [r.user, r.text, r.ts || "", r.likes ?? "", r.isReply ? "Y" : "", validSet.has(r) ? "대상" : "제외(조건 미충족)"]),
       ),
     );
+  };
   const exportWinners = () =>
     downloadText(
       `giveaway-winners-${stamp()}.csv`,
@@ -1281,15 +1380,41 @@ export default function GiveawayTab() {
       `giveaway-winners-${h.id}.csv`,
       toCsv(["구분", "상품", "아이디", "팔로우확인", "비고"], recWinners(h).map((w) => [w.label, w.prize, w.user, w.followOk ? "완료" : "", w.note])),
     );
-  /** 당첨자 인스타 프로필을 새 탭으로 연다 (브라우저가 팝업을 막으면 허용해 주세요) */
-  const openProfiles = (list: ResultItem[]) => list.forEach((r) => window.open(igUrl(r.comment.user), "_blank", "noopener"));
+  /**
+   * 당첨자 프로필 열기 — 브라우저는 버튼 한 번에 새 탭을 여러 개 여는 것을 팝업으로 막는다(첫 탭만 열리거나 전부 막힘).
+   * 그래서 목록 창을 띄우고, "다음 프로필 열기"를 누를 때마다 한 탭씩 연다(클릭 한 번에 한 탭은 항상 허용).
+   */
+  const [profileUsers, setProfileUsers] = useState<string[] | null>(null);
+  const [profileOpened, setProfileOpened] = useState<string[]>([]);
+  const openProfiles = (list: { user: string }[]) => {
+    const users = [...new Set(list.map((x) => x.user))];
+    setProfileOpened([]);
+    setProfileUsers(users);
+  };
+  const openProfileNext = () => {
+    const next = (profileUsers ?? []).find((u) => !profileOpened.includes(u));
+    if (!next) return;
+    window.open(igUrl(next), "_blank", "noopener");
+    setProfileOpened((o) => [...o, next]);
+  };
   const dropParts = [
-    an.dropped.excluded && `제외 아이디 ${an.dropped.excluded}`,
-    an.dropped.filtered && `조건 미충족 ${an.dropped.filtered}`,
-    an.dropped.outOfRange && `기간 밖 ${an.dropped.outOfRange}`,
-    an.dropped.short && `너무 짧음 ${an.dropped.short}`,
+    an.dropped.excluded && `제외 ${an.dropped.excluded}`,
+    an.dropped.filtered && `미충족 ${an.dropped.filtered}`,
+    an.dropped.outOfRange && `기간밖 ${an.dropped.outOfRange}`,
+    an.dropped.short && `짧음 ${an.dropped.short}`,
     an.dropped.dup && `중복 ${an.dropped.dup}`,
   ].filter(Boolean);
+
+  // 영역별 접기 — 제목을 누르면 아래 내용이 접히고 펼쳐진다
+  const [folded, setFolded] = useState<Record<string, boolean>>({});
+  const foldTitle = (key: string, text: ReactNode) => (
+    <h2 className="text-xl font-bold text-gray-800 whitespace-nowrap">
+      <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => setFolded((f) => ({ ...f, [key]: !f[key] }))} aria-expanded={!folded[key]} title={folded[key] ? "펼치기" : "접기"}>
+        <span className="text-gray-400 text-[13px] w-3">{folded[key] ? "▶" : "▼"}</span>
+        {text}
+      </button>
+    </h2>
+  );
 
   const card = "bg-white border border-gray-200 rounded-xl p-6";
   const input =
@@ -1312,13 +1437,15 @@ export default function GiveawayTab() {
       <section className={`${card} !p-4`}>
         {/* 제목 | 게시물·릴스 주소 | 내 게시물에서 선택 — 한 줄 */}
         <div className="flex items-center gap-3 flex-wrap md:flex-nowrap mb-2">
-          <h2 className="text-xl font-bold text-gray-800 whitespace-nowrap">1. 댓글 불러오기</h2>
+          {foldTitle("load", "1. 댓글 불러오기")}
           <input className={`${input} !py-2 flex-1 min-w-[200px]`} value={url} onChange={(e) => setUrl(e.target.value)} placeholder="게시물 · 릴스 주소  https://www.instagram.com/p/XXXXXXXX/" aria-label="게시물 · 릴스 주소" />
           <button className="shrink-0 px-4 py-2 rounded-lg border border-gray-300 text-[14px] font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap" onClick={loadMedia} disabled={mediaLoading}>
             {mediaLoading ? "불러오는 중…" : "내 게시물에서 선택"}
           </button>
           {mediaList && <button className="shrink-0 text-[13px] text-gray-400 underline whitespace-nowrap" onClick={() => setMediaList(null)}>닫기</button>}
         </div>
+        {!folded.load && (
+        <>
         <div className="grid md:grid-cols-2 gap-x-4 gap-y-2">
           <div className="md:col-span-2 empty:hidden">
             {mediaMsg && <p className="text-[13px] text-red-600">{mediaMsg}</p>}
@@ -1394,6 +1521,32 @@ export default function GiveawayTab() {
           )}
           {fetchMsg && <span className={`text-[14px] ${fetchMsg.startsWith("불러오기 실패") ? "text-red-600" : "text-gray-500"}`}>{fetchMsg}</span>}
         </div>
+        {/* DM 자동 발송 가능 기간 추천 — 이벤트 시작 때 게시물을 불러오면 며칠까지 진행해야 하는지 알려준다 */}
+        <div className={`mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap rounded-lg border px-3 py-2 text-[13px] ${dmPlan.hasComments && dmPlan.expired > 0 ? "border-amber-300 bg-amber-50 text-amber-900" : "border-sky-200 bg-sky-50 text-sky-900"}`}>
+          <span className="font-bold">📅 DM 자동 발송 가능 기간</span>
+          {dmPlan.hasComments ? (
+            <span>
+              가장 이른 댓글 {fmtMD(dmPlan.base)} → 자동 DM 가능 기한 <b>{fmtMD(dmPlan.limit)}</b>
+              {dmPlan.daysLeft >= 0 ? ` (D-${dmPlan.daysLeft})` : " (지남)"}
+              {dmPlan.expired > 0 ? ` · 7일이 지난 댓글 ${fmt(dmPlan.expired)}개는 자동 DM 불가(문구 복사로 직접 발송)` : " · 전부 자동 발송 가능"}
+            </span>
+          ) : (
+            <span>
+              {fmtMD(dmPlan.base)} 시작이면 이벤트는 <b>{fmtMD(dmPlan.recommendedEnd)}까지</b>(5일) 진행하고, 추첨·확정·DM 발송은 <b>{fmtMD(dmPlan.limit)} 안에</b> 끝내세요.
+            </span>
+          )}
+          <button
+            type="button"
+            className="ml-auto px-2.5 py-1 rounded-md border border-current/30 bg-white/70 font-semibold whitespace-nowrap hover:bg-white"
+            onClick={() => {
+              setFromStr(toLocalInputMs(dmPlan.base));
+              setToStr(toLocalInputMs(dmPlan.recommendedEnd));
+            }}
+            title="추첨 조건의 댓글 시작·마감 시각에 추천 기간(시작 ~ 시작+5일 23:59)을 넣습니다."
+          >
+            추천 기간을 댓글 기간에 적용
+          </button>
+        </div>
         {showPaste && (
           <div className="mt-4">
             <label className={label}>줄마다 “아이디 댓글내용” 형식 (인스타 웹에서 복사한 댓글도 가능)</label>
@@ -1414,6 +1567,8 @@ export default function GiveawayTab() {
               </button>
             </div>
           </div>
+        )}
+        </>
         )}
       </section>
 
@@ -1496,12 +1651,14 @@ export default function GiveawayTab() {
       <section id="gw-draw-section" className={`${card} relative overflow-hidden`}>
         <canvas ref={confettiRef} className="absolute inset-0 w-full h-full pointer-events-none" />
         <div className="flex items-center gap-3 mb-3 flex-wrap">
-          <h2 className="text-xl font-bold text-gray-800 whitespace-nowrap">3. 추첨 조건</h2>
+          {foldTitle("cond", "3. 추첨 조건")}
           <input className={`${cInput} flex-1 min-w-[220px]`} value={eventName} onChange={(e) => setEventName(e.target.value)} placeholder="이벤트 이름 (이력 관리용) 예: 11월 신상 오픈 기념 댓글 이벤트" aria-label="이벤트 이름 (이력 관리용)" />
           <button className={`${btn} bg-[#303236] text-white hover:bg-black text-[16px] px-6 py-2 whitespace-nowrap`} onClick={draw} disabled={drawing || !an.users.size}>
             {drawing ? "추첨 중…" : results.length ? "다시 추첨" : "추첨하기"}
           </button>
         </div>
+        {!folded.cond && (
+        <>
         <div className="grid grid-cols-2 md:grid-cols-12 gap-x-3 gap-y-3">
           <div className="col-span-2 md:col-span-12">
             <label className={label}>상품 · 당첨 인원 <span className="font-normal text-gray-400">(총 {winnersN}명)</span></label>
@@ -1545,8 +1702,9 @@ export default function GiveawayTab() {
               <p className="text-gray-800">
                 {rows.length ? (
                   <>
-                    댓글 <b>{fmt(an.total)}</b> → 유효 <b>{fmt(an.valid.length)}</b> · 참여자 <b>{fmt(an.users.size)}</b>명
-                    {dropParts.length > 0 && <span className="text-gray-400"> ({dropParts.join(" · ")})</span>}
+                    댓글 <b>{fmt(an.total)}</b> → 유효 <b>{fmt(an.valid.length)}</b>
+                    {an.users.size !== an.valid.length && <> · 참여자 <b>{fmt(an.users.size)}</b></>}
+                    {dropParts.length > 0 && <span className="text-gray-400" title="유효하지 않은 댓글 내역 (제외 아이디 · 조건 미충족 · 기간 밖 · 너무 짧음 · 중복)"> ({dropParts.join(" · ")})</span>}
                   </>
                 ) : (
                   "불러온 댓글이 없습니다."
@@ -1554,18 +1712,18 @@ export default function GiveawayTab() {
               </p>
               <label className="flex items-center gap-1.5 text-gray-700" title="끄면 유효 댓글 1개가 응모권 1장">
                 <input type="checkbox" checked={dedupe} onChange={(e) => setDedupe(e.target.checked)} />
-                1인 1회 응모
+                1인 1회
               </label>
-              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="표시 관리에 등록된 체리피커는 항상 추첨에서 제외됩니다">체리피커 제외 {flagCount("cherry")}</span>
-              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="비팔로우 이력자는 제외하지 않고 '비팔로우 이력' 표기만 합니다">비팔로우 표기만 {flagCount("noFollow")}</span>
-              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="악플·비정상 행동으로 등록한 계정은 항상 추첨에서 제외됩니다">악성 제외 {flagCount("bad")}</span>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="표시 관리에 등록된 체리피커는 항상 추첨에서 제외됩니다">체리 {flagCount("cherry")}</span>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="비팔로우 이력자는 제외하지 않고 '비팔로우 이력' 표기만 합니다">비팔로우 {flagCount("noFollow")}</span>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="악플·비정상 행동으로 등록한 계정은 항상 추첨에서 제외됩니다">악성 {flagCount("bad")}</span>
             </div>
             <div className="flex items-center gap-3 ml-auto min-w-0">
               <span className="text-[13px] text-gray-400 truncate">
-                제외 {exclude.split(/[\s,]+/).filter(Boolean).length}명{fromStr || toStr ? " · 기간 지정" : ""} · 표시 {Object.keys(flags).length}명
+                제외 {exclude.split(/[\s,]+/).filter(Boolean).length}{fromStr || toStr ? " · 기간" : ""} · 표시 {Object.keys(flags).length}
               </span>
-              <button className="shrink-0 whitespace-nowrap min-h-[36px] px-3 rounded-lg border border-gray-300 text-[13px] font-semibold text-[#303236] hover:bg-gray-50" onClick={() => setShowCond(true)}>
-                제외 아이디 · 댓글 기간 · 표시된 참여자 설정
+              <button className="shrink-0 whitespace-nowrap min-h-[32px] px-3 rounded-lg border border-gray-300 text-[13px] font-semibold text-[#303236] hover:bg-gray-50" onClick={() => setShowCond(true)} title="제외 아이디 · 댓글 기간 · 표시된 참여자 설정">
+                조건 설정
               </button>
             </div>
           </div>
@@ -1639,6 +1797,18 @@ export default function GiveawayTab() {
           </div>
         )}
 
+        </>
+        )}
+      </section>
+
+      {/* 3-2. 추첨 결과 (당첨자·예비 리스트) — 조건과 분리 */}
+      {results.length > 0 && (
+        <section className={card}>
+          <div className="flex items-center gap-3 flex-wrap">
+            {foldTitle("res", <>추첨 결과 <span className="text-[14px] font-normal text-gray-400">당첨 {results.filter((r) => r.status === "ok" && r.role === "winner").length}명 · 예비 {results.filter((r) => r.status === "ok" && r.role === "backup").length}명{record ? " · 확정됨" : " · 확정 전"}</span></>)}
+          </div>
+          {!folded.res && (
+          <>
         {results.length > 0 && (
           <>
             <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
@@ -1743,12 +1913,10 @@ export default function GiveawayTab() {
             {record ? (
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <p className="text-[13px] text-emerald-700 break-all">
-                  ✓ 확정됨 · 이력에 저장됨 · {record.at} · 참여자 {fmt(record.participants)}명 · 명단 지문 {record.fingerprint.slice(0, 12)}…
-                  <span className="text-gray-400"> · 이 화면은 작업 완료 전까지 임시 저장됩니다</span>
+                  ✓ 확정됨 · 이력에 저장됨 · {shortAt(record.at)} · 참여자 {fmt(record.participants)}명 · 명단 지문 {record.fingerprint.slice(0, 12)}…
+                  <span className="text-gray-400"> · 이 화면은 이벤트 완료 처리 전까지 임시 저장됩니다</span>
                 </p>
-                <button className="px-3 py-1.5 rounded-lg border border-gray-300 text-[13px] font-semibold text-gray-700 hover:bg-gray-50 whitespace-nowrap" onClick={finishSession}>
-                  ✔ 작업 완료 (배송까지 끝남)
-                </button>
+                <span className="text-[12px] text-gray-500">📦 모든 당첨자에게 발송한 뒤 아래 배송 정보 수집의 <b>“이벤트 완료 처리”</b>를 누르세요.</span>
               </div>
             ) : (
               <div className="flex items-center gap-3 flex-wrap bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
@@ -1761,31 +1929,44 @@ export default function GiveawayTab() {
               </div>
             )}
             <div className="flex flex-wrap items-center gap-2 mt-3 [&>button]:!px-4 [&>button]:!py-2 [&>button]:!text-[14px]">
-              <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={copyResult}>
-                {copied === "copy" ? "복사됨" : copied === "fail" ? "복사 실패" : "결과 복사"}
-              </button>
               <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={copyAnnounce} title="상품별로 당첨 아이디를 묶은 인스타 공지용 문구를 복사합니다">
                 {copied === "ann" ? "복사됨" : "공지용 복사"}
               </button>
-              <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={() => openProfiles(results.filter((r) => r.status === "ok" && r.role === "winner"))}>당첨자 프로필 모두 열기 ↗</button>
+              <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={() => openProfiles(results.filter((r) => r.status === "ok" && r.role === "winner").map((r) => ({ user: r.comment.user })))}>당첨자 프로필 모두 열기 ↗</button>
               <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={exportWinners}>당첨자 CSV</button>
-              <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={exportParticipants}>응모자 CSV</button>
+              <button className={`${btn} bg-gray-100 text-gray-700 hover:bg-gray-200`} onClick={exportParticipants} title="불러온 댓글 전체를 담습니다. '추첨 대상' 열에 조건을 통과한 댓글(대상)과 제외된 댓글을 구분해 표시합니다.">응모자 CSV ({fmt(rows.length)})</button>
               <span className="hidden md:block flex-1" />
               <button className={`${btn} bg-[#303236] text-white hover:bg-black disabled:opacity-40`} onClick={() => record && makeVideo(record)} disabled={!record} title={record ? "확정된 당첨자로 인스타용 세로 영상(9:16)을 만듭니다" : "당첨을 확정하면 만들 수 있습니다"}>
                 🎬 당첨 발표 영상 만들기
               </button>
             </div>
-            {record && <GiveawayClaimPanel key={record.id} record={record} commentIdByUser={commentIdByUser} onLoadCommentIds={loadCommentIds} />}
           </div>
         )}
-      </section>
+          </>
+          )}
+        </section>
+      )}
+
+      {/* 3-3. 배송 정보 수집 — 추첨 결과와 분리 */}
+      {record && !drawing && (
+        <section className={card}>
+          <div className="flex items-center gap-3 flex-wrap">
+            {foldTitle("ship", "📦 배송 정보 수집")}
+          </div>
+          {!folded.ship && (
+            <GiveawayClaimPanel key={record.id} record={record} bare commentIdByUser={commentIdByUser} onLoadCommentIds={loadCommentIds} onComplete={completeEvent} />
+          )}
+        </section>
+      )}
 
       {/* 4. 참여자 표시 관리 (비팔로우 · 체리피커) */}
       <section className={card}>
         <div className="flex items-baseline gap-x-3 gap-y-1 flex-wrap mb-3">
-          <h2 className="text-xl font-bold text-gray-800">4. 참여자 표시 관리</h2>
+          {foldTitle("flags", "4. 참여자 표시 관리")}
           <span className="text-[13px] text-gray-400">비팔로우·체리피커·악성(악플·비정상 행동) 계정을 표시해 두면 다음 추첨에서 자동 제외할 수 있습니다 · 서버 저장(PC 공통)</span>
         </div>
+        {!folded.flags && (
+        <>
         {stateMsg && <p className="mb-2 text-[14px] text-red-600">{stateMsg}</p>}
 
         {/* 직접 추가 + 이번 게시물 검색 (한 줄) */}
@@ -1828,19 +2009,21 @@ export default function GiveawayTab() {
               })}
           </ul>
         )}
+        </>
+        )}
       </section>
 
       {/* 5. 이벤트 기록 (서버 DB 저장) — 기본은 한 줄 요약, 눌러서 펼치면 상세 */}
       {(history.length > 0 || results.length > 0) && (
         <section className={card}>
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-xl font-bold text-gray-800">5. 이벤트 기록 <span className="text-[14px] font-normal text-gray-400">({pastHistory.length}건 · 서버 DB 저장)</span></h2>
+            {foldTitle("hist", <>5. 이벤트 기록 <span className="text-[14px] font-normal text-gray-400">({pastHistory.length}건 · 서버 DB 저장)</span></>)}
             <button className="min-h-[40px] px-4 rounded-lg bg-[#303236] text-white text-[14px] font-semibold hover:bg-black disabled:opacity-40" onClick={() => setShowHistory(true)} disabled={history.length === 0}>
               이벤트 기록 리포트 보기
             </button>
           </div>
           {/* 지금 진행 중인 이벤트 — 기록(리포트) 팝업에는 들어가지 않고 여기 따로 보인다. 작업 완료 후 기록으로 이동 */}
-          {results.length > 0 && (() => {
+          {!folded.hist && results.length > 0 && (() => {
             const winnersLive = results.filter((r) => r.status === "ok" && r.role === "winner");
             const checkedN = winnersLive.filter((r) => r.followOk).length;
             return (
@@ -1865,11 +2048,46 @@ export default function GiveawayTab() {
                   </button>
                 )}
                 </div>
-                <p className="mt-1 text-[12px] text-gray-400">"작업 완료"를 누르거나 다음 이벤트를 시작하면 위 &quot;이벤트 기록 리포트&quot; 목록에 들어갑니다.</p>
+                <p className="mt-1 text-[12px] text-gray-400">모든 당첨자 발송 후 &quot;이벤트 완료 처리&quot;를 하거나 다음 이벤트를 시작하면 위 &quot;이벤트 기록 리포트&quot; 목록에 들어갑니다.</p>
               </div>
             );
           })()}
         </section>
+      )}
+
+      {/* 당첨자 프로필 열기 창 */}
+      {profileUsers && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-4" onClick={() => setProfileUsers(null)} role="dialog" aria-modal="true" aria-label="당첨자 프로필 열기">
+          <div className="w-full max-w-md max-h-[85vh] flex flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">당첨자 프로필 열기</h3>
+                <p className="text-[12px] text-gray-500">{profileOpened.length} / {profileUsers.length}명 열었습니다</p>
+              </div>
+              <button className="px-3 py-1.5 rounded-lg border border-gray-300 text-[14px] font-semibold text-gray-700 hover:bg-gray-50" onClick={() => setProfileUsers(null)}>닫기 ✕</button>
+            </div>
+            <div className="px-5 py-3 space-y-2 border-b border-gray-100">
+              <button
+                className="w-full min-h-[44px] rounded-lg bg-[#303236] text-white text-[15px] font-bold hover:bg-black disabled:opacity-40"
+                onClick={openProfileNext}
+                disabled={profileOpened.length >= profileUsers.length}
+              >
+                {profileOpened.length >= profileUsers.length ? "모두 열었습니다" : `▶ 다음 프로필 열기 (@${profileUsers.find((u) => !profileOpened.includes(u))})`}
+              </button>
+              <p className="text-[12px] text-gray-400">브라우저는 버튼 한 번에 새 탭 여러 개를 막아서, 한 번 누를 때마다 한 명씩 열립니다. 아래 아이디를 눌러 직접 열어도 됩니다.</p>
+            </div>
+            <ul className="flex-1 overflow-y-auto divide-y divide-gray-100 px-5">
+              {profileUsers.map((u) => (
+                <li key={u} className="py-2 flex items-center gap-2 text-[14px]">
+                  <span className={profileOpened.includes(u) ? "text-emerald-600" : "text-gray-300"}>{profileOpened.includes(u) ? "✓" : "○"}</span>
+                  <a className="font-semibold text-gray-800 hover:underline" href={igUrl(u)} target="_blank" rel="noopener noreferrer" onClick={() => setProfileOpened((o) => (o.includes(u) ? o : [...o, u]))}>
+                    @{u} ↗
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       )}
 
       {/* 추첨 녹화 무대 (9:16 영상) */}
@@ -1891,40 +2109,85 @@ export default function GiveawayTab() {
               </button>
             </div>
           </div>
+          {mergeSel.length >= 2 && (
+            <div className="mb-2 flex items-center gap-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] text-sky-900">
+              <span>{mergeSel.length}건 선택됨</span>
+              <button className="px-3 py-1 rounded-md bg-sky-600 text-white font-semibold hover:bg-sky-700" onClick={mergeSelected}>선택한 기록 병합</button>
+              <button className="ml-auto text-gray-500 hover:underline" onClick={() => setMergeSel([])}>선택 해제</button>
+            </div>
+          )}
+          {mergeSel.length < 2 && pastHistory.filter((h) => !h.groupId).length >= 2 && (
+            <p className="mb-1 text-[12px] text-gray-400">☑ 같은 이벤트를 상품별로 나눠 만든 기록은 앞의 체크박스를 2개 이상 선택해 병합할 수 있어요.</p>
+          )}
           {pastHistory.length === 0 && <p className="py-6 text-center text-[14px] text-gray-400">아직 지난 이벤트 기록이 없습니다. 현재 이벤트는 다음 이벤트를 시작하면 여기에 들어갑니다.</p>}
           <ul className="divide-y divide-gray-100">
-            {pastHistory
-              .filter((h) => !histQuery.trim() || (h.eventName || "").toLowerCase().includes(histQuery.trim().toLowerCase()))
+            {historyView.ordered
               .map((h) => {
+                const gid = h.groupId;
+                const members = gid ? historyView.groups[gid] : null;
+                const firstOfGroup = !!gid && members![0].id === h.id;
+                const groupOpen = !gid || openGroups.includes(gid);
                 const confirmed = h.winners.filter((w) => w.status === "확정" && (!w.label.startsWith("예비") || (w.note || "").includes("승급")));
                 const checked = confirmed.filter((w) => w.followOk).length;
                 const open = expandId === h.id;
+                const groupHeader =
+                  firstOfGroup && members ? (
+                    <li key={`g-${gid}`} className="text-[14px]">
+                      <div className="flex items-center gap-3 py-2.5 bg-sky-50/60 px-1 rounded">
+                        <button className="flex-1 min-w-0 flex items-center gap-3 text-left" onClick={() => setOpenGroups((g) => (g.includes(gid!) ? g.filter((x) => x !== gid) : [...g, gid!]))} aria-expanded={groupOpen}>
+                          <span className="text-gray-400 text-[12px] w-3 shrink-0">{groupOpen ? "▼" : "▶"}</span>
+                          <span className="font-bold text-gray-900 truncate min-w-0 flex-1">{h.groupName || "병합된 이벤트"}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold whitespace-nowrap">병합 {members.length}건</span>
+                          <span className="text-gray-500 text-[13px] whitespace-nowrap">참여 {fmt(Math.max(...members.map((m) => m.participants)))}</span>
+                          <span className="text-gray-700 text-[13px] whitespace-nowrap">
+                            당첨 {members.reduce((n, m) => n + m.winners.filter((w) => w.status === "확정" && (!w.label.startsWith("예비") || (w.note || "").includes("승급"))).length, 0)}
+                          </span>
+                          {members.every((m) => m.completedAt) ? (
+                            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold whitespace-nowrap">✅ 완료</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold whitespace-nowrap">진행 중 {members.filter((m) => m.completedAt).length}/{members.length}</span>
+                          )}
+                        </button>
+                        <button className="text-[12px] text-gray-400 hover:text-red-600 whitespace-nowrap" onClick={() => ungroup(gid!)}>병합 해제</button>
+                      </div>
+                    </li>
+                  ) : null;
                 return (
-                  <li key={h.id} className="text-[14px]">
+                  <Fragment key={h.id}>
+                  {groupHeader}
+                  {groupOpen && (
+                  <li className={`text-[14px] ${gid ? "pl-5 border-l-2 border-sky-200 ml-2" : ""}`}>
                     {/* 요약 한 줄 */}
-                    <button className="w-full flex items-center gap-3 py-2.5 text-left hover:bg-gray-50" onClick={() => setExpandId(open ? null : h.id)} aria-expanded={open}>
+                    <div className="flex items-center gap-2">
+                      {!gid && (
+                        <input type="checkbox" className="w-4 h-4 shrink-0 accent-sky-600" checked={mergeSel.includes(h.id)} onChange={() => setMergeSel((m) => (m.includes(h.id) ? m.filter((x) => x !== h.id) : [...m, h.id]))} aria-label="병합할 기록 선택" title="같은 이벤트를 나눠 만든 기록을 2개 이상 체크하면 위에서 병합할 수 있어요" />
+                      )}
+                    <button className="flex-1 min-w-0 flex items-center gap-3 py-2.5 text-left hover:bg-gray-50" onClick={() => setExpandId(open ? null : h.id)} aria-expanded={open}>
                       <span className="text-gray-400 text-[12px] w-3 shrink-0">{open ? "▼" : "▶"}</span>
                       <span className="font-bold text-gray-900 truncate min-w-0 flex-1">{h.eventName || "(이름 없는 이벤트)"}</span>
-                      <span className="text-gray-400 text-[13px] whitespace-nowrap hidden sm:inline">{h.at.split(" 오")[0]}</span>
+                      <span className="text-gray-400 text-[13px] whitespace-nowrap hidden sm:inline">{shortAt(h.at).split(" ")[0]}</span>
                       <span className="text-gray-500 text-[13px] whitespace-nowrap">참여 {fmt(h.participants)}</span>
                       <span className="text-gray-700 text-[13px] whitespace-nowrap">당첨 {confirmed.length}</span>
                       <span className={`text-[12px] whitespace-nowrap ${confirmed.length && checked === confirmed.length ? "text-emerald-600" : "text-amber-600"}`}>팔로우 {checked}/{confirmed.length}</span>
+                      {h.completedAt ? (
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold whitespace-nowrap">✅ 완료</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold whitespace-nowrap">진행 중</span>
+                      )}
                     </button>
+                    </div>
 
                     {open && (
                       <div className="pb-3 pl-6 space-y-2">
                         <p className="text-gray-400 text-[12px] break-all">
-                          {h.at} · <a className="hover:underline" href={h.postUrl} target="_blank" rel="noopener noreferrer">{h.postUrl || "(직접 입력)"}</a>
+                          {shortAt(h.at)} · <a className="hover:underline" href={h.postUrl} target="_blank" rel="noopener noreferrer">{h.postUrl || "(직접 입력)"}</a>
                         </p>
                         <p className="text-gray-500 text-[12px]">{h.conditions}</p>
                         <div className="flex flex-wrap gap-2">
-                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recCopy(h, "copy")}>
-                            {copied === `copy-${h.id}` ? "복사됨" : "결과 복사"}
-                          </button>
                           <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recCopy(h, "ann")} title="상품별로 당첨 아이디를 묶은 인스타 공지용 문구를 복사합니다">
                             {copied === `ann-${h.id}` ? "복사됨" : "공지용 복사"}
                           </button>
-                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recWinners(h).forEach((w) => window.open(igUrl(w.user), "_blank", "noopener"))}>
+                          <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => openProfiles(recWinners(h).map((w) => ({ user: w.user })))}>
                             당첨자 프로필 모두 열기 ↗
                           </button>
                           <button className="min-h-[36px] px-3 rounded-lg bg-gray-100 text-[13px] font-semibold text-gray-700 hover:bg-gray-200" onClick={() => recCsv(h)}>
@@ -1960,7 +2223,7 @@ export default function GiveawayTab() {
                             )}
                           </div>
                         </details>
-                        <GiveawayClaimPanel record={h} commentIdByUser={commentIdByUser} onLoadCommentIds={loadCommentIds} />
+                        <GiveawayClaimPanel record={h} commentIdByUser={commentIdByUser} onLoadCommentIds={loadCommentIds} onComplete={completeEvent} />
                         <div className="flex items-center gap-4">
                           {h.hasDetail && (
                             <button className="text-[13px] font-semibold text-[#303236] hover:underline" onClick={() => openDetail(h)}>
@@ -2015,6 +2278,8 @@ export default function GiveawayTab() {
                       </div>
                     )}
                   </li>
+                  )}
+                  </Fragment>
                 );
               })}
           </ul>

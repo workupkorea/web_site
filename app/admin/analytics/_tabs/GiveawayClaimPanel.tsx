@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { downloadText, toCsv } from "@/lib/giveaway";
 import type { ClaimDoc } from "@/lib/giveaway-claims";
 
@@ -8,6 +8,8 @@ interface RecordLike {
   id: string;
   eventName?: string;
   postUrl?: string;
+  /** 이벤트 완료 처리 시각 (ISO) — 모든 당첨자 발송 후에만 설정 가능 */
+  completedAt?: string;
   winners: { label: string; prize?: string; user: string; status: string; note?: string; commentId?: string }[];
 }
 
@@ -43,7 +45,18 @@ const toLocalInput = (iso: string) => {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
-const fmtDt = (iso: string) => new Date(iso).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+/** 화면용 간결한 일시: "11/18 15:55" (24시간제) */
+const fmtDt = (iso: string) => {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+/** 당첨자에게 보내는 안내문용 일시: "11월 20일(목) 오후 11:59" */
+const fmtDtLong = (iso: string) => {
+  const d = new Date(iso);
+  const h = d.getHours();
+  return `${d.getMonth() + 1}월 ${d.getDate()}일(${["일", "월", "화", "수", "목", "금", "토"][d.getDay()]}) ${h < 12 ? "오전" : "오후"} ${h % 12 === 0 ? 12 : h % 12}:${String(d.getMinutes()).padStart(2, "0")}`;
+};
 
 /** DM 문구를 마지막으로 복사한 시각 (토큰별, 이 브라우저에 저장) */
 const DM_KEY = "workup_dm_copied_v1";
@@ -65,7 +78,7 @@ const readDmSent = (): Record<string, string> => {
   }
 };
 
-export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoadCommentIds }: { record: RecordLike; commentIdByUser?: Record<string, string>; onLoadCommentIds?: (postUrl: string) => Promise<number> }) {
+export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoadCommentIds, onComplete, bare = false }: { record: RecordLike; commentIdByUser?: Record<string, string>; onLoadCommentIds?: (postUrl: string) => Promise<number>; onComplete?: (id: string, done: boolean) => void; bare?: boolean }) {
   const [doc, setDoc] = useState<ClaimDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -81,6 +94,10 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
   const [dmSending, setDmSending] = useState(false);
 
   const winners = winnersOf(record);
+  /** DM 발송·복사 기록 키 — 토큰이 아니라 "이벤트:아이디"로 저장해, 링크를 짧게 재발급해도 기록이 사라지지 않는다 */
+  const dk = (e: { user: string }) => `${record.id}:${e.user.toLowerCase()}`;
+  const sentOf = (e: { user: string; token: string }) => dmSent[dk(e)] ?? dmSent[e.token];
+  const copiedOf = (e: { user: string; token: string }) => dmCopied[dk(e)] ?? dmCopied[e.token];
   const base = () => (typeof window === "undefined" ? "" : window.location.origin);
   const linkOf = (token: string) => `${base()}/claim/${token}`;
 
@@ -179,7 +196,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
   const copyDm = async (e: { token: string; user: string; prize: string }) => {
     try {
       await navigator.clipboard.writeText(dmText(e.user, e.prize, e.token));
-      const next = { ...readDmCopied(), [e.token]: new Date().toISOString() };
+      const next = { ...readDmCopied(), [dk(e)]: new Date().toISOString() };
       try {
         localStorage.setItem(DM_KEY, JSON.stringify(next));
       } catch {}
@@ -191,7 +208,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
     setTimeout(() => setCopied(""), 1500);
   };
   const dmText = (user: string, prize: string, token: string) =>
-    `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDt(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}\n\n※ 링크에서 입력만 해 주시면 되고, 이 DM에는 따로 답장하지 않으셔도 됩니다.\n※ 제출 후에도 ${doc ? fmtDt(doc.deadline) : "마감"}까지는 같은 링크에서 수정할 수 있어요. 단, 배송 준비(송장 처리)가 시작되면 수정이 어려우니 미리 꼭 확인해 주세요.`;
+    `@${user}님, ${record.eventName || "이벤트"}에 당첨되셨습니다! 🎉${prize ? `\n🎁 ${prize}` : ""}\n경품 배송을 위해 아래 링크에서 ${doc ? fmtDtLong(doc.deadline) : "기한"}까지 배송 정보를 입력해 주세요.\n${linkOf(token)}\n\n※ 링크에서 입력만 해 주시면 되고, 이 DM에는 따로 답장하지 않으셔도 됩니다.\n※ 제출 후에도 ${doc ? fmtDtLong(doc.deadline) : "마감"}까지는 같은 링크에서 수정할 수 있어요. 단, 배송 준비(송장 처리)가 시작되면 수정이 어려우니 미리 꼭 확인해 주세요.`;
 
   /** 댓글 ID: 기록(당첨 당시)에 저장된 값 → 없으면 지금 불러온 댓글에서 찾는다 */
   const commentIdOf = (user: string) =>
@@ -217,7 +234,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
         const t = targets.find((x) => x.user === res.user);
         if (!t) continue;
         if (res.ok) {
-          nextSent[t.token] = new Date().toISOString();
+          nextSent[dk(t)] = new Date().toISOString();
           ok++;
         } else errs[t.token] = res.error || "발송 실패";
       }
@@ -235,7 +252,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
   };
   const sendAllDms = () => {
     if (!doc) return;
-    const targets = doc.entries.filter((e) => !dmSent[e.token]).map((e) => ({ token: e.token, user: e.user, prize: e.prize }));
+    const targets = doc.entries.filter((e) => !sentOf(e)).map((e) => ({ token: e.token, user: e.user, prize: e.prize }));
     if (!targets.length) return setMsg("모두 이미 발송했습니다.");
     if (!confirm(`${targets.length}명에게 DM을 자동 발송할까요? (이미 발송한 ${doc.entries.length - targets.length}명은 제외 · 댓글 작성 후 7일 이내만 가능)`)) return;
     void sendDms(targets);
@@ -258,6 +275,30 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
     }
   };
 
+  /** 발송 완료 처리·취소 (한 명 또는 여러 명) */
+  const shipEntries = async (tokens: string[], unship = false) => {
+    try {
+      const r = await fetch(`/api/admin/giveaway/claims/${record.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tokens, action: unship ? "unship" : "ship" }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "처리하지 못했습니다.");
+      setDoc(j.doc as ClaimDoc);
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : "처리하지 못했습니다.");
+    }
+  };
+  const shippedN = doc?.entries.filter((e) => e.shippedAt).length ?? 0;
+  const allShipped = !!doc && doc.entries.length > 0 && shippedN === doc.entries.length;
+  const shipAll = () => {
+    if (!doc) return;
+    const rest = doc.entries.filter((e) => !e.shippedAt).map((e) => e.token);
+    if (!rest.length) return;
+    if (!confirm(`발송하지 않은 ${rest.length}명을 모두 "발송 완료"로 처리할까요?`)) return;
+    void shipEntries(rest);
+  };
   const missingIds = !!doc && doc.entries.some((e) => !commentIdOf(e.user));
   const [idLoading, setIdLoading] = useState(false);
   /** DM 발송에 필요한 댓글 ID를 게시물에서 다시 받아온다 (추첨·확정 기록은 건드리지 않음) */
@@ -372,12 +413,17 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
     );
 
   return (
-    <div className="mt-4 border border-gray-200 rounded-xl p-4 bg-white">
+    <div className={bare ? "mt-3" : "mt-4 border border-gray-200 rounded-xl p-4 bg-white"}>
       <div className="flex items-center gap-3 flex-wrap">
-        <h3 className="text-[15px] font-bold text-gray-800">배송 정보 수집</h3>
+        {!bare && <h3 className="text-[15px] font-bold text-gray-800">배송 정보 수집</h3>}
         {doc && (
           <span className={`text-[13px] font-semibold ${submittedN === doc.entries.length ? "text-emerald-600" : "text-amber-600"}`}>
             제출 {submittedN}/{doc.entries.length}명 · 마감 {fmtDt(doc.deadline)}
+          </span>
+        )}
+        {doc && (
+          <span className={`text-[13px] font-semibold ${allShipped ? "text-emerald-600" : "text-gray-500"}`}>
+            📦 발송 {shippedN}/{doc.entries.length}명
           </span>
         )}
         {stale && <span className="text-[12px] text-red-600">당첨자가 바뀌었습니다 — "마감·사이즈 저장"을 눌러 반영하세요</span>}
@@ -394,16 +440,34 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
                     짧은 링크로 재발급
                   </button>
                 )}
+                {onComplete && (
+                  record.completedAt ? (
+                    <button className={`${smallBtn} !bg-emerald-50 !border-emerald-300 !text-emerald-800`} onClick={() => confirm("이벤트 완료 처리를 취소할까요?") && onComplete(record.id, false)} title={`완료 ${fmtDt(record.completedAt)}`}>
+                      ✅ 완료됨 · 취소
+                    </button>
+                  ) : (
+                    <>
+                      {!allShipped && shippedN < (doc?.entries.length ?? 0) && (
+                        <button className={smallBtn} onClick={shipAll} title="아직 발송 처리하지 않은 당첨자를 한 번에 발송 완료로 처리합니다.">전체 발송 완료 처리</button>
+                      )}
+                      <button
+                        className={`${smallBtn} !bg-[#303236] !text-white !border-[#303236]`}
+                        disabled={!allShipped || stale}
+                        onClick={() => confirm("이 이벤트를 완료 처리할까요? 모든 당첨자 발송이 끝난 것으로 기록됩니다.") && onComplete(record.id, true)}
+                        title={allShipped ? "모든 당첨자에게 발송했으므로 이벤트를 완료 처리합니다." : `아직 발송하지 않은 당첨자가 ${(doc?.entries.length ?? 0) - shippedN}명 있어 완료 처리할 수 없습니다.`}
+                      >
+                        {allShipped ? "이벤트 완료 처리" : `이벤트 완료 처리 (미발송 ${(doc?.entries.length ?? 0) - shippedN}명)`}
+                      </button>
+                    </>
+                  )
+                )}
                 {missingIds && onLoadCommentIds && (
                   <button className={`${smallBtn} !border-sky-300 !text-sky-800`} onClick={loadIds} disabled={idLoading} title="DM 자동 발송에는 당첨자 댓글의 ID가 필요합니다. 게시물에서 댓글 ID만 다시 받아옵니다(추첨 결과는 그대로).">
                     {idLoading ? "불러오는 중…" : "댓글 ID 불러오기"}
                   </button>
                 )}
                 <button className={`${smallBtn} !bg-sky-50 !border-sky-300 !text-sky-800`} onClick={sendAllDms} disabled={dmSending} title="당첨자의 댓글에 비공개 답장(DM)으로 안내문과 신청 링크를 자동 발송합니다. 이미 발송한 사람은 제외됩니다.">
-                  {dmSending ? "DM 발송 중…" : `DM 자동 발송 (${doc.entries.filter((e) => !dmSent[e.token]).length}명)`}
-                </button>
-                <button className={smallBtn} onClick={() => copy("all", doc.entries.map((e) => `@${e.user}${e.prize ? ` (${e.prize})` : ""} ${linkOf(e.token)}`).join("\n"))}>
-                  {copied === "all" ? "복사됨" : "전체 링크 복사"}
+                  {dmSending ? "DM 발송 중…" : `DM 자동 발송 (${doc.entries.filter((e) => !sentOf(e)).length}명)`}
                 </button>
                 <button className={`${smallBtn} !bg-emerald-50 !border-emerald-300 !text-emerald-800`} onClick={exportInvoice} disabled={submittedN === 0} title="택배 송장 업로드용 엑셀(송장양식)로 내려받습니다. 제출된 당첨자만 포함됩니다.">송장양식 엑셀</button>
                 <button className={smallBtn} onClick={exportCsv}>제출 정보 CSV</button>
@@ -443,66 +507,127 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
 
           {doc && (
             <>
-              <ul className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-x-6">
-                {doc.entries.map((e) => (
-                  <li key={e.token} className="py-2 text-[13px] border-b border-gray-100 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="font-semibold text-gray-800">@{e.user}</span>
-                      {e.prize && <span className="text-gray-500">{e.prize}</span>}
-                      <span className={e.submitted ? "text-emerald-600 font-semibold" : "text-amber-600"}>{e.submitted ? `✓ ${e.submitted.editCount ? "수정" : "제출"} ${fmtDt(e.submitted.at)}` : "미제출"}</span>
-                      {!!e.submitted?.editCount && <span className="text-[12px] text-violet-600 font-semibold" title="당첨자가 링크에서 직접 수정했습니다. 상세 보기에서 이전 내용을 확인할 수 있습니다.">수정 {e.submitted.editCount}회</span>}
-                      {e.submitted?.lockedAt && <span className="text-[12px] text-gray-500 font-semibold" title={`송장 처리 ${fmtDt(e.submitted.lockedAt)} — 당첨자는 수정할 수 없습니다`}>🔒 송장 처리</span>}
-                      <span className="ml-auto flex flex-wrap justify-end gap-x-2 gap-y-0.5">
-                        {dmSent[e.token] && <span className="text-[12px] text-sky-700 font-semibold">✓ DM 발송 {fmtDt(dmSent[e.token])}</span>}
-                        {dmErr[e.token] && <span className="text-[12px] text-red-600 max-w-[22rem] truncate" title={dmErr[e.token]}>✗ {dmErr[e.token]}</span>}
-                        <button className="text-sky-700 hover:underline disabled:opacity-50" disabled={dmSending} onClick={() => sendDms([{ token: e.token, user: e.user, prize: e.prize }])} title="이 당첨자에게만 DM을 자동 발송합니다.">
-                          {dmSent[e.token] ? "다시 발송" : "DM 발송"}
-                        </button>
-                        {dmCopied[e.token] && <span className="text-[12px] text-gray-400">DM 복사 {fmtDt(dmCopied[e.token])}</span>}
-                        <button className="text-gray-600 hover:underline" onClick={() => copy(`link-${e.token}`, linkOf(e.token))} title={linkOf(e.token)}>
-                          {copied === `link-${e.token}` ? "복사됨" : "링크 복사"}
-                        </button>
-                        <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
-                          {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "문구 복사"}
-                        </button>
-                        {e.submitted?.lockedAt && (
-                          <button className="text-gray-600 hover:underline" onClick={() => lockEntries([e.token], true)} title="잠금을 풀어 당첨자가 마감 전까지 다시 수정할 수 있게 합니다.">잠금 해제</button>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full min-w-[760px] text-[13px] border-collapse">
+                  <thead>
+                    <tr className="text-left text-[12px] text-gray-500 border-y border-gray-300 bg-gray-50">
+                      <th className="py-2 pl-2 pr-1 w-8 font-semibold">#</th>
+                      <th className="py-2 px-2 font-semibold">아이디</th>
+                      <th className="py-2 px-2 font-semibold">상품</th>
+                      <th className="py-2 px-2 font-semibold">제출</th>
+                      <th className="py-2 px-2 font-semibold">DM</th>
+                      <th className="py-2 px-2 font-semibold">제품 발송</th>
+                      <th className="py-2 px-2 pr-3 font-semibold text-right">관리</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {doc.entries.map((e, i) => (
+                      <Fragment key={e.token}>
+                        <tr className="border-b border-gray-100 hover:bg-gray-50/60 align-middle">
+                          <td className="py-2 pl-2 pr-1 text-gray-400">{i + 1}</td>
+                          <td className="py-2 px-2 font-semibold text-gray-800 whitespace-nowrap">@{e.user}</td>
+                          <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{e.prize}</td>
+                          {/* 제출 */}
+                          <td className="py-2 px-2 whitespace-nowrap">
+                            {e.submitted ? (
+                              <span className="inline-flex items-center gap-1.5">
+                                <span className="text-emerald-600 font-semibold">✓ {e.submitted.editCount ? "수정" : "제출"} {fmtDt(e.submitted.at)}</span>
+                                {!!e.submitted.editCount && <span className="text-[12px] text-violet-600 font-semibold" title="당첨자가 링크에서 직접 수정했습니다. 내용 보기에서 이전 내용을 확인할 수 있습니다.">수정 {e.submitted.editCount}회</span>}
+                                {e.submitted.lockedAt && <span className="text-[12px] text-gray-500 font-semibold" title={`송장 처리 ${fmtDt(e.submitted.lockedAt)} — 당첨자는 수정할 수 없습니다`}>🔒</span>}
+                              </span>
+                            ) : (
+                              <span className="text-amber-600">미제출</span>
+                            )}
+                          </td>
+                          {/* DM */}
+                          <td className="py-2 px-2 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-2">
+                              {sentOf(e) || copiedOf(e) ? (
+                                <span className="inline-flex flex-col leading-tight">
+                                  {sentOf(e) && (
+                                    <span className="inline-flex items-center gap-1 text-sky-700 font-semibold" title="DM 자동 발송">
+                                      <span className="px-1 rounded bg-sky-100 text-sky-800 text-[11px] font-bold">자</span>
+                                      {fmtDt(sentOf(e)!)}
+                                    </span>
+                                  )}
+                                  {copiedOf(e) && (
+                                    <span className="inline-flex items-center gap-1 text-gray-500" title="문구 복사(수동 발송용)">
+                                      <span className="px-1 rounded bg-gray-100 text-gray-600 text-[11px] font-bold">수</span>
+                                      {fmtDt(copiedOf(e)!)}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                              <button className="text-sky-700 hover:underline disabled:opacity-50" disabled={dmSending} onClick={() => sendDms([{ token: e.token, user: e.user, prize: e.prize }])} title="이 당첨자에게만 DM을 자동 발송합니다.">
+                                {sentOf(e) ? "다시 발송" : "발송"}
+                              </button>
+                              <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
+                                {copied === e.token ? "복사됨" : "문구 복사"}
+                              </button>
+                              {dmErr[e.token] && <span className="text-[12px] text-red-600 max-w-[16rem] truncate" title={dmErr[e.token]}>✗ {dmErr[e.token]}</span>}
+                            </span>
+                          </td>
+                          {/* 제품 발송 */}
+                          <td className="py-2 px-2 whitespace-nowrap">
+                            <label className={`inline-flex items-center gap-1.5 cursor-pointer select-none ${e.shippedAt ? "text-emerald-700 font-semibold" : "text-gray-500"}`} title={e.shippedAt ? `발송 완료 ${fmtDt(e.shippedAt)} — 눌러서 취소` : "제품을 발송했으면 체크하세요"}>
+                              <input type="checkbox" className="w-4 h-4 accent-emerald-600" checked={!!e.shippedAt} onChange={() => shipEntries([e.token], !!e.shippedAt)} />
+                              {e.shippedAt ? fmtDt(e.shippedAt) : "미발송"}
+                            </label>
+                          </td>
+                          {/* 관리 */}
+                          <td className="py-2 px-2 pr-3 text-right whitespace-nowrap">
+                            <span className="inline-flex items-center justify-end gap-2.5">
+                              {e.submitted ? (
+                                <button className="text-[#303236] font-semibold hover:underline" onClick={() => setOpenUser(openUser === e.user ? null : e.user)}>
+                                  {openUser === e.user ? "닫기" : "내용 보기"}
+                                </button>
+                              ) : (
+                                <span className="text-gray-300">-</span>
+                              )}
+                            </span>
+                          </td>
+                        </tr>
+                        {openUser === e.user && e.submitted && (
+                          <tr className="border-b border-gray-100">
+                            <td />
+                            <td colSpan={6} className="pb-2 pr-3">
+                              <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-0.5 text-gray-700 bg-gray-50 rounded-lg p-3">
+                                <dt className="text-gray-400">이름</dt><dd>{e.submitted.name}</dd>
+                                <dt className="text-gray-400">연락처</dt><dd>{e.submitted.phone}</dd>
+                                <dt className="text-gray-400">주소</dt><dd>{[e.submitted.addr1, e.submitted.addr2].filter(Boolean).join(" ")}</dd>
+                                {e.submitted.size && (<><dt className="text-gray-400">사이즈</dt><dd>{e.submitted.size}</dd></>)}
+                                {!!e.submitted.history?.length && (
+                                  <>
+                                    <dt className="text-violet-500">수정 이력</dt>
+                                    <dd className="space-y-1">
+                                      {e.submitted.history.map((h, k) => (
+                                        <p key={k} className="text-[12px] text-gray-500">
+                                          {fmtDt(h.at)} 이전 · {h.name} / {h.phone} / {[h.addr1, h.addr2].filter(Boolean).join(" ")}{h.size ? ` / ${h.size}` : ""}
+                                        </p>
+                                      ))}
+                                    </dd>
+                                  </>
+                                )}
+                              </dl>
+                              {/* 위험한 작업은 내용을 열었을 때만 작게 보여준다 */}
+                              <div className="mt-2 flex items-center gap-4 text-[12px] text-gray-400">
+                                {e.submitted.lockedAt && (
+                                  <button className="hover:text-gray-700 hover:underline" onClick={() => lockEntries([e.token], true)} title="잠금을 풀어 당첨자가 마감 전까지 다시 수정할 수 있게 합니다.">송장 잠금 해제</button>
+                                )}
+                                <button className="hover:text-red-600 hover:underline disabled:opacity-50" disabled={busy} onClick={() => resetEntry(e)} title="제출한 배송 정보를 지우고 같은 링크로 다시 입력받습니다. 삭제된 내용은 되돌릴 수 없습니다.">
+                                  제출 내용 삭제(초기화)…
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
                         )}
-                        {e.submitted && (
-                          <button className="text-red-600 hover:underline disabled:opacity-50" disabled={busy} onClick={() => resetEntry(e)} title="제출 내용을 지우고 같은 링크로 다시 입력받습니다.">
-                            초기화
-                          </button>
-                        )}
-                        {e.submitted && (
-                          <button className="text-[#303236] font-semibold hover:underline" onClick={() => setOpenUser(openUser === e.user ? null : e.user)}>
-                            {openUser === e.user ? "닫기" : "내용 보기"}
-                          </button>
-                        )}
-                      </span>
-                    </div>
-                    {openUser === e.user && e.submitted && (
-                      <dl className="mt-2 ml-1 grid grid-cols-[72px_1fr] gap-x-3 gap-y-0.5 text-gray-700 bg-gray-50 rounded-lg p-3">
-                        <dt className="text-gray-400">이름</dt><dd>{e.submitted.name}</dd>
-                        <dt className="text-gray-400">연락처</dt><dd>{e.submitted.phone}</dd>
-                        <dt className="text-gray-400">주소</dt><dd>{[e.submitted.addr1, e.submitted.addr2].filter(Boolean).join(" ")}</dd>
-                        {e.submitted.size && (<><dt className="text-gray-400">사이즈</dt><dd>{e.submitted.size}</dd></>)}
-                        {!!e.submitted.history?.length && (
-                          <>
-                            <dt className="text-violet-500">수정 이력</dt>
-                            <dd className="space-y-1">
-                              {e.submitted.history.map((h, k) => (
-                                <p key={k} className="text-[12px] text-gray-500">
-                                  {fmtDt(h.at)} 이전 · {h.name} / {h.phone} / {[h.addr1, h.addr2].filter(Boolean).join(" ")}{h.size ? ` / ${h.size}` : ""}
-                                </p>
-                              ))}
-                            </dd>
-                          </>
-                        )}
-                      </dl>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                      </Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
               <p className="mt-2 text-[12px] text-gray-400">마감 후 90일이 지나면 제출된 개인정보는 자동으로 파기됩니다.</p>
             </>
           )}

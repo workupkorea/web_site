@@ -9,7 +9,7 @@ import HomeInstagramFeed from "@/components/HomeInstagramFeed";
 import HomeYoutubeLongform from "@/components/HomeYoutubeLongform";
 import StoreSearchBar from "@/components/StoreSearchBar";
 import HomeMagazine from "@/components/HomeMagazine";
-import { isMagazinePublishable, type HomeMagazineConfig } from "@/lib/home-magazine";
+import type { HomeMagazineConfig } from "@/lib/home-magazine";
 import type { HeroFilter, HomeSectionKey, HomeSectionLayout } from "@/lib/home-layout";
 
 // 메인 페이지의 섹션 렌더링(배치 순서·노출 반영). 실제 메인(app/page.tsx)과
@@ -56,12 +56,9 @@ export default function HomeSections({
   editorialFilter?: HeroFilter;
 }) {
   // 매거진은 배치에서 보이게 했어도 공개 OFF·커버 미입력이면 렌더되지 않으므로 실제 노출 여부로 거른다.
-  const magazineLive = isMagazinePublishable(magazine);
-  // 상단 배너 전환: 매거진 커버가 상단 배너면 기존 히어로는 숨기고, 기존 배너 모드면 히어로가 제자리에 그대로 나온다.
-  const magazineBanner = magazineLive && magazine.topBanner === "magazine";
-  const visibleSections = sections.filter(
-    (s) => s.visible && (s.key !== "magazine" || magazineLive) && (s.key !== "hero" || !magazineBanner)
-  );
+  // 매거진은 메인에 붙이지 않고 단독 페이지(/magazine)로 분리 — 메인 섹션 목록에서는 항상 제외한다.
+  const visibleSections = sections.filter((s) => s.visible && s.key !== "magazine");
+  const magazineBanner = false;
   // 매장 검색창은 첫 화면(히어로 또는 매거진 커버) 바로 아래에 붙인다 — 둘 중 먼저 나오는 쪽.
   // 둘 다 숨김이면 따라붙을 자리가 없으니 맨 위에서 노출한다.
   const searchBarAnchor = visibleSections.find((s) => s.key === "hero" || (s.key === "magazine" && magazineBanner))?.key;

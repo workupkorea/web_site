@@ -72,6 +72,7 @@ export async function PUT(req: Request, { params }: Ctx) {
         user: w.user,
         prize: String(w.prize || "").slice(0, 80),
         label: String(w.label || "").slice(0, 80),
+        ...(old?.shippedAt && !reissue ? { shippedAt: old.shippedAt } : {}),
       };
     });
     const doc: ClaimDoc = {
@@ -97,6 +98,7 @@ export async function PUT(req: Request, { params }: Ctx) {
  *  - 기본(action 없음): 제출 내용 초기화 — 같은 링크로 다시 입력할 수 있게 된다.
  *  - action "lock": 송장 처리 — 잠가서 당첨자가 링크에서 더 수정하지 못하게 한다. (tokens 여러 명 가능)
  *  - action "unlock": 잠금 해제 — 다시 마감 전까지 수정할 수 있게 한다.
+ *  - action "ship" / "unship": 제품 발송 완료 처리·취소 (tokens 여러 명 가능)
  */
 export async function PATCH(req: Request, { params }: Ctx) {
   if (!(await isSuperAdmin())) return bad("Unauthorized", 401);
@@ -105,6 +107,16 @@ export async function PATCH(req: Request, { params }: Ctx) {
   const body = (await req.json().catch(() => null)) as { token?: string; tokens?: string[]; action?: string } | null;
   try {
     const doc = await getClaimDoc(id);
+    if (body?.action === "ship" || body?.action === "unship") {
+      if (!doc) return bad("대상을 찾을 수 없습니다.", 404);
+      const want = new Set(body.tokens ?? (body.token ? [body.token] : []));
+      const now = new Date().toISOString();
+      const entries = doc.entries.map((e) =>
+        want.has(e.token) ? (body.action === "ship" ? { ...e, shippedAt: e.shippedAt ?? now } : (({ shippedAt, ...rest }) => { void shippedAt; return rest; })(e)) : e,
+      );
+      await saveClaimDoc({ ...doc, entries });
+      return NextResponse.json({ doc: await getClaimDocWithSubmissions(id) });
+    }
     if (body?.action === "lock" || body?.action === "unlock") {
       const own = new Set((doc?.entries ?? []).map((e) => e.token));
       const tokens = (body.tokens ?? (body.token ? [body.token] : [])).filter((t) => own.has(t));

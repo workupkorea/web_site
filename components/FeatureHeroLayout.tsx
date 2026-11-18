@@ -256,6 +256,48 @@ function SectionTags({ tags }: { tags?: EditorialSectionTag[] }) {
 const IMAGE_ROTATE_INTERVAL_MS = 8000;
 // 섹션 제목이 비어 있을 때 쓰는 대체 alt (SEO·접근성: 빈 alt 방지)
 const SECTION_IMAGE_ALT = "기획전 제품 이미지";
+// 360° 회전 뷰어 — 좌우 드래그(터치 스와이프)로 프레임을 넘겨 제품을 돌려본다.
+// 자동으로 돌지 않고, 사용자가 직접 돌릴 때만 움직인다.
+function SpinViewer({ frames, alt, href }: { frames: string[]; alt: string; href?: string }) {
+  const linkRef = useRef<HTMLAnchorElement>(null);
+  const n = frames.length;
+  const [idx, setIdx] = useState(0);
+  const box = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ x: number; start: number; moved: boolean } | null>(null);
+
+  // 모든 프레임 미리 불러오기(드래그 중 깜빡임 방지)
+  useEffect(() => { frames.forEach((u) => { const im = new Image(); im.src = ikSrc(u, 800); }); }, [frames]);
+  const wrap = (v: number) => ((v % n) + n) % n;
+  return (
+    <div
+      ref={box}
+      className="absolute inset-0 bg-white select-none cursor-grab active:cursor-grabbing"
+      style={{ touchAction: "pan-y" }}
+      onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); drag.current = { x: e.clientX, start: idx, moved: false }; }}
+      onPointerMove={(e) => {
+        if (!drag.current || !box.current) return;
+        if (Math.abs(e.clientX - drag.current.x) > 6) drag.current.moved = true;
+        const w = box.current.clientWidth || 300;
+        // 카드 너비의 약 1.2배를 끌면 한 바퀴
+        setIdx(wrap(drag.current.start - Math.round(((e.clientX - drag.current.x) / (w * 1.2)) * n)));
+      }}
+      // 거의 움직이지 않고 뗐으면 "클릭" — 상세페이지로 이동. 끌었으면 회전만 한다.
+      onPointerUp={() => { const d = drag.current; drag.current = null; if (d && !d.moved) linkRef.current?.click(); }}
+      onPointerCancel={() => { drag.current = null; }}
+      role="img"
+      aria-label={`${alt} 회전 이미지`}
+    >
+      {/* 클릭 시 이 링크를 눌러 이동 — 진짜 <a>라서 미리보기 링크 처리(?campaign=1)와 이동 방식이 기존 카드와 같다 */}
+      {href && <Link ref={linkRef} href={href} tabIndex={-1} aria-hidden className="hidden">{alt}</Link>}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={ikSrc(frames[idx], 800)} alt={alt} draggable={false} className="w-full h-full object-contain pointer-events-none" style={{ filter: "brightness(1.2) contrast(1.03)" }} />
+      <span className="absolute bottom-2 left-1/2 -translate-x-1/2 text-[10px] tracking-wide text-gray-500 bg-white/90 border border-gray-200 rounded-full px-2.5 py-1 pointer-events-none">
+        ↔ 드래그해서 돌려보기
+      </span>
+    </div>
+  );
+}
+
 function RotatingImage({ urls, alt, className }: { urls: string[]; alt: string; className?: string }) {
   const [idx, setIdx] = useState(0);
   const count = urls.length;
@@ -288,7 +330,7 @@ function RotatingImage({ urls, alt, className }: { urls: string[]; alt: string; 
 const HERO_ROLL_INTERVAL_MS = 7000;
 const HERO_FADE_MS = 2200;
 
-function useHeroRoll(pools: string[][]) {
+function useHeroRoll(pools: string[][], random = false) {
   const count = Math.max(...pools.map((p) => p.length));
   const [idx, setIdx] = useState(0);
   const [prev, setPrev] = useState<number | null>(null);
@@ -302,7 +344,8 @@ function useHeroRoll(pools: string[][]) {
     const timers: number[] = [];
     const interval = window.setInterval(() => {
       if (document.hidden) return;
-      const next = (current + 1) % count;
+      let next = (current + 1) % count;
+      if (random) { do { next = Math.floor(Math.random() * count); } while (next === current); }
       const urls = [...new Set(pools.map((p) => p[next]).filter(Boolean))].map((u) => ikSrc(u, 1600));
       Promise.all(urls.map((u) => new Promise<void>((res) => { const im = new Image(); im.onload = im.onerror = () => res(); im.src = u; }))).then(() => {
         if (cancelled) return;
@@ -318,7 +361,7 @@ function useHeroRoll(pools: string[][]) {
     }, HERO_ROLL_INTERVAL_MS);
     return () => { cancelled = true; window.clearInterval(interval); timers.forEach(window.clearTimeout); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, poolsKey]);
+  }, [count, poolsKey, random]);
 
   return { idx, prev, loaded };
 }
@@ -440,7 +483,9 @@ function WhiteBox({
       {/* 이미지 — 440:495 = 8:9 컨테이너, object-contain으로 잘림 없음 */}
       <div className="group/img relative w-full flex-shrink-0" style={{ paddingBottom: "112.5%" }}>
         <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-          {section.imageUrl ? (
+          {(section.spinFrames?.length ?? 0) >= 2 ? (
+            <SpinViewer frames={section.spinFrames!} alt={section.title || SECTION_IMAGE_ALT} href={section.detailHref} />
+          ) : section.imageUrl ? (
             <RotatingImage
               urls={section.imageUrls?.length ? section.imageUrls : [section.imageUrl]}
               alt={section.title || SECTION_IMAGE_ALT}
@@ -451,7 +496,7 @@ function WhiteBox({
           )}
         </div>
         {/* 섹션이미지 클릭 → 배너 상세 기획전 페이지 (핫스팟 태그보다 아래 z-index) */}
-        {section.detailHref && (
+        {section.detailHref && !((section.spinFrames?.length ?? 0) >= 2) && (
           <Link
             href={section.detailHref}
             aria-label={`${section.title} 스타일 보기`}
@@ -555,7 +600,7 @@ export default function FeatureHeroLayout({
   const pcExtras = editorial.heroImageUrlsPc?.length ? editorial.heroImageUrlsPc : heroExtras;
   const pcPool = [editorial.heroImageUrlPc || editorial.heroImageUrl, ...pcExtras].filter((u): u is string => !!u);
   const mobilePool = [editorial.heroImageUrl || editorial.heroImageUrlPc, ...heroExtras].filter((u): u is string => !!u);
-  const roll = useHeroRoll([pcPool, mobilePool]);
+  const roll = useHeroRoll([pcPool, mobilePool], editorial.heroImageOrder === "random");
   // 제품 태그는 대표 이미지 좌표 기준이라 다른 사진일 땐 서서히 숨긴다
   // (숨길 땐 페이드가 끝난 뒤 visibility:hidden — 보이지 않는 태그가 클릭되는 것을 막는다)
   const tagFade = HERO_FADE_MS / 2;
@@ -675,7 +720,7 @@ export default function FeatureHeroLayout({
               pool={mobilePool}
               roll={roll}
               alt={editorial.title}
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
@@ -812,7 +857,7 @@ export default function FeatureHeroLayout({
               pool={mobilePool}
               roll={roll}
               alt={editorial.title}
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none select-none"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
             />
           )}
           <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60 z-[1]" />
@@ -851,7 +896,9 @@ export default function FeatureHeroLayout({
                 className="relative w-full flex items-center justify-center bg-gray-100"
                 style={{ aspectRatio: "440 / 495" }}
               >
-                {section.imageUrl ? (
+                {(section.spinFrames?.length ?? 0) >= 2 ? (
+                  <SpinViewer frames={section.spinFrames!} alt={section.title || SECTION_IMAGE_ALT} href={section.detailHref} />
+                ) : section.imageUrl ? (
                   <RotatingImage
                     urls={section.imageUrls?.length ? section.imageUrls : [section.imageUrl]}
                     alt={section.title || SECTION_IMAGE_ALT}
@@ -861,7 +908,7 @@ export default function FeatureHeroLayout({
                   <span className="text-gray-300 text-5xl font-black select-none">WU</span>
                 )}
                 {/* 섹션이미지 클릭 → 배너 상세 기획전 페이지 */}
-                {section.detailHref && (
+                {section.detailHref && !((section.spinFrames?.length ?? 0) >= 2) && (
                   <Link
                     href={section.detailHref}
                     aria-label={`${section.title} 스타일 보기`}

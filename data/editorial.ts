@@ -58,6 +58,7 @@ export type EditorialSection = {
   title: string;
   desc: string;
   imageUrl?: string;
+  spinFrames?: string[]; // 360° 회전 프레임(2장 이상이면 이미지 대신 드래그 회전 뷰어)
   imageUrls?: string[];  // 랜덤 로테이션 후보(대표 이미지 포함, 2장 이상일 때만 로테이션)
   // 카드 타입 — "product"(기본): 상단이미지+제목+설명+썸네일 / "image": 통이미지 한 장
   cardType?: "product" | "image";
@@ -78,6 +79,7 @@ export type Editorial = {
   heroImageUrl?: string;        // 히어로 배경 이미지 (모바일/태블릿 기준, PC 전용 이미지 없으면 PC에서도 사용)
   heroImageUrlPc?: string;      // PC(1280px 이상) 전용 이미지 — 없으면 heroImageUrl로 대체
   heroImagePosition?: string;   // CSS objectPosition (예: "50% 20%"), 기본값 "50% 0%"
+  heroImageOrder?: "sequential" | "random"; // 대표+추가 이미지 노출 순서 (기본 순서대로)
   heroImageUrlsPc?: string[];   // PC 전용 추가 이미지 — 없으면 heroImageUrls를 PC에서도 사용
   heroImageUrls?: string[];     // 추가 이미지 — 대표 이미지는 그대로 먼저 노출하고, 이후 이 이미지들로 천천히 크로스페이드 교체
   heroCtaLabel?: string;        // 대배너 이동 버튼 문구 (예: "매거진 보기")

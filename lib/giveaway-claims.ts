@@ -29,6 +29,8 @@ export interface ClaimEntry {
   prize: string;
   label: string;
   submitted?: ClaimSubmission;
+  /** 제품 발송 완료 처리 시각 (ISO) — 모든 당첨자가 발송 처리돼야 이벤트를 완료 처리할 수 있다 */
+  shippedAt?: string;
 }
 
 export interface ClaimDoc {

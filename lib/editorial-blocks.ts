@@ -12,6 +12,7 @@ export type ProductItem = { id: string; product_id: string; name: string; price:
 export type Banner = {
   title: string; desc: string; section_bg: string; image_url: string;
   image_urls?: string[];        // 랜덤 로테이션용 추가 이미지 (image_url과 함께 번갈아 노출)
+  spin_frames?: string[];       // 360° 회전 이미지 프레임(순서대로)
   label?: string;              // 상세페이지 상단 라벨 (배너별 기획전명)
   card_type?: "product" | "image"; // "image" = 통이미지 카드 (제목/설명/썸네일 없이 이미지 한 장)
   link?: string;                // 통이미지 카드 클릭 시 이동할 링크
@@ -21,7 +22,7 @@ export type Banner = {
 };
 export type DBBlock = {
   id: string; sort_order: number; is_visible: boolean; reversed: boolean;
-  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_urls?: string[]; image_urls_pc?: string[]; image_position?: string; cta_label?: string; cta_link?: string; link: string; tags: HeroTag[]; detail?: Banner };
+  hero: { title: string; subtitle: string; hero_subtitle: string; desc: string; bg_color: string; image_url: string; image_url_pc?: string; image_urls?: string[]; image_urls_pc?: string[]; image_order?: "sequential" | "random"; image_position?: string; cta_label?: string; cta_link?: string; link: string; tags: HeroTag[]; detail?: Banner };
   banner1: Banner; banner2: Banner; banner3?: Banner; banner4?: Banner;
 };
 
@@ -77,6 +78,7 @@ function makeSection(banner: Banner | undefined, detailHref?: string): Editorial
     desc: banner?.desc || "",
     imageUrl: banner?.image_url || undefined,
     imageUrls: [...new Set([banner?.image_url, ...(banner?.image_urls ?? [])].filter((u): u is string => !!u))],
+    spinFrames: (banner?.spin_frames ?? []).filter((u): u is string => !!u),
     cardType: banner?.card_type === "image" ? "image" : "product",
     link: banner?.link || undefined,
     items: [items[0], items[1], items[2]],
@@ -131,9 +133,10 @@ export function blockToEditorial(block: DBBlock): Editorial {
     heroImageUrlPc: block.hero?.image_url_pc || undefined,
     heroImagePosition: block.hero?.image_position || undefined,
     heroImageUrls: (block.hero?.image_urls ?? []).filter((u): u is string => !!u),
+    heroImageOrder: block.hero?.image_order === "random" ? "random" : "sequential",
     heroImageUrlsPc: (block.hero?.image_urls_pc ?? []).filter((u): u is string => !!u),
     heroCtaLabel: block.hero?.cta_label?.trim() || undefined,
-    heroCtaHref: block.hero?.cta_link?.trim() || undefined,
+    heroCtaHref: (block.hero?.cta_link?.trim() === "#magazine" ? "/magazine" : block.hero?.cta_link?.trim()) || undefined,
     textAccent: "#E5541B",
     heroSubtitle: block.hero?.hero_subtitle || "",
     tags: (block.hero?.tags ?? []).map((t) => {

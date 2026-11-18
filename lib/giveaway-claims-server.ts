@@ -43,7 +43,7 @@ export async function getClaimDocWithSubmissions(eventId: string): Promise<Claim
 
 export async function saveClaimDoc(doc: ClaimDoc): Promise<void> {
   // 제출 내용은 별도 행에 있으므로 문서에는 넣지 않는다.
-  const clean: ClaimDoc = { ...doc, entries: doc.entries.map((e) => ({ token: e.token, user: e.user, prize: e.prize, label: e.label })) };
+  const clean: ClaimDoc = { ...doc, entries: doc.entries.map((e) => ({ token: e.token, user: e.user, prize: e.prize, label: e.label, ...(e.shippedAt ? { shippedAt: e.shippedAt } : {}) })) };
   const { error } = await sb()
     .from("site_settings")
     .upsert({ section: claimSection(doc.eventId), config: clean, updated_at: new Date().toISOString() }, { onConflict: "section" });
