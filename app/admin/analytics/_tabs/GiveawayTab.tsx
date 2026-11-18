@@ -1154,6 +1154,30 @@ export default function GiveawayTab() {
     confetti();
   };
 
+  /** 추가 당첨자 뽑기 — 확정 전·후 모두 가능. 이미 결과에 있는 사람(취소된 사람 포함)은 제외하고 무작위로 n명을 더 뽑는다. */
+  const [addPrize, setAddPrize] = useState("");
+  const [addCount, setAddCount] = useState(1);
+  const addWinners = async () => {
+    if (drawing) return;
+    const prizeNames = (record?.prizes ?? prizes.map((p) => ({ name: p.name.trim() || "상품" }))).map((p) => p.name);
+    const prize = addPrize || prizeNames[0] || "상품";
+    const n = clamp(Number(addCount) || 0, 1, 100);
+    const items = results.map((r) => ({ ...r }));
+    const taken = new Set(items.map((r) => r.comment.user.toLowerCase()));
+    let added = 0;
+    for (let k = 0; k < n; k++) {
+      const extra = drawOne(an.valid, taken);
+      if (!extra) break;
+      taken.add(extra.user.toLowerCase());
+      const seq = items.filter((r) => r.label.startsWith("추가") || (r.slot || "").includes("추가")).length + 1;
+      items.push({ comment: extra, role: "winner", label: `추가 ${seq}`, prize, slot: `${prize} 추가 ${seq}`, status: "ok", followOk: false, note: "추가 당첨" });
+      added++;
+    }
+    if (!added) return setMsg("더 뽑을 참여자가 없습니다.");
+    setMsg(added < n ? `참여자가 부족해 ${added}명만 추가로 뽑았습니다.` : `${added}명을 추가로 뽑았습니다.`);
+    await commit(items, record);
+  };
+
   /** 비팔로우 참여자로 표시 (이미 표시돼 있으면 그대로 둔다) */
   const markNoFollow = (user: string) => {
     if (!stateRef.current.flags[user.toLowerCase()]?.noFollow) toggleFlag(user, "noFollow", eventTitle());
@@ -1816,11 +1840,25 @@ export default function GiveawayTab() {
                 팔로우 확인 <b>{results.filter((r) => r.status === "ok" && r.role === "winner" && r.followOk).length}</b> /{" "}
                 {results.filter((r) => r.status === "ok" && r.role === "winner").length}명 · 인스타 프로필에서 팔로우를 확인한 뒤 체크하세요.
               </p>
-              {!record && !drawing && (
-                <button className="px-3 py-1.5 rounded-lg border border-red-200 text-[13px] font-semibold text-red-600 hover:bg-red-50 whitespace-nowrap" onClick={discardDraw} title="당첨자·예비 명단을 한 번에 모두 비웁니다. 불러온 댓글과 조건은 그대로 남습니다.">
-                  🗑 추첨 리스트 전체 비우기
-                </button>
-              )}
+              <div className="flex items-center gap-2 flex-wrap">
+                {!drawing && (
+                  <span className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2 py-1" title="이미 뽑힌 사람을 제외하고 무작위로 당첨자를 더 뽑습니다. 확정 후에도 가능하며, 배송 정보 수집에서 '반영'하면 새 당첨자 링크가 만들어집니다.">
+                    <select className="text-[13px] bg-transparent outline-none" value={addPrize} onChange={(e) => setAddPrize(e.target.value)} aria-label="추가 당첨 상품">
+                      {(record?.prizes ?? prizes.map((p) => ({ name: p.name.trim() || "상품" }))).map((p, i) => (
+                        <option key={i} value={p.name}>{p.name}</option>
+                      ))}
+                    </select>
+                    <input type="number" min={1} max={100} className="w-12 text-[13px] text-center border border-gray-200 rounded px-1 py-0.5" value={addCount} onChange={(e) => setAddCount(Number(e.target.value))} aria-label="추가 인원" />
+                    <span className="text-[13px] text-gray-500">명</span>
+                    <button className="px-2.5 py-1 rounded-md bg-[#303236] text-white text-[13px] font-semibold hover:bg-black whitespace-nowrap" onClick={addWinners}>＋ 추가 당첨자 뽑기</button>
+                  </span>
+                )}
+                {!record && !drawing && (
+                  <button className="px-3 py-1.5 rounded-lg border border-red-200 text-[13px] font-semibold text-red-600 hover:bg-red-50 whitespace-nowrap" onClick={discardDraw} title="당첨자·예비 명단을 한 번에 모두 비웁니다. 불러온 댓글과 조건은 그대로 남습니다.">
+                    🗑 추첨 리스트 전체 비우기
+                  </button>
+                )}
+              </div>
             </div>
             <datalist id="gw-users">
               {[...new Set(an.valid.map((c) => c.user))].slice(0, 1000).map((u) => (
