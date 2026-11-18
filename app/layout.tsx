@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/Header";
 import Topbar from "@/components/Topbar";
@@ -37,7 +36,9 @@ const HEADER_FALLBACK_ITEMS: TopbarItem[] = [
   { id: "header-group-order", label: "단체복문의", href: "/group-order", icon: "none", newTab: false },
 ];
 
-const notoSansKR = Noto_Sans_KR({ weight: ["400", "700", "900"], display: "optional" });
+// 본문 서체(Noto Sans KR)는 next/font/google 대신 아래 <link>로 불러온다 — next/font/google이 Vercel 빌드에서
+// "queries have exactly one entry"/module-not-found로 간헐 실패해 배포가 막혔다(Oxanium과 같은 이유, lib/oxanium.ts).
+// display=optional 동작은 그대로 유지(폰트가 바로 준비되지 않으면 이번 조회는 폴백 유지 → 리플로우 방지).
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -108,7 +109,7 @@ export default async function RootLayout({
 
   return (
     <html lang="ko">
-      <body className={`min-h-full flex flex-col ${notoSansKR.className}`}>
+      <body className="min-h-full flex flex-col font-noto-sans-kr">
         {/* 헤더가 top: var(--wu-topbar-h)로 스티키 위치를 잡고, 카탈로그 뷰어 등도 이 값을 참조한다.
             탑바가 꺼져 있거나 없으면 0, 켜져 있으면 PC/모바일 각각의 실제 높이로 맞춘다. */}
         <style>{`
@@ -120,6 +121,7 @@ export default async function RootLayout({
         {/* 웹폰트 라이브러리 (영문+한글 장식용) — 슬라이딩 메뉴 텍스트 캔버스용 · 실제 사용 시에만 폰트 파일 다운로드 */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=optional" />
         <link
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Black+Han+Sans&family=Do+Hyeon&family=Jua&family=Montserrat:wght@400;600;700;900&family=Nanum+Pen+Script&family=Noto+Serif+KR:wght@400;600;700&family=Oswald:wght@400;500;700&family=Oxanium:wght@400;500;600;700;800&family=Playfair+Display:wght@400;700;900&display=swap"

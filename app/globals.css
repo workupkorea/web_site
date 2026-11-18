@@ -394,6 +394,11 @@ html {
   font-family: "Oxanium", sans-serif;
 }
 
+/* 본문 기본 서체 — layout.tsx의 Google Fonts <link>(Noto Sans KR 400/700/900)로 로드 */
+.font-noto-sans-kr {
+  font-family: "Noto Sans KR", sans-serif;
+}
+
 /* 메인 캠페인 매거진 — 이미지 크롭 위치(관리자 지정 object-position, PC/모바일 분리) */
 .magazine-img { object-position: var(--pos, 50% 50%); }
 @media (max-width: 767px) {
