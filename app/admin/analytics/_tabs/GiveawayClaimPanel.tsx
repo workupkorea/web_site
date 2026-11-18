@@ -390,14 +390,14 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
 
           {doc && (
             <>
-              <ul className="mt-3 divide-y divide-gray-100">
+              <ul className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-x-6">
                 {doc.entries.map((e) => (
-                  <li key={e.token} className="py-2 text-[13px]">
+                  <li key={e.token} className="py-2 text-[13px] border-b border-gray-100 min-w-0">
                     <div className="flex items-center gap-3 flex-wrap">
                       <span className="font-semibold text-gray-800">@{e.user}</span>
                       {e.prize && <span className="text-gray-500">{e.prize}</span>}
                       <span className={e.submitted ? "text-emerald-600 font-semibold" : "text-amber-600"}>{e.submitted ? `✓ 제출 ${fmtDt(e.submitted.at)}` : "미제출"}</span>
-                      <span className="ml-auto flex gap-2">
+                      <span className="ml-auto flex flex-wrap justify-end gap-x-2 gap-y-0.5">
                         {dmSent[e.token] && <span className="text-[12px] text-sky-700 font-semibold">✓ DM 발송 {fmtDt(dmSent[e.token])}</span>}
                         {dmErr[e.token] && <span className="text-[12px] text-red-600 max-w-[22rem] truncate" title={dmErr[e.token]}>✗ {dmErr[e.token]}</span>}
                         <button className="text-sky-700 hover:underline disabled:opacity-50" disabled={dmSending} onClick={() => sendDms([{ token: e.token, user: e.user, prize: e.prize }])} title="이 당첨자에게만 DM을 자동 발송합니다.">
@@ -405,7 +405,7 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
                         </button>
                         {dmCopied[e.token] && <span className="text-[12px] text-gray-400">DM 복사 {fmtDt(dmCopied[e.token])}</span>}
                         <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
-                          {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "DM 문구 복사"}
+                          {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "문구 복사"}
                         </button>
                         {e.submitted && (
                           <button className="text-red-600 hover:underline disabled:opacity-50" disabled={busy} onClick={() => resetEntry(e)} title="제출 내용을 지우고 같은 링크로 다시 입력받습니다.">

@@ -26,6 +26,62 @@ import {
   type GwOptions,
 } from "@/lib/giveaway";
 
+/** 신청 마감 시각(ISO) → "11월 20일(목) 오후 11:59" */
+function fmtDeadlineKo(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const wd = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  const h = d.getHours();
+  const ap = h < 12 ? "오전" : "오후";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${d.getMonth() + 1}월 ${d.getDate()}일(${wd}) ${ap} ${h12}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+/** 인스타 공지(게시물·스토리)에 붙여 넣을 당첨자 발표 문구 — 상단 문구 · 당첨자 목록 · 하단 문구(신청 마감일 포함). 예비는 제외. */
+function buildAnnounce(title: string, winners: { prize: string; user: string }[], deadline: string): string {
+  const order: string[] = [];
+  const by = new Map<string, string[]>();
+  for (const w of winners) {
+    const name = w.prize || "상품";
+    if (!by.has(name)) {
+      by.set(name, []);
+      order.push(name);
+    }
+    by.get(name)!.push(`@${w.user}`);
+  }
+  const list =
+    order.length > 1 ? order.map((n) => [`🎁 ${n}`, ...by.get(n)!].join("\n")).join("\n\n") : order.length ? by.get(order[0])!.join("\n") : "";
+  return [
+    "🎉",
+    title || "이벤트",
+    "당첨자를 발표합니다!",
+    "",
+    "이벤트에 참여해주신 모든 분께 감사드립니다.",
+    "행운의 당첨자를 발표합니다.",
+    "당첨되신 분들 모두 축하드려요!",
+    "",
+    "당첨자",
+    "",
+    list,
+    "",
+    "당첨자분들께는 DM으로 수령 정보 입력 링크를 안내드릴 예정입니다.",
+    `${deadline ? `${deadline}까지` : "신청 마감일까지"} 링크를 통해 정보를 보내주세요.`,
+    "",
+    "⦁ 이벤트 참여 조건을 충족하지 않았거나 비공개 계정·스크랩 계정 등은 당첨 대상에서 제외 되었습니다.",
+  ].join("\n");
+}
+/** 배송 정보 수집(신청 링크)의 마감 시각을 읽어 문구용으로 돌려준다 — 아직 링크를 만들지 않았으면 빈 문자열 */
+async function fetchClaimDeadline(eventId: string): Promise<string> {
+  try {
+    const r = await fetch(`/api/admin/giveaway/claims/${eventId}`);
+    if (!r.ok) return "";
+    const j = (await r.json()) as { deadline?: string; doc?: { deadline?: string } };
+    return fmtDeadlineKo(j.deadline || j.doc?.deadline || "");
+  } catch {
+    return "";
+  }
+}
+
 const HISTORY_KEY = "workup_giveaway_history_v1";
 const DRAFT_KEY = "workup_giveaway_draft_v1";
 const SAMPLE = [
@@ -443,7 +499,19 @@ export default function GiveawayTab() {
   const makeVideo = (h: DrawRecord) => {
     const winners = h.winners
       .filter((w) => w.status === "확정" && (!w.label.startsWith("예비") || (w.note || "").includes("승급")))
-      .map((w) => ({ label: w.label, user: w.user }));
+      .map((w) => ({ label: w.label, user: w.user, prize: w.prize || w.label.replace(/\s*\d+$/, "") }));
+    // 취소·교체로 빠진 번호 때문에 "8, 9, 11, 12 …"처럼 건너뛰지 않도록, 영상에서는 상품별로 1번부터 차례로 다시 매긴다
+    const order: string[] = [];
+    for (const w of winners) if (!order.includes(w.prize)) order.push(w.prize);
+    const numOf = (l: string) => Number(l.match(/(\d+)\s*$/)?.[1] ?? 0);
+    winners.sort((a, b) => order.indexOf(a.prize) - order.indexOf(b.prize) || numOf(a.label) - numOf(b.label));
+    const count: Record<string, number> = {};
+    for (const w of winners) count[w.prize] = (count[w.prize] || 0) + 1;
+    const seen: Record<string, number> = {};
+    for (const w of winners) {
+      seen[w.prize] = (seen[w.prize] || 0) + 1;
+      w.label = count[w.prize] > 1 ? `${w.prize} ${seen[w.prize]}` : w.prize;
+    }
     if (!winners.length) {
       alert("확정된 당첨자가 없습니다.");
       return;
@@ -1124,30 +1192,14 @@ export default function GiveawayTab() {
       flash("fail");
     }
   };
-  /** 인스타 공지(게시물·스토리)에 붙여 넣을 당첨자 안내문 — 상품별로 당첨 아이디를 묶어서 보여준다. 예비는 제외. */
-  const announceText = () => {
+  const announceText = (deadline: string) => {
     const live = results.filter((r) => r.status === "ok" && r.role === "winner");
-    const order: string[] = [];
-    const byPrize = new Map<string, string[]>();
-    for (const r of live) {
-      const name = r.prize || "상품";
-      if (!byPrize.has(name)) {
-        byPrize.set(name, []);
-        order.push(name);
-      }
-      byPrize.get(name)!.push(`@${r.comment.user}`);
-    }
-    const title = (record?.eventName || eventName).trim();
-    return [
-      title ? `🎉 ${title}` : "🎉",
-      "당첨자를 발표합니다!",
-      "",
-      ...order.map((n) => [`🎁 ${n}`, ...byPrize.get(n)!]).flatMap((b, i) => (i ? ["", ...b] : b)),
-    ].join("\n");
+    return buildAnnounce((record?.eventName || eventName).trim(), live.map((r) => ({ prize: r.prize || "상품", user: r.comment.user })), deadline);
   };
   const copyAnnounce = async () => {
     try {
-      await navigator.clipboard.writeText(announceText());
+      const dl = record ? await fetchClaimDeadline(record.id) : "";
+      await navigator.clipboard.writeText(announceText(dl));
       flash("ann");
     } catch {
       flash("fail");
@@ -1178,18 +1230,8 @@ export default function GiveawayTab() {
     if (kind === "copy") {
       text = live.map((w) => `${recWinners(h).includes(w) ? "당첨" : "예비"} @${w.user}`).join("\n");
     } else {
-      const order: string[] = [];
-      const by = new Map<string, string[]>();
-      for (const w of recWinners(h)) {
-        const name = w.prize || "상품";
-        if (!by.has(name)) {
-          by.set(name, []);
-          order.push(name);
-        }
-        by.get(name)!.push(`@${w.user}`);
-      }
-      const title = (h.eventName || "").trim();
-      text = [title ? `🎉 ${title}` : "🎉", "당첨자를 발표합니다!", "", ...order.map((n) => [`🎁 ${n}`, ...by.get(n)!]).flatMap((b, i) => (i ? ["", ...b] : b))].join("\n");
+      const dl = await fetchClaimDeadline(h.id);
+      text = buildAnnounce((h.eventName || "").trim(), recWinners(h).map((w) => ({ prize: w.prize || "상품", user: w.user })), dl);
     }
     try {
       await navigator.clipboard.writeText(text);

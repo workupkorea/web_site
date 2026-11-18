@@ -458,14 +458,18 @@ export function useStageRecorder() {
         rec.start(250);
         setRecording(true);
 
-        await wait(2600); // 인트로
+        // 당첨자가 많을수록 빠르게 — 영상이 너무 길어지지 않게(5명 이하 느긋하게 / 15명 이하 보통 / 그 이상 빠르게)
+        const n = opts.winners.length;
+        const rollMs = n <= 5 ? 1500 : n <= 15 ? 900 : 500;
+        const holdMs = n <= 5 ? 900 : n <= 15 ? 500 : 280;
+        await wait(1800); // 인트로
         for (let i = 0; i < opts.winners.length; i++) {
           const w = opts.winners[i];
           L.index = i;
           L.label = w.label;
           setPhase("roll");
           // 점점 느려지는 룰렛: 45ms → 380ms 간격으로 이름을 바꾸다 멈춘다
-          const total = opts.winners.length <= 3 ? 3200 : 2400;
+          const total = rollMs;
           const t0 = performance.now();
           let last = "";
           let nextAt = 0;
@@ -482,11 +486,11 @@ export function useStageRecorder() {
           }
           L.name = "@" + w.user;
           setPhase("reveal");
-          await wait(1900);
+          await wait(holdMs);
           L.winners = [...L.winners, w];
         }
         setPhase("outro");
-        await wait(5200);
+        await wait(4000);
 
         const blob = await stopRecorder();
         setRecording(false);
