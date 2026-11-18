@@ -7,6 +7,7 @@ import type { ClaimDoc } from "@/lib/giveaway-claims";
 interface RecordLike {
   id: string;
   eventName?: string;
+  postUrl?: string;
   winners: { label: string; prize?: string; user: string; status: string; note?: string; commentId?: string }[];
 }
 
@@ -64,7 +65,7 @@ const readDmSent = (): Record<string, string> => {
   }
 };
 
-export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { record: RecordLike; commentIdByUser?: Record<string, string> }) {
+export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoadCommentIds }: { record: RecordLike; commentIdByUser?: Record<string, string>; onLoadCommentIds?: (postUrl: string) => Promise<number> }) {
   const [doc, setDoc] = useState<ClaimDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -257,6 +258,23 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
     }
   };
 
+  const missingIds = !!doc && doc.entries.some((e) => !commentIdOf(e.user));
+  const [idLoading, setIdLoading] = useState(false);
+  /** DM 발송에 필요한 댓글 ID를 게시물에서 다시 받아온다 (추첨·확정 기록은 건드리지 않음) */
+  const loadIds = async () => {
+    if (!onLoadCommentIds) return;
+    setIdLoading(true);
+    setMsg("댓글 ID를 불러오는 중…");
+    try {
+      const n = await onLoadCommentIds(record.postUrl || "");
+      setMsg(`댓글 ID ${n}명분을 불러왔습니다. 이제 DM 발송을 눌러 주세요.`);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "댓글 ID를 불러오지 못했습니다.");
+    } finally {
+      setIdLoading(false);
+    }
+  };
+
   const submittedN = doc?.entries.filter((e) => e.submitted).length ?? 0;
   // 확정 이후 당첨자가 바뀌었는지 (링크 갱신 필요)
   const stale =
@@ -376,6 +394,11 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
                     짧은 링크로 재발급
                   </button>
                 )}
+                {missingIds && onLoadCommentIds && (
+                  <button className={`${smallBtn} !border-sky-300 !text-sky-800`} onClick={loadIds} disabled={idLoading} title="DM 자동 발송에는 당첨자 댓글의 ID가 필요합니다. 게시물에서 댓글 ID만 다시 받아옵니다(추첨 결과는 그대로).">
+                    {idLoading ? "불러오는 중…" : "댓글 ID 불러오기"}
+                  </button>
+                )}
                 <button className={`${smallBtn} !bg-sky-50 !border-sky-300 !text-sky-800`} onClick={sendAllDms} disabled={dmSending} title="당첨자의 댓글에 비공개 답장(DM)으로 안내문과 신청 링크를 자동 발송합니다. 이미 발송한 사람은 제외됩니다.">
                   {dmSending ? "DM 발송 중…" : `DM 자동 발송 (${doc.entries.filter((e) => !dmSent[e.token]).length}명)`}
                 </button>
@@ -436,6 +459,9 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {} }: { r
                           {dmSent[e.token] ? "다시 발송" : "DM 발송"}
                         </button>
                         {dmCopied[e.token] && <span className="text-[12px] text-gray-400">DM 복사 {fmtDt(dmCopied[e.token])}</span>}
+                        <button className="text-gray-600 hover:underline" onClick={() => copy(`link-${e.token}`, linkOf(e.token))} title={linkOf(e.token)}>
+                          {copied === `link-${e.token}` ? "복사됨" : "링크 복사"}
+                        </button>
                         <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
                           {copied === e.token ? "복사됨" : dmCopied[e.token] ? "다시 복사" : "문구 복사"}
                         </button>

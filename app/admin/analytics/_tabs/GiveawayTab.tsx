@@ -399,8 +399,9 @@ export default function GiveawayTab() {
 
   const rows = useMemo<GwComment[]>(() => (source === "api" ? apiRows : parseComments(pasteText)), [source, apiRows, pasteText]);
   // 불러온 댓글에서 아이디별 가장 최근 댓글 ID — 기록에 댓글 ID가 없을 때(예전 기록·복원) DM 발송 대상 찾기용
+  const [fetchedIds, setFetchedIds] = useState<Record<string, string>>({});
   const commentIdByUser = useMemo(() => {
-    const m: Record<string, string> = {};
+    const m: Record<string, string> = { ...fetchedIds };
     const ts: Record<string, number> = {};
     for (const c of rows) {
       if (!c.id) continue;
@@ -412,7 +413,7 @@ export default function GiveawayTab() {
       }
     }
     return m;
-  }, [rows]);
+  }, [rows, fetchedIds]);
 
   const opts = useMemo<GwOptions>(
     () => ({
@@ -831,6 +832,41 @@ export default function GiveawayTab() {
     } finally {
       setFetching(false);
     }
+  };
+
+  /**
+   * 댓글 ID만 다시 불러오기 — 추첨 결과·확정 기록·불러온 댓글은 그대로 두고, 아이디별 최신 댓글 ID만 받아 DM 자동 발송에 쓴다.
+   * (댓글 ID 저장 기능이 생기기 전에 만든 기록이나, 복원된 화면에서 필요) 돌려주는 값: 받은 아이디 수
+   */
+  const loadCommentIds = async (postUrl: string): Promise<number> => {
+    const u = (postUrl || url).trim();
+    if (!u) throw new Error("게시물 주소가 없습니다. 1. 댓글 불러오기에 게시물 주소를 입력해 주세요.");
+    let list: GwComment[];
+    if (useServer) {
+      const r = await fetch("/api/admin/giveaway/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: u, includeReplies: true }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `요청 실패 (${r.status})`);
+      list = j.comments as GwComment[];
+    } else {
+      list = await fetchInstagramComments({ url: u, token, igId, includeReplies: true, onProgress: () => {} });
+    }
+    const m: Record<string, string> = {};
+    const ts: Record<string, number> = {};
+    for (const c of list) {
+      if (!c.id) continue;
+      const k = c.user.toLowerCase();
+      const t = c.ts ? Date.parse(c.ts) : 0;
+      if (!(k in m) || t >= ts[k]) {
+        m[k] = c.id;
+        ts[k] = t;
+      }
+    }
+    setFetchedIds(m);
+    return Object.keys(m).length;
   };
 
   const confetti = () => runConfetti(confettiRef.current);
@@ -1739,7 +1775,7 @@ export default function GiveawayTab() {
                 🎬 당첨 발표 영상 만들기
               </button>
             </div>
-            {record && <GiveawayClaimPanel key={record.id} record={record} commentIdByUser={commentIdByUser} />}
+            {record && <GiveawayClaimPanel key={record.id} record={record} commentIdByUser={commentIdByUser} onLoadCommentIds={loadCommentIds} />}
           </div>
         )}
       </section>
@@ -1924,7 +1960,7 @@ export default function GiveawayTab() {
                             )}
                           </div>
                         </details>
-                        <GiveawayClaimPanel record={h} commentIdByUser={commentIdByUser} />
+                        <GiveawayClaimPanel record={h} commentIdByUser={commentIdByUser} onLoadCommentIds={loadCommentIds} />
                         <div className="flex items-center gap-4">
                           {h.hasDetail && (
                             <button className="text-[13px] font-semibold text-[#303236] hover:underline" onClick={() => openDetail(h)}>
