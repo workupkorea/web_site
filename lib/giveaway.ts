@@ -14,6 +14,8 @@ export interface GwComment {
 export interface GwOptions {
   minMentions: number;
   keywords: string[]; // 소문자, 모두 포함해야 통과
+  /** 소문자, 하나라도 들어 있으면 제외 (예: 내가 낸 것과 다른 가위바위보 단어) */
+  banWords?: string[];
   exclude: Set<string>; // 소문자 아이디
   /** true: 1인 1회 (중복 제거) / false: 유효 댓글 1개 = 1장의 응모권 */
   dedupe: boolean;
@@ -86,7 +88,7 @@ export function analyze(rows: GwComment[], o: GwOptions): GwAnalysis {
       continue;
     }
     const low = r.text.toLowerCase();
-    if (mentionsOf(r.text, u).size < o.minMentions || !o.keywords.every((k) => low.includes(k))) {
+    if (mentionsOf(r.text, u).size < o.minMentions || !o.keywords.every((k) => low.includes(k)) || (o.banWords ?? []).some((k) => low.includes(k))) {
       dropped.filtered++;
       continue;
     }

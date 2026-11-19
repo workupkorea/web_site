@@ -2,6 +2,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { downloadText, toCsv } from "@/lib/giveaway";
 import type { ClaimDoc } from "@/lib/giveaway-claims";
+import GiveawayCostBox from "./GiveawayCostBox";
 
 // 당첨자 배송 정보 수집 패널 — 확정된 이벤트 기록의 당첨자에게 고유 링크를 만들어 주고 제출 현황을 보여준다.
 interface RecordLike {
@@ -347,6 +348,20 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
     if (!doc) return;
     const rows = doc.entries.filter((e) => e.submitted);
     if (!rows.length) return setMsg("제출된 정보가 없습니다.");
+    // 내려받으면 담긴 당첨자의 제출 내용이 잠겨 당첨자가 수정할 수 없게 되므로, 먼저 경고하고 확인받는다.
+    const waiting = doc.entries.length - rows.length;
+    const unlockedN = rows.filter((e) => !e.submitted!.lockedAt).length;
+    const beforeDeadline = Date.parse(doc.deadline) > Date.now();
+    const warn = [
+      "⚠️ 송장을 내려받으면 담긴 당첨자의 제출 내용이 잠겨, 당첨자는 더 이상 수정할 수 없습니다.",
+      beforeDeadline ? `· 신청 마감(${fmtDt(doc.deadline)})이 아직 남아 있어도 잠깁니다.` : "",
+      unlockedN ? `· 새로 잠기는 인원: ${unlockedN}명` : "· 이미 모두 잠긴 상태입니다.",
+      waiting ? `· 아직 제출하지 않은 ${waiting}명은 송장에 포함되지 않으며, 마감 전까지 계속 제출할 수 있습니다.` : "",
+      "· 잠금은 목록의 '송장 잠금 해제'로 풀 수 있습니다.",
+      "",
+      "송장을 내려받을까요?",
+    ].filter((l, i, a) => l || a[i - 1]).join("\n");
+    if (!confirm(warn)) return;
     setMsg("송장양식을 만드는 중…");
     try {
       const res = await fetch("/templates/giveaway-invoice-template.xlsx");
@@ -442,7 +457,17 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
         {stale && <span className="text-[12px] text-red-600">당첨자가 바뀌었습니다 — "마감·사이즈 저장"을 눌러 반영하세요</span>}
         {msg && <span className="text-[13px] text-gray-500">{msg}</span>}
         {doc && (
-          <div className="ml-auto flex flex-wrap gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-2 gap-y-1.5">
+                <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50/70 px-1.5 py-0.5">
+                  <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap">DM</span>
+                {missingIds && onLoadCommentIds && (
+                  <button className={`${smallBtn} !border-sky-300 !text-sky-800`} onClick={loadIds} disabled={idLoading} title="DM 자동 발송에는 당첨자 댓글의 ID가 필요합니다. 게시물에서 댓글 ID만 다시 받아옵니다(추첨 결과는 그대로).">
+                    {idLoading ? "불러오는 중…" : "댓글ID"}
+                  </button>
+                )}
+                <button className={`${smallBtn} !bg-sky-50 !border-sky-300 !text-sky-800`} onClick={sendAllDms} disabled={dmSending} title="당첨자의 댓글에 비공개 답장(DM)으로 안내문과 신청 링크를 자동 발송합니다. 이미 발송한 사람은 제외됩니다.">
+                  {dmSending ? "발송 중…" : `DM 발송 ${doc.entries.filter((e) => !sentOf(e)).length}`}
+                </button>
                 {doc.entries.some((e) => !e.token.startsWith("k") && !e.submitted) && (
                   <button
                     className={`${smallBtn} !border-amber-300 !text-amber-800`}
@@ -450,18 +475,26 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
                     onClick={() => confirm("아직 제출하지 않은 당첨자의 링크를 짧은 형식으로 다시 만들까요?\n기존(긴) 링크는 더 이상 쓸 수 없게 됩니다. 이미 DM으로 보낸 링크는 새 링크로 다시 안내해야 해요. (이미 제출한 사람의 링크는 그대로 유지됩니다)") && save(true)}
                     title="링크 길이를 약 90자에서 50자 안팎으로 줄입니다."
                   >
-                    짧은 링크로 재발급
+                    짧은링크
                   </button>
                 )}
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50/70 px-1.5 py-0.5">
+                  <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap">내보내기</span>
+                <button className={`${smallBtn} !bg-emerald-50 !border-emerald-300 !text-emerald-800`} onClick={exportInvoice} disabled={submittedN === 0} title="택배 송장 업로드용 엑셀(송장양식)로 내려받습니다. 제출된 당첨자만 포함됩니다.">송장 엑셀</button>
+                <button className={smallBtn} onClick={exportCsv}>CSV</button>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50/70 px-1.5 py-0.5">
+                  <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap">발송</span>
                 {onComplete && (
                   record.completedAt ? (
                     <button className={`${smallBtn} !bg-emerald-50 !border-emerald-300 !text-emerald-800`} onClick={() => confirm("이벤트 완료 처리를 취소할까요?") && onComplete(record.id, false)} title={`완료 ${fmtDt(record.completedAt)}`}>
-                      ✅ 완료됨 · 취소
+                      ✅ 완료 취소
                     </button>
                   ) : (
                     <>
                       {!allShipped && shippedN < (doc?.entries.length ?? 0) && (
-                        <button className={smallBtn} onClick={shipAll} title="아직 발송 처리하지 않은 당첨자를 한 번에 발송 완료로 처리합니다.">전체 발송 완료 처리</button>
+                        <button className={smallBtn} onClick={shipAll} title="아직 발송 처리하지 않은 당첨자를 한 번에 발송 완료로 처리합니다.">전체 발송완료</button>
                       )}
                       <button
                         className={`${smallBtn} !bg-[#303236] !text-white !border-[#303236]`}
@@ -469,23 +502,17 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
                         onClick={() => confirm("이 이벤트를 완료 처리할까요? 모든 당첨자 발송이 끝난 것으로 기록됩니다.") && onComplete(record.id, true)}
                         title={allShipped ? "모든 당첨자에게 발송했으므로 이벤트를 완료 처리합니다." : `아직 발송하지 않은 당첨자가 ${(doc?.entries.length ?? 0) - shippedN}명 있어 완료 처리할 수 없습니다.`}
                       >
-                        {allShipped ? "이벤트 완료 처리" : `이벤트 완료 처리 (미발송 ${(doc?.entries.length ?? 0) - shippedN}명)`}
+                        {allShipped ? "이벤트 완료" : `이벤트 완료 (미발송 ${(doc?.entries.length ?? 0) - shippedN})`}
                       </button>
                     </>
                   )
                 )}
-                {missingIds && onLoadCommentIds && (
-                  <button className={`${smallBtn} !border-sky-300 !text-sky-800`} onClick={loadIds} disabled={idLoading} title="DM 자동 발송에는 당첨자 댓글의 ID가 필요합니다. 게시물에서 댓글 ID만 다시 받아옵니다(추첨 결과는 그대로).">
-                    {idLoading ? "불러오는 중…" : "댓글 ID 불러오기"}
-                  </button>
-                )}
-                <button className={`${smallBtn} !bg-sky-50 !border-sky-300 !text-sky-800`} onClick={sendAllDms} disabled={dmSending} title="당첨자의 댓글에 비공개 답장(DM)으로 안내문과 신청 링크를 자동 발송합니다. 이미 발송한 사람은 제외됩니다.">
-                  {dmSending ? "DM 발송 중…" : `DM 자동 발송 (${doc.entries.filter((e) => !sentOf(e)).length}명)`}
-                </button>
-                <button className={`${smallBtn} !bg-emerald-50 !border-emerald-300 !text-emerald-800`} onClick={exportInvoice} disabled={submittedN === 0} title="택배 송장 업로드용 엑셀(송장양식)로 내려받습니다. 제출된 당첨자만 포함됩니다.">송장양식 엑셀</button>
-                <button className={smallBtn} onClick={exportCsv}>제출 정보 CSV</button>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-gray-200 bg-gray-50/70 px-1.5 py-0.5">
+                  <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap">관리</span>
                 <button className={smallBtn} onClick={load}>새로고침</button>
-                <button className={`${smallBtn} !text-red-600 !border-red-200`} onClick={remove} disabled={busy}>배송 정보 삭제</button>
+                <button className={`${smallBtn} !text-red-600 !border-red-200`} onClick={remove} disabled={busy}>삭제</button>
+                </div>
           </div>
         )}
       </div>
@@ -507,6 +534,8 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
               {doc ? "마감·사이즈 저장" : "신청 링크 만들기"}
             </button>
           </div>
+
+          {winners.length > 0 && <GiveawayCostBox eventId={record.id} winners={winners} />}
 
           {!doc && winners.length > 0 && (
             <ul className="mt-3 space-y-0.5 text-[13px] text-gray-700">
@@ -589,8 +618,9 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
                               <button
                                 className="text-gray-600 hover:underline"
                                 onClick={() => {
-                                  window.open(`https://ig.me/m/${e.user}`, "_blank", "noopener");
+                                  // 복사를 먼저 시작해야 한다 — 새 탭이 먼저 뜨면 이 페이지가 포커스를 잃어 클립보드 복사가 막힌다.
                                   void copyDm(e);
+                                  window.open(`https://ig.me/m/${encodeURIComponent(e.user.replace(/^@/, "").trim())}`, "_blank", "noopener,noreferrer");
                                 }}
                                 title="이 당첨자와의 인스타 DM 창을 열고, 안내 문구를 복사합니다. 열린 창에서 붙여넣기(Ctrl+V)만 하면 됩니다."
                               >

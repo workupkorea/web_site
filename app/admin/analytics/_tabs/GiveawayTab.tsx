@@ -136,7 +136,7 @@ interface ResultItem {
   /** 팔로우 확인 완료 여부 (인스타 API로는 확인 불가 → 수동 체크) */
   followOk: boolean;
   /** 취소·교체된 항목이 되돌릴 수 있도록, 누가 이 자리를 대신 맡았는지 기록 */
-  link?: { kind: "promote" | "extra" | "replace" | "none"; user: string; flagged?: boolean };
+  link?: { kind: "promote" | "extra" | "replace" | "none"; user: string; flagged?: boolean; /** 이 취소로 새로 켠 표시 종류 (되돌릴 때 함께 해제). 없으면 비팔로우 */ flagKind?: "noFollow" | "cherry" | "inactive" };
   /** 승급·추가·교체로 이 사람이 차지한 원래 당첨 자리 이름(상품 순번). 확정할 때 라벨로 사용한다. */
   slot?: string;
 }
@@ -311,6 +311,8 @@ interface UserFlag {
   noFollow: boolean;
   /** 악플·비정상 행동 계정 (옛 데이터에는 없음 → false 취급) */
   bad?: boolean;
+  /** 비활성 계정 — 제외하지 않고 '비활성' 표기만 함 (옛 데이터에는 없음 → false 취급) */
+  inactive?: boolean;
   /** 악성 등록 사유 메모 */
   reason?: string;
   /** 비팔로우로 표시된 이벤트 이름들 */
@@ -320,6 +322,22 @@ interface UserFlag {
 type Flags = Record<string, UserFlag>;
 
 const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+/** 댓글 안에서 추첨 조건과 일치하는 부분을 표시 — 필수 키워드는 노란색, 제외 단어는 빨간색 (대소문자 무시) */
+function highlightKeywords(text: string, keywords: string[], banWords: string[] = []): React.ReactNode {
+  const ks = keywords.filter(Boolean);
+  const bans = banWords.filter(Boolean);
+  const all = [...ks, ...bans];
+  if (!all.length) return text;
+  const re = new RegExp(`(${all.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})`, "gi");
+  const banSet = new Set(bans.map((k) => k.toLowerCase()));
+  const keySet = new Set(ks.map((k) => k.toLowerCase()));
+  return text.split(re).map((part, i) => {
+    const low = part.toLowerCase();
+    if (banSet.has(low)) return <mark key={i} className="bg-red-200 text-red-900 font-semibold rounded-sm px-0.5" title="제외 단어">{part}</mark>;
+    if (keySet.has(low)) return <mark key={i} className="bg-yellow-200 text-gray-900 font-semibold rounded-sm px-0.5">{part}</mark>;
+    return part;
+  });
+}
 const igUrl = (u: string) => `https://www.instagram.com/${encodeURIComponent(u)}/`;
 
 const clamp = (n: number, a: number, b: number) => Math.min(b, Math.max(a, n));
@@ -353,9 +371,9 @@ export default function GiveawayTab() {
   const winnersN = prizes.reduce((a, p) => a + clamp(Number(p.count) || 0, 0, 100), 0);
 
   // ── 조건 ────────────────────────────────────────────────────────────────
-  const [backupsN, setBackupsN] = useState(2);
   const [minMentions, setMinMentions] = useState(0);
   const [keywords, setKeywords] = useState("");
+  const [banWords, setBanWords] = useState(""); // 이 단어가 들어간 댓글은 제외
   const [exclude, setExclude] = useState("workup_official_kr");
   const [dedupe, setDedupe] = useState(true);
   const [minLength, setMinLength] = useState(0);
@@ -469,6 +487,10 @@ export default function GiveawayTab() {
         .split(/[,\n]/)
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
+      banWords: banWords
+        .split(/[,\n]/)
+        .map((s) => s.trim().toLowerCase())
+        .filter(Boolean),
       exclude: new Set([
         ...exclude
           .split(/[\s,]+/)
@@ -484,7 +506,7 @@ export default function GiveawayTab() {
       to: toStr ? Date.parse(toStr) : undefined,
       minLength: clamp(minLength || 0, 0, 500),
     }),
-    [minMentions, keywords, exclude, dedupe, fromStr, toStr, minLength, flags],
+    [minMentions, keywords, banWords, exclude, dedupe, fromStr, toStr, minLength, flags],
   );
 
   const an = useMemo(() => analyze(rows, opts), [rows, opts]);
@@ -641,9 +663,9 @@ export default function GiveawayTab() {
     eventName?: string;
     includeReplies?: boolean;
     prizes?: Prize[];
-    backupsN?: number;
     minMentions?: number;
     keywords?: string;
+    banWords?: string;
     exclude?: string;
     dedupe?: boolean;
     minLength?: number;
@@ -664,9 +686,9 @@ export default function GiveawayTab() {
     setSource(d.source === "api" ? "api" : "paste");
     if (typeof d.includeReplies === "boolean") setIncludeReplies(d.includeReplies);
     if (Array.isArray(d.prizes) && d.prizes.length) setPrizes(d.prizes);
-    if (typeof d.backupsN === "number") setBackupsN(d.backupsN);
     if (typeof d.minMentions === "number") setMinMentions(d.minMentions);
     if (typeof d.keywords === "string") setKeywords(d.keywords);
+    if (typeof d.banWords === "string") setBanWords(d.banWords);
     if (typeof d.exclude === "string") setExclude(d.exclude);
     if (typeof d.dedupe === "boolean") setDedupe(d.dedupe);
     if (typeof d.minLength === "number") setMinLength(d.minLength);
@@ -679,7 +701,10 @@ export default function GiveawayTab() {
       drawSnap.current = { ...d.snap, valid: [], total: 0 };
       setStageLabel("추첨 완료");
       setStageName("복원된 추첨 결과 · 확정 전");
-      if (d.record) setRecord(d.record); // 확정된 상태면 확정 화면(배송 정보 수집 등)까지 그대로 복원
+      if (d.record) {
+        setRecord(d.record); // 확정된 상태면 확정 화면(배송 정보 수집 등)까지 그대로 복원
+        foldSetupSections();
+      }
     }
     setDraftAt(d.savedAt || "");
   };
@@ -711,7 +736,7 @@ export default function GiveawayTab() {
     const savedAt = new Date(savedMs).toLocaleString("ko-KR");
     const sn = drawSnap.current;
     const d: Draft = {
-      savedMs, savedAt, url, source, apiRows, pasteText, eventName, includeReplies, prizes, backupsN, minMentions, keywords, exclude, dedupe, minLength, fromStr, toStr,
+      savedMs, savedAt, url, source, apiRows, pasteText, eventName, includeReplies, prizes, minMentions, keywords, banWords, exclude, dedupe, minLength, fromStr, toStr,
       ...(results.length && sn && !drawing
         ? { record, supersedeId, results, snap: { stamp: sn.stamp, postUrl: sn.postUrl, participants: sn.participants, validComments: sn.validComments, fingerprint: sn.fingerprint, conditions: sn.conditions, prizes: sn.prizes } }
         : {}),
@@ -726,7 +751,7 @@ export default function GiveawayTab() {
       fetch("/api/admin/giveaway/draft", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ draft: d }) }).catch(() => null);
     }, 1500);
     return () => clearTimeout(t);
-  }, [url, source, apiRows, pasteText, eventName, includeReplies, prizes, backupsN, minMentions, keywords, exclude, dedupe, minLength, fromStr, toStr, rows.length, record, results, drawing, supersedeId]);
+  }, [url, source, apiRows, pasteText, eventName, includeReplies, prizes, minMentions, keywords, banWords, exclude, dedupe, minLength, fromStr, toStr, rows.length, record, results, drawing, supersedeId]);
   /** 확정 전 추첨(당첨자·예비 명단)만 삭제 — 불러온 댓글·조건은 그대로 두어 바로 다시 추첨할 수 있다 */
   const discardDraw = () => {
     if (drawing || record) return;
@@ -832,14 +857,14 @@ export default function GiveawayTab() {
     [persist],
   );
   /** 표시 켜기/끄기. 둘 다 꺼지면 목록에서 제거 */
-  const toggleFlag = (user: string, kind: "cherry" | "noFollow" | "bad", event?: string, reason?: string) => {
+  const toggleFlag = (user: string, kind: "cherry" | "noFollow" | "bad" | "inactive", event?: string, reason?: string) => {
     const key = user.toLowerCase();
     const cur: UserFlag = stateRef.current.flags[key] ?? { user, cherry: false, noFollow: false, bad: false, events: [], at: new Date().toLocaleString("ko-KR") };
     const next: UserFlag = { ...cur, [kind]: !cur[kind] };
     if (kind === "noFollow") next.events = next.noFollow ? (event ? [...new Set([...cur.events, event])] : cur.events) : [];
     if (kind === "bad") next.reason = next.bad ? reason?.trim() || cur.reason : undefined;
     const all = { ...stateRef.current.flags };
-    if (!next.cherry && !next.noFollow && !next.bad) delete all[key];
+    if (!next.cherry && !next.noFollow && !next.bad && !next.inactive) delete all[key];
     else all[key] = next;
     saveFlags(all);
   };
@@ -873,7 +898,7 @@ export default function GiveawayTab() {
       /* 요약은 이미 삭제됨 — 상세만 남을 수 있음 */
     }
   };
-  const flagCount = (k: "cherry" | "noFollow" | "bad") => Object.values(flags).filter((f) => f[k]).length;
+  const flagCount = (k: "cherry" | "noFollow" | "bad" | "inactive") => Object.values(flags).filter((f) => f[k]).length;
 
   // 최근 게시물 목록 (선택해서 불러오기)
   const loadMedia = async () => {
@@ -978,10 +1003,11 @@ export default function GiveawayTab() {
   // ── 추첨 ────────────────────────────────────────────────────────────────
   const conditionText = () =>
     [
-      `상품: ${prizes.map((p) => `${p.name.trim() || "상품"} ${clamp(Number(p.count) || 0, 0, 100)}명`).join(", ")} / 예비 ${backupsN}명`,
+      `상품: ${prizes.map((p) => `${p.name.trim() || "상품"} ${clamp(Number(p.count) || 0, 0, 100)}명`).join(", ")} / 예비 없음(취소 시 추가 추첨)`,
       dedupe ? "1인 1회" : "댓글당 응모권",
       opts.minMentions ? `멘션 ${opts.minMentions}명 이상` : "",
       opts.keywords.length ? `키워드: ${opts.keywords.join(", ")}` : "",
+      opts.banWords?.length ? `제외 단어: ${opts.banWords.join(", ")}` : "",
       opts.exclude.size ? `제외: ${[...opts.exclude].join(", ")}` : "",
       fromStr || toStr ? `기간: ${fromStr || "처음"} ~ ${toStr || "끝"}` : "",
     ]
@@ -1077,6 +1103,7 @@ export default function GiveawayTab() {
         rec.hasDetail = false;
       }
       setRecord(rec);
+      foldSetupSections();
       // 같은 이벤트를 다시 추첨해 확정한 경우 이전 확정 기록은 새 결과로 대체한다(기록이 중복되지 않게)
       const old = supersedeId;
       saveHistory([rec, ...stateRef.current.history.filter((h) => h.id !== old)].slice(0, 200));
@@ -1110,12 +1137,13 @@ export default function GiveawayTab() {
       return;
     }
     const nW = slots.length;
-    const nB = clamp(backupsN || 0, 0, 100);
+    const nB = 0; // 예비 인원 없음 — 취소되면 그 자리는 추가 추첨으로 채운다
     const picked = drawPicks(an.valid, nW, nB);
     if (picked.length < nW + nB) setMsg(`참여자가 ${an.users.size}명뿐이라 ${picked.length}명만 추첨했습니다.`);
 
     setDrawing(true);
     setResults([]);
+    setFolded((f) => ({ ...f, res: false })); // 새 추첨 결과는 펼쳐서 보여준다
     if (record) setSupersedeId(record.id); // 진행 중인 재추첨이 끝나 확정되기 전까지 기록 목록에서 숨기고, 확정 시 대체
     setRecord(null);
     const names = [...new Set(an.valid.map((r) => r.user))];
@@ -1187,30 +1215,38 @@ export default function GiveawayTab() {
    * 당첨 취소 → 예비 승급(상품 승계), 예비가 없으면 한 명 더 추첨.
    * reason "nofollow": 팔로우하지 않고 참여한 경우 — 비팔로우 참여자 목록에도 자동 등록한다.
    */
-  const voidWinner = async (idx: number, reason: "cancel" | "nofollow" = "cancel") => {
+  const voidWinner = async (idx: number, reason: "cancel" | "nofollow" | "cherry" | "inactive" = "cancel") => {
     const items = results.map((r) => ({ ...r }));
     const target = items[idx];
     if (!target || target.status === "void") return;
-    const why = reason === "nofollow" ? "미팔로우" : "취소";
+    const why = { cancel: "취소", nofollow: "미팔로우", cherry: "체리피커", inactive: "비활성 계정" }[reason];
     target.status = "void";
-    target.note = reason === "nofollow" ? "팔로우 미이행" : "당첨 취소";
-    // 비팔로우 표시를 이번에 새로 켰는지 기억해 두었다가 되돌릴 때 같이 해제한다.
-    const newlyFlagged = reason === "nofollow" && !stateRef.current.flags[target.comment.user.toLowerCase()]?.noFollow;
+    target.note = { cancel: "당첨 취소", nofollow: "팔로우 미이행", cherry: "체리피커 취소", inactive: "비활성 계정 취소" }[reason];
+    // 표시(비팔로우·체리·비활성)를 이번에 새로 켰는지 기억해 두었다가 되돌릴 때 같이 해제한다.
+    const flagKind = reason === "nofollow" ? "noFollow" : reason === "cherry" || reason === "inactive" ? reason : undefined;
+    const newlyFlagged = !!flagKind && !stateRef.current.flags[target.comment.user.toLowerCase()]?.[flagKind];
     if (reason === "nofollow") markNoFollow(target.comment.user);
+    else if (flagKind && newlyFlagged) toggleFlag(target.comment.user, flagKind);
+    // 예비 순번이 취소되는 경우엔 대신 들어올 사람이 없다(당첨자 자리만 채운다)
+    if (target.role === "backup") {
+      target.link = { kind: "none", user: "", flagged: newlyFlagged, flagKind };
+      await commit(items, record);
+      return;
+    }
     const promote = items.find((r) => r.role === "backup" && r.status === "ok");
-    target.link = { kind: "none", user: "", flagged: newlyFlagged };
+    target.link = { kind: "none", user: "", flagged: newlyFlagged, flagKind };
     if (promote) {
       promote.role = "winner";
       promote.prize = target.prize;
       promote.slot = target.slot ?? target.label;
       promote.note = `${target.label} ${why}로 승급`;
-      target.link = { kind: "promote", user: promote.comment.user, flagged: newlyFlagged };
+      target.link = { kind: "promote", user: promote.comment.user, flagged: newlyFlagged, flagKind };
     } else {
       const taken = new Set(items.map((r) => r.comment.user.toLowerCase()));
       const extra = drawOne(an.valid, taken);
       if (extra) {
         items.push({ comment: extra, role: "winner", label: `추가 ${items.filter((r) => r.label.startsWith("추가")).length + 1}`, prize: target.prize, slot: target.slot ?? target.label, status: "ok", followOk: false, note: `${target.label} ${why}로 추가 추첨` });
-        target.link = { kind: "extra", user: extra.user, flagged: newlyFlagged };
+        target.link = { kind: "extra", user: extra.user, flagged: newlyFlagged, flagKind };
       } else setMsg("더 뽑을 참여자가 없습니다.");
     }
     await commit(items, record);
@@ -1288,7 +1324,7 @@ export default function GiveawayTab() {
    * (예비에서 승급했던 사람 → 다시 예비 / 추가 추첨·교체로 들어온 사람 → 제거)
    * 대신 들어온 사람도 이미 취소돼 있으면, 그 연쇄를 먼저 되돌려 예비 인원들이 모두 원래대로 돌아가게 한다.
    */
-  const undoItem = (items: ResultItem[], t: ResultItem, unflag: string[]): boolean => {
+  const undoItem = (items: ResultItem[], t: ResultItem, unflag: { user: string; kind: "noFollow" | "cherry" | "inactive" }[]): boolean => {
     const link = t.link;
     if (link && link.kind !== "none") {
       const find = () => items.findIndex((r) => r !== t && r.comment.user.toLowerCase() === link.user.toLowerCase());
@@ -1309,7 +1345,7 @@ export default function GiveawayTab() {
         items.splice(j, 1);
       }
     }
-    if (link?.flagged) unflag.push(t.comment.user);
+    if (link?.flagged) unflag.push({ user: t.comment.user, kind: link.flagKind ?? "noFollow" });
     t.status = "ok";
     t.note = undefined;
     t.link = undefined;
@@ -1320,23 +1356,18 @@ export default function GiveawayTab() {
     const items = results.map((r) => ({ ...r }));
     const t = items[idx];
     if (!t || t.status !== "void") return;
-    const unflag: string[] = [];
+    const unflag: { user: string; kind: "noFollow" | "cherry" | "inactive" }[] = [];
     if (!undoItem(items, t, unflag)) {
       setMsg("되돌릴 수 없는 상태입니다. 대신 들어온 사람의 기록이 바뀌었습니다.");
       return;
     }
-    unflag.forEach((u) => {
-      if (stateRef.current.flags[u.toLowerCase()]?.noFollow) toggleFlag(u, "noFollow");
+    unflag.forEach(({ user, kind }) => {
+      if (stateRef.current.flags[user.toLowerCase()]?.[kind]) toggleFlag(user, kind);
     });
     setMsg("");
     await commit(items, record);
   };
 
-  /** 팔로우 확인 완료 체크 */
-  const toggleFollowOk = async (idx: number) => {
-    const items = results.map((r, i) => (i === idx ? { ...r, followOk: !r.followOk } : r));
-    await commit(items, record);
-  };
 
   // ── 내보내기 ─────────────────────────────────────────────────────────────
   const flash = (k: string) => {
@@ -1430,7 +1461,20 @@ export default function GiveawayTab() {
   ].filter(Boolean);
 
   // 영역별 접기 — 제목을 누르면 아래 내용이 접히고 펼쳐진다
-  const [folded, setFolded] = useState<Record<string, boolean>>({});
+  const [folded, setFolded] = useState<Record<string, boolean>>({ flags: true }); // 4. 참여자 표시 관리는 기본 접힘
+  /** 추첨 결과 제목 앞에 붙일 제품명 (여러 제품이면 · 로 연결) */
+  const prizeTitle = [...new Set(results.filter((r) => r.role === "winner" && r.prize).map((r) => r.prize!.trim()))].join(" · ");
+  /** 목록에서는 제품명을 빼고 번호만 보인다: "울트라 웜기어 3" → "3" (제품명이 라벨에 없으면 그대로) */
+  const shortLabel = (r: ResultItem) => {
+    const p = (r.prize || "").trim();
+    if (!p || !r.label.startsWith(p)) return r.label;
+    return r.label.slice(p.length).trim() || r.label;
+  };
+  /** 추첨 확정 후에는 준비 단계(1~4번)를 접어 결과·배송 영역이 먼저 보이게 한다 (제목을 누르면 다시 펼칠 수 있음) */
+  function foldSetupSections() {
+    setFolded((f) => ({ ...f, load: true, cond: true, flags: true, res: true }));
+    setShowAnalysis(false);
+  }
   const foldTitle = (key: string, text: ReactNode) => (
     <h2 className="text-xl font-bold text-gray-800 whitespace-nowrap">
       <button type="button" className="inline-flex items-center gap-2 text-left" onClick={() => setFolded((f) => ({ ...f, [key]: !f[key] }))} aria-expanded={!folded[key]} title={folded[key] ? "펼치기" : "접기"}>
@@ -1705,10 +1749,6 @@ export default function GiveawayTab() {
           </div>
 
           <div className="md:col-span-2">
-            <label className={label}>예비 인원</label>
-            <input className={cInput} type="number" min={0} max={100} value={backupsN} onChange={(e) => setBackupsN(Number(e.target.value))} />
-          </div>
-          <div className="md:col-span-2">
             <label className={label}>최소 멘션</label>
             <input className={cInput} type="number" min={0} max={20} value={minMentions} onChange={(e) => setMinMentions(Number(e.target.value))} />
           </div>
@@ -1716,9 +1756,13 @@ export default function GiveawayTab() {
             <label className={label}>최소 글자</label>
             <input className={cInput} type="number" min={0} max={500} value={minLength} onChange={(e) => setMinLength(Number(e.target.value))} />
           </div>
-          <div className="col-span-2 md:col-span-6">
+          <div className="col-span-2 md:col-span-4">
             <label className={label}>필수 키워드 · 해시태그</label>
             <input className={cInput} value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="#워크업이벤트, 참여 (쉼표 구분, 모두 포함)" />
+          </div>
+          <div className="col-span-2 md:col-span-4">
+            <label className={label}>제외 단어 <span className="font-normal text-gray-400">(하나라도 포함된 댓글은 제외)</span></label>
+            <input className={cInput} value={banWords} onChange={(e) => setBanWords(e.target.value)} placeholder="바위, 보 (쉼표 구분)" />
           </div>
           {/* 조건 요약 바: 왼쪽 = 댓글 집계·응모 방식, 오른쪽 = 제외 요약 + 상세 설정 버튼 */}
           <div className="col-span-2 md:col-span-12 flex items-center justify-between gap-x-4 gap-y-2 flex-wrap min-w-0 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
@@ -1741,6 +1785,7 @@ export default function GiveawayTab() {
               <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="표시 관리에 등록된 체리피커는 항상 추첨에서 제외됩니다">체리 {flagCount("cherry")}</span>
               <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="비팔로우 이력자는 제외하지 않고 '비팔로우 이력' 표기만 합니다">비팔로우 {flagCount("noFollow")}</span>
               <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="악플·비정상 행동으로 등록한 계정은 항상 추첨에서 제외됩니다">악성 {flagCount("bad")}</span>
+              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[12px]" title="비활성 계정은 제외하지 않고 '비활성' 표기만 합니다">비활성 {flagCount("inactive")}</span>
             </div>
             <div className="flex items-center gap-3 ml-auto min-w-0">
               <span className="text-[13px] text-gray-400 truncate">
@@ -1780,7 +1825,7 @@ export default function GiveawayTab() {
               {/* 표시된 참여자 (비팔로우·체리·악성) — 칩의 글자를 눌러 해제 */}
               <div className="mt-5 border-t border-gray-100 pt-4">
                 <p className="text-[14px] font-bold text-gray-800 mb-2">
-                  표시된 참여자 <span className="font-normal text-[13px] text-gray-500">비팔로우 {flagCount("noFollow")} · 체리 {flagCount("cherry")} · 악성 {flagCount("bad")}</span>
+                  표시된 참여자 <span className="font-normal text-[13px] text-gray-500">비팔로우 {flagCount("noFollow")} · 체리 {flagCount("cherry")} · 악성 {flagCount("bad")} · 비활성 {flagCount("inactive")}</span>
                 </p>
                 {Object.keys(flags).length === 0 ? (
                   <p className="text-[13px] text-gray-400">표시된 참여자가 없습니다. 4번 &quot;참여자 표시 관리&quot;에서 추가할 수 있습니다.</p>
@@ -1794,6 +1839,7 @@ export default function GiveawayTab() {
                           {f.noFollow && <button className="px-1 rounded bg-red-100 text-red-700 font-bold" onClick={() => toggleFlag(f.user, "noFollow", eventTitle())} title="비팔로우 해제">비</button>}
                           {f.cherry && <button className="px-1 rounded bg-purple-100 text-purple-700 font-bold" onClick={() => toggleFlag(f.user, "cherry")} title="체리피커 해제">체</button>}
                           {f.bad && <button className="px-1 rounded bg-gray-800 text-white font-bold" onClick={() => toggleFlag(f.user, "bad")} title={`악성 해제${f.reason ? ` (사유: ${f.reason})` : ""}`}>악</button>}
+                          {f.inactive && <button className="px-1 rounded bg-amber-100 text-amber-800 font-bold" onClick={() => toggleFlag(f.user, "inactive")} title="비활성 해제">휴</button>}
                           {f.bad && f.reason && <span className="text-gray-500 max-w-[10rem] truncate">{f.reason}</span>}
                           {winBadge(f.user)}
                         </span>
@@ -1829,7 +1875,7 @@ export default function GiveawayTab() {
       {results.length > 0 && (
         <section className={card}>
           <div className="flex items-center gap-3 flex-wrap">
-            {foldTitle("res", <>추첨 결과 <span className="text-[14px] font-normal text-gray-400">당첨 {results.filter((r) => r.status === "ok" && r.role === "winner").length}명 · 예비 {results.filter((r) => r.status === "ok" && r.role === "backup").length}명{record ? " · 확정됨" : " · 확정 전"}</span></>)}
+            {foldTitle("res", <>{prizeTitle ? `${prizeTitle} ` : ""}추첨 결과 <span className="text-[14px] font-normal text-gray-400">당첨 {results.filter((r) => r.status === "ok" && r.role === "winner").length}명{record ? " · 확정됨" : " · 확정 전"}</span></>)}
           </div>
           {!folded.res && (
           <>
@@ -1837,8 +1883,7 @@ export default function GiveawayTab() {
           <>
             <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
               <p className="text-[14px] text-gray-600">
-                팔로우 확인 <b>{results.filter((r) => r.status === "ok" && r.role === "winner" && r.followOk).length}</b> /{" "}
-                {results.filter((r) => r.status === "ok" && r.role === "winner").length}명 · 인스타 프로필에서 팔로우를 확인한 뒤 체크하세요.
+                당첨 <b>{results.filter((r) => r.status === "ok" && r.role === "winner").length}</b>명 · 체리·비활성·비팔로우를 누르면 그 당첨이 자동 취소되고 새 당첨자가 추가로 뽑힙니다.
               </p>
               <div className="flex items-center gap-2 flex-wrap">
                 {!drawing && (
@@ -1873,7 +1918,7 @@ export default function GiveawayTab() {
                   <Fragment key={r.comment.user + i}>
                   <li className={`px-3 py-1.5 rounded-lg border flex items-center gap-x-3 gap-y-1 flex-wrap ${!live ? "bg-gray-50 border-gray-200 opacity-60" : r.role === "winner" ? "border-[#E5541B]/40 bg-orange-50" : "border-gray-200"}`}>
                     <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold whitespace-nowrap shrink-0 ${r.role === "winner" && live ? "bg-[#E5541B] text-white" : "bg-gray-200 text-gray-600"}`}>
-                      {r.role === "winner" && r.label.startsWith("예비") && r.prize ? `${r.prize} · ${r.label} 승급` : r.label}
+                      {r.role === "winner" && r.label.startsWith("예비") && r.prize ? `${r.prize} · ${r.label} 승급` : shortLabel(r)}
                     </span>
                     <a className={`font-bold text-[15px] hover:underline shrink-0 ${!live ? "line-through" : ""}`} href={igUrl(r.comment.user)} target="_blank" rel="noopener noreferrer">
                       @{r.comment.user} ↗
@@ -1882,7 +1927,14 @@ export default function GiveawayTab() {
                     {f?.cherry && <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[11px] font-bold shrink-0">체리피커</span>}
                     {f?.noFollow && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-bold shrink-0">비팔로우 이력</span>}
                     {f?.bad && <span className="px-1.5 py-0.5 rounded bg-gray-800 text-white text-[11px] font-bold shrink-0" title={f.reason || "악성 계정으로 등록됨"}>악성 계정</span>}
+                    {f?.inactive && <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[11px] font-bold shrink-0">비활성 계정</span>}
                     {r.note && <span className="text-[12px] text-emerald-700 shrink-0">{r.note}</span>}
+                    {/* 실제로 단 댓글 — 가위바위보 등 조건에 맞지 않은 댓글을 눈으로 걸러낼 수 있게 아이디 아래에 작게 보여준다 */}
+                    {r.comment.text?.trim() && (
+                      <p className="order-last basis-full text-[12px] leading-snug text-gray-500 line-clamp-2 break-words" title={r.comment.text}>
+                        {highlightKeywords(r.comment.text, opts.keywords, opts.banWords)}
+                      </p>
+                    )}
                     {!live && !drawing && !record && (
                       <button className="min-h-[32px] text-[13px] font-semibold text-[#303236] hover:underline whitespace-nowrap shrink-0 ml-auto" onClick={() => undoVoid(i)}>
                         되돌리기
@@ -1890,23 +1942,17 @@ export default function GiveawayTab() {
                     )}
                     {live && !drawing && (
                       <span className="flex items-center gap-x-3 shrink-0 ml-auto">
-                        {r.role === "winner" && (
-                          <label className="flex items-center gap-1.5 text-[13px] text-gray-700 min-h-[32px] cursor-pointer whitespace-nowrap">
-                            <input type="checkbox" className="w-4 h-4" checked={r.followOk} onChange={() => toggleFollowOk(i)} />
-                            팔로우 확인
-                          </label>
-                        )}
-                        {r.role === "winner" && (
-                          <button className="min-h-[32px] text-[13px] font-semibold text-red-600 hover:underline whitespace-nowrap" onClick={() => voidWinner(i, "nofollow")} title="팔로우하지 않았다면 예비 당첨자로 대체하고 비팔로우 목록에 등록합니다">
-                            미팔로우→예비
-                          </button>
-                        )}
-                        <button className="min-h-[32px] text-[13px] text-purple-700 hover:underline whitespace-nowrap" onClick={() => toggleFlag(r.comment.user, "cherry")}>
-                          {f?.cherry ? "체리 해제" : "체리피커"}
+                        <span className="flex items-center gap-1 shrink-0">
+                        <button className={`px-2 py-0.5 rounded border text-[12px] font-bold whitespace-nowrap ${f?.cherry ? "bg-purple-100 border-purple-300 text-purple-700" : "bg-white border-gray-300 text-gray-400 hover:text-purple-700 hover:border-purple-300"}`} onClick={() => (f?.cherry ? toggleFlag(r.comment.user, "cherry") : voidWinner(i, "cherry"))} title={f?.cherry ? "체리피커 해제" : "체리피커로 표시하고 당첨을 자동 취소합니다 (예비 당첨자가 승급, 다음 추첨부터 자동 제외)"}>
+                          체리
                         </button>
-                        <button className="min-h-[32px] text-[13px] text-gray-800 hover:underline whitespace-nowrap" onClick={() => toggleFlag(r.comment.user, "bad")} title="악플·비정상 행동 계정으로 등록 (다음 추첨부터 자동 제외)">
-                          {f?.bad ? "악성 해제" : "악성 등록"}
+                        <button className={`px-2 py-0.5 rounded border text-[12px] font-bold whitespace-nowrap ${f?.inactive ? "bg-amber-100 border-amber-300 text-amber-800" : "bg-white border-gray-300 text-gray-400 hover:text-amber-800 hover:border-amber-300"}`} onClick={() => (f?.inactive ? toggleFlag(r.comment.user, "inactive") : voidWinner(i, "inactive"))} title={f?.inactive ? "비활성 해제" : "비활성 계정으로 표시하고 당첨을 자동 취소합니다 (예비 당첨자가 승급)"}>
+                          비활성
                         </button>
+                        <button className={`px-2 py-0.5 rounded border text-[12px] font-bold whitespace-nowrap ${f?.noFollow ? "bg-red-100 border-red-300 text-red-700" : "bg-white border-gray-300 text-gray-400 hover:text-red-700 hover:border-red-300"}`} onClick={() => (f?.noFollow ? toggleFlag(r.comment.user, "noFollow") : voidWinner(i, "nofollow"))} title={f?.noFollow ? "비팔로우 해제" : "비팔로우로 표시하고 당첨을 자동 취소합니다 (예비 당첨자가 승급)"}>
+                          비팔로우
+                        </button>
+                        </span>
                         <button className="min-h-[32px] text-[13px] text-gray-600 hover:underline whitespace-nowrap" onClick={() => { setReplaceIdx(replaceIdx === i ? null : i); setReplaceInput(""); }}>
                           교체
                         </button>
@@ -2001,7 +2047,7 @@ export default function GiveawayTab() {
       <section className={card}>
         <div className="flex items-baseline gap-x-3 gap-y-1 flex-wrap mb-3">
           {foldTitle("flags", "4. 참여자 표시 관리")}
-          <span className="text-[13px] text-gray-400">비팔로우·체리피커·악성(악플·비정상 행동) 계정을 표시해 두면 다음 추첨에서 자동 제외할 수 있습니다 · 서버 저장(PC 공통)</span>
+          <span className="text-[13px] text-gray-400">비팔로우·체리피커·악성(악플·비정상 행동) 계정을 표시해 두면 다음 추첨에서 자동 제외할 수 있습니다 (비활성 계정은 표기만, 제외 안 함) · 서버 저장(PC 공통)</span>
         </div>
         {!folded.flags && (
         <>
@@ -2019,6 +2065,9 @@ export default function GiveawayTab() {
           <input className={`${cInput} !w-44`} value={flagReason} onChange={(e) => setFlagReason(e.target.value.slice(0, 60))} placeholder="악성 사유 메모(선택)" />
           <button className="px-3 py-2 rounded-lg border border-gray-800 text-[13px] font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-40 whitespace-nowrap" disabled={!flagAdd} onClick={() => { if (!flags[flagAdd.toLowerCase()]?.bad) toggleFlag(flagAdd, "bad", undefined, flagReason); setFlagAdd(""); setFlagReason(""); }}>
             악성 계정 추가
+          </button>
+          <button className="px-3 py-2 rounded-lg border border-amber-300 text-[13px] font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-40 whitespace-nowrap" disabled={!flagAdd} onClick={() => { if (!flags[flagAdd.toLowerCase()]?.inactive) toggleFlag(flagAdd, "inactive"); setFlagAdd(""); }}>
+            비활성 추가
           </button>
           {rows.length > 0 && <input className={`${cInput} !w-52 md:ml-auto`} value={flagQuery} onChange={(e) => setFlagQuery(e.target.value)} placeholder="이번 게시물 참여자 검색" />}
         </div>
@@ -2041,6 +2090,7 @@ export default function GiveawayTab() {
                       <button className={`hover:underline ${f?.noFollow ? "text-red-600 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "noFollow", eventTitle())}>{f?.noFollow ? "비팔로우✓" : "비팔로우"}</button>
                       <button className={`hover:underline ${f?.cherry ? "text-purple-700 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "cherry")}>{f?.cherry ? "체리✓" : "체리"}</button>
                       <button className={`hover:underline ${f?.bad ? "text-gray-900 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "bad")}>{f?.bad ? "악성✓" : "악성"}</button>
+                      <button className={`hover:underline ${f?.inactive ? "text-amber-800 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "inactive")}>{f?.inactive ? "비활성✓" : "비활성"}</button>
                     </span>
                   </li>
                 );
@@ -2063,7 +2113,6 @@ export default function GiveawayTab() {
           {/* 지금 진행 중인 이벤트 — 기록(리포트) 팝업에는 들어가지 않고 여기 따로 보인다. 작업 완료 후 기록으로 이동 */}
           {!folded.hist && results.length > 0 && (() => {
             const winnersLive = results.filter((r) => r.status === "ok" && r.role === "winner");
-            const checkedN = winnersLive.filter((r) => r.followOk).length;
             return (
               <div className="mt-3">
                 <p className="text-[13px] font-semibold text-gray-500 mb-1">진행 중</p>
@@ -2077,7 +2126,6 @@ export default function GiveawayTab() {
                   <span className="font-bold text-gray-900 truncate min-w-0 flex-1">{eventName.trim() || record?.eventName || "(이름 없는 이벤트)"}</span>
                   <span className="text-gray-500 text-[13px] whitespace-nowrap">참여 {fmt(an.users.size)}</span>
                   <span className="text-gray-700 text-[13px] whitespace-nowrap">당첨 {winnersLive.length}</span>
-                  <span className={`text-[12px] whitespace-nowrap ${winnersLive.length && checkedN === winnersLive.length ? "text-emerald-600" : "text-amber-600"}`}>팔로우 {checkedN}/{winnersLive.length}</span>
                   <span className="text-gray-400 text-[12px] whitespace-nowrap hidden sm:inline">↑ 추첨 화면</span>
                 </button>
                 {!record && (
