@@ -84,12 +84,11 @@ export default async function BannerDetailPage({ params, searchParams }: Props) 
       )}
 
       {/* ── 하단: 메인페이지로 이동 ─────────────────────────── */}
-      <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24 text-center">
+      <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24">
         <Link
           href="/"
-          className="inline-flex items-center justify-center gap-2 min-h-[48px] px-10 bg-[#303236] text-white text-sm font-bold tracking-wide hover:bg-black transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303236]"
+          className="flex items-center justify-center w-full min-h-[56px] border border-[#303236] text-[#303236] text-sm font-bold tracking-wide hover:bg-[#303236] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303236]"
         >
-          <span aria-hidden>←</span>
           메인페이지로
         </Link>
       </section>

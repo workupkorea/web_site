@@ -395,12 +395,14 @@ function HeroFadeStack({
 }
 
 // 대배너 이동 버튼 (예: 매거진 보기) — 주소가 있을 때만 노출. 터치 영역 44px 이상.
-function HeroCta({ label, href }: { label?: string; href?: string }) {
+// pc=true: 라인(테두리) 박스 + 화살표 없음 + 타이틀 영역과 같은 너비(부모 너비 100%)
+function HeroCta({ label, href, pc = false }: { label?: string; href?: string; pc?: boolean }) {
   if (!href) return null;
   const text = label || "자세히 보기";
-  const cls =
-    "inline-flex items-center gap-2 min-h-[44px] px-5 bg-white text-[#303236] text-[13px] font-semibold tracking-wide hover:bg-[#E5541B] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
-  const arrow = <span aria-hidden>→</span>;
+  const cls = pc
+    ? "flex items-center justify-center w-full min-h-[44px] px-5 border border-white text-white text-[13px] font-semibold tracking-wide hover:bg-white hover:text-[#303236] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+    : "inline-flex items-center gap-2 min-h-[44px] px-5 bg-white text-[#303236] text-[13px] font-semibold tracking-wide hover:bg-[#E5541B] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+  const arrow = pc ? null : <span aria-hidden>→</span>;
   return /^https?:\/\//.test(href) ? (
     <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{text}{arrow}</a>
   ) : (
@@ -640,7 +642,7 @@ export default function FeatureHeroLayout({
           <p className="text-sm mb-2 opacity-80 tracking-wide">{editorial.heroSubtitle}</p>
           <p className="text-3xl font-bold leading-tight">{editorial.title}</p>
           {editorial.heroCtaHref && (
-            <div className="mt-5"><HeroCta label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
+            <div className="mt-5"><HeroCta pc label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
           )}
         </div>
       </>
@@ -727,11 +729,14 @@ export default function FeatureHeroLayout({
 
           <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
             <div style={tagStyle}><MobileTagList tags={tags} /></div>
-            <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
-            <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
-            {editorial.heroCtaHref && (
-              <div className="mt-3"><HeroCta label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
-            )}
+            {/* w-fit: 제목 글자 너비만큼만 차지 → 버튼(w-full)이 제목과 같은 너비가 된다 */}
+            <div className="w-fit max-w-full">
+              <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
+              <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
+              {editorial.heroCtaHref && (
+                <div className="mt-3"><HeroCta pc label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -864,11 +869,14 @@ export default function FeatureHeroLayout({
 
           <div className="absolute bottom-[39px] left-4 right-4 z-[2] text-white">
             <div style={tagStyle}><MobileTagList tags={tags} /></div>
-            <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
-            <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
-            {editorial.heroCtaHref && (
-              <div className="mt-3"><HeroCta label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
-            )}
+            {/* w-fit: 제목 글자 너비만큼만 차지 → 버튼(w-full)이 제목과 같은 너비가 된다 */}
+            <div className="w-fit max-w-full">
+              <p className="mb-1 opacity-80" style={{ fontSize: "12px" }}>{editorial.heroSubtitle}</p>
+              <p className="text-[22px] leading-tight tracking-tight" style={{ fontWeight: 700 }}>{editorial.title}</p>
+              {editorial.heroCtaHref && (
+                <div className="mt-3"><HeroCta pc label={editorial.heroCtaLabel} href={editorial.heroCtaHref} /></div>
+              )}
+            </div>
           </div>
         </div>
 

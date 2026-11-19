@@ -4,7 +4,7 @@ import { ikSrc } from "@/lib/imageSrc";
 
 // 기획전 상세페이지 하단 — 제품을 "사진 + 제품명" 카드로 한눈에 보여주는 간결한 목록(중앙 정렬).
 // 사이즈·품번·상세정보는 여기서 다루지 않는다. 예전 제품 상세(/products/[id])로 가는 링크는 두지 않는다.
-// 관리자에서 스마트스토어 링크(cardDetail.storeUrl)를 입력한 제품에는 "스마트스토어에서 보기" 버튼이 붙는다.
+// 관리자에서 스마트스토어 링크(cardDetail.storeUrl)를 입력한 제품은 카드 전체가 해당 링크로 연결된다(버튼 없음).
 // 메인 배너 태그에서 ?item= / ?product= 로 들어오면 해당 카드를 강조한다.
 export default function ProductFeatureGrid({
   products,
@@ -37,7 +37,7 @@ export default function ProductFeatureGrid({
                   src={ikSrc(image, 600)}
                   alt={p.name}
                   loading="lazy"
-                  className="w-full h-full object-cover "
+                  className="w-full h-full object-cover transition-transform duration-300 ease-out group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-gray-300 text-4xl font-black select-none">WU</div>
@@ -51,24 +51,22 @@ export default function ProductFeatureGrid({
             </div>
           </>
         );
+        const cardCls = `group flex flex-col h-full bg-white border ${highlighted ? "border-[#303236]" : "border-gray-200"}`;
         return (
-          <li
-            key={`${p.productId}-${i}`}
-            className={`flex flex-col bg-white border ${highlighted ? "border-[#303236]" : "border-gray-200"}`}
-          >
-            <div className="flex-1">{body}</div>
-            {safeStoreUrl && (
-              <div className="px-3 pb-4 md:px-4 text-center">
-                <a
-                  href={safeStoreUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-1 min-h-[44px] w-full border border-[#303236] text-[#303236] text-[13px] font-semibold hover:bg-[#303236] hover:text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303236]"
-                >
-                  스마트스토어에서 보기
-                  <span aria-hidden>↗</span>
-                </a>
-              </div>
+          <li key={`${p.productId}-${i}`}>
+            {safeStoreUrl ? (
+              // 카드 전체가 스마트스토어 링크 (별도 버튼 없음)
+              <a
+                href={safeStoreUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${p.name} 스마트스토어에서 보기`}
+                className={`${cardCls} transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303236]`}
+              >
+                {body}
+              </a>
+            ) : (
+              <div className={cardCls}>{body}</div>
             )}
           </li>
         );

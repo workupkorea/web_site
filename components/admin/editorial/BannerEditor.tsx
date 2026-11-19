@@ -872,7 +872,7 @@ export function SlotItemEditor({ item, onChange }: {
             }}
           />
         </div>
-        {/* 스마트스토어 링크 — 입력하면 카드에 "스마트스토어에서 보기" 버튼 노출 (비우면 숨김) */}
+        {/* 스마트스토어 링크 — 입력하면 카드 전체가 이 링크로 연결됨 (비우면 링크 없음) */}
         <Field
           label="스마트스토어 링크 (선택)"
           value={item.card_detail?.storeUrl ?? ""}
