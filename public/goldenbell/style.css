@@ -264,3 +264,7 @@ footer{text-align:center}
 .result-box .chips{justify-content:center}
 .brand-logo{display:block;height:14px;width:auto;filter:brightness(0) invert(1)}
 .brand{justify-content:flex-end;align-items:flex-start;padding-top:22px;padding-bottom:14px;min-height:0}
+/* 제목 오른쪽 끝에 응모기간 글줄 끝을 맞춘다 (제목 폭 기준으로 양끝 정렬) */
+.hero-title{display:inline-block;max-width:100%}
+.hero-title .period{white-space:nowrap;font-size:clamp(12px,3.4vw,15px);letter-spacing:.06em}
+.hero-title .period{font-weight:500}

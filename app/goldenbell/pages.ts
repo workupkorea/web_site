@@ -17,8 +17,10 @@ export const INDEX_HTML = `<!doctype html>
 
   <section class="hero" aria-labelledby="title">
     <p class="hook">워크업에서 구매하고 금 1돈에 도전!</p>
-    <h1 id="title">연말연시 <em>골든벨</em></h1>
-    <p class="period">응모기간 2026.12.01 – 12.31</p>
+    <div class="hero-title">
+      <h1 id="title">연말연시 <em>골든벨</em></h1>
+      <p class="period">응모기간 2026.12.01 – 12.31</p>
+    </div>
     <div class="activity">
       <span class="activity-label">테스트 예시</span>
       <span id="activity-text">매장에서 구매하고 골든벨에 응모하세요</span>
