@@ -210,7 +210,6 @@ footer{text-align:center}
 .admin input,.admin select{border-radius:8px;background:#fff}
 
 @media(max-width:370px){.brand,.hero,.form-section{padding-left:15px;padding-right:15px}.prizes{grid-template-columns:1fr}}
-@media(prefers-reduced-motion:reduce){.roll,.prize-main:after,.sparkle{animation:none}.sparkle{opacity:1}.primary{transition:none}}
 
 /* 관리자: PC 화면 전용 배치 */
 @media(min-width:900px){

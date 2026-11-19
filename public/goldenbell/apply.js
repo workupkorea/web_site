@@ -19,7 +19,7 @@ const exampleStores = ['성수점','롯데몰 청량리점','송파 문정점','
 const randomIndex = length => Math.floor(Math.random() * length);
 let storeIndex = randomIndex(exampleStores.length);
 let people = 2 + randomIndex(2);
-let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let paused = false; // 폰의 '동작 줄이기' 설정과 무관하게 롤링 시작 (일시정지 버튼 제공)
 function renderActivity() {
   activity.textContent = exampleStores[storeIndex] + '에서 ' + people + '명이 응모했습니다.';
   activity.classList.remove('roll');
