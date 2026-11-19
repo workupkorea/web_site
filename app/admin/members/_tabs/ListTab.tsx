@@ -441,11 +441,11 @@ export default function ListTab() {
           </div>
 
           {/* 테이블 */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-hidden">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-4 w-10">
+                  <th className="px-2.5 py-3 w-9">
                     <input type="checkbox" checked={allSel} onChange={toggleAll}
                       className="w-[18px] h-[18px] accent-[#303236] cursor-pointer" />
                   </th>
@@ -454,7 +454,7 @@ export default function ListTab() {
                     const on = key === sortKey;
                     return (
                       <th key={h} aria-sort={on ? (sortDir === "desc" ? "descending" : "ascending") : undefined}
-                        className={`px-5 py-4 text-[13px] font-bold uppercase tracking-wide whitespace-nowrap ${h === "관리" ? "text-right" : "text-left"} ${on ? "text-[#303236]" : "text-gray-500"}`}>
+                        className={`px-2.5 py-3 text-[13px] font-bold uppercase tracking-wide whitespace-nowrap ${h === "관리" ? "text-right" : "text-left"} ${on ? "text-[#303236]" : "text-gray-500"}`}>
                         {key ? (
                           <button type="button" className="inline-flex items-center gap-1 hover:text-[#303236]"
                             onClick={() => { if (on) setSortDir(d => d === "desc" ? "asc" : "desc"); else { setSortKey(key); setSortDir(key === "created_at" || key === "last_login_at" ? "desc" : "asc"); } setPage(1); }}>
@@ -473,44 +473,44 @@ export default function ListTab() {
                   </td></tr>
                 ) : paginated.map(m => (
                   <tr key={m.id} className={selected.has(m.id) ? "bg-blue-50/60" : "hover:bg-gray-50 transition-colors"}>
-                    <td className="px-4 py-4">
+                    <td className="px-2.5 py-3">
                       <input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleOne(m.id)}
                         className="w-[18px] h-[18px] accent-[#303236] cursor-pointer" />
                     </td>
-                    <td className="px-5 py-4 text-[13px] text-gray-400 whitespace-nowrap">{fmtDate(m.created_at)}</td>
-                    <td className="px-5 py-4 text-[15px] text-gray-700 whitespace-nowrap">{m.email}</td>
-                    <td className="px-5 py-4 text-[15px] font-bold text-gray-900 whitespace-nowrap">{m.name}</td>
-                    <td className="px-5 py-4 text-[14px] text-gray-500 whitespace-nowrap">{m.phone ?? "-"}</td>
-                    <td className="px-5 py-4 text-[13px] text-gray-400 max-w-[120px] truncate" title={m.memo ?? ""}>{m.memo ?? "-"}</td>
-                    <td className="px-5 py-4">
+                    <td className="px-2.5 py-3 text-[13px] text-gray-400 whitespace-nowrap">{fmtDate(m.created_at)}</td>
+                    <td className="px-2.5 py-3 text-[14px] text-gray-700 break-all">{m.email}</td>
+                    <td className="px-2.5 py-3 text-[15px] font-bold text-gray-900 whitespace-nowrap">{m.name}</td>
+                    <td className="px-2.5 py-3 text-[14px] text-gray-500 whitespace-nowrap">{m.phone ?? "-"}</td>
+                    <td className="px-2.5 py-3 text-[13px] text-gray-400 max-w-[80px] truncate" title={m.memo ?? ""}>{m.memo ?? "-"}</td>
+                    <td className="px-2.5 py-3">
                       <span className={`inline-block whitespace-nowrap px-2.5 py-1 text-[12px] font-bold rounded-full ${GRADE_COLOR[m.grade] ?? "bg-gray-100 text-gray-600"}`}>
                         {m.grade}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-2.5 py-3">
                       <span className={`inline-block whitespace-nowrap px-2.5 py-1 text-[12px] font-bold rounded-full ${STATUS_COLOR[m.status] ?? "bg-gray-100 text-gray-600"}`}>
                         {STATUS_LABEL[m.status] ?? m.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4 whitespace-nowrap">
+                    <td className="px-2.5 py-3 whitespace-nowrap">
                       <span className={`text-[14px] font-semibold ${m.last_login_at ? "text-gray-700" : "text-gray-300"}`}>{daysSince(m.last_login_at)}</span>
                       {m.last_login_at && <span className="block text-[12px] text-gray-400">{m.last_login_at.slice(0, 16).replace("T", " ")}</span>}
                     </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2 justify-end">
+                    <td className="px-2.5 py-3">
+                      <div className="flex flex-wrap items-center gap-1.5 justify-end">
                         <button onClick={() => setEditTarget(m)}
-                          className="text-[14px] font-semibold text-[#303236] border border-[#303236] px-3.5 py-1.5 hover:bg-[#303236] hover:text-white rounded whitespace-nowrap">
+                          className="text-[14px] font-semibold text-[#303236] border border-[#303236] px-2.5 py-1.5 hover:bg-[#303236] hover:text-white rounded whitespace-nowrap">
                           수정
                         </button>
                         <button onClick={() => resetPassword(m)} disabled={resettingId === m.id}
-                          className="text-[14px] font-semibold text-amber-600 border border-amber-200 px-3.5 py-1.5 hover:bg-amber-50 disabled:opacity-50 rounded whitespace-nowrap">
+                          className="text-[14px] font-semibold text-amber-600 border border-amber-200 px-2.5 py-1.5 hover:bg-amber-50 disabled:opacity-50 rounded whitespace-nowrap">
                           {resettingId === m.id ? "변경 중..." : "비밀번호 변경"}
                         </button>
                         <button onClick={async () => {
                           if (!confirm(`"${m.name}"을 삭제하시겠습니까?`)) return;
                           await fetch(`/api/admin/members/${m.id}`, { method: "DELETE" });
                           showMsg("삭제됐습니다."); load();
-                        }} className="text-[14px] font-semibold text-red-500 border border-red-200 px-3.5 py-1.5 hover:bg-red-50 rounded whitespace-nowrap">
+                        }} className="text-[14px] font-semibold text-red-500 border border-red-200 px-2.5 py-1.5 hover:bg-red-50 rounded whitespace-nowrap">
                           삭제
                         </button>
                       </div>

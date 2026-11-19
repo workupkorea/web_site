@@ -17,6 +17,19 @@ import type { MegaBrandsConfig } from "@/lib/mega-brands-types";
 
 type MemberSession = { name: string; grade: string } | null;
 
+/** 외부 사이트로 이동하는 메뉴인지 (새 탭으로 열리거나 http 로 시작하는 주소) */
+const isExternalNav = (item: NavMenuItem) => !!item.newTab || /^https?:\/\//i.test(item.href);
+/** 외부 링크 표시 아이콘 — 글자 옆에 작게 붙인다 */
+function ExternalIcon() {
+  return (
+    <svg className="inline-block w-[14px] h-[14px] ml-[3px] -mt-[2px] opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 4h6v6" />
+      <path d="M20 4l-9 9" />
+      <path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" />
+    </svg>
+  );
+}
+
 export default function Header({
   navItems = DEFAULT_HEADER_NAV.items,
   logo = DEFAULT_LOGO,
@@ -160,6 +173,7 @@ export default function Header({
                     className="text-[13px] leading-none tracking-tighter"
                   >
                     {item.labelKo}
+                    {isExternalNav(item) && <ExternalIcon />}
                   </span>
                 ) : (
                   <span
@@ -167,6 +181,7 @@ export default function Header({
                     className={`${oxanium.className} text-[17px] leading-none tracking-wide`}
                   >
                     {item.label}
+                    {isExternalNav(item) && <ExternalIcon />}
                   </span>
                 )}
               </Link>

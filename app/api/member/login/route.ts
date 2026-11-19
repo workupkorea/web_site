@@ -23,11 +23,10 @@ export async function POST(req: Request) {
     if (member.status === "withdrawn") {
       return NextResponse.json({ error: "탈퇴한 계정입니다." }, { status: 401 });
     }
-    if (member.status === "dormant") {
-      return NextResponse.json({ error: "휴면 상태입니다. 매장에 문의하세요." }, { status: 401 });
-    }
-
-    await sb.from("members").update({ last_login_at: new Date().toISOString() }).eq("id", member.id);
+    // 휴면 회원은 올바른 비밀번호로 로그인하면 자동으로 활성 복원한다.
+    await sb.from("members")
+      .update({ last_login_at: new Date().toISOString(), ...(member.status === "dormant" ? { status: "active" } : {}) })
+      .eq("id", member.id);
 
     const cookieStore = await cookies();
     cookieStore.set("wu-member", String(member.id), {

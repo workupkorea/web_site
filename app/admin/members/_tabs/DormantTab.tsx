@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import TempPasswordModal from "@/components/admin/TempPasswordModal";
+import { isDormantCandidate } from "@/lib/member-dormancy";
 
 interface Member {
   id: number;
@@ -45,15 +46,15 @@ export default function DormantTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  // 휴면 회원: status = 'dormant' + 활성이지만 1년 이상 미접속
-  const dormant = useMemo(() => {
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    return members.filter(m =>
-      m.status === "dormant" ||
-      (m.status === "active" && (!m.last_login_at || new Date(m.last_login_at) < oneYearAgo))
-    );
-  }, [members]);
+  // 기본은 휴면 대상(활성이지만 1년 이상 미접속)만 표시. 이미 휴면인 회원은 별도 보기로 전환해 복원한다.
+  const [view, setView] = useState<"target" | "dormant">("target");
+  const targetCount = useMemo(() => members.filter(m => isDormantCandidate(m)).length, [members]);
+  const dormantCount = useMemo(() => members.filter(m => m.status === "dormant").length, [members]);
+  const dormant = useMemo(
+    () => members.filter(m => (view === "target" ? isDormantCandidate(m) : m.status === "dormant")),
+    [members, view],
+  );
+  const switchView = (v: "target" | "dormant") => { setView(v); setSelected(new Set()); };
 
   const allSel   = dormant.length > 0 && dormant.every(m => selected.has(m.id));
   const toggleAll = () => setSelected(prev => {
@@ -66,24 +67,24 @@ export default function DormantTab() {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
 
-  const markAsDormant = async () => {
-    if (!confirm("현재 활성 상태이지만 1년 이상 미접속한 회원을 휴면 처리하시겠습니까?")) return;
+  // 선택한 휴면 대상 회원만 휴면 처리 (전환은 관리자가 직접 확인 후 실행)
+  const markSelectedDormant = async () => {
+    const targets = members.filter(m => selected.has(m.id) && isDormantCandidate(m));
+    if (!targets.length) return;
+    if (!confirm(`선택된 ${targets.length}명을 휴면 처리하시겠습니까?
+(해당 회원이 로그인하면 자동으로 활성 복원됩니다.)`)) return;
     setMarking(true);
-    const oneYearAgo = new Date();
-    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-    const targets = members.filter(m =>
-      m.status === "active" && (!m.last_login_at || new Date(m.last_login_at) < oneYearAgo)
-    );
-    await Promise.all(targets.map(m =>
+    const results = await Promise.allSettled(targets.map(m =>
       fetch(`/api/admin/members/${m.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...m, status: "dormant" }),
-      })
+      }).then(r => { if (!r.ok) throw new Error(); })
     ));
+    const failed = results.filter(r => r.status === "rejected").length;
     setMarking(false);
-    showMsg(`${targets.length}명 휴면 처리됐습니다.`);
-    load();
+    showMsg(failed ? `${targets.length - failed}명 휴면 처리 · ${failed}명 실패` : `${targets.length}명 휴면 처리됐습니다.`);
+    setSelected(new Set()); load();
   };
 
   const bulkRestore = async () => {
@@ -134,14 +135,18 @@ export default function DormantTab() {
             <h1 className="text-xl font-bold text-gray-900">휴면회원 관리</h1>
           </div>
           <p className="text-sm text-gray-400">
-            status가 휴면이거나 1년 이상 미접속인 회원 —&nbsp;
+            {view === "target" ? "1년 이상 미접속한 휴면 대상 —" : "이미 휴면 처리된 회원 —"}&nbsp;
             <span className="font-bold text-amber-600">{dormant.length}</span>명
           </p>
         </div>
-        <button onClick={markAsDormant} disabled={marking}
-          className="px-5 py-2.5 text-base bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50 rounded font-bold">
-          {marking ? "처리 중..." : "미접속 1년↑ 자동 휴면 처리"}
-        </button>
+        <div className="flex gap-2">
+          {([["target", `휴면 대상 ${targetCount}`], ["dormant", `휴면 회원 ${dormantCount}`]] as const).map(([k, label]) => (
+            <button key={k} onClick={() => switchView(k)} aria-pressed={view === k}
+              className={`min-h-[44px] px-4 text-[14px] font-semibold rounded border ${view === k ? "bg-[#303236] text-white border-[#303236]" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {msg && <div className="px-5 py-3 bg-green-50 border border-green-200 text-green-700 text-base rounded-lg">{msg}</div>}
@@ -155,10 +160,10 @@ export default function DormantTab() {
         </summary>
         <div className="px-5 pb-4 pl-14">
           <ul className="text-[14px] text-amber-700 space-y-0.5 list-disc list-inside">
-            <li>status가 &ldquo;dormant&rdquo;로 설정된 회원</li>
-            <li>status가 &ldquo;active&rdquo;이지만 마지막 접속일로부터 1년 이상 경과한 회원</li>
+            <li>휴면 대상: 활성 회원 중 마지막 접속일(접속 기록이 없으면 가입일)로부터 1년 이상 경과한 회원 (관리자 등급 제외)</li>
+            <li>휴면 대상에서 회원을 선택해 &ldquo;선택 휴면 처리&rdquo;를 누르면 휴면으로 전환됩니다. 자동 전환은 하지 않습니다.</li>
           </ul>
-          <p className="text-[13px] text-amber-600 mt-1.5">휴면 회원의 데이터는 보관되며, 복원 버튼으로 언제든지 활성화할 수 있습니다.</p>
+          <p className="text-[13px] text-amber-600 mt-1.5">휴면 회원은 로그인하면 자동으로 활성 복원되며, 복원 버튼으로 직접 활성화할 수도 있습니다.</p>
         </div>
       </details>
 
@@ -172,10 +177,17 @@ export default function DormantTab() {
           {/* 일괄 작업 */}
           <div className="flex items-center gap-3 px-5 py-3 border-b border-gray-200 bg-gray-50">
             {selected.size > 0 && <span className="text-[15px] font-bold text-[#303236] mr-1">{selected.size}명 선택</span>}
-            <button onClick={bulkRestore} disabled={!selected.size}
-              className="px-4 py-1.5 text-[14px] border border-emerald-300 bg-white text-emerald-600 hover:bg-emerald-50 disabled:opacity-40 rounded">
-              활성 복원
-            </button>
+            {view === "target" ? (
+              <button onClick={markSelectedDormant} disabled={!selected.size || marking}
+                className="px-4 py-1.5 text-[14px] font-bold bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-40 rounded">
+                {marking ? "처리 중..." : "선택 휴면 처리"}
+              </button>
+            ) : (
+              <button onClick={bulkRestore} disabled={!selected.size}
+                className="px-4 py-1.5 text-[14px] border border-emerald-300 bg-white text-emerald-600 hover:bg-emerald-50 disabled:opacity-40 rounded">
+                활성 복원
+              </button>
+            )}
             <button onClick={bulkDelete} disabled={!selected.size}
               className="px-4 py-1.5 text-[14px] border border-red-200 bg-white text-red-500 hover:bg-red-50 disabled:opacity-40 rounded">
               삭제
@@ -202,7 +214,7 @@ export default function DormantTab() {
               <tbody className="divide-y divide-gray-100">
                 {dormant.length === 0 ? (
                   <tr><td colSpan={10} className="py-20 text-center text-[15px] text-gray-400">
-                    휴면 회원이 없습니다.
+                    {view === "target" ? "휴면 대상 회원이 없습니다." : "휴면 회원이 없습니다."}
                   </td></tr>
                 ) : dormant.map(m => {
                   const days = daysSince(m.last_login_at ?? m.created_at);
@@ -232,16 +244,18 @@ export default function DormantTab() {
                       </td>
                       <td className="px-3 py-4">
                         <div className="flex flex-wrap items-center gap-1.5 justify-end min-w-[96px]">
-                          <button onClick={async () => {
-                            await fetch(`/api/admin/members/${m.id}`, {
-                              method: "PUT",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ ...m, status: "active" }),
-                            });
-                            showMsg(`"${m.name}" 복원됐습니다.`); load();
-                          }} className="text-[14px] font-semibold text-emerald-600 border border-emerald-200 px-2.5 py-1.5 hover:bg-emerald-50 rounded whitespace-nowrap">
-                            복원
-                          </button>
+                          {m.status === "dormant" && (
+                            <button onClick={async () => {
+                              await fetch(`/api/admin/members/${m.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ ...m, status: "active" }),
+                              });
+                              showMsg(`"${m.name}" 복원됐습니다.`); load();
+                            }} className="text-[14px] font-semibold text-emerald-600 border border-emerald-200 px-2.5 py-1.5 hover:bg-emerald-50 rounded whitespace-nowrap">
+                              복원
+                            </button>
+                          )}
                           <button onClick={() => resetPassword(m)} disabled={resettingId === m.id}
                             className="text-[14px] font-semibold text-amber-600 border border-amber-200 px-2.5 py-1.5 hover:bg-amber-50 disabled:opacity-50 rounded whitespace-nowrap">
                             {resettingId === m.id ? "변경 중..." : "비밀번호 변경"}
