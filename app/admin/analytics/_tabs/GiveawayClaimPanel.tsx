@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { downloadText, toCsv } from "@/lib/giveaway";
 import type { ClaimDoc } from "@/lib/giveaway-claims";
 
@@ -147,6 +147,19 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
       setBusy(false);
     }
   };
+
+  // 추가 당첨자가 생기면 배송 리스트에 자동 반영 (기존 링크·제출 내용은 유지, 새 당첨자만 추가). 빠진 당첨자는 자동 삭제하지 않는다.
+  const autoSynced = useRef("");
+  useEffect(() => {
+    if (!doc || busy || !winners.length) return;
+    const missing = winners.filter((w) => !doc.entries.some((e) => e.user.toLowerCase() === w.user.toLowerCase()));
+    if (!missing.length) return;
+    const sig = missing.map((w) => w.user.toLowerCase()).sort().join(",");
+    if (autoSynced.current === sig) return;
+    autoSynced.current = sig;
+    void save();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, winners.length, busy]);
 
   const remove = async () => {
     if (!confirm("제출된 배송 정보(이름·연락처·주소)와 링크를 모두 삭제할까요? 되돌릴 수 없습니다.")) return;
