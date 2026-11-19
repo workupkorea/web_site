@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
 import InquiryTabs from "@/components/admin/InquiryTabs";
+import { RETENTION_MONTHS, fmtSize, parseFiles } from "@/lib/partnership-files";
 import { INQUIRY_STATUS_LABEL, type Inquiry, type InquiryStatus } from "@/data/partnership";
 import { DEFAULT_NOTIFICATIONS, normalizeNotifications, NOTIFY_TYPES, type NotificationConfig, type NotifyType } from "@/lib/site-content";
 
@@ -119,6 +120,7 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
   const extras = Object.entries(q.payload).filter(([k, v]) => !k.startsWith("_") && !HIDE_FIELDS.has(k) && String(v).trim());
   // 새 양식(회사명 등 구조화 항목이 있는 단체복 문의)만 표로 보여주고, 그 외에는 기존 방식으로 표시한다.
   const isGroupOrder = (q.type as string) === "group_order" && !!q.payload.organization_name;
+  const attachedFiles = parseFiles(q.payload._files);
   const save = async () => { setSaving(true); try { await onSaveReply(q.id, draft); } finally { setSaving(false); } };
 
   return (
@@ -153,6 +155,25 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
                   <span className="text-slate-700 break-words">{String(v)}</span>
                 </div>
               ))}
+            </div>
+          )}
+
+          {attachedFiles.length > 0 && (
+            <div className="mb-3 border border-slate-200 bg-white rounded-lg px-3.5 py-2.5">
+              <p className="text-xs font-semibold text-slate-500 mb-1.5">첨부파일 ({attachedFiles.length})</p>
+              <ul className="space-y-1">
+                {attachedFiles.map((f) => (
+                  <li key={f.path} className="flex items-center gap-2 text-sm">
+                    {f.deleted ? (
+                      <span className="flex-1 truncate text-slate-400 line-through">{f.name}</span>
+                    ) : (
+                      <a href={`/api/admin/inquiries/files?path=${encodeURIComponent(f.path)}&name=${encodeURIComponent(f.name)}`}
+                        className="flex-1 truncate text-blue-600 hover:underline">{f.name}</a>
+                    )}
+                    <span className="text-xs text-slate-400 flex-shrink-0">{f.deleted ? "보관기간 경과로 삭제됨" : fmtSize(f.size)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
@@ -365,6 +386,35 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
     } catch { setInquiries(snapshot); flash("유형 변경에 실패했습니다."); }
   };
 
+  // 보관 기간(6개월) 지난 첨부파일 일괄 삭제 — 먼저 대상 건수·용량을 보여주고 확인 후 삭제
+  const [purgingFiles, setPurgingFiles] = useState(false);
+  const [fileTotal, setFileTotal] = useState<{ count: number; bytes: number } | null>(null);
+  const loadFileTotal = () => {
+    fetch("/api/admin/inquiries/files?preview=1")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => d && setFileTotal({ count: d.totalCount ?? 0, bytes: d.totalBytes ?? 0 }))
+      .catch(() => {});
+  };
+  useEffect(() => { loadFileTotal(); }, []);
+  const purgeOldFiles = async () => {
+    setPurgingFiles(true);
+    try {
+      const pr = await fetch("/api/admin/inquiries/files?preview=1");
+      if (!pr.ok) throw new Error();
+      const { count, bytes, totalCount, totalBytes } = await pr.json();
+      setFileTotal({ count: totalCount ?? 0, bytes: totalBytes ?? 0 });
+      if (!count) { flash(`${RETENTION_MONTHS}개월 지난 첨부파일이 없습니다.`); return; }
+      if (!confirm(`${RETENTION_MONTHS}개월이 지난 첨부파일 ${count}개(${fmtSize(bytes)})를 삭제할까요?\n문의 내용은 남고 첨부파일만 삭제되며, 되돌릴 수 없습니다.`)) return;
+      const res = await fetch("/api/admin/inquiries/files", { method: "POST" });
+      if (!res.ok) throw new Error();
+      const d = await res.json().catch(() => ({}));
+      flash(`첨부파일 ${d.deleted ?? count}개를 삭제했습니다.`);
+      loadInquiries();
+      loadFileTotal();
+    } catch { flash("첨부파일 삭제에 실패했습니다."); }
+    finally { setPurgingFiles(false); }
+  };
+
   const toggleSelect = (id: string) => setSelected(prev => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -458,8 +508,15 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
                 {label}{f !== "all" && <span className={filter === f ? "text-white/70" : "text-slate-400"}> ({(statsTypeCounts[f] ?? 0).toLocaleString()})</span>}
               </button>
             ))}
+            <span className="ml-auto text-xs text-slate-500">
+              누적 첨부파일 {fileTotal ? `${fileTotal.count.toLocaleString()}개 · ${fmtSize(fileTotal.bytes)}` : "집계 중..."}
+            </span>
+            <button onClick={purgeOldFiles} disabled={purgingFiles}
+              className="inline-flex items-center text-xs font-medium text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 disabled:opacity-50 transition-colors">
+              {purgingFiles ? "확인 중..." : `${RETENTION_MONTHS}개월 지난 첨부파일 삭제`}
+            </button>
             <button onClick={loadInquiries}
-            className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors">
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors">
             <svg className={`w-3.5 h-3.5 ${loadingList ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>

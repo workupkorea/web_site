@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { getSiteSection } from "@/lib/site-settings";
 import { normalizeNotifications, notifyRecipients, type NotificationConfig } from "@/lib/site-content";
 import { normalizePartnership, type PartnershipConfig } from "@/data/partnership";
+import { PARTNERSHIP_BUCKET, MAX_FILES, MAX_TOTAL_BYTES, validateFileMeta, parseFiles, type AttachedFile } from "@/lib/partnership-files";
 
 function typeLabelOf(type: string): string {
   return type === "wholesale" ? "입점·제휴"
@@ -55,7 +56,7 @@ export async function GET(req: Request) {
 
 // 공개 엔드포인트: 가맹·창업 / 입점·제휴 문의 폼 제출을 저장한다.
 export async function POST(req: Request) {
-  let body: { type?: string; payload?: Record<string, unknown> };
+  let body: { type?: string; payload?: Record<string, unknown>; files?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -150,6 +151,34 @@ export async function POST(req: Request) {
     }
   }
 
+  // 첨부파일(입점·제휴 문의 전용) — 브라우저가 Storage에 직접 올린 파일을 검증해 payload(_files)에 기록한다.
+  // 클라이언트가 보낸 경로·크기는 믿지 않고, Storage에 실제로 존재하는 파일의 크기만 채택한다.
+  const reqFiles: { path?: unknown; name?: unknown }[] = Array.isArray(body.files) ? body.files : [];
+  delete p._files; // 클라이언트가 내부 키를 직접 넣는 것 방지
+  if (type === "wholesale" && reqFiles.length) {
+    if (reqFiles.length > MAX_FILES) {
+      return NextResponse.json({ error: `파일은 최대 ${MAX_FILES}개까지 첨부할 수 있습니다.` }, { status: 400 });
+    }
+    const sb = createAdminClient();
+    const verified: AttachedFile[] = [];
+    let total = 0;
+    for (const f of reqFiles) {
+      const path = String(f.path ?? "");
+      const m = path.match(/^(inbox\/[0-9a-f-]{36})\/(\d+\.[a-z0-9]+)$/);
+      if (!m) return NextResponse.json({ error: "첨부파일 정보가 올바르지 않습니다." }, { status: 400 });
+      const { data: listed } = await sb.storage.from(PARTNERSHIP_BUCKET).list(m[1], { limit: 20 });
+      const obj = listed?.find((o) => o.name === m[2]);
+      const size = Number((obj?.metadata as { size?: number } | undefined)?.size ?? 0);
+      if (!obj || validateFileMeta(String(f.name ?? ""), size)) {
+        return NextResponse.json({ error: "첨부파일 업로드가 완료되지 않았습니다. 다시 첨부해 주세요." }, { status: 400 });
+      }
+      total += size;
+      verified.push({ path, name: String(f.name ?? "").slice(0, 120), size });
+    }
+    if (total > MAX_TOTAL_BYTES) return NextResponse.json({ error: "첨부파일 총 용량이 너무 큽니다." }, { status: 400 });
+    p._files = JSON.stringify(verified);
+  }
+
   // 비밀번호 설정(선택) — 숫자 4자리만 허용. 평문은 저장/전송하지 않고 솔트 SHA-256 해시만 보관한다.
   const rawPw = String(p.password ?? "");
   delete p.password;
@@ -193,10 +222,16 @@ export async function POST(req: Request) {
       const notifyEmail = notif.email_enabled ? notifyRecipients(notif, type).join(",") : "";
       // 내부 키(_로 시작: 비밀번호 해시·답변 등)는 시트로 보내지 않는다.
       const publicPayload = Object.fromEntries(Object.entries(payload).filter(([k]) => !k.startsWith("_")));
+      // 담당자 메일 제목: "[워크업] 문의제목 / 담당자명" (제목이 없으면 유형명으로 대체)
+      const mailTitle = String(payload.title ?? "").trim() || typeLabelOf(type);
+      const mailName = String(payload.name ?? payload.manager ?? "").trim() || "이름없음";
       const outgoing = {
         type,
         type_label: typeLabelOf(type),
         ...publicPayload,
+        mail_subject: `[워크업] ${mailTitle} / ${mailName}`,
+        // 첨부파일은 비공개라 파일명만 전달(내려받기는 관리자 문의 화면에서)
+        attachment_names: parseFiles(payload._files).map((f) => f.name).join(", "),
         submitted_at: new Date().toISOString(),
         notify_email: notifyEmail, // Apps Script가 이 값으로 담당자 메일 발송
       };

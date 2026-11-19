@@ -11,6 +11,7 @@ const MIN_NOTE_PX = 14;
 import FranchiseGuide from "./FranchiseGuide";
 import PasswordInput from "./PasswordInput";
 import PrivacyConsentModal from "./PrivacyConsentModal";
+import { ACCEPT_ATTR, MAX_FILES, MAX_FILE_MB, MAX_TOTAL_MB, MAX_TOTAL_BYTES, fmtSize, validateFileMeta } from "@/lib/partnership-files";
 
 type FormState = Record<string, string>;
 
@@ -146,12 +147,33 @@ function PrivacyConsent({
   );
 }
 
+// ── 첨부파일 업로드 ──
+// 파일은 Vercel 함수(4.5MB 제한)를 거치지 않고 서명 URL로 Supabase Storage에 직접 올린다.
+async function uploadAttachments(files: File[]): Promise<{ path: string; name: string }[]> {
+  const res = await fetch("/api/inquiries/upload-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ files: files.map((f) => ({ name: f.name, size: f.size })) }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error ?? "파일 업로드 준비에 실패했습니다.");
+  const targets: { path: string; signedUrl: string }[] = data.files;
+  await Promise.all(targets.map(async (t, i) => {
+    const fd = new FormData();
+    fd.append("cacheControl", "3600");
+    fd.append("", files[i]);
+    const up = await fetch(t.signedUrl, { method: "PUT", headers: { "x-upsert": "false" }, body: fd });
+    if (!up.ok) throw new Error(`'${files[i].name}' 업로드에 실패했습니다. 다시 시도해 주세요.`);
+  }));
+  return targets.map((t, i) => ({ path: t.path, name: files[i].name }));
+}
+
 // ── 문의 제출 헬퍼 ──
-async function submitInquiry(type: "franchise" | "wholesale", payload: FormState) {
+async function submitInquiry(type: "franchise" | "wholesale", payload: FormState, files: { path: string; name: string }[] = []) {
   const res = await fetch("/api/inquiries", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, payload }),
+    body: JSON.stringify({ type, payload, files }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error ?? "접수에 실패했습니다.");
@@ -159,12 +181,32 @@ async function submitInquiry(type: "franchise" | "wholesale", payload: FormState
 
 // ── 문의 폼 (공통) — 필드를 config에서 동적으로 렌더 ─────────────
 // franchise/wholesale 모두 이 컴포넌트를 사용한다. 차이는 개인정보 동의 유무뿐.
-function InquiryForm({ type, config, consent, franchiseGuide }: {
+function InquiryForm({ type, config, consent, franchiseGuide, attachments }: {
   type: "franchise" | "wholesale"; config: FormConfig; consent: boolean;
   franchiseGuide?: { config?: FranchiseGuideConfig; storeCount?: number };
+  attachments?: boolean; // 파일 첨부 사용 여부(입점·제휴 전용)
 }) {
   const emptyState = () => Object.fromEntries(config.fields.map((fld) => [fld.key, ""])) as FormState;
   const [form, setForm] = useState<FormState>(emptyState);
+  const [files, setFiles] = useState<File[]>([]);
+  const [fileError, setFileError] = useState("");
+
+  // 파일 선택 — 개수·형식·용량을 즉시 검사해 통과한 것만 목록에 추가
+  const addFiles = (list: FileList | null) => {
+    if (!list) return;
+    const next = [...files];
+    let err = "";
+    for (const f of Array.from(list)) {
+      const e = validateFileMeta(f.name, f.size);
+      if (e) { err = e; continue; }
+      if (next.length >= MAX_FILES) { err = `파일은 최대 ${MAX_FILES}개까지 첨부할 수 있습니다.`; break; }
+      if (next.some((x) => x.name === f.name && x.size === f.size)) continue;
+      if (next.reduce((s, x) => s + x.size, 0) + f.size > MAX_TOTAL_BYTES) { err = `첨부파일 총 용량은 ${MAX_TOTAL_MB}MB까지입니다.`; break; }
+      next.push(f);
+    }
+    setFiles(next);
+    setFileError(err);
+  };
   const [agreed, setAgreed] = useState(false);
   const [password, setPassword] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -233,7 +275,8 @@ function InquiryForm({ type, config, consent, franchiseGuide }: {
       const payload: FormState = { ...form };
       if (consent) payload.privacyAgree = "동의";
       if (password.trim()) payload.password = password; // 서버에서 해시로 저장(평문 미보관)
-      await submitInquiry(type, payload);
+      const uploaded = attachments && files.length ? await uploadAttachments(files) : [];
+      await submitInquiry(type, payload, uploaded);
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "접수에 실패했습니다. 잠시 후 다시 시도해주세요.");
@@ -267,7 +310,7 @@ function InquiryForm({ type, config, consent, franchiseGuide }: {
         title={config.success_title}
         desc={config.success_desc}
         passwordHint={!!password.trim()}
-        onReset={() => { setForm(emptyState()); setAgreed(false); setPassword(""); setSubmitted(false); }}
+        onReset={() => { setForm(emptyState()); setFiles([]); setFileError(""); setAgreed(false); setPassword(""); setSubmitted(false); }}
       />
     );
   }
@@ -329,6 +372,35 @@ function InquiryForm({ type, config, consent, franchiseGuide }: {
         ))}
         {passwordSlot < 0 && <div className="col-span-2">{passwordField}</div>}
       </div>
+      {attachments && (
+        <div>
+          <label className="block mb-2 font-semibold" style={labelStyle}>
+            파일 첨부 <span className="text-gray-400">(선택)</span>
+          </label>
+          <label className="flex items-center justify-center min-h-[48px] w-full border border-dashed border-gray-300 rounded-xl px-4 py-3 text-sm text-[#303236] bg-gray-50/60 cursor-pointer hover:border-[#E5541B] transition">
+            파일 선택
+            <input type="file" multiple accept={ACCEPT_ATTR} className="sr-only"
+              onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+          </label>
+          <p className="mt-1.5 text-gray-500" style={{ fontSize: MIN_NOTE_PX }}>
+            회사소개서·카탈로그 등 · 최대 {MAX_FILES}개, 파일당 {MAX_FILE_MB}MB (총 {MAX_TOTAL_MB}MB) · PDF, 이미지, 문서(DOC·PPT·XLS·HWP)
+          </p>
+          {fileError && <p className="mt-1 text-sm text-red-500">{fileError}</p>}
+          {files.length > 0 && (
+            <ul className="mt-2 space-y-1.5">
+              {files.map((f, i) => (
+                <li key={`${f.name}-${i}`} className="flex items-center gap-2 text-sm bg-white border border-gray-200 rounded-lg px-3 py-2">
+                  <span className="flex-1 truncate">{f.name}</span>
+                  <span className="text-gray-400 flex-shrink-0">{fmtSize(f.size)}</span>
+                  <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                    aria-label={`${f.name} 삭제`}
+                    className="flex-shrink-0 min-w-[44px] min-h-[32px] text-xs text-red-500 hover:underline">삭제</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       {consent && <PrivacyConsent checked={agreed} onChange={setAgreed} text={config.consent_text} />}
       {error && <p className="text-sm text-red-500">{error}</p>}
       <button
@@ -386,5 +458,5 @@ export function FranchiseForm({ config = DEFAULT_PARTNERSHIP.franchise.form, gui
 
 // ── 입점 문의 폼 (개인정보 동의 포함) ──────────────────
 export function WholesaleForm({ config = DEFAULT_PARTNERSHIP.wholesale.form }: { config?: FormConfig }) {
-  return <InquiryForm type="wholesale" config={config} consent />;
+  return <InquiryForm type="wholesale" config={config} consent attachments />;
 }

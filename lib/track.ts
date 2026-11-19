@@ -48,9 +48,15 @@ const GTM_CONVERSION_EVENT: Partial<Record<StoreEventType, string>> = {
 const NAV_PENDING_KEY = "wu_nav_pending";
 export type NavPending = { label: string; href: string; path: string };
 
+// 화면 너비 기준 기기 구분 (개인정보 아님)
+function getDevice(): "mobile" | "tablet" | "desktop" {
+  const w = window.innerWidth;
+  return w < 768 ? "mobile" : w < 1024 ? "tablet" : "desktop";
+}
+
 function sendNav(payload: Record<string, unknown>) {
   try {
-    const body = JSON.stringify({ ...payload, visitor_id: getVisitorId() });
+    const body = JSON.stringify({ ...payload, visitor_id: getVisitorId(), device: getDevice() });
     const blob = new Blob([body], { type: "application/json" });
     if (navigator.sendBeacon && navigator.sendBeacon("/api/track/nav", blob)) return;
     fetch("/api/track/nav", {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
+import { removeFilesOfInquiries } from "@/lib/partnership-files-server";
 
 const VALID_TYPES = ["franchise", "wholesale", "support", "product", "group_order"];
 
@@ -72,7 +73,10 @@ export async function DELETE(req: Request) {
   const CHUNK = 100;
   let deleted = 0;
   for (let i = 0; i < ids.length; i += CHUNK) {
-    const { error } = await supabase.from("inquiries").delete().in("id", ids.slice(i, i + CHUNK));
+    const part = ids.slice(i, i + CHUNK);
+    const { data: old } = await supabase.from("inquiries").select("payload").in("id", part);
+    const { error } = await supabase.from("inquiries").delete().in("id", part);
+    if (!error && old) await removeFilesOfInquiries(supabase, old);
     if (error) return NextResponse.json({ error: error.message, deleted }, { status: 500 });
     deleted += Math.min(CHUNK, ids.length - i);
   }

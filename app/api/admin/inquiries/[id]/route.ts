@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
+import { removeFilesOfInquiries } from "@/lib/partnership-files-server";
 
 // 문의 상태 변경(신규/처리중/완료) 및/또는 답변 저장.
 // body: { status?, reply? } — reply는 payload의 숨김 키(_reply)에 저장(스키마 변경 불필요).
@@ -63,7 +64,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
   const supabase = createAdminClient();
+  const { data: cur } = await supabase.from("inquiries").select("payload").eq("id", id).maybeSingle();
   const { error } = await supabase.from("inquiries").delete().eq("id", id);
+  if (!error && cur) await removeFilesOfInquiries(supabase, [cur]);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   await logAudit({
     action: "delete",

@@ -6,9 +6,12 @@ type NavRow = {
   clicks: number;
   prevClicks: number | null;
   visitors: number;
+  converted: number | null;
   dwellSamples: number;
   avgDwellSec: number | null;
 };
+type Funnel = { visitors: number; storeViewed: number; converted: number; actions: { key: string; label: string; visitors: number }[] };
+type DeviceRow = { key: string; label: string; clicks: number; visitors: number; converted: number | null; avgDwellSec: number | null };
 type KeyCount = { key: string; count: number };
 type Detail = {
   menu: string | null;
@@ -20,11 +23,14 @@ type Detail = {
   trend: { key: string; clicks: number }[];
   heat: number[][];
   pages: KeyCount[];
+  funnel: Funnel | null;
+  devices: DeviceRow[];
 };
 type Resp = {
   range: { from: string; to: string; unit: "hour" | "day"; all: boolean };
   totals: { clicks: number; visitors: number; prevClicks: number | null; prevVisitors: number | null };
   rows: NavRow[];
+  meta: { deviceAvailable: boolean; conversionAvailable: boolean };
   home: { total: number; visitors: number; sections: KeyCount[]; items: { section: string; label: string; href: string; count: number }[] };
   detail: Detail;
 };
@@ -50,6 +56,21 @@ function fmtDwell(sec: number | null) {
   const s = Math.round(sec);
   return s >= 60 ? `${Math.floor(s / 60)}분 ${s % 60}초` : `${s}초`;
 }
+
+const pctOf = (n: number, d: number) => (d > 0 ? (n / d) * 100 : 0);
+const median = (arr: number[]) => {
+  const a = [...arr].sort((x, y) => x - y);
+  return a.length ? (a.length % 2 ? a[(a.length - 1) / 2] : (a[a.length / 2 - 1] + a[a.length / 2]) / 2) : 0;
+};
+
+// 클릭(관심) × 체류(몰입) 4분면 진단
+type Quad = "core" | "gem" | "bait" | "low";
+const QUADS: Record<Quad, { label: string; desc: string; cls: string }> = {
+  core: { label: "핵심 메뉴", desc: "클릭도 많고 오래 머묾 — 유지·강화", cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  gem: { label: "숨은 보석", desc: "클릭은 적지만 깊이 읽음 — 노출 위치·문구 개선", cls: "bg-blue-50 text-blue-700 border-blue-200" },
+  bait: { label: "이탈 의심", desc: "클릭은 많지만 금방 나감 — 이동 페이지 내용 점검", cls: "bg-red-50 text-red-600 border-red-200" },
+  low: { label: "저효율", desc: "클릭도 체류도 낮음 — 메뉴 정리·통합 검토", cls: "bg-gray-100 text-gray-500 border-gray-200" },
+};
 
 function Delta({ cur, prev }: { cur: number; prev: number | null }) {
   if (prev == null) return null;
@@ -160,7 +181,7 @@ export default function NavTab() {
     if (v < from) setFrom(v);
   };
 
-  const rows = data?.rows ?? [];
+  const rows = useMemo(() => data?.rows ?? [], [data]);
   const detail = data?.detail;
   const totals = data?.totals;
   const maxClicks = Math.max(1, ...rows.map((r) => r.clicks));
@@ -169,6 +190,46 @@ export default function NavTab() {
   const heatMax = Math.max(1, ...(detail?.heat.flat() ?? [0]));
   const trendMax = Math.max(1, ...(detail?.trend.map((t) => t.clicks) ?? [0]));
   const unit = data?.range.unit ?? "day";
+  const funnel = detail?.funnel ?? null;
+  const conversionOn = data?.meta.conversionAvailable ?? false;
+
+  // 4분면 진단: 체류 측정이 3건 이상인 메뉴만 대상 (표본 부족 시 오판 방지)
+  const quadByLabel = useMemo(() => {
+    const m = new Map<string, Quad>();
+    const eligible = rows.filter((r) => r.avgDwellSec != null && r.dwellSamples >= 3);
+    if (eligible.length < 4) return m;
+    const mc = median(eligible.map((r) => r.clicks));
+    const md = median(eligible.map((r) => r.avgDwellSec as number));
+    for (const r of eligible) {
+      const hi = r.clicks >= mc;
+      const long = (r.avgDwellSec as number) >= md;
+      m.set(r.label, hi && long ? "core" : !hi && long ? "gem" : hi ? "bait" : "low");
+    }
+    return m;
+  }, [rows]);
+
+  // 자동 인사이트: 이미 집계된 값으로 핵심 문장 생성
+  const insights = useMemo(() => {
+    const out: { tone: "good" | "warn" | "info"; text: string }[] = [];
+    if (!rows.length || !totals) return out;
+    const grow = rows
+      .filter((r) => r.prevClicks != null && r.prevClicks >= 5 && r.clicks >= 5)
+      .map((r) => ({ r, pct: ((r.clicks - (r.prevClicks as number)) / (r.prevClicks as number)) * 100 }))
+      .sort((a, b) => b.pct - a.pct);
+    if (grow[0] && grow[0].pct >= 20) out.push({ tone: "good", text: `'${grow[0].r.label}' 클릭이 직전 기간보다 ${grow[0].pct.toFixed(0)}% 늘었습니다.` });
+    const last = grow[grow.length - 1];
+    if (last && last.pct <= -20) out.push({ tone: "warn", text: `'${last.r.label}' 클릭이 직전 기간보다 ${Math.abs(last.pct).toFixed(0)}% 줄었습니다.` });
+    const baits = rows.filter((r) => quadByLabel.get(r.label) === "bait");
+    if (baits.length) out.push({ tone: "warn", text: `'${baits[0].label}'은(는) 클릭이 많지만 체류가 짧습니다(${fmtDwell(baits[0].avgDwellSec)}). 이동 페이지 내용을 점검해 보세요.` });
+    const gems = rows.filter((r) => quadByLabel.get(r.label) === "gem");
+    if (gems.length) out.push({ tone: "info", text: `'${gems[0].label}'은(는) 클릭은 적지만 오래 머뭅니다. 노출 위치나 문구를 눈에 띄게 하면 효과가 큽니다.` });
+    const convRows = rows.filter((r) => r.converted != null && r.visitors >= 5).map((r) => ({ r, rate: pctOf(r.converted as number, r.visitors) })).sort((a, b) => b.rate - a.rate);
+    if (convRows[0] && convRows[0].rate > 0) out.push({ tone: "good", text: `매장 전환(길찾기·전화·카톡)이 가장 높은 메뉴는 '${convRows[0].r.label}'(방문자 ${convRows[0].rate.toFixed(1)}%)입니다.` });
+    const mob = detail?.devices.find((d) => d.key === "mobile");
+    const devTotal = detail?.devices.reduce((n, d) => n + d.clicks, 0) ?? 0;
+    if (mob && devTotal >= 20) out.push({ tone: "info", text: `메뉴 클릭의 ${pctOf(mob.clicks, devTotal).toFixed(0)}%가 모바일에서 발생했습니다.` });
+    return out.slice(0, 5);
+  }, [rows, totals, quadByLabel, detail]);
 
   const downloadCsv = () => {
     if (!data) return;
@@ -176,8 +237,8 @@ export default function NavTab() {
     const lines: string[] = [];
     lines.push(`기간,${data.range.from} ~ ${data.range.to}`);
     lines.push("");
-    lines.push(["메뉴", "클릭 수", "이전 기간 클릭", "방문자", "평균 체류(초)", "체류 측정 건수"].map(esc).join(","));
-    for (const r of data.rows) lines.push([r.label, r.clicks, r.prevClicks, r.visitors, r.avgDwellSec, r.dwellSamples].map(esc).join(","));
+    lines.push(["메뉴", "클릭 수", "이전 기간 클릭", "방문자", "매장 전환 방문자", "평균 체류(초)", "체류 측정 건수"].map(esc).join(","));
+    for (const r of data.rows) lines.push([r.label, r.clicks, r.prevClicks, r.visitors, r.converted, r.avgDwellSec, r.dwellSamples].map(esc).join(","));
     lines.push("");
     lines.push([data.detail.menu ? `추이(${data.detail.menu})` : "추이(전체 메뉴)", "클릭 수"].map(esc).join(","));
     for (const t of data.detail.trend) lines.push([unit === "hour" ? `${t.key}시` : t.key, t.clicks].map(esc).join(","));
@@ -257,6 +318,20 @@ export default function NavTab() {
             </div>
           </div>
 
+          {/* 자동 인사이트 */}
+          {insights.length > 0 && (
+            <Card title="핵심 요약">
+              <ul className="space-y-1.5">
+                {insights.map((i, idx) => (
+                  <li key={idx} className="flex gap-2 text-[13px] text-gray-700 leading-relaxed">
+                    <span className={`mt-[7px] w-1.5 h-1.5 rounded-full shrink-0 ${i.tone === "good" ? "bg-emerald-500" : i.tone === "warn" ? "bg-red-500" : "bg-gray-400"}`} aria-hidden />
+                    <span>{i.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
+
           {/* 메뉴 표 */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
             {!data && loading ? (
@@ -264,7 +339,7 @@ export default function NavTab() {
             ) : rows.length === 0 ? (
               <p className="p-6 text-[13px] text-gray-400">이 기간에 기록된 메뉴 클릭이 없습니다.</p>
             ) : (
-              <table className="w-full text-[13px] min-w-[680px]">
+              <table className="w-full text-[13px] min-w-[820px]">
                 <thead>
                   <tr className="text-left text-gray-400 text-[12px] border-b border-gray-100">
                     <th className="px-4 py-3 font-semibold w-10">#</th>
@@ -274,6 +349,8 @@ export default function NavTab() {
                     <th className="px-4 py-3 font-semibold text-right">이전 기간 대비</th>
                     <th className="px-4 py-3 font-semibold text-right">방문자</th>
                     <th className="px-4 py-3 font-semibold text-right">평균 체류시간</th>
+                    {conversionOn && <th className="px-4 py-3 font-semibold text-right">매장 전환율</th>}
+                    {quadByLabel.size > 0 && <th className="px-4 py-3 font-semibold">진단</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -302,6 +379,27 @@ export default function NavTab() {
                           {fmtDwell(r.avgDwellSec)}
                           {r.dwellSamples > 0 && <span className="text-[11px] text-gray-300 ml-1">({r.dwellSamples})</span>}
                         </td>
+                        {conversionOn && (
+                          <td className="px-4 py-3 text-right tabular-nums">
+                            {r.converted != null && r.visitors > 0 ? (
+                              <>
+                                <span className="font-bold">{pctOf(r.converted, r.visitors).toFixed(1)}%</span>
+                                <span className="text-[11px] text-gray-300 ml-1">({r.converted})</span>
+                              </>
+                            ) : (
+                              "–"
+                            )}
+                          </td>
+                        )}
+                        {quadByLabel.size > 0 && (
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {quadByLabel.get(r.label) && (
+                              <span className={`inline-block px-2 py-0.5 rounded-full border text-[11px] font-bold ${QUADS[quadByLabel.get(r.label) as Quad].cls}`} title={QUADS[quadByLabel.get(r.label) as Quad].desc}>
+                                {QUADS[quadByLabel.get(r.label) as Quad].label}
+                              </span>
+                            )}
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -309,7 +407,18 @@ export default function NavTab() {
               </table>
             )}
           </div>
-          {rows.length > 0 && <p className="text-[12px] text-gray-400 -mt-2">메뉴 행을 누르면 아래 상세 분석이 그 메뉴 기준으로 바뀝니다.</p>}
+          {rows.length > 0 && (
+            <div className="-mt-2 space-y-1 text-[12px] text-gray-400 leading-relaxed">
+              <p>메뉴 행을 누르면 아래 상세 분석이 그 메뉴 기준으로 바뀝니다.</p>
+              {conversionOn && <p>매장 전환율 = 그 메뉴를 누른 방문자 중, 이후 길찾기·전화·카카오톡 상담을 누른 방문자 비율입니다.</p>}
+              {quadByLabel.size > 0 && (
+                <p>
+                  진단은 클릭 수와 평균 체류시간을 각각 중앙값과 비교해 나눕니다(체류 측정 3건 이상인 메뉴만):{" "}
+                  {(Object.keys(QUADS) as Quad[]).map((k) => `${QUADS[k].label}(${QUADS[k].desc})`).join(" · ")}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* 상세 분석 */}
           {detail && rows.length > 0 && (
@@ -324,6 +433,79 @@ export default function NavTab() {
                 <span className="text-[12px] text-gray-400">
                   클릭 {detail.clicks.toLocaleString()} · 방문자 {detail.visitors.toLocaleString()} · 평균 체류 {fmtDwell(detail.avgDwellSec)}
                 </span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <Card title="매장 방문 전환 퍼널">
+                  {!funnel ? (
+                    <p className="text-[13px] text-gray-400">매장 이벤트(store_events)를 불러오지 못해 퍼널을 표시할 수 없습니다.</p>
+                  ) : funnel.visitors === 0 ? (
+                    <p className="text-[13px] text-gray-400">이 기간에 메뉴를 누른 방문자가 없습니다.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {[
+                        { label: "메뉴 클릭", n: funnel.visitors },
+                        { label: "매장 확인 (매장 상세·목록 조회)", n: funnel.storeViewed },
+                        { label: "전환 행동 (길찾기·전화·카톡)", n: funnel.converted },
+                      ].map((st, i, arr) => (
+                        <div key={st.label} className="text-[13px]">
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <span className="font-semibold text-gray-800">{st.label}</span>
+                            <span className="tabular-nums text-gray-500 shrink-0">
+                              {st.n.toLocaleString()}명 <span className="text-gray-300">· 첫 단계 대비 {pctOf(st.n, funnel.visitors).toFixed(1)}%</span>
+                              {i > 0 && arr[i - 1].n > 0 && <span className="text-gray-300"> · 직전 단계 대비 {pctOf(st.n, arr[i - 1].n).toFixed(0)}%</span>}
+                            </span>
+                          </div>
+                          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                            <div className="h-full" style={{ width: `${pctOf(st.n, funnel.visitors)}%`, background: ACCENT }} />
+                          </div>
+                        </div>
+                      ))}
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-[12px] font-bold text-gray-500 mb-2">전환 행동별 방문자</p>
+                        <BarList items={funnel.actions.map((a) => ({ key: a.label, count: a.visitors }))} total={Math.max(1, funnel.converted)} />
+                      </div>
+                      <p className="text-[11px] text-gray-400 leading-relaxed">메뉴를 처음 누른 시점 이후의 행동만 집계합니다. 한 방문자가 여러 행동을 하면 행동별로 각각 포함됩니다.</p>
+                    </div>
+                  )}
+                </Card>
+                <Card title="기기별 (모바일 · 태블릿 · PC)">
+                  {!detail.devices.length ? (
+                    <p className="text-[13px] text-gray-400">기기 정보가 있는 기록이 없습니다.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-[13px] min-w-[360px]">
+                        <thead>
+                          <tr className="text-left text-gray-400 text-[12px] border-b border-gray-100">
+                            <th className="py-2 font-semibold">기기</th>
+                            <th className="py-2 font-semibold text-right">클릭</th>
+                            <th className="py-2 font-semibold text-right">방문자</th>
+                            <th className="py-2 font-semibold text-right">평균 체류</th>
+                            {conversionOn && <th className="py-2 font-semibold text-right">매장 전환율</th>}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {detail.devices.map((d) => (
+                            <tr key={d.key} className="border-b border-gray-50 last:border-0">
+                              <td className="py-2.5 font-bold text-gray-900">{d.label}</td>
+                              <td className="py-2.5 text-right tabular-nums">
+                                {d.clicks.toLocaleString()} <span className="text-gray-300">· {pctOf(d.clicks, detail.devices.reduce((n, x) => n + x.clicks, 0)).toFixed(0)}%</span>
+                              </td>
+                              <td className="py-2.5 text-right tabular-nums">{d.visitors.toLocaleString()}</td>
+                              <td className="py-2.5 text-right tabular-nums">{fmtDwell(d.avgDwellSec)}</td>
+                              {conversionOn && <td className="py-2.5 text-right tabular-nums">{d.converted != null && d.visitors > 0 ? `${pctOf(d.converted, d.visitors).toFixed(1)}%` : "–"}</td>}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {data && !data.meta.deviceAvailable ? (
+                        <p className="mt-2 text-[11px] text-gray-400">기기 구분을 쓰려면 SQL 에디터에서 migrate_add_nav_events_device.sql 을 실행하세요. 실행 후부터 수집됩니다.</p>
+                      ) : (
+                        detail.devices.some((d) => d.key === "unknown") && <p className="mt-2 text-[11px] text-gray-400">미수집은 기기 구분 도입 이전 기록입니다.</p>
+                      )}
+                    </div>
+                  )}
+                </Card>
               </div>
 
               <Card title={unit === "hour" ? "시간대별 클릭 (하루)" : "일별 클릭 추이"}>

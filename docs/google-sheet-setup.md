@@ -52,11 +52,14 @@ function doPost(e) {
   // 담당자 이메일 발송 (notify_email 이 있을 때만)
   if (d.notify_email) {
     try {
-      var subject = '[워크업 문의] ' + typeLabel + ' - ' + (name || '이름없음');
+      // 제목: [워크업] 문의제목 / 담당자명 (사이트가 mail_subject로 내려줌, 없으면 직접 조합)
+      var subject = d.mail_subject ||
+        ('[워크업] ' + (d.title || typeLabel) + ' / ' + (name || '이름없음'));
       var lines = ['유형: ' + typeLabel, '이름: ' + name, '연락처: ' + (d.phone || '')];
       if (extra)   lines.push('지역/품목/구분: ' + extra);
       if (d.brand) lines.push('브랜드: ' + d.brand);
       if (d.link)  lines.push('링크: ' + d.link);
+      if (d.attachment_names) lines.push('첨부파일: ' + d.attachment_names + ' (관리자 > 문의 관리에서 내려받기)');
       lines.push('내용: ' + (d.message || ''));
       lines.push('접수시각: ' + (d.submitted_at || ''));
       MailApp.sendEmail(d.notify_email, subject, lines.join('\n'));
