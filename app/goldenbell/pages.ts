@@ -13,7 +13,7 @@ export const INDEX_HTML = `<!doctype html>
 </head>
 <body>
 <main class="page">
-  <header class="brand"><strong>WORKUP</strong><span>로컬 테스트</span></header>
+  <header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>
 
   <section class="hero" aria-labelledby="title">
     <p class="hook">워크업에서 구매하고 금 1돈에 도전!</p>
@@ -186,7 +186,7 @@ export const ADMIN_HTML = `<!doctype html>
 </head>
 <body>
 <main class="page admin-page">
-<header class="brand"><strong>WORKUP</strong><span>로컬 테스트</span></header>
+<header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>
 <section class="admin">
   <div class="admin-title"><h1>골든벨 응모 검수</h1><a href="/goldenbell/">고객 응모 화면 열기</a></div>
 

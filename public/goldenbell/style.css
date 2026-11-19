@@ -262,3 +262,5 @@ footer{text-align:center}
 .result-box dl,.result-note{text-align:center}
 .result-box .draw{justify-content:center}
 .result-box .chips{justify-content:center}
+.brand-logo{display:block;height:14px;width:auto;filter:brightness(0) invert(1)}
+.brand{justify-content:flex-end;align-items:flex-start;padding-top:22px;padding-bottom:14px;min-height:0}
