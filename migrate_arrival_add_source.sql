@@ -1,0 +1,1 @@
+ALTER TABLE arrival_products ADD COLUMN IF NOT EXISTS source TEXT;

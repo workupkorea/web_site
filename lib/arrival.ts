@@ -340,6 +340,46 @@ export async function addNewProduct(product: ArrivalProduct): Promise<void> {
   }
 }
 
+// 개별 등록(내부활용) 제품의 기본 정보 수정 — 시트 동기화 제품은 시트가 원본이므로 대상이 아니다.
+export type ManualProductFields = Partial<Pick<ArrivalProduct,
+  "productName" | "brand" | "category" | "color" | "costPrice" | "supplyPrice" | "price" | "description" | "note">>;
+export async function updateManualProduct(productCode: string, arrivalDate: string, f: ManualProductFields): Promise<void> {
+  const supabase = createAdminClient();
+  const row: Record<string, unknown> = {};
+  if (f.productName !== undefined) row.product_name = f.productName;
+  if (f.brand       !== undefined) row.brand        = f.brand;
+  if (f.category    !== undefined) row.category     = f.category;
+  if (f.color       !== undefined) row.color        = f.color;
+  if (f.costPrice   !== undefined) row.cost_price   = f.costPrice;
+  if (f.supplyPrice !== undefined) row.supply_price = f.supplyPrice;
+  if (f.price       !== undefined) row.price        = f.price;
+  if (f.description !== undefined) row.description  = f.description;
+  if (f.note        !== undefined) row.note         = f.note;
+  if (Object.keys(row).length === 0) return;
+  const { error } = await supabase.from("arrival_products").update(row)
+    .eq("product_code", productCode).eq("arrival_date", arrivalDate);
+  if (error) throw new Error(error.message);
+}
+
+// 내부활용 제품의 상품코드 변경 — 제품 행과, 코드를 키로 쓰는 override(이미지 등)를 함께 옮긴다.
+export async function renameManualProductCode(oldCode: string, arrivalDate: string, newCode: string): Promise<void> {
+  if (oldCode === newCode) return;
+  const supabase = createAdminClient();
+  const { data: dup } = await supabase.from("arrival_products").select("id").eq("product_code", newCode).eq("arrival_date", arrivalDate).maybeSingle();
+  if (dup) throw new Error(`상품코드 ${newCode}는 이미 존재합니다.`);
+  const { error } = await supabase.from("arrival_products").update({ product_code: newCode })
+    .eq("product_code", oldCode).eq("arrival_date", arrivalDate);
+  if (error) throw new Error(error.message);
+
+  const { data: ovs } = await supabase.from("arrival_overrides").select("*")
+    .or(`override_key.eq.${oldCode},override_key.like.${oldCode}::%`);
+  for (const ov of ovs ?? []) {
+    const newKey = `${newCode}${(ov.override_key as string).slice(oldCode.length)}`;
+    const { error: e1 } = await supabase.from("arrival_overrides").upsert({ ...ov, override_key: newKey }, { onConflict: "override_key" });
+    if (!e1) await supabase.from("arrival_overrides").delete().eq("override_key", ov.override_key);
+  }
+}
+
 export async function addMultipleProducts(
   newProducts: ArrivalProduct[]
 ): Promise<{ added: number; skipped: string[] }> {
@@ -451,10 +491,12 @@ export async function replaceAllProducts(products: ArrivalProduct[]): Promise<vo
     throw new Error("동기화할 상품이 0건입니다. 기존 데이터를 보존하기 위해 교체를 중단합니다.");
   }
 
-  const { data: oldRows, error: oldErr } = await supabase.from("arrival_products").select("id, product_code, arrival_date");
+  // 개별 등록(내부활용) 제품은 비고의 '내부활용' 표시로 식별해 시트 동기화에서 지우지 않는다.
+  const { data: oldRows, error: oldErr } = await supabase.from("arrival_products").select("id, product_code, arrival_date, note");
   if (oldErr) throw new Error(`[arrival_products SELECT old ids] ${oldErr.message}`);
   const newKeys = new Set(products.map(p => `${p.productCode}::${p.arrivalDate}`));
   const staleIds = (oldRows ?? [])
+    .filter(r => !(r.note ?? "").includes("내부활용")) // 수동 등록(내부활용)은 시트에 없어도 유지
     .filter(r => !newKeys.has(`${r.product_code}::${r.arrival_date}`))
     .map(r => r.id);
 

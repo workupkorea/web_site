@@ -5,7 +5,10 @@ import {
   bulkSaveArrivalOverride,
   addNewProduct,
   addMultipleProducts,
+  updateManualProduct,
+  renameManualProductCode,
 } from "@/lib/arrival";
+import type { ManualProductFields } from "@/lib/arrival";
 import type { ArrivalOverride, ArrivalProduct } from "@/lib/arrival";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +56,9 @@ export async function POST(req: Request) {
       status: p.status || "입고예정",
       description: String(p.description ?? "").trim(),
       note: String(p.note ?? "").trim(),
-      image: null,
+      costPrice: Number(p.costPrice) || 0,
+      supplyPrice: Number(p.supplyPrice) || 0,
+      image: p.image ? String(p.image) : null, // W주문 불러오기 시 대표 이미지 주소
       detailUrl: null,
       changeHistory: [],
     });
@@ -67,14 +72,21 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { productCode, reason, originalArrivalDate, clearHistory, ...data } = body as {
+    const { productCode, reason, originalArrivalDate, clearHistory, manualFields, ...data } = body as {
       productCode: string;
       reason?: string;
       originalArrivalDate?: string; // 복합키 생성용 원래 입고일
       clearHistory?: boolean;       // 변경이력만 삭제
+      manualFields?: ManualProductFields; // 내부활용(개별 등록) 제품의 기본 정보 수정
     } & ArrivalOverride;
     if (!productCode) return NextResponse.json({ error: "productCode required" }, { status: 400 });
+    const { newProductCode, ...infoFields } = (manualFields ?? {}) as ManualProductFields & { newProductCode?: string };
+    if (manualFields) await updateManualProduct(productCode, originalArrivalDate ?? "", infoFields);
     await saveArrivalOverride(productCode, data, reason, originalArrivalDate, clearHistory);
+    // 코드 변경은 마지막에 — 위 저장들이 기존 코드를 키로 쓰므로, 끝난 뒤 행·override 키를 함께 옮긴다.
+    if (manualFields && newProductCode?.trim() && newProductCode.trim() !== productCode) {
+      await renameManualProductCode(productCode, originalArrivalDate ?? "", newProductCode.trim());
+    }
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 });

@@ -202,6 +202,7 @@ async function loginCookie(sb: SupabaseClient): Promise<string> {
 export type WjumunItem = {
   name: string;
   barcode: string;
+  tagCode: string; // it_tag_code: 품번(11자)+컬러(2자)+사이즈(3자) — 상품명 형식과 무관하게 일정
   posCode: string;
   qty: string; // 입수량
   cost: number; // 매입가(원가)
@@ -230,6 +231,7 @@ export function parseWjumunItems(html: string): WjumunItem[] {
     items.push({
       name,
       barcode: field("it_code"),
+      tagCode: field("it_tag_code"),
       posCode: field("it_maker"),
       qty: field("it_ex1"),
       cost: num(field("it_purchase_cost")),
@@ -243,8 +245,8 @@ export function parseWjumunItems(html: string): WjumunItem[] {
   return items;
 }
 
-export async function searchWjumunItems(sb: SupabaseClient, code: string): Promise<WjumunItemResult> {
-  const query = `ius=&fmDt=&toDt=&search_field1=it_tag_code&search_word1=${encodeURIComponent(code)}`;
+export async function searchWjumunItems(sb: SupabaseClient, code: string, field: "it_tag_code" | "it_name" = "it_tag_code"): Promise<WjumunItemResult> {
+  const query = `ius=&fmDt=&toDt=&search_field1=${field}&search_word1=${encodeURIComponent(code)}`;
   const searchUrl = `${BASE_URL}/admin/shop/item_list.php?${query}`;
   const cookie = await loginCookie(sb);
   const res = await timedFetch(searchUrl, { method: "GET", headers: { Cookie: cookie } });

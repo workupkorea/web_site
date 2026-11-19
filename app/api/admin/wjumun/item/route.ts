@@ -10,10 +10,16 @@ const CODE_RE = /^[A-Za-z0-9_-]{3,40}$/;
 
 export async function GET(req: Request) {
   if (!(await getAdminMember())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const code = new URL(req.url).searchParams.get("code")?.trim() ?? "";
-  if (!CODE_RE.test(code)) return NextResponse.json({ error: "품번 형식이 올바르지 않습니다." }, { status: 400 });
+  const params = new URL(req.url).searchParams;
+  const name = params.get("name")?.trim() ?? "";
+  const code = params.get("code")?.trim() ?? "";
+  if (name) {
+    if (name.length < 2 || name.length > 60) return NextResponse.json({ error: "상품명은 2~60자로 입력해 주세요." }, { status: 400 });
+  } else if (!CODE_RE.test(code)) {
+    return NextResponse.json({ error: "품번 형식이 올바르지 않습니다." }, { status: 400 });
+  }
   try {
-    return NextResponse.json(await searchWjumunItems(createAdminClient(), code));
+    return NextResponse.json(await searchWjumunItems(createAdminClient(), name || code, name ? "it_name" : "it_tag_code"));
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "조회에 실패했습니다." }, { status: 500 });
   }

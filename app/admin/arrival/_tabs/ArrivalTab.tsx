@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef, useMemo, type ReactNode } from "react";
+import { parseWjumunItem } from "@/lib/wjumun-name";
 import type { ArrivalProduct, ArrivalStatus } from "@/lib/arrival";
 import { seasonOf } from "@/lib/arrival-season";
 import Link from "next/link";
@@ -136,12 +137,60 @@ const CSV_HEADERS = [
 ];
 
 // ─── 단일 수정 모달 ───────────────────────────────────────────────────────────
+// 품번이 없는 제품은 내부적으로 임시 코드(NC-…)를 키로 쓰지만, 화면에는 '품번 없음'으로만 표기한다.
+const codeLabel = (c: string) => (c.startsWith("NC-") ? "품번 없음" : c);
+
+// 기존 제품들의 카테고리 중에서 고르는 드롭다운 (현재 값이 목록에 없어도 유지)
+function CategorySelect({ value, options, onChange, className }: { value: string; options: string[]; onChange: (v: string) => void; className?: string }) {
+  const list = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <select value={value} onChange={e => onChange(e.target.value)} className={className}>
+      <option value="">카테고리 선택</option>
+      {list.map(c => <option key={c} value={c}>{c}</option>)}
+    </select>
+  );
+}
+
+// 금액 입력: 천 단위 콤마 표시, 저장 값은 숫자
+function MoneyInput({ value, onChange, className, placeholder }: { value: number; onChange: (n: number) => void; className?: string; placeholder?: string }) {
+  return (
+    <input type="text" inputMode="numeric" value={value ? value.toLocaleString("ko-KR") : ""} placeholder={placeholder}
+      onChange={e => onChange(Number(e.target.value.replace(/[^0-9]/g, "")) || 0)} className={className} />
+  );
+}
+
+// 기존 브랜드에서 고르거나, 없으면 '새 브랜드 직접 입력'으로 새로 만든다.
+function BrandSelect({ value, options, onChange, className }: { value: string; options: string[]; onChange: (v: string) => void; className?: string }) {
+  const [creating, setCreating] = useState(false);
+  if (creating) {
+    return (
+      <div className="flex gap-1.5">
+        <input autoFocus type="text" value={value} onChange={e => onChange(e.target.value)} placeholder="새 브랜드명 입력" className={className} />
+        <button type="button" onClick={() => { setCreating(false); if (!options.includes(value)) onChange(""); }}
+          className="shrink-0 px-2 text-[12px] text-gray-500 border border-gray-200 rounded-lg hover:border-gray-400">목록</button>
+      </div>
+    );
+  }
+  const list = value && !options.includes(value) ? [value, ...options] : options;
+  return (
+    <select value={value} onChange={e => { if (e.target.value === "__new__") { setCreating(true); onChange(""); } else onChange(e.target.value); }} className={className}>
+      <option value="">브랜드 선택</option>
+      {list.map(b => <option key={b} value={b}>{b}</option>)}
+      <option value="__new__">＋ 새 브랜드 직접 입력</option>
+    </select>
+  );
+}
+
 function EditModal({
   product,
+  categories,
+  brands,
   onClose,
   onSaved,
 }: {
   product: ArrivalProduct;
+  categories: string[];
+  brands: string[];
   onClose: () => void;
   onSaved: (updated: Partial<ArrivalProduct>) => void;
 }) {
@@ -152,6 +201,15 @@ function EditModal({
     () => (product.image || "").split(",").map(s => s.trim()).filter(Boolean)
   );
   const [reason,    setReason]    = useState("");
+  // 내부활용용(개별 등록) 제품은 시트 원본이 없으므로 기본 정보도 여기서 직접 수정한다.
+  const isInternal = (product.note ?? "").includes("내부활용");
+  const [info, setInfo] = useState({
+    productCode: product.productCode, productName: product.productName ?? "", brand: product.brand ?? "", category: product.category ?? "",
+    color: product.color ?? "", costPrice: product.costPrice ?? 0, supplyPrice: product.supplyPrice ?? 0,
+    price: product.price ?? 0, description: product.description ?? "", note: product.note ?? "",
+  });
+  const [noCodeEdit, setNoCodeEdit] = useState(product.productCode.startsWith("NC-")); // 품번 없음 = 임시 코드(NC-…)
+  const setI = (k: keyof typeof info, v: string | number) => setInfo(p => ({ ...p, [k]: v }));
   // 입고일·상태는 구글시트(매장입고일) 값을 그대로 따른다. 강제 수정이 필요할 때만 잠금 해제.
   const [forceEdit, setForceEdit] = useState(false);
   const [saving,    setSaving]    = useState(false);
@@ -222,6 +280,20 @@ function EditModal({
       if (forceEdit && date !== (product.arrivalDate || "")) body.arrivalDate = date;
       if (forceEdit && status !== product.status) body.status = status;
       if (reason.trim()) body.reason = reason.trim();
+      let manual: typeof info | null = null;
+      if (isInternal) {
+        if (!info.productName.trim()) { alert("상품명은 필수입니다."); return; }
+        if (!noCodeEdit && !info.productCode.trim()) { alert("품번을 입력하거나 '품번 없음'을 체크해 주세요."); return; }
+        // 내부활용 표시는 유지해야 필터에서 계속 구분된다.
+        manual = { ...info, note: info.note.includes("내부활용") ? info.note : `내부활용${info.note ? " / " + info.note : ""}` };
+        const { productCode: nc, ...rest } = manual;
+        // 품번 없음: 이미 임시 코드면 유지, 아니면 새 임시 코드를 부여한다.
+        const finalCode = noCodeEdit
+          ? (product.productCode.startsWith("NC-") ? product.productCode : `NC-${Date.now().toString(36).toUpperCase()}`)
+          : nc.trim();
+        manual = { ...manual, productCode: finalCode };
+        body.manualFields = { ...rest, newProductCode: finalCode };
+      }
       const res = await fetch("/api/admin/arrival", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -229,8 +301,11 @@ function EditModal({
       });
       if (res.ok) {
         setSaved(true);
-        onSaved({ arrivalDate: date, status, image: imageStr || null });
+        onSaved({ arrivalDate: date, status, image: imageStr || null, ...(manual ?? {}), ...(manual ? { productCode: manual.productCode.trim() } : {}) });
         setTimeout(onClose, 700);
+      } else {
+        const j = await res.json().catch(() => ({}));
+        alert(String(j.error ?? "저장에 실패했습니다.").replace(/^Error: /, ""));
       }
     } finally {
       setSaving(false);
@@ -265,12 +340,53 @@ function EditModal({
           <div>
             <p className="text-[11px] tracking-widest text-gray-400 uppercase">{product.brand}</p>
             <h3 className="text-lg font-bold text-[#1a1a1a] mt-0.5">{product.productName}</h3>
-            <p className="text-[12px] font-mono text-gray-400 mt-0.5">{product.productCode}</p>
+            <p className="text-[12px] font-mono text-gray-400 mt-0.5">{codeLabel(product.productCode)}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
         </div>
 
         <div className="space-y-4">
+          {isInternal && (
+            <div className="space-y-2 pb-4 border-b border-gray-100">
+              <p className="text-[11px] tracking-widest text-gray-500 uppercase">제품 정보 (내부활용용)</p>
+              {([["품번", "productCode", "text"], ["상품명", "productName", "text"], ["브랜드", "brand", "text"], ["카테고리", "category", "text"], ["컬러", "color", "text"],
+                 ["원가", "costPrice", "number"], ["공급가", "supplyPrice", "number"], ["판매가", "price", "number"], ["비고", "note", "text"]] as const).map(([label, key, type]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="w-14 shrink-0 text-[12px] text-gray-500">{label}</span>
+                  {key === "brand" ? (
+                    <div className="flex-1">
+                      <BrandSelect value={info.brand} options={brands} onChange={v => setI("brand", v)}
+                        className="w-full border border-gray-200 px-3 py-1.5 text-[13px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a]" />
+                    </div>
+                  ) : key === "category" ? (
+                    <CategorySelect value={info.category} options={categories} onChange={v => setI("category", v)}
+                      className="flex-1 border border-gray-200 px-3 py-1.5 text-[13px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a]" />
+                  ) : key === "productCode" ? (
+                    <div className="flex-1">
+                      <input type="text" value={noCodeEdit ? "" : info.productCode} disabled={noCodeEdit} placeholder={noCodeEdit ? "품번 없음" : ""}
+                        onChange={e => setI("productCode", e.target.value)}
+                        className="w-full border border-gray-200 px-3 py-1.5 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a] disabled:bg-gray-100 disabled:text-gray-300" />
+                      <label className="mt-1 flex items-center gap-1.5 text-[12px] text-gray-600 cursor-pointer">
+                        <input type="checkbox" checked={noCodeEdit} onChange={e => setNoCodeEdit(e.target.checked)} />
+                        품번 없음
+                      </label>
+                    </div>
+                  ) : type === "number" ? (
+                    <MoneyInput value={Number(info[key]) || 0} onChange={n => setI(key, n)}
+                      className="flex-1 border border-gray-200 px-3 py-1.5 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a]" />
+                  ) : (
+                    <input type={type} value={String(info[key] ?? "")}
+                      onChange={e => setI(key, e.target.value)}
+                      className="flex-1 border border-gray-200 px-3 py-1.5 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a]" />
+                  )}
+                </div>
+              ))}
+              <textarea value={info.description} onChange={e => setI("description", e.target.value)} rows={2} placeholder="설명"
+                className="w-full border border-gray-200 px-3 py-1.5 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a] resize-none" />
+            </div>
+          )}
+          {!isInternal && (
+          <>
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-[11px] tracking-widest text-gray-500 uppercase">매장입고일 · 입고상태</label>
@@ -336,6 +452,8 @@ function EditModal({
               ))}
             </div>
           </div>
+          </>
+          )}
 
           <div>
             <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1.5">
@@ -525,9 +643,13 @@ function BulkPanel({
 
 // ─── 개별 입고 등록 모달 ─────────────────────────────────────────────────────
 function AddProductModal({
+  categories,
+  brands,
   onClose,
   onAdded,
 }: {
+  categories: string[];
+  brands: string[];
   onClose: () => void;
   onAdded: (p: ArrivalProduct) => void;
 }) {
@@ -539,23 +661,90 @@ function AddProductModal({
   const [form,   setForm]   = useState<ArrivalProduct>(blank);
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
+  const [noCode, setNoCode] = useState(false); // 상품코드 없이 등록 — 저장 시 임시 코드(NC-…)를 자동 부여
+  const [internalUse, setInternalUse] = useState(false); // 내부활용용: 매장입고 제품이 아니므로 입고일을 받지 않는다
+  const [wjLoading, setWjLoading] = useState(false);
+  const [wjMsg,     setWjMsg]     = useState("");
 
   const set = (k: keyof ArrivalProduct, v: string | number) =>
     setForm(prev => ({ ...prev, [k]: v }));
 
+  type WjItem = { name: string; tagCode?: string; cost: number; supply: number; price: number; imageUrl: string };
+  type WjCandidate = { code: string; title: string; items: WjItem[] };
+  const [wjCandidates, setWjCandidates] = useState<WjCandidate[]>([]);
+
+  // 선택한 제품의 W주문 항목들로 폼을 채운다.
+  const applyWjumun = (code: string, items: WjItem[]) => {
+    const parsed = items.map(i => ({ ...i, ...parseWjumunItem(i, code) }));
+    const colors = [...new Set(parsed.map(p => p.color).filter(Boolean))];
+    const first = parsed[0];
+    setForm(prev => ({
+      ...prev,
+      productCode: code || prev.productCode,
+      productName: first.title || prev.productName,
+      color: colors.join(", ") || prev.color,
+      costPrice: first.cost || prev.costPrice,
+      supplyPrice: first.supply || prev.supplyPrice,
+      price: first.price || prev.price,
+      image: parsed.find(p => p.imageUrl)?.imageUrl || prev.image,
+    }));
+    if (code) setNoCode(false); // W주문에서 품번을 찾았으면 그 품번을 사용
+    setWjCandidates([]);
+    setWjMsg(`W주문에서 ${items.length}개 항목을 읽어 채웠습니다. 브랜드·카테고리·입고일은 직접 입력해 주세요.`);
+  };
+
+  // 구글시트에 없는 제품: 품번(없으면 상품명)으로 W주문(wjumun)에서 상품명·가격·컬러·이미지를 가져와 폼을 채운다.
+  const loadFromWjumun = async () => {
+    const code = form.productCode.trim();
+    const name = form.productName.trim();
+    if (!code && !name) { setError("상품코드 또는 상품명을 먼저 입력해 주세요."); return; }
+    setWjLoading(true); setError(""); setWjMsg(""); setWjCandidates([]);
+    try {
+      const res = await fetch(`/api/admin/wjumun/item?${code ? `code=${encodeURIComponent(code)}` : `name=${encodeURIComponent(name)}`}`);
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "W주문 조회 실패"); return; }
+      const items: WjItem[] = data.items ?? [];
+      if (items.length === 0) { setError("W주문에서 일치하는 상품을 찾지 못했습니다."); return; }
+      if (code) { applyWjumun(code, items); return; }
+      // 상품명 검색: 색상·사이즈별 행을 품번(상품명 속 코드)별로 묶어 후보로 보여준다.
+      const groups = new Map<string, WjCandidate>();
+      for (const it of items) {
+        const pn = parseWjumunItem(it);
+        const c = pn.code || `title:${pn.title}`; // 품번을 못 읽으면 제목으로 묶고, 품번은 직접 입력
+        const g = groups.get(c) ?? { code: pn.code, title: pn.title, items: [] };
+        g.items.push(it);
+        groups.set(c, g);
+      }
+      const list = [...groups.values()];
+      if (list.length === 0) { setError("일치하는 상품을 찾지 못했습니다."); return; }
+      if (list.length === 1) applyWjumun(list[0].code, list[0].items);
+      else setWjCandidates(list);
+    } catch {
+      setError("W주문 조회 중 오류가 발생했습니다.");
+    } finally {
+      setWjLoading(false);
+    }
+  };
+
   const save = async () => {
-    if (!form.productCode.trim()) { setError("상품코드는 필수입니다."); return; }
+    if (!noCode && !form.productCode.trim()) { setError("상품코드를 입력하거나 '상품코드 없음'을 체크해 주세요."); return; }
     if (!form.productName.trim()) { setError("상품명은 필수입니다."); return; }
     setSaving(true); setError("");
+    // 코드가 없으면 시스템용 임시 코드를 만든다 (상품코드가 목록·수정의 키이므로 비워둘 수 없음)
+    const code = noCode ? `NC-${Date.now().toString(36).toUpperCase()}` : form.productCode.trim();
+    const base: ArrivalProduct = { ...form, productCode: code };
+    const payload: ArrivalProduct = internalUse
+      ? { ...base, arrivalDate: "", status: "일정미표기" as ArrivalStatus, note: form.note.includes("내부활용") ? form.note : `내부활용${form.note ? " / " + form.note : ""}` }
+      : base;
     try {
       const res = await fetch("/api/admin/arrival", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "저장 실패"); return; }
-      onAdded({ ...form });
+      onAdded({ ...payload });
       onClose();
     } finally {
       setSaving(false);
@@ -590,15 +779,51 @@ function AddProductModal({
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          {field("상품코드 *", "productCode", "text", "EX-001")}
-          {field("브랜드 *", "brand", "text", "BRAND")}
+          <div>
+            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1">상품코드 *</label>
+            <input type="text" value={noCode ? "" : form.productCode} disabled={noCode} placeholder={noCode ? "품번 없음" : "EX-001"}
+              onChange={e => set("productCode", e.target.value)}
+              className="w-full border border-gray-200 px-3 py-2 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a] disabled:bg-gray-100 disabled:text-gray-300" />
+            <label className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={noCode}
+                onChange={e => { setNoCode(e.target.checked); if (e.target.checked) set("productCode", ""); }} />
+              상품코드 없음
+            </label>
+            <button type="button" onClick={loadFromWjumun} disabled={wjLoading}
+              className="mt-1.5 w-full py-1.5 text-[12px] font-bold border border-[#1a1a1a] rounded-lg hover:bg-gray-50 disabled:opacity-50">
+              {wjLoading ? "불러오는 중..." : "W주문에서 불러오기"}
+            </button>
+          </div>
+          <div>
+            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1">브랜드 *</label>
+            <BrandSelect value={form.brand} options={brands} onChange={v => set("brand", v)}
+              className="w-full border border-gray-200 px-3 py-2 text-[13px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a]" />
+          </div>
           <div className="col-span-2">
             {field("상품명 *", "productName", "text", "상품명 입력")}
           </div>
-          {field("카테고리", "category", "text", "상의")}
+          <div>
+            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1">카테고리</label>
+            <CategorySelect value={form.category} options={categories} onChange={v => set("category", v)}
+              className="w-full border border-gray-200 px-3 py-2 text-[13px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a]" />
+          </div>
           {field("컬러", "color", "text", "블랙")}
-          {field("가격", "price", "number", "50000")}
-          {field("매장입고일", "arrivalDate", "date", "")}
+          <div>
+            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1">가격</label>
+            <MoneyInput value={form.price} onChange={n => set("price", n)} placeholder="50,000"
+              className="w-full border border-gray-200 px-3 py-2 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a]" />
+          </div>
+          <div>
+            <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1">매장입고일</label>
+            <input type="date" value={internalUse ? "" : form.arrivalDate} disabled={internalUse}
+              onChange={e => set("arrivalDate", e.target.value)}
+              className="w-full border border-gray-200 px-3 py-2 text-[13px] rounded-lg focus:outline-none focus:border-[#1a1a1a] disabled:bg-gray-100 disabled:text-gray-300" />
+            <label className="mt-1.5 flex items-center gap-1.5 text-[12px] text-gray-600 cursor-pointer">
+              <input type="checkbox" checked={internalUse}
+                onChange={e => { setInternalUse(e.target.checked); if (e.target.checked) set("arrivalDate", ""); }} />
+              내부활용용 (매장입고 아님)
+            </label>
+          </div>
         </div>
 
         <div className="mt-3">
@@ -608,10 +833,11 @@ function AddProductModal({
               <button
                 key={s}
                 onClick={() => set("status", s)}
+                disabled={internalUse}
                 className={`px-3 py-1.5 text-[12px] font-bold rounded-full border transition-all ${
-                  form.status === s
+                  !internalUse && form.status === s
                     ? STATUS_CLS[s] + " border-transparent"
-                    : "border-gray-200 text-gray-400 hover:border-gray-400"
+                    : "border-gray-200 text-gray-400 hover:border-gray-400 disabled:opacity-40 disabled:hover:border-gray-200"
                 }`}
               >
                 {statusLabel(s)}
@@ -641,6 +867,24 @@ function AddProductModal({
           </div>
         </div>
 
+        {form.image && (
+          <div className="mt-3 flex items-center gap-3">
+            <img src={form.image.split(",")[0]} alt="" className="w-14 h-14 object-cover rounded-lg border border-gray-200" />
+            <p className="text-[11px] text-gray-400">대표 이미지 — 등록 후 목록에서 언제든 교체할 수 있습니다.</p>
+          </div>
+        )}
+        {wjCandidates.length > 0 && (
+          <div className="mt-3 border border-gray-200 rounded-lg max-h-48 overflow-y-auto divide-y divide-gray-100">
+            <p className="px-3 py-1.5 text-[11px] text-gray-400">여러 제품이 검색되었습니다. 선택해 주세요.</p>
+            {wjCandidates.map(c => (
+              <button key={c.code + c.title} type="button" onClick={() => applyWjumun(c.code, c.items)}
+                className="w-full text-left px-3 py-2 text-[13px] hover:bg-gray-50">
+                <span className="font-mono text-gray-500 mr-2">{c.code || "(품번 없음)"}</span>{c.title}
+              </button>
+            ))}
+          </div>
+        )}
+        {wjMsg && <p className="mt-3 text-[12px] text-emerald-600">{wjMsg}</p>}
         {error && <p className="mt-3 text-[12px] text-red-500">{error}</p>}
 
         <div className="flex gap-3 mt-5">
@@ -1204,11 +1448,15 @@ export default function ArrivalTab() {
   useEffect(() => { load(); }, [load]);
 
   const brands       = Array.from(new Set(products.map(p => p.brand))).sort();
-  const categories   = Array.from(new Set(products.map(p => p.category))).sort();
+  const categories   = Array.from(new Set(products.map(p => p.category).filter(Boolean))).sort();
+  const brandList    = Array.from(new Set(products.map(p => p.brand).filter(Boolean))).sort();
   const productTypes = Array.from(new Set(products.map(p => p.productType).filter(Boolean))).sort() as string[];
   const newArrivalTypes = Array.from(new Set(products.map(p => p.newArrivalType).filter(Boolean))).sort() as string[];
 
-  const filtered = products.filter(p => {
+  // 내부활용용은 일반 목록·카운트에서 제외하고, '내부활용용만' 필터를 골랐을 때만 보여준다.
+  const isInternalProduct = (p: ArrivalProduct) => (p.note ?? "").includes("내부활용");
+  const regularProducts = products.filter(p => !isInternalProduct(p));
+  const filtered = (filterStatus === "__internal__" ? products.filter(isInternalProduct) : regularProducts).filter(p => {
     const qLow = q.toLowerCase();
     if (qLow && !p.productName.toLowerCase().includes(qLow) && !p.productCode.toLowerCase().includes(qLow) && !p.brand.toLowerCase().includes(qLow) && !(p.size ?? "").toLowerCase().includes(qLow)) return false;
     if (filterBrand !== "all" && p.brand !== filterBrand) return false;
@@ -1216,6 +1464,7 @@ export default function ArrivalTab() {
     if (filterProductType !== "all" && (p.productType ?? "") !== filterProductType) return false;
     if (filterNewArrival !== "all" && (p.newArrivalType ?? "") !== filterNewArrival) return false;
     if (filterStatus === "__noimage__") { if (p.image) return false; }
+    else if (filterStatus === "__internal__") { if (!(p.note ?? "").includes("내부활용")) return false; }
     else if (filterStatus === "일정미정") { if (!isUndecided(p.status)) return false; }
     else if (filterStatus !== "all" && p.status !== filterStatus) return false;
     if (filterDate && p.arrivalDate !== filterDate) return false;
@@ -1357,11 +1606,11 @@ export default function ArrivalTab() {
   const selectedCodes = Array.from(selected);
 
   const stats = [
-    { label: "전체",      value: products.length,                                       cls: "text-[#1a1a1a]",  filter: "all" },
-    { label: "입고예정",  value: products.filter(p => p.status === "입고예정").length,  cls: "text-[#1a1a1a]",  filter: "입고예정" },
-    { label: "입고완료",  value: products.filter(p => p.status === "입고완료").length,  cls: "text-green-600",  filter: "입고완료" },
-    { label: "일정미정",  value: products.filter(p => isUndecided(p.status)).length,  cls: "text-amber-600",  filter: "일정미정" },
-    { label: "이미지 없음", value: products.filter(p => !p.image).length,               cls: "text-gray-400",   filter: "__noimage__" },
+    { label: "전체",      value: regularProducts.length,                                       cls: "text-[#1a1a1a]",  filter: "all" },
+    { label: "입고예정",  value: regularProducts.filter(p => p.status === "입고예정").length,  cls: "text-[#1a1a1a]",  filter: "입고예정" },
+    { label: "입고완료",  value: regularProducts.filter(p => p.status === "입고완료").length,  cls: "text-green-600",  filter: "입고완료" },
+    { label: "일정미정",  value: regularProducts.filter(p => isUndecided(p.status)).length,  cls: "text-amber-600",  filter: "일정미정" },
+    { label: "이미지 없음", value: regularProducts.filter(p => !p.image).length,               cls: "text-gray-400",   filter: "__noimage__" },
   ];
 
   // 목록 테이블 열 정의. essential 열은 항상 표시, 나머지는 "열 표시"에서 켜고 끔
@@ -1371,7 +1620,7 @@ export default function ArrivalTab() {
   }[] = [
     { key: "arrivalDate", label: "매장입고일", essential: true, tdCls: "text-[13px] font-mono text-gray-600 whitespace-nowrap", render: p => fmtArrivalShort(p.arrivalDate) },
     { key: "productCode", label: "상품코드", tdCls: "text-[12px] font-mono text-gray-500 whitespace-nowrap",
-      render: p => p.productCode },
+      render: p => codeLabel(p.productCode) },
     { key: "name", label: "상품명", essential: true, tdCls: "min-w-[220px]", render: p => (
       <div className="flex items-center gap-2.5">
         <label className="cursor-pointer shrink-0 relative group">
@@ -1575,6 +1824,7 @@ export default function ArrivalTab() {
           className="border border-gray-200 px-3 py-2 text-[13px] rounded-lg bg-white focus:outline-none">
           <option value="all">전체 상태</option>
           {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
+          <option value="__internal__">내부활용용만</option>
         </select>
         <input
           type="date"
@@ -1937,6 +2187,8 @@ export default function ArrivalTab() {
       {editProduct && (
         <EditModal
           product={editProduct}
+          categories={categories}
+          brands={brandList}
           onClose={() => setEditProduct(null)}
           onSaved={(data) => { handleSingleSaved(editProduct.productCode, data); }}
         />
@@ -1945,6 +2197,8 @@ export default function ArrivalTab() {
       {/* 개별 등록 모달 */}
       {showAddProduct && (
         <AddProductModal
+          categories={categories}
+          brands={brandList}
           onClose={() => setShowAddProduct(false)}
           onAdded={handleProductAdded}
         />
