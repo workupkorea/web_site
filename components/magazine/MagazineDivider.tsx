@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import type { MagazineDivider as Divider } from "@/lib/home-magazine";
 
 // 구분선(라인) 레이아웃 — 섹션 사이에 끼우는 장식 구간. 가는 선 / 굵은 선 / 이중선 / 점선 / 글자가 들어가는 선.
-const SPACE: Record<Divider["space"], string> = { sm: "py-5 md:py-6", md: "py-10 md:py-14", lg: "py-16 md:py-24" };
+const SPACE: Record<Divider["space"], string> = { sm: "py-5 md:py-6", md: "py-8 md:py-14", lg: "py-12 md:py-24" };
 
 export default function MagazineDivider({ divider }: { divider: Divider }) {
   const color = divider.color ?? "#1d1e20";

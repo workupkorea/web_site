@@ -538,7 +538,14 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
                       <Fragment key={e.token}>
                         <tr className="border-b border-gray-100 hover:bg-gray-50/60 align-middle">
                           <td className="py-2 pl-2 pr-1 text-gray-400">{i + 1}</td>
-                          <td className="py-2 px-2 font-semibold text-gray-800 whitespace-nowrap">@{e.user}</td>
+                          <td className="py-2 px-2 font-semibold text-gray-800 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5">
+                              @{e.user}
+                              <button className="text-[12px] font-normal text-gray-500 hover:underline" onClick={() => copy(`id:${e.token}`, e.user)} title="@ 없이 아이디만 복사합니다.">
+                                {copied === `id:${e.token}` ? "복사됨" : "ID복사"}
+                              </button>
+                            </span>
+                          </td>
                           <td className="py-2 px-2 text-gray-500 whitespace-nowrap">{e.prize}</td>
                           {/* 제출 */}
                           <td className="py-2 px-2 whitespace-nowrap">
@@ -578,6 +585,16 @@ export default function GiveawayClaimPanel({ record, commentIdByUser = {}, onLoa
                               </button>
                               <button className="text-gray-600 hover:underline" onClick={() => copyDm(e)} title="DM으로 보낼 안내문과 링크를 복사합니다. 복사할 때마다 복사 시각이 갱신됩니다.">
                                 {copied === e.token ? "복사됨" : "문구 복사"}
+                              </button>
+                              <button
+                                className="text-gray-600 hover:underline"
+                                onClick={() => {
+                                  window.open(`https://ig.me/m/${e.user}`, "_blank", "noopener");
+                                  void copyDm(e);
+                                }}
+                                title="이 당첨자와의 인스타 DM 창을 열고, 안내 문구를 복사합니다. 열린 창에서 붙여넣기(Ctrl+V)만 하면 됩니다."
+                              >
+                                DM창 열기
                               </button>
                               {dmErr[e.token] && <span className="text-[12px] text-red-600 max-w-[16rem] truncate" title={dmErr[e.token]}>✗ {dmErr[e.token]}</span>}
                             </span>

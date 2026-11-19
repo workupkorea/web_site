@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { Fragment, createContext, useContext, useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
   DEFAULT_HOME_MAGAZINE,
   HOME_MAGAZINE_SECTION,
@@ -353,7 +353,8 @@ function ListThumb({ url, minW }: { url: string; minW?: number }) {
   const { dim, onLoad } = useNaturalSize(url);
   return (
     <>
-      <div className="aspect-[4/5] rounded bg-gray-200 overflow-hidden">
+      {/* 사진 원래 비율대로 보여준다(가로 사진은 가로로). 불러오기 전에는 4:5 */}
+      <div className="rounded bg-gray-200 overflow-hidden" style={{ aspectRatio: dim ? `${dim.w} / ${dim.h}` : "4 / 5" }}>
         {url && <img src={url} alt="" onLoad={onLoad} className="w-full h-full object-cover" />}
       </div>
       <SizeNote dim={dim} minW={minW} />
@@ -362,7 +363,7 @@ function ListThumb({ url, minW }: { url: string; minW?: number }) {
 }
 
 // 여러 장 이미지 — 일괄 업로드, 순서 이동, 삭제
-function ImageListField({ label, images, onChange, kind = "small", max, hint, spec, compact = false, slotLabels }: { slotLabels?: string[]; label: string; images: MagazineImage[]; onChange: (v: MagazineImage[]) => void; kind?: SizeKind; max?: number; hint?: string; spec?: MagazineSlotSpec; compact?: boolean }) {
+function ImageListField({ label, images, onChange, kind = "small", max, hint, spec, compact = false, dense = false, slotLabels }: { slotLabels?: string[]; label: string; images: MagazineImage[]; onChange: (v: MagazineImage[]) => void; kind?: SizeKind; max?: number; hint?: string; spec?: MagazineSlotSpec; compact?: boolean; dense?: boolean }) {
   const move = (i: number, d: number) => {
     const j = i + d;
     if (j < 0 || j >= images.length) return;
@@ -391,12 +392,12 @@ function ImageListField({ label, images, onChange, kind = "small", max, hint, sp
       {images.length === 0 ? (
         <p className="text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg py-6 text-center">아직 사진이 없습니다.</p>
       ) : (
-        <ul className={`grid gap-3 ${compact ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-2 md:grid-cols-4 lg:grid-cols-6"}`}>
+        <ul className={`grid gap-2 items-start ${dense ? "grid-cols-4 md:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10" : compact ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-2 md:grid-cols-4 lg:grid-cols-6"}`}>
           {images.map((img, i) => (
             <li key={`${img.url}-${i}`} className="border border-gray-100 rounded-lg p-2 bg-gray-50/50">
               {slotLabels?.[i] && <p className="mb-1 text-[10px] leading-snug text-gray-500">{slotLabels[i]}</p>}
               <ListThumb url={img.url} minW={spec?.minW} />
-              <div className="flex justify-between mt-1.5">
+              <div className="flex flex-wrap justify-between gap-1 mt-1.5">
                 <span className="flex gap-1">
                   <button type="button" className={SMALL_BTN + " !px-2"} disabled={i === 0} onClick={() => move(i, -1)} aria-label="앞으로">←</button>
                   <button type="button" className={SMALL_BTN + " !px-2"} disabled={i === images.length - 1} onClick={() => move(i, 1)} aria-label="뒤로">→</button>
@@ -474,8 +475,8 @@ function BgPicker({ bgKey, value, onChange }: { bgKey: MagazineBgKey; value?: st
 }
 
 // ── 입고 스케쥴에서 제품 불러오기 — 착용컷·제품명·품번·컬러·사이즈를 한 번에 채운다 ──
-type ArrivalRow = { productCode: string; productName: string; brand?: string; color?: string; size?: string; image?: string | null; detailUrl?: string | null; arrivalDate?: string };
-type ArrivalPick = { productCode: string; productName: string; brand: string; colors: string; size: string; image: string; detailUrl: string; arrivalDate: string };
+type ArrivalRow = { productCode: string; productName: string; brand?: string; color?: string; size?: string; image?: string | null; detailUrl?: string | null; arrivalDate?: string; note?: string };
+type ArrivalPick = { internal?: boolean; productCode: string; productName: string; brand: string; colors: string; size: string; image: string; detailUrl: string; arrivalDate: string };
 let arrivalCache: ArrivalPick[] | null = null;
 // 제품 이미지를 1000×1000 정사각으로 통일해 R2에 올린다 — 입고 스케쥴 이미지는 크기·비율이 제각각이라(900×1200, 769×1000 …)
 // 제품 사진을 비율 그대로 가운데에 놓고, 남는 곳은 사진 모서리 색(투명이면 연회색)으로 채운다. 실패하면 null(원본 주소를 그대로 쓴다).
@@ -503,7 +504,10 @@ async function toSquareUrl(src: string): Promise<string | null> {
     const [r, g, b, a] = pctx.getImageData(0, 0, 1, 1).data; // 외부 주소가 CORS를 막으면 여기서 예외 → 프록시로 재시도
     ctx.fillStyle = a < 250 ? "#f4f3f0" : `rgb(${r},${g},${b})`;
     ctx.fillRect(0, 0, S, S);
-    const k = Math.min((S * 0.94) / img.naturalWidth, (S * 0.94) / img.naturalHeight);
+    // 이미 정사각(±2%)이면 여백 없이 꽉 채운다 — 여백을 두면 사진 배경색과 모서리 색이 달라 테두리처럼 보인다
+    const nearSquare = Math.abs(img.naturalWidth / img.naturalHeight - 1) < 0.02;
+    const fit = nearSquare ? 1 : 0.94;
+    const k = Math.min((S * fit) / img.naturalWidth, (S * fit) / img.naturalHeight);
     const w = img.naturalWidth * k;
     const h = img.naturalHeight * k;
     ctx.drawImage(img, (S - w) / 2, (S - h) / 2, w, h);
@@ -540,6 +544,13 @@ const wjSizeRank = (z: string) => {
   return Number.isNaN(n) ? 999 : 100 + n;
 };
 const wjNormSize = (z: string) => z.replace(/^0{1,2}(?=[A-Za-z])/, "").replace(/^(\d+)N$/, "$1"); // 00S→S, 30N→30
+// 사이즈 표기 통일: "00S~4XL"→"S - 4XL", "30N~36N"→"30 - 36", "26-40"→"26 - 40"
+function fmtSize(raw: string) {
+  const t = (raw || "").trim();
+  if (!t) return "";
+  const parts = t.split(/\s*[~\-–]\s*/).map((x) => wjNormSize(x.trim())).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]} - ${parts[parts.length - 1]}` : parts[0] ?? "";
+}
 // 상품명에서 제목·컬러·사이즈 분리: "GRBD GSGFUTS02_CG_4XL_소로나 웜 ..." 또는 "디트로잇 DT6WUAJP126BR4XL 시어 ..."
 function parseWjName(name: string, code: string) {
   const m = name.match(/[A-Za-z0-9]+_([A-Za-z0-9]+)_([A-Za-z0-9]+)_?(\S*)/);
@@ -563,7 +574,7 @@ function groupWjumun(rows: WjumunRow[], code: string): ArrivalPick | null {
     productName: parsed[0].title,
     brand: "",
     colors: colors.join(", "),
-    size: sizes.length > 1 ? `${sizes[0]}-${sizes[sizes.length - 1]}` : sizes[0] ?? "",
+    size: sizes.length > 1 ? `${sizes[0]} - ${sizes[sizes.length - 1]}` : sizes[0] ?? "",
     image: parsed.find((p) => p.image)?.image ?? "",
     detailUrl: "",
     arrivalDate: "",
@@ -582,16 +593,27 @@ function groupArrival(rows: ArrivalRow[]): ArrivalPick[] {
     // 입고 스케쥴 이미지는 "url1, url2"처럼 쉼표로 여러 장이 이어져 있을 수 있다 → 첫 장만 쓴다
     cur.image ||= (r.image || "").split(",").map((x) => x.trim()).find(Boolean) || "";
     cur.detailUrl ||= r.detailUrl || "";
+    if ((r.note || "").includes("내부활용")) cur.internal = true; // 내부활용용 등록 제품 표시
     if ((r.arrivalDate || "") > cur.arrivalDate) cur.arrivalDate = r.arrivalDate || "";
     const colors = new Set(cur.colors.split(",").map((x) => x.trim()).filter(Boolean));
     for (const c of (r.color || "").split(/[,/]/).map((x) => x.trim()).filter(Boolean)) colors.add(c);
     cur.colors = [...colors].join(", ");
     m.set(code, cur);
   }
+  for (const v of m.values()) v.size = fmtSize(v.size);
   return [...m.values()].sort((a, b) => b.arrivalDate.localeCompare(a.arrivalDate));
 }
 function ArrivalPicker({ onPick, popover = false }: { onPick: (p: ArrivalPick) => void | Promise<void>; popover?: boolean }) {
   const [open, setOpen] = useState(false);
+  const pickerId = useId();
+  // 한 번에 하나만 열기: 다른 선택창이 열리면 이 창은 닫는다
+  useEffect(() => {
+    const onOther = (e: Event) => {
+      if ((e as CustomEvent<string>).detail !== pickerId) setOpen(false);
+    };
+    window.addEventListener("arrival-picker-open", onOther);
+    return () => window.removeEventListener("arrival-picker-open", onOther);
+  }, [pickerId]);
   const [q, setQ] = useState("");
   const [list, setList] = useState<ArrivalPick[] | null>(arrivalCache);
   const [err, setErr] = useState("");
@@ -611,8 +633,9 @@ function ArrivalPicker({ onPick, popover = false }: { onPick: (p: ArrivalPick) =
     }
   }
   async function openPicker() {
+    window.dispatchEvent(new CustomEvent("arrival-picker-open", { detail: pickerId }));
     setOpen(true);
-    if (arrivalCache) return;
+    // 캐시가 있어도 매번 새로 받아 둔다 — 그 사이 입고 스케쥴에 새로 등록한(내부활용용 포함) 제품이 검색되도록
     try {
       const r = await fetch("/api/admin/arrival");
       if (!r.ok) throw new Error();
@@ -632,7 +655,7 @@ function ArrivalPicker({ onPick, popover = false }: { onPick: (p: ArrivalPick) =
   const term = q.trim().toLowerCase();
   const results = (list ?? []).filter((p) => !term || `${p.brand} ${p.productName} ${p.productCode} ${p.colors}`.toLowerCase().includes(term)).slice(0, 15);
   return (
-    <div className={`border border-blue-200 rounded-lg p-2 space-y-2 ${popover ? "absolute left-0 top-full mt-1 z-30 w-[30rem] max-w-[85vw] bg-white shadow-lg" : "bg-blue-50/40 w-full"}`}>
+    <div className={`border border-blue-200 rounded-lg p-2 space-y-2 ${popover ? "absolute left-3 right-3 top-12 z-30 bg-white shadow-lg" : "bg-blue-50/40 w-full"}`}>
       <div className="flex gap-2">
         <input autoFocus className={INPUT} value={q} placeholder="제품명·품번·브랜드·컬러로 검색 (없으면 품번 입력 → wjumun)" onChange={(e) => setQ(e.target.value)} />
         <button type="button" className={SMALL_BTN} onClick={() => setOpen(false)}>닫기</button>
@@ -664,7 +687,7 @@ function ArrivalPicker({ onPick, popover = false }: { onPick: (p: ArrivalPick) =
               )}
               <span className="min-w-0">
                 <span className="block truncate">{p.brand ? `[${p.brand}] ` : ""}{p.productName}</span>
-                <span className="block text-[11px] text-gray-400 truncate">{p.productCode}{p.colors ? ` · ${p.colors}` : ""}{p.size ? ` · ${p.size}` : ""}</span>
+                <span className="block text-[11px] text-gray-400 truncate">{p.internal ? "[내부활용] " : ""}{p.productCode}{p.colors ? ` · ${p.colors}` : ""}{p.size ? ` · ${p.size}` : ""}</span>
               </span>
             </button>
           </li>
@@ -834,7 +857,13 @@ export default function MagazineTab() {
     setDirty(true);
     setMsg(null);
   };
-  const patchChapter = (i: number, p: Partial<MagazineChapter>) => update({ chapters: cfg.chapters.map((c, k) => (k === i ? { ...c, ...p } : c)) });
+  // 사진 모음을 이 화면에서 직접 고친 챕터 — 고치지 않은 챕터의 사진 모음은 저장 때 보내지 않아(서버가 기존 값 유지)
+  // 오래 열어 둔 화면/예전 화면에서 저장해도 올려 둔 사진이 지워지지 않는다.
+  const galleryTouched = useRef(new Set<string>());
+  const patchChapter = (i: number, p: Partial<MagazineChapter>) => {
+    if (p.gallery !== undefined) galleryTouched.current.add(cfg.chapters[i].id);
+    update({ chapters: cfg.chapters.map((c, k) => (k === i ? { ...c, ...p } : c)) });
+  };
   const patchWearing = (i: number, p: Partial<MagazineWearingItem>) =>
     update({ wearing: { ...cfg.wearing, items: cfg.wearing.items.map((x, k) => (k === i ? { ...x, ...p } : x)) } });
 
@@ -842,10 +871,20 @@ export default function MagazineTab() {
     setSaving(true);
     setMsg(null);
     try {
-      const r = await fetch(API, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cfg) });
+      const touched = galleryTouched.current;
+      const body = {
+        ...cfg,
+        chapters: cfg.chapters.map((c) => (touched.has(c.id) ? c : { ...c, gallery: undefined })),
+        // 사진 모음을 일부러 전부 비운 챕터 — 서버가 "빈 값"을 실수로 덮어쓴 것과 구분하도록 알려 준다
+        __clearGallery: cfg.chapters.filter((c) => touched.has(c.id) && !(c.gallery ?? []).length).map((c) => c.id),
+      };
+      const r = await fetch(API, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error ?? "저장 실패");
+      galleryTouched.current.clear();
       setDirty(false);
       setMsg({ type: "ok", text: "저장했습니다. 메인에 바로 반영됩니다." });
+      // 서버가 유지한 사진 모음을 화면에도 반영(안 보이던 사진이 다음 저장 때 다시 비는 일 방지)
+      fetch(API).then((x) => (x.ok ? x.json() : null)).then((d) => d && setCfg(normalizeHomeMagazine(d, { forEditor: true }))).catch(() => {});
     } catch (e) {
       setMsg({ type: "err", text: e instanceof Error ? e.message : "저장 실패" });
     } finally {
@@ -954,6 +993,17 @@ export default function MagazineTab() {
                   onChange={(subs) => patchChapter(i, { subs })}
                 />
               )}
+              <div className="xl:col-span-2">
+              <ImageListField
+                label="챕터 사진 모음 (전체 보기용)"
+                kind="small"
+                hint="A·B컷 외에 더 보여줄 사진 — 개수 제한 없음. 메인에서 '사진 속 하루 더 보기'를 누르면 A·B컷과 함께 모두 나옵니다."
+                compact
+                dense
+                images={ch.gallery ?? []}
+                onChange={(gallery) => patchChapter(i, { gallery })}
+              />
+              </div>
             </div>
             <div className="space-y-2">
               <p className={LABEL}>키워드 태그 <span className="font-normal text-gray-400">· 챕터 사진 아래 #태그로 표시됩니다 (제품을 설명하는 단어, 연결 없음)</span></p>
@@ -979,16 +1029,6 @@ export default function MagazineTab() {
             )}
           </div>
         ))}
-      </Card>
-
-      </>
-    ),
-    behind: (
-      <>
-      {/* 비하인드 */}
-      <Card title="비하인드 (촬영 현장)" desc="B컷을 모아 보여주는 구간. 처음엔 모바일 6장 / PC 12장만 보이고 '더 보기'로 펼쳐집니다.">
-        <Text label="제목" value={cfg.behind.title} onChange={(v) => update({ behind: { ...cfg.behind, title: v } })} />
-        <ImageListField label="사진" kind="medium" spec={SPEC.behind} images={cfg.behind.images} onChange={(images) => update({ behind: { ...cfg.behind, images } })} />
       </Card>
 
       </>
@@ -1061,10 +1101,10 @@ export default function MagazineTab() {
                 {idxs.map((i, pos) => {
                   const item = cfg.wearing.items[i];
                   return (
-                    <div key={item.id} className="border border-gray-200 rounded-lg p-4 space-y-3 bg-white">
+                    <div key={item.id} className="relative border border-gray-200 rounded-lg p-4 space-y-3 bg-white">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-bold whitespace-nowrap w-6">{String(pos + 1).padStart(2, "0")}</p>
-                        <div className="relative">
+                        <div>
                           <ArrivalPicker
                               popover
                             onPick={async (a) => {
@@ -1184,7 +1224,7 @@ export default function MagazineTab() {
 
     </>
   );
-  const allCardIds = ["공개 설정", "섹션 순서", "커버", "인터뷰", "chapters", "videos", "비하인드 (촬영 현장)", "배우가 입은 제품", "클로징 (매장 방문 유도)"];
+  const allCardIds = ["공개 설정", "섹션 순서", "커버", "인터뷰", "chapters", "videos", "배우가 입은 제품", "클로징 (매장 방문 유도)"];
 
   return (
     <CollapseCtx.Provider value={{ closed, toggle: toggleCard }}>
@@ -1325,7 +1365,7 @@ export default function MagazineTab() {
                     <div className="flex flex-wrap items-center gap-2 pl-8">
                       <span className="text-[11px] text-gray-400 w-10 shrink-0">목차</span>
                       <input className={INPUT + " !w-auto flex-1 min-w-[9rem]"} aria-label="목차 제목" placeholder={auto?.title || "목차 제목"} value={lab.title ?? ""} onChange={(e) => setLab({ title: e.target.value || undefined })} />
-                      <input className={INPUT + " !w-auto flex-1 min-w-[9rem]"} aria-label="목차 보조 문구" placeholder={auto?.note || "보조 문구 (예: Behind the scenes)"} value={lab.note ?? ""} onChange={(e) => setLab({ note: e.target.value || undefined })} />
+                      <input className={INPUT + " !w-auto flex-1 min-w-[9rem]"} aria-label="목차 보조 문구" placeholder={auto?.note || "보조 문구 (예: Film)"} value={lab.note ?? ""} onChange={(e) => setLab({ note: e.target.value || undefined })} />
                     </div>
                   );
                 })()}

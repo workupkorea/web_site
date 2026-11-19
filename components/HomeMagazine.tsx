@@ -3,7 +3,6 @@ import { isDividerKey, isMagazinePublishable, isSectionEnabled, magazineBgFor, t
 import MagazineCover from "./magazine/MagazineCover";
 import MagazineInterview from "./magazine/MagazineInterview";
 import MagazineChapter from "./magazine/MagazineChapter";
-import MagazineBehind from "./magazine/MagazineBehind";
 import MagazineWearing from "./magazine/MagazineWearing";
 import MagazineClosing from "./magazine/MagazineClosing";
 import MagazineVideos from "./magazine/MagazineVideos";
@@ -47,7 +46,6 @@ export default function HomeMagazine({
         ))}
       </div>
     ),
-    behind: <MagazineBehind title={config.behind.title} images={config.behind.images} />,
     wearing: <MagazineWearing wearing={config.wearing} chapters={config.chapters.map((c, i) => ({ id: c.id, no: i + 1, title: c.title }))} />,
     closing: <MagazineClosing closing={config.closing} />,
   };
@@ -67,7 +65,7 @@ export default function HomeMagazine({
   return (
     <ChapterProvider ids={config.chapters.map((c) => c.id)} tabs={config.chapterView === "tabs"}>
     {/* id="magazine": 메인 대배너의 "매거진 보기" 버튼 등이 이 위치(커버)로 이동하는 앵커 */}
-    <div id="magazine" className="scroll-mt-16 bg-[#f6f4ef] text-[#1d1e20]">
+    <div id="magazine" className="scroll-mt-16 bg-[#f1f2f4] text-[#1d1e20]">
       {config.topBanner === "magazine" && (
         <>
           <MagazineCover issue={config.issue} cover={config.cover} />

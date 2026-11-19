@@ -70,7 +70,7 @@ export default function MagazineChapterTabs({ chapters }: { chapters: ChapterTab
   return (
     <div onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} onFocusCapture={() => setHover(true)} onBlurCapture={() => setHover(false)}>
       {tabs && (
-        <div ref={barRef} className="mag-own-bg px-5 pt-10 md:px-14 md:pt-16 bg-[#f6f4ef] text-[#1d1e20]">
+        <div ref={barRef} className="mag-own-bg px-5 pt-10 md:px-14 md:pt-16 bg-[#f1f2f4] text-[#1d1e20]">
           <p className="text-[10px] md:text-[11px] font-bold tracking-[0.28em] uppercase">Chapters</p>
           {/* 탭 줄 — 가는 선 하나 위에 활성 탭의 오렌지 밑줄이 (롤링 중에는 서서히 차오르며) 겹친다 */}
           <div role="tablist" aria-label="챕터 전환" className="mt-3 flex gap-8 md:gap-12 overflow-x-auto border-b border-[#1d1e20]/20 [scrollbar-width:none]">
@@ -85,7 +85,7 @@ export default function MagazineChapterTabs({ chapters }: { chapters: ChapterTab
                   aria-selected={on}
                   aria-controls={`mag-panel-${c.id}`}
                   onClick={() => ctx?.setActiveId(c.id)}
-                  className={`relative shrink-0 -mb-px flex items-baseline gap-2.5 border-b-2 py-3 md:py-4 outline-none transition-colors duration-700 focus-visible:ring-2 focus-visible:ring-[#E5541B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f6f4ef] ${
+                  className={`relative shrink-0 -mb-px flex items-baseline gap-2.5 border-b-2 py-3 md:py-4 outline-none transition-colors duration-700 focus-visible:ring-2 focus-visible:ring-[#E5541B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#f1f2f4] ${
                     on ? (auto ? "border-[#1d1e20]/25 text-[#1d1e20]" : "border-[#E5541B] text-[#1d1e20]") : "border-transparent text-[#1d1e20]/45 hover:text-[#1d1e20]"
                   }`}
                 >

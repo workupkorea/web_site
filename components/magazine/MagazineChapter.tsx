@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { MagazineChapter as Chapter, MagazineImage } from "@/lib/home-magazine";
 import MagazineImg from "./MagazineImg";
+import ChapterGallery from "./ChapterGallery";
 import { ChapterNo, Credits, TextLink } from "./parts";
 
 // 챕터 — 잡지 "스프레드" 구조. 레이아웃 3종(split / fullbleed / mosaic), 번호는 노출 순서로 자동 부여.
@@ -12,16 +13,19 @@ const pad = (n: number) => String(n).padStart(2, "0");
 
 export default function MagazineChapter({ chapter, no, tight = false }: { chapter: Chapter; no: number; tight?: boolean }) {
   const paras = (chapter.body ?? "").split(/\n+/).map((t) => t.trim()).filter(Boolean);
-  const props = { chapter, no, tight, headingId: `mag-chapter-${chapter.id}`, lead: paras[0], rest: paras.slice(1) };
+  // 챕터 사진 전체 보기 — 레이아웃에 다 못 담는 B컷까지 모아 본다(A컷+B컷+사진 모음). 제목·리드 바로 아래에 둬서 어느 챕터 버튼인지 분명하게 한다.
+  const photos = [chapter.main, ...chapter.subs, ...(chapter.gallery ?? [])].filter((i) => i.url);
+  const gallery = (tone: "dark" | "light" = "dark", full = false) => (photos.length < 2 ? null : <ChapterGallery title={chapter.title} no={no} images={photos} tone={tone} full={full} />);
+  const props = { chapter, no, tight, headingId: `mag-chapter-${chapter.id}`, lead: paras[0], rest: paras.slice(1), gallery };
   if (chapter.layout === "fullbleed") return <Fullbleed {...props} />;
   if (chapter.layout === "mosaic") return <Mosaic {...props} />;
   return <Split {...props} />;
 }
 
-type Props = { chapter: Chapter; no: number; headingId: string; lead?: string; rest: string[]; tight?: boolean };
+type Props = { chapter: Chapter; no: number; headingId: string; lead?: string; rest: string[]; tight?: boolean; gallery: (tone?: "dark" | "light", full?: boolean) => ReactNode };
 
 // 챕터 탭 바로 아래에 붙을 때(tight)는 위쪽 여백을 줄인다
-const sectionPad = (tight?: boolean) => (tight ? "px-5 pt-8 pb-10 md:px-14 md:pt-10 md:pb-24" : "px-5 py-10 md:px-14 md:py-24");
+const sectionPad = (tight?: boolean) => (tight ? "px-5 pt-6 pb-8 md:px-14 md:pt-10 md:pb-24" : "px-5 py-8 md:px-14 md:py-24");
 
 // ── 공용 조각 ──
 
@@ -39,18 +43,12 @@ function RunningHead({ no, kicker, tone = "dark" }: { no: number; kicker: string
   );
 }
 
-// 도판 캡션 — "01 — 사진 설명"
-function Caption({ n, text }: { n: number; text?: string }) {
+// 도판 번호 — 사진 안쪽 왼쪽 아래에 얹는다("01"). 사진이 밝아도 읽히도록 약한 그림자.
+function Caption({ n, className = "", pos = "left-3 bottom-2.5" }: { n: number; className?: string; pos?: string }) {
   return (
-    <figcaption className="mt-2.5 flex items-baseline gap-2 text-[11px] leading-snug text-[#55575b]">
-      <b className="shrink-0 text-[#1d1e20] tracking-[0.12em]">{pad(n)}</b>
-      {text && (
-        <>
-          <span aria-hidden>—</span>
-          <span className="truncate">{text}</span>
-        </>
-      )}
-    </figcaption>
+    <span className={`absolute ${pos} z-[1] text-[11px] font-bold tracking-[0.18em] text-white [text-shadow:0_1px_4px_rgba(0,0,0,.55)] ${className}`}>
+      {pad(n)}
+    </span>
   );
 }
 
@@ -59,7 +57,8 @@ function PullQuote({ children, tone = "dark", className = "" }: { children: Reac
   return (
     <blockquote className={`relative ${className}`}>
       {/* 따옴표는 글 위에 걸쳐 두어(absolute) 인용문 첫 줄이 블록 맨 위에 오게 한다 — 옆 단 본문과 상단이 맞는다 */}
-      <span aria-hidden className="mag-serif absolute left-0 bottom-full mb-2 text-[56px] md:text-[80px] leading-[0.6] font-bold text-[#E5541B]">“</span>
+      {/* 따옴표 — 명조(Noto Serif KR) 본문과 결이 맞는 명조 그대로(Noto Serif KR Regular). 얇고 날카롭게 떨어지는 절제된 따옴표 — 둥글고 굵은 글꼴은 귀여워 보여 쓰지 않는다 */}
+      <span aria-hidden className={`mag-serif absolute left-0 bottom-full mb-1 md:mb-1 text-[60px] md:text-[120px] leading-[0.6] md:leading-[0.5] font-normal ${tone === "light" ? "text-white/45" : "text-[#b3b7bc]"}`}>“</span>
       <p className={`mag-serif text-[20px] md:text-[28px] font-semibold leading-[1.3] tracking-tight break-keep ${tone === "light" ? "text-white" : "text-[#1d1e20]"}`}>{children}</p>
     </blockquote>
   );
@@ -88,7 +87,7 @@ function CreditBox({ chapter, tone = "dark" }: { chapter: Chapter; tone?: "dark"
   const productHref = chapter.credits.find((c) => c.href)?.href;
   if (chapter.credits.length === 0 && !productHref) return null;
   return (
-    <div className={`border-t pt-3 ${tone === "light" ? "border-white/40 text-white" : "border-[#1d1e20]"}`}>
+    <div className={`pt-3 ${tone === "light" ? "border-t border-white/40 text-white" : ""}`}>
       <Credits credits={chapter.credits} tone={tone} />
       {productHref && <TextLink href={productHref}>제품 자세히 보기 →</TextLink>}
     </div>
@@ -101,7 +100,7 @@ const Rule = () => <span aria-hidden className="block w-10 h-[2px] bg-[#E5541B]"
 // 위: 큰 도판(8단) + 오른쪽 4단(번호·제목·리드 → 디테일 도판 세로 2장 → 크레딧). 오른쪽이 길면 큰 도판이 같이 늘어나 높이가 맞는다.
 // 아래: 풀 쿼트/본문이 있을 때만 이미지 없는 글 띠(풀 쿼트 · 본문)를 둔다. — 세로형 사진 위주라 가로 와이드 컷은 쓰지 않는다.
 // 오른쪽에 채울 내용이 거의 없으면(리드·디테일·크레딧 없음) 번호+제목을 도판 옆 세로 가운데에 놓는다.
-function Split({ chapter, no, headingId, lead, rest, tight }: Props) {
+function Split({ chapter, no, headingId, lead, rest, tight, gallery }: Props) {
   const details = chapter.subs.slice(0, 2);
   const hasText = !!(chapter.quote || rest.length > 0);
   const hasCredits = chapter.credits.length > 0;
@@ -112,16 +111,18 @@ function Split({ chapter, no, headingId, lead, rest, tight }: Props) {
 
       <div className={`${tight ? "" : "mt-5 md:mt-10"} md:grid md:grid-cols-12 md:gap-x-8`}>
         <figure className="md:col-span-8 flex flex-col">
-          <div className="relative -mx-5 md:mx-0 h-[460px] md:h-auto md:flex-1 md:min-h-[760px] bg-[#a7a397] overflow-hidden">
+          <div className="relative -mx-5 md:mx-0 aspect-[4/5] md:aspect-auto md:flex-1 md:min-h-[760px] bg-[#a3a7ad] overflow-hidden">
             <MagazineImg image={chapter.main} className="absolute inset-0 w-full h-full" />
             <ChapterNo n={no} className="md:hidden absolute left-4 bottom-1 text-[96px] font-black text-white/60" />
+            <Caption n={1} className="hidden md:block" />
+            {/* 모바일: 오른쪽 위 */}
+            <Caption n={1} pos="right-3 top-3" className="md:hidden" />
           </div>
-          <Caption n={1} />
         </figure>
 
         <div className={`md:col-span-4 mt-8 md:mt-0 flex flex-col ${sparse ? "md:justify-center" : ""}`}>
           {/* 번호가 도판 모서리를 살짝 넘어 겹친다 */}
-          <ChapterNo n={no} className="hidden md:block relative z-10 md:-ml-14 text-[190px] font-black text-[#a9a59b]/45" />
+          <ChapterNo n={no} className="hidden md:block relative z-10 md:-ml-14 text-[190px] font-black text-[#a5a9af]/45" />
           <h2 id={headingId} className="scroll-mt-24 md:mt-8 text-[28px] md:text-[42px] font-black tracking-tight leading-[1.2] break-keep">
             {chapter.title}
           </h2>
@@ -129,23 +130,27 @@ function Split({ chapter, no, headingId, lead, rest, tight }: Props) {
             <Rule />
           </div>
           {lead && <Copy lead={lead} rest={[]} />}
+          <div className="hidden md:block mt-5">{gallery("dark", true)}</div>
 
           {/* 디테일 도판 — 세로형 2장을 나란히(둘째는 아래로 어긋나게). 1장이면 한 줄 전체 */}
           {details.length > 0 && (
             <div className={`mt-8 md:mt-10 grid gap-3 md:gap-4 items-start ${details.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
               {details.map((img, i) => (
                 <figure key={i} className={i === 1 ? "mt-6 md:mt-10" : ""}>
-                  <div className="relative aspect-[4/5] bg-[#cfc8bc] overflow-hidden">
+                  <div className="relative aspect-[4/5] bg-[#c9ced3] overflow-hidden">
                     <MagazineImg image={img} className="absolute inset-0 w-full h-full" />
+                    <Caption n={i + 2} />
                   </div>
-                  <Caption n={i + 2} />
                 </figure>
               ))}
             </div>
           )}
 
+          {/* 모바일: 사진 아래에 가로 전체 박스로 */}
+          <div className="md:hidden mt-6">{gallery("dark", true)}</div>
+
           {hasCredits && (
-            <div className="mt-8 md:mt-auto md:pt-8">
+            <div className="hidden md:block md:mt-auto md:pt-8">
               <CreditBox chapter={chapter} />
             </div>
           )}
@@ -153,21 +158,28 @@ function Split({ chapter, no, headingId, lead, rest, tight }: Props) {
       </div>
 
       {hasText && (
-        <div className="mt-10 md:mt-20 md:grid md:grid-cols-12 md:gap-x-8 items-start border-t border-[#1d1e20]/15 pt-16 md:pt-24">
+        <div className="mt-6 md:mt-16 md:grid md:grid-cols-12 md:gap-x-8 items-start pt-14 md:pt-16">
           {chapter.quote && rest.length > 0 ? (
             <>
-              <div className="md:col-start-2 md:col-span-5">
-                <PullQuote>{chapter.quote}</PullQuote>
+              <div className="md:col-start-1 md:col-span-8">
+                <PullQuote className="md:[&>p]:text-[34px]">{chapter.quote}</PullQuote>
               </div>
-              <div className="md:col-start-8 md:col-span-5 mt-6 md:mt-0">
+              <div className="md:col-start-9 md:col-span-4 mt-5 md:mt-0 md:pt-1">
                 <Copy rest={rest} />
               </div>
             </>
           ) : (
-            <div className="md:col-start-3 md:col-span-8">
-              {chapter.quote ? <PullQuote>{chapter.quote}</PullQuote> : <Copy rest={rest} />}
+            <div className="md:col-start-1 md:col-span-8">
+              {chapter.quote ? <PullQuote className="md:[&>p]:text-[34px]">{chapter.quote}</PullQuote> : <Copy rest={rest} />}
             </div>
           )}
+        </div>
+      )}
+
+      {/* 모바일: 키워드는 챕터 맨 아래로(PC는 오른쪽 열 하단 유지) */}
+      {hasCredits && (
+        <div className="md:hidden mt-8">
+          <CreditBox chapter={chapter} />
         </div>
       )}
     </section>
@@ -175,9 +187,9 @@ function Split({ chapter, no, headingId, lead, rest, tight }: Props) {
 }
 
 // ── FULLBLEED: 전면 도판 스프레드 ── 화면 가득 사진 위에 러닝헤드, 하단은 제목·리드·크레딧 3단 캡션 띠
-function Fullbleed({ chapter, no, headingId, lead, rest, tight }: Props) {
+function Fullbleed({ chapter, no, headingId, lead, rest, tight, gallery }: Props) {
   return (
-    <section aria-labelledby={headingId} className={`relative ${tight ? "mt-6 md:mt-8" : ""} h-[680px] md:h-[860px] overflow-hidden bg-[#6f6d68] text-white`}>
+    <section aria-labelledby={headingId} className={`relative ${tight ? "mt-6 md:mt-8" : ""} h-[560px] md:h-[860px] overflow-hidden bg-[#6f6d68] text-white`}>
       <MagazineImg image={chapter.main} className="absolute inset-0 w-full h-full" />
       <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-black/20" />
 
@@ -202,6 +214,7 @@ function Fullbleed({ chapter, no, headingId, lead, rest, tight }: Props) {
         </div>
         <div className="md:col-span-4 mt-4 md:mt-0">
           <Copy lead={lead} rest={rest.slice(0, 1)} tone="light" />
+          <div className="mt-4">{gallery("light", true)}</div>
         </div>
         <div className="md:col-span-3 mt-5 md:mt-0">
           <CreditBox chapter={chapter} tone="light" />
@@ -212,17 +225,17 @@ function Fullbleed({ chapter, no, headingId, lead, rest, tight }: Props) {
 }
 
 // ── MOSAIC: 포토 에세이 ── 위: 번호+제목 / 리드, 가운데: 컨택트 시트형 그리드, 아래: 풀 쿼트·본문 / 크레딧
-function Mosaic({ chapter, no, headingId, lead, rest, tight }: Props) {
+function Mosaic({ chapter, no, headingId, lead, rest, tight, gallery }: Props) {
   const [s0, s1, s2] = chapter.subs;
   // 보조 컷 배치 — 모바일: 우측 2단에 s0·s1 / PC: 좌측 s0, 우측 2단에 s1·s2
   const cell = (img: MagazineImage | undefined, cls: string, n: number) =>
     img ? (
-      <figure className={`relative bg-[#cfc8bc] ${cls}`}>
+      <figure className={`relative bg-[#c9ced3] ${cls}`}>
         <MagazineImg image={img} className="absolute inset-0 w-full h-full" />
         <figcaption className="absolute left-2 bottom-1.5 z-[1] text-[10px] font-bold tracking-[0.18em] text-white [text-shadow:0_1px_4px_rgba(0,0,0,.55)]">{pad(n)}</figcaption>
       </figure>
     ) : (
-      <div aria-hidden className={`bg-[#e7e3da] ${cls}`} />
+      <div aria-hidden className={`bg-[#e3e6e9] ${cls}`} />
     );
   return (
     <section aria-labelledby={headingId} className={sectionPad(tight)}>
@@ -230,20 +243,21 @@ function Mosaic({ chapter, no, headingId, lead, rest, tight }: Props) {
 
       <div className={`${tight ? "" : "mt-5 md:mt-10"} md:grid md:grid-cols-12 md:gap-x-8 items-end`}>
         <div className="md:col-span-7 flex items-end gap-4 md:gap-6">
-          <ChapterNo n={no} className="text-[72px] md:text-[150px] font-black text-[#a9a59b]/45" />
+          <ChapterNo n={no} className="text-[72px] md:text-[150px] font-black text-[#a5a9af]/45" />
           <h2 id={headingId} className="scroll-mt-24 pb-1 md:pb-3 text-[24px] md:text-[44px] font-black tracking-tight leading-[1.2] break-keep">
             {chapter.title}
           </h2>
         </div>
         <div className="md:col-span-5 mt-4 md:mt-0 md:pb-3">
           <Copy lead={lead} rest={[]} />
+          <div className="hidden md:block mt-5">{gallery("dark", true)}</div>
         </div>
       </div>
 
       {/* 모바일: 메인 + 우측 2단 / PC: 좌 보조 · 중앙 메인 · 우 2단 */}
-      <div className="mt-6 md:mt-10 grid grid-cols-[1.4fr_1fr] md:grid-cols-[1fr_1.35fr_1fr] gap-2 md:gap-3.5 h-[430px] md:h-[600px]">
+      <div className="mt-6 md:mt-10 grid grid-cols-[1.4fr_1fr] md:grid-cols-[1fr_1.35fr_1fr] gap-2 md:gap-3.5 h-[360px] md:h-[600px]">
         {cell(s0, "hidden md:block", 2)}
-        <figure className="relative bg-[#8b8880]">
+        <figure className="relative bg-[#868a90]">
           <MagazineImg image={chapter.main} className="absolute inset-0 w-full h-full" />
           <figcaption className="absolute left-2 bottom-1.5 z-[1] text-[10px] font-bold tracking-[0.18em] text-white [text-shadow:0_1px_4px_rgba(0,0,0,.55)]">01</figcaption>
         </figure>
@@ -253,6 +267,9 @@ function Mosaic({ chapter, no, headingId, lead, rest, tight }: Props) {
           {cell(s2, "hidden md:block", 4)}
         </div>
       </div>
+
+      {/* 모바일: 사진 아래에 가로 전체 박스로 */}
+      <div className="md:hidden mt-4">{gallery("dark", true)}</div>
 
       {(chapter.quote || rest.length > 0 || chapter.credits.length > 0) && (
         <div className="mt-8 md:mt-14 md:grid md:grid-cols-12 md:gap-x-8 items-start">

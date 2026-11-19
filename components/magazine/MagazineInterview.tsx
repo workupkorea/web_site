@@ -6,11 +6,11 @@ import { Kicker, TextLink } from "./parts";
 export default function MagazineInterview({ interview }: { interview: HomeMagazineConfig["interview"] }) {
   if (!interview.enabled || !interview.image.url || !interview.quote) return null;
   return (
-    <section aria-labelledby="mag-interview" className="md:grid md:grid-cols-[minmax(0,560px)_1fr] bg-[#f6f4ef]">
-      <div className="relative h-[420px] md:h-auto md:min-h-[720px] bg-[#c6bfb2]">
+    <section aria-labelledby="mag-interview" className="md:grid md:grid-cols-[minmax(0,560px)_1fr] bg-[#f1f2f4]">
+      <div className="relative h-[340px] md:h-auto md:min-h-[720px] bg-[#bfc4ca]">
         <MagazineImg image={interview.image} className="absolute inset-0 w-full h-full" />
       </div>
-      <div className="px-5 py-10 md:px-[clamp(40px,7vw,110px)] md:py-24 md:self-center">
+      <div className="px-5 py-8 md:px-[clamp(40px,7vw,110px)] md:py-24 md:self-center">
         <Kicker>Interview</Kicker>
         <h2 id="mag-interview" className="scroll-mt-24 mt-4 md:mt-6 text-2xl md:text-[44px] font-bold leading-[1.4] break-keep">
           “{interview.quote}”

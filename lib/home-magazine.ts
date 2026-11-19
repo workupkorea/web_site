@@ -27,8 +27,8 @@ export type MagazineImage = {
 export type MagazineSlotSpec = { ratio: string; px: string; minW: number; note?: string };
 export const MAGAZINE_SLOT_SPECS = {
   // 아래 비율은 실제 화면에서 측정한 칸 크기 기준(PC 1440~1920 / 모바일 375)
-  coverPc: { ratio: "16:9 가로", px: "2400×1350", minW: 1600, note: "16:9 비율 그대로 보입니다(잘리지 않음). 아래쪽엔 이름·버튼 글자가 올라가니 얼굴은 중앙~위쪽에" },
-  coverMobile: { ratio: "9:16 세로", px: "1080×1920", minW: 750, note: "9:16 비율 그대로 보입니다(잘리지 않음). 얼굴은 위쪽 절반에(아래쪽은 글자가 올라감)" },
+  coverPc: { ratio: "16:9 가로", px: "2400×1350", minW: 1600, note: "16:9 비율 그대로 보입니다(잘리지 않음). 1600×900 이상이면 충분하고 2400×1350이면 가장 선명합니다. 아래쪽엔 이름·버튼 글자가 올라가니 얼굴은 중앙~위쪽에" },
+  coverMobile: { ratio: "9:16 세로", px: "1080×1920", minW: 750, note: "9:16 비율 그대로 보입니다(잘리지 않음). 900×1600 이상이면 충분하고 1080×1920이면 가장 선명합니다. 얼굴은 위쪽 절반에(아래쪽은 글자가 올라감)" },
   interview: { ratio: "4:5 세로", px: "1200×1500", minW: 800, note: "PC는 7:9, 모바일은 8:9로 보입니다" },
   interviewMobile: { ratio: "4:5 세로", px: "1080×1350", minW: 750 },
   chapterSplit: { ratio: "3:2 가로", px: "2400×1600", minW: 1600, note: "PC는 화면 폭에 따라 1.1:1~1.5:1로 보여 좌우가 가운데 기준으로 잘립니다" },
@@ -39,7 +39,6 @@ export const MAGAZINE_SLOT_SPECS = {
   chapterMosaicMobile: { ratio: "4:9 길쭉한 세로", px: "1080×2400", minW: 750, note: "모바일에선 좁고 긴 칸이라 별도 컷 권장" },
   chapterSubSplit: { ratio: "4:5 세로", px: "1000×1250", minW: 600, note: "오른쪽 단에 세로로 2장 나란히 들어갑니다(소재·포켓 등 디테일)" },
   chapterSubMosaic: { ratio: "2:3 세로", px: "1000×1500", minW: 600, note: "칸마다 비율이 달라요 — 번호별 권장 참고" },
-  behind: { ratio: "4:5 세로", px: "1600×2000", minW: 1000, note: "목록은 PC 정사각·모바일 4:5로 잘리고, 누르면 원본 비율로 크게 보입니다" },
   wearing: { ratio: "1:1 정사각", px: "1000×1000", minW: 700, note: "제품이 보이도록 크롭" },
   closing: { ratio: "3.4:1 와이드", px: "2400×700", minW: 1600, note: "PC에서 아주 납작하게 보입니다 — 가로로 긴 사진(가운데 기준)" },
   closingMobile: { ratio: "1:1 정사각", px: "1080×1080", minW: 750, note: "위에 어두운 막(60%)이 덮입니다" },
@@ -76,6 +75,7 @@ export type MagazineChapter = {
   layout: MagazineChapterLayout;
   main: MagazineImage; // A컷
   subs: MagazineImage[]; // B컷(디테일·보조)
+  gallery?: MagazineImage[]; // "챕터 사진 전체 보기"에 추가로 모아 보여줄 사진(A·B컷 외) — 개수 제한 없음
   credits: MagazineCredit[]; // "착용" 크레딧
 };
 
@@ -127,12 +127,11 @@ export function parseYouTubeUrl(input: string): { id: string; vertical: boolean 
 }
 
 // 커버 다음 구간들의 노출 순서·노출 여부 — 관리자가 "섹션 순서"에서 바꾼다.
-export type MagazineSectionKey = "interview" | "chapters" | "videos" | "behind" | "wearing" | "closing";
+export type MagazineSectionKey = "interview" | "chapters" | "videos" | "wearing" | "closing";
 export const MAGAZINE_SECTIONS: { key: MagazineSectionKey; label: string }[] = [
   { key: "interview", label: "인터뷰" },
   { key: "chapters", label: "챕터" },
   { key: "videos", label: "유튜브 영상" },
-  { key: "behind", label: "비하인드" },
   { key: "wearing", label: "배우가 입은 제품" },
   { key: "closing", label: "클로징 (매장 방문 유도)" },
 ];
@@ -142,7 +141,7 @@ const SECTION_KEYS = new Set<string>(MAGAZINE_SECTIONS.map((x) => x.key));
 // "existing" = 기존 메인 비주얼(슬라이딩 배너)이 맨 위(매거진 커버는 숨김).
 export type MagazineTopBanner = "magazine" | "existing";
 
-// 목차 항목 — target: 구간 키("interview"|"chapters"|"videos"|"behind"|"wearing"|"closing") / "ch:챕터id"(특정 챕터) / "custom"(직접 입력한 주소 href).
+// 목차 항목 — target: 구간 키("interview"|"chapters"|"videos"|"wearing"|"closing") / "ch:챕터id"(특정 챕터) / "custom"(직접 입력한 주소 href).
 // target "chapters"는 모든 챕터를 한 줄에서 순차 롤링으로 보여준다(title·note는 무시).
 export type MagazineContentsItem = { id: string; title: string; note: string; target: string; href?: string };
 
@@ -174,7 +173,7 @@ export type MagazineDivider = {
 export type MagazineOrderKey = MagazineSectionKey | `divider:${string}`;
 export const isDividerKey = (k: string): k is `divider:${string}` => k.startsWith("divider:");
 
-// 구간별 배경색 — 각 구간의 글자색이 정해져 있어 밝은 구간(목차·인터뷰·챕터·착용 제품)은 밝은 색, 어두운 구간(영상·비하인드·클로징)은 어두운 색만 적용된다.
+// 구간별 배경색 — 각 구간의 글자색이 정해져 있어 밝은 구간(목차·인터뷰·챕터·착용 제품)은 밝은 색, 어두운 구간(영상·클로징)은 어두운 색만 적용된다.
 export type MagazineBgKey = "contents" | MagazineSectionKey;
 export const MAGAZINE_BG_TONE: Record<MagazineBgKey, "light" | "dark"> = {
   contents: "light",
@@ -182,15 +181,13 @@ export const MAGAZINE_BG_TONE: Record<MagazineBgKey, "light" | "dark"> = {
   chapters: "light",
   wearing: "light",
   videos: "dark",
-  behind: "dark",
   closing: "dark",
 };
 export const MAGAZINE_BG_PRESETS: Record<"light" | "dark", { label: string; value: string }[]> = {
   light: [
     { label: "화이트", value: "#ffffff" },
-    { label: "베이지", value: "#f6f4ef" },
-    { label: "샌드", value: "#e9e2d6" },
-    { label: "라이트 그레이", value: "#ecebe7" },
+    { label: "기본 (쿨 라이트)", value: "#f1f2f4" },
+    { label: "쿨 그레이", value: "#e3e6e9" },
     { label: "스카이", value: "#e6edf3" },
   ],
   dark: [
@@ -258,8 +255,6 @@ export type HomeMagazineConfig = {
   chapterView: "tabs" | "stack";
   chapters: MagazineChapter[];
   videos: MagazineVideoBlock[];
-  // shuffle: 방문할 때마다 순서를 무작위로 섞는다
-  behind: { enabled: boolean; title: string; images: MagazineImage[]; shuffle?: boolean };
   wearing: { enabled: boolean; title: string; items: MagazineWearingItem[] };
   closing: {
     enabled: boolean;
@@ -296,7 +291,6 @@ export const DEFAULT_HOME_MAGAZINE: HomeMagazineConfig = {
   chapterView: "tabs",
   chapters: [],
   videos: [],
-  behind: { enabled: true, title: "촬영 현장의 기록", images: [] },
   wearing: { enabled: true, title: "배우가 입은 제품", items: [] },
   closing: {
     enabled: true,
@@ -359,6 +353,7 @@ function normalizeChapter(v: unknown, idx: number, keep = false): MagazineChapte
     // 챕터 메인 컷은 무작위 노출을 쓰지 않는다 — 챕터는 추가해서 늘리는 구조라 추가 사진·랜덤 값은 저장돼 있어도 무시
     main: normalizeImage(o.main, true, keep),
     subs: normalizeImages(o.subs, keep),
+    gallery: normalizeImages(o.gallery, keep),
     credits: arr(o.credits)
       .map((c) => ({ name: keep ? str(obj(c).name) : str(obj(c).name).trim(), href: optStr(obj(c).href) }))
       .filter((c) => keep || c.name),
@@ -410,7 +405,7 @@ function normalizeSectionBg(v: unknown): HomeMagazineConfig["sectionBg"] {
   return out;
 }
 
-const TOC_SECTION_KEYS = ["videos", "chapters", "wearing", "interview", "behind"] as const;
+const TOC_SECTION_KEYS = ["videos", "chapters", "wearing", "interview"] as const;
 function normalizeContents(v: unknown): HomeMagazineConfig["contents"] {
   const o = obj(v);
   const out: HomeMagazineConfig["contents"] = { enabled: bool(o.enabled, true), heading: optStr(o.heading), subtitle: optStr(o.subtitle) };
@@ -470,8 +465,8 @@ function applyDefaultAlts(cfg: HomeMagazineConfig): HomeMagazineConfig {
       ...c,
       main: alt(c.main, c.title || `${actor} 캠페인`),
       subs: c.subs.map((x, i) => alt(x, `${c.title || actor} 디테일 ${i + 1}`)),
+      gallery: (c.gallery ?? []).map((x, i) => alt(x, `${c.title || actor} 사진 ${i + 1}`)),
     })),
-    behind: { ...cfg.behind, images: cfg.behind.images.map((x, i) => alt(x, `${cfg.behind.title || "촬영 현장"} ${i + 1}`)) },
     wearing: { ...cfg.wearing, items: cfg.wearing.items.map((it) => ({ ...it, image: alt(it.image, it.name) })) },
     closing: { ...cfg.closing, image: alt(cfg.closing.image, "워크업 매장 방문 안내") },
   };
@@ -493,7 +488,6 @@ function normalizeHomeMagazineBase(raw: unknown, { forEditor = false }: { forEdi
   const issue = obj(r.issue);
   const cover = obj(r.cover);
   const interview = obj(r.interview);
-  const behind = obj(r.behind);
   const wearing = obj(r.wearing);
   const closing = obj(r.closing);
   const dividers = normalizeDividers(r.dividers);
@@ -533,12 +527,6 @@ function normalizeHomeMagazineBase(raw: unknown, { forEditor = false }: { forEdi
     videos: arr(r.videos)
       .map((b, i) => normalizeVideoBlock(b, i, keep))
       .filter((b) => keep || b.items.length > 0),
-    behind: {
-      enabled: bool(behind.enabled, d.behind.enabled),
-      title: str(behind.title, d.behind.title),
-      images: normalizeImages(behind.images, keep),
-      shuffle: behind.shuffle === true,
-    },
     wearing: {
       enabled: bool(wearing.enabled, d.wearing.enabled),
       title: str(wearing.title, d.wearing.title),
@@ -583,7 +571,7 @@ export function isMagazinePublishable(cfg: HomeMagazineConfig): boolean {
 // ── 배치 미리보기용: 비어 있는 자리를 회색 안내 블록으로 채운다 ──
 // 관리자 미리보기 전용(공개 화면에는 쓰지 않는다 — 공개 화면은 비어 있으면 구간을 숨긴다).
 // 안내 블록에는 자리 이름·권장 비율·크기가 적혀 있어 사진을 어디에 어떻게 넣을지 바로 알 수 있다.
-const PH_COLORS = ["#a7a397", "#c6bfb2", "#9da1a4", "#b3b8a6", "#8b8880", "#cfc8bc"];
+const PH_COLORS = ["#a3a7ad", "#bfc4ca", "#9da1a4", "#b3b8a6", "#868a90", "#c9ced3"];
 
 function placeholderImage(label: string, spec: MagazineSlotSpec, idx = 0): MagazineImage {
   const [w, h] = spec.px.split("×").map(Number);
@@ -650,7 +638,6 @@ export function fillMagazinePlaceholders(cfg: HomeMagazineConfig): HomeMagazineC
         subs: fillList(c.subs, subCount, "보조 컷", subSpec),
       };
     }),
-    behind: { ...cfg.behind, images: cfg.behind.images.length ? cfg.behind.images : fillList([], 12, "비하인드", S.behind) },
     wearing: {
       ...cfg.wearing,
       items: cfg.wearing.items.length
@@ -668,7 +655,6 @@ export function isSectionEnabled(cfg: HomeMagazineConfig, key: MagazineOrderKey)
     case "interview": return cfg.interview.enabled;
     case "chapters": return cfg.chaptersEnabled;
     case "videos": return cfg.videosEnabled;
-    case "behind": return cfg.behind.enabled;
     case "wearing": return cfg.wearing.enabled;
     case "closing": return cfg.closing.enabled;
   }
@@ -679,7 +665,6 @@ export function withSectionEnabled(cfg: HomeMagazineConfig, key: MagazineOrderKe
     case "interview": return { ...cfg, interview: { ...cfg.interview, enabled: on } };
     case "chapters": return { ...cfg, chaptersEnabled: on };
     case "videos": return { ...cfg, videosEnabled: on };
-    case "behind": return { ...cfg, behind: { ...cfg.behind, enabled: on } };
     case "wearing": return { ...cfg, wearing: { ...cfg.wearing, enabled: on } };
     case "closing": return { ...cfg, closing: { ...cfg.closing, enabled: on } };
   }
@@ -695,7 +680,6 @@ export function buildAutoContentsItems(cfg: HomeMagazineConfig): MagazineContent
     if (key === "videos") out.push({ id: "toc-videos", title: l.title ?? (cfg.videos[0]?.title || "Film"), note: l.note ?? "Film", target: "videos" });
     else if (key === "interview") out.push({ id: "toc-interview", title: l.title ?? "Interview", note: l.note ?? cfg.interview.quote, target: "interview" });
     else if (key === "chapters") out.push({ id: "toc-chapters", title: l.title ?? "Chapters", note: l.note ?? "", target: "chapters" });
-    else if (key === "behind") out.push({ id: "toc-behind", title: l.title ?? cfg.behind.title, note: l.note ?? "Behind the scenes", target: "behind" });
     else if (key === "wearing") out.push({ id: "toc-wearing", title: l.title ?? cfg.wearing.title, note: l.note ?? "Wearing", target: "wearing" });
   }
   return out.filter((it) => isContentsItemAvailable(cfg, it));
@@ -704,7 +688,7 @@ export function buildAutoContentsItems(cfg: HomeMagazineConfig): MagazineContent
 // 커버 우측 상단 목차 문구 — 목차(섹션 순서)를 그대로 따라 영문 대문자로 자동 생성. 예: "ON SET SKETCHES / CHAPTER 01–08 / WEARING / BEHIND THE SCENES"
 // 목차 보조 문구가 영문이면 그것을, 아니면 구간 기본 영문 이름을 쓴다. 관리자가 직접 입력한 문구(coverLines)가 있으면 그쪽이 우선.
 export function autoCoverLines(cfg: HomeMagazineConfig): string[] {
-  const DEFAULT: Record<string, string> = { videos: "FILM", interview: "INTERVIEW", wearing: "WEARING", behind: "BEHIND THE SCENES" };
+  const DEFAULT: Record<string, string> = { videos: "FILM", interview: "INTERVIEW", wearing: "WEARING" };
   const out: string[] = [];
   for (const it of buildAutoContentsItems(cfg)) {
     if (it.target === "chapters") {
@@ -726,7 +710,6 @@ export function isContentsItemAvailable(cfg: HomeMagazineConfig, it: MagazineCon
     case "interview": return cfg.interview.enabled && !!cfg.interview.image.url && !!cfg.interview.quote;
     case "chapters": return cfg.chaptersEnabled && cfg.chapters.length > 0;
     case "videos": return cfg.videosEnabled && cfg.videos.length > 0;
-    case "behind": return cfg.behind.enabled && cfg.behind.images.length > 0;
     case "wearing": return cfg.wearing.enabled && cfg.wearing.items.length > 0;
     case "closing": return cfg.closing.enabled;
     default: return false;

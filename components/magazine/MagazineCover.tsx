@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { HomeMagazineConfig } from "@/lib/home-magazine";
 import MagazineImg from "./MagazineImg";
+import FitLine from "./FitLine";
 
 // 매거진 커버 — 첫 화면에서 "이 배우가 워크업 모델"임을 바로 인지시키는 구간.
 // 커버 이미지는 LCP 대상이라 priority 로드. 문구는 모두 HTML 레이어.
@@ -12,7 +13,7 @@ export default function MagazineCover({
   return (
     <section
       aria-label={`${cover.eyebrow} ${cover.actorName}`.trim()}
-      className="mag-sans relative aspect-[9/16] md:aspect-[16/9] overflow-hidden bg-[#8b8880] text-white"
+      className="mag-sans relative aspect-[9/16] md:aspect-[16/9] overflow-hidden bg-[#868a90] text-white"
     >
       <MagazineImg image={cover.image} priority rolling className="absolute inset-0 w-full h-full" />
       {/* 가독성용 상·하단 그라디언트 (이미지 위 별도 레이어) */}
@@ -34,12 +35,16 @@ export default function MagazineCover({
 
       <div className="absolute inset-x-5 bottom-8 md:inset-x-14 md:bottom-14 md:flex md:items-end md:justify-between md:gap-10">
         <div>
-          {cover.eyebrow && <p className="italic text-base md:text-[22px] mb-1 md:mb-2">{cover.eyebrow}</p>}
+          {cover.eyebrow && <p className="not-italic font-bold text-base md:text-[22px] mb-1 md:mb-2">{cover.eyebrow}</p>}
           <h1 className="text-[52px] md:text-[120px] font-black leading-none tracking-tight break-keep">
             {cover.actorName}
           </h1>
           {cover.quote && (
-            <p className="mt-3 md:mt-5 text-[15px] md:text-2xl opacity-90 break-keep">“{cover.quote}”</p>
+            <>
+              <p className="md:hidden mt-3 text-[11px] tracking-wider opacity-70 break-keep">{cover.quote}</p>
+              {/* PC: 이름(제목)과 같은 가로 라인에서 끝나도록 글자 크기를 자동 조절 */}
+              <FitLine className="hidden md:block mt-5 opacity-70">{cover.quote}</FitLine>
+            </>
           )}
         </div>
         <div className="mt-5 md:mt-0 flex flex-wrap gap-2 md:gap-3 shrink-0">

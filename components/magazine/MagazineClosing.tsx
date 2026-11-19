@@ -10,7 +10,7 @@ export default function MagazineClosing({ closing }: { closing: HomeMagazineConf
   if (!closing.enabled) return null;
   const tel = closing.phone ? `tel:${closing.phone.replace(/[^0-9+]/g, "")}` : null;
   return (
-    <section aria-labelledby="mag-closing" className="relative h-[360px] md:h-[420px] overflow-hidden bg-[#3a3b3e] text-white">
+    <section aria-labelledby="mag-closing" className="relative h-[300px] md:h-[420px] overflow-hidden bg-[#3a3b3e] text-white">
       {closing.image.url && (
         // 흐림(blur)을 주면 가장자리가 비치지 않게 살짝 확대한다
         <div className="absolute inset-0" style={closing.blur ? { filter: `blur(${closing.blur}px)`, transform: "scale(1.1)" } : undefined}>
@@ -25,7 +25,7 @@ export default function MagazineClosing({ closing }: { closing: HomeMagazineConf
         </h2>
         {closing.sub && <p className="mag-body mt-2 md:mt-3 text-[13px] md:text-[15px] text-white/85 break-keep">{closing.sub}</p>}
         <div className="mt-5 md:mt-7 flex flex-wrap justify-center gap-2">
-          <Link href="/store" className={`${BTN} bg-[#E5541B] hover:bg-[#d04a15]`}>
+          <Link href="/store" className={`${BTN} bg-[#1d1e20] border border-white/40 hover:bg-white hover:text-[#1d1e20] transition-colors`}>
             가까운 매장 찾기
           </Link>
           {tel && (

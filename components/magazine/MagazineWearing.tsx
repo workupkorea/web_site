@@ -3,13 +3,17 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { HomeMagazineConfig } from "@/lib/home-magazine";
 import MagazineImg from "./MagazineImg";
-import { Kicker } from "./parts";
 import { useChapter } from "./ChapterContext";
 
 // 배우가 입은 제품 — 착용컷 크롭 + 제품명. 가격·구매 버튼 없음(제품 상세·매장 찾기로 연결).
 //  · 챕터 연동: 상단 챕터를 전환하면 그 챕터에 연결된 제품(+ 공통 제품)으로 바뀐다. "전체 제품 보기"로 모두 볼 수도 있다.
-//  · PC에서 4개를 넘으면 가로로 스크롤(화살표/스와이프). 모바일은 2열로 이어서 쌓는다.
-const PC_VISIBLE = 5;
+//  · PC는 4열, 모바일은 2열 그리드로 전부 펼쳐 보여준다.
+// 사이즈 표기 통일: "00M~4XL"→"M - 4XL", "30N~36N"→"30 - 36" (이미 등록된 값도 화면에서 보정)
+const normSz = (z: string) => z.replace(/^0{1,2}(?=[A-Za-z])/, "").replace(/^(\d+)N$/, "$1");
+function fmtSize(raw: string) {
+  const parts = raw.trim().split(/\s*[~\-–]\s*/).map((x) => normSz(x.trim())).filter(Boolean);
+  return parts.length > 1 ? `${parts[0]} - ${parts[parts.length - 1]}` : raw;
+}
 const pad = (n: number) => String(n).padStart(2, "0");
 
 // 매장 방문 유도 버튼 — PC는 헤더 오른쪽, 모바일은 목록 아래에 한 번씩만 노출한다.
@@ -55,19 +59,12 @@ export default function MagazineWearing({
   const filtered = byChapter && !showAll ? forActive : wearing.items;
   const items = filtered;
   const activeChapter = chapters.find((c) => c.id === active);
-  const scrollable = items.length > PC_VISIBLE;
-
-  const slide = (dir: 1 | -1) => {
-    const el = scroller.current;
-    if (el) el.scrollBy({ left: dir * el.clientWidth * 0.85, behavior: "smooth" });
-  };
 
   return (
-    <section aria-labelledby="mag-wearing" className="px-5 py-10 md:px-14 md:py-16">
+    <section aria-labelledby="mag-wearing" className="px-5 py-8 md:px-14 md:py-16">
       <div className="flex items-end justify-between gap-4 mb-4 md:mb-7">
         <div className="min-w-0">
-          <Kicker>Wearing</Kicker>
-          <h2 id="mag-wearing" className="scroll-mt-24 mt-2 text-[22px] md:text-[34px] font-bold">
+          <h2 id="mag-wearing" className="scroll-mt-24 text-[22px] md:text-[34px] font-bold">
             {wearing.title}
           </h2>
           {byChapter && activeChapter && (
@@ -82,16 +79,6 @@ export default function MagazineWearing({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {scrollable && (
-            <span className="hidden md:flex gap-2">
-              <button type="button" onClick={() => slide(-1)} aria-label="이전 제품" className="min-h-[44px] min-w-[44px] border border-[#1d1e20]/30 hover:bg-[#1d1e20] hover:text-white transition-colors">
-                ←
-              </button>
-              <button type="button" onClick={() => slide(1)} aria-label="다음 제품" className="min-h-[44px] min-w-[44px] border border-[#1d1e20]/30 hover:bg-[#1d1e20] hover:text-white transition-colors">
-                →
-              </button>
-            </span>
-          )}
           <div className="hidden md:block">
             <StoreButton />
           </div>
@@ -115,6 +102,15 @@ export default function MagazineWearing({
               {/* 제품 상세(기획전) 이미지와 같은 1:1 비율 */}
               <div className="relative aspect-square bg-gray-100 overflow-hidden">
                 <MagazineImg image={{ ...item.image, mobileUrl: undefined, mobilePosition: undefined, more: undefined, mobileMore: undefined, random: undefined }} className="absolute inset-0 w-full h-full transition-transform duration-500 group-hover:scale-[1.03]" />
+                {/* "전체 제품 보기" 상태 — 이 제품이 어느 챕터에서 입은 제품인지 표기 */}
+                {showAll && byChapter && (() => {
+                  const ch = isLinked(item) ? chapters.find((c) => c.id === item.chapterId) : null;
+                  return (
+                    <span className="absolute left-3 top-2.5 text-[12px] md:text-[13px] font-bold tracking-wider text-[#E5541B]">
+                      {ch ? `CH ${pad(ch.no)}` : "공통"}
+                    </span>
+                  );
+                })()}
               </div>
               <div className="px-3 pt-4 pb-4 md:px-4 text-center">
                 <p className="text-sm md:text-[15px] font-semibold text-[#303236] leading-snug break-keep">{item.name}</p>
@@ -123,7 +119,7 @@ export default function MagazineWearing({
                   <dl className="mt-1.5 space-y-0.5 text-[12px] text-gray-500 break-keep">
                     {item.styleNo && <div><dt className="inline">품번 : </dt><dd className="inline">{item.styleNo}</dd></div>}
                     {item.colors && <div><dt className="inline">컬러 : </dt><dd className="inline">{item.colors}</dd></div>}
-                    {item.sizes && <div><dt className="inline">사이즈 : </dt><dd className="inline">{item.sizes}</dd></div>}
+                    {item.sizes && <div><dt className="inline">사이즈 : </dt><dd className="inline">{fmtSize(item.sizes)}</dd></div>}
                   </dl>
                 )}
               </div>
@@ -132,7 +128,7 @@ export default function MagazineWearing({
           return (
             <li key={item.id}>
               {item.href ? (
-                <Link href={item.href} className="group block focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B]">
+                <Link href={item.href} target="_blank" rel="noopener noreferrer" className="group block h-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B]">
                   {body}
                 </Link>
               ) : (

@@ -31,7 +31,8 @@ function resolve(image: MagazineImage): Picked {
 // 후보가 2장 이상이면 일정 간격으로 크로스페이드하며 순서대로 넘긴다. 첫 장은 대표 사진.
 // 다음 사진은 미리 내려받은 뒤에만 전환(깜빡임·빈 화면 방지). 탭이 숨겨졌거나 '동작 줄이기' 설정이면 멈춘다.
 const ROLL_INTERVAL_MS = 5000;
-const FADE_MS = 1200;
+const FADE_MS = 1800; // 부드러운 크로스페이드
+const ZOOM_MS = 8000; // 보이는 동안 천천히 줌아웃(1.08→1) — 정지된 사진이 아니라 살아 있는 느낌
 
 function buildPools(image: MagazineImage) {
   const mainMobile = image.mobileUrl ? { url: image.mobileUrl, alt: image.alt, position: image.mobilePosition } : undefined;
@@ -45,6 +46,8 @@ function RollingImg({ image, className, priority }: { image: MagazineImage; clas
   const count = Math.max(pcPool.length, mobilePool.length);
   const [idx, setIdx] = useState(0);
   const [loaded, setLoaded] = useState<number[]>([0]); // 한 번이라도 보여준(내려받은) 슬라이드
+  // 슬라이드가 다시 나타날 때마다 줌 애니메이션을 처음부터 재생하기 위해 키프레임 이름을 번갈아 쓴다(magKen0/magKen1)
+  const [plays, setPlays] = useState<Record<number, number>>({ 0: 0 });
 
   const pcAt = (i: number) => pcPool[i % pcPool.length] ?? image;
   const mobileAt = (i: number) => (mobilePool.length ? mobilePool[i % mobilePool.length] : undefined);
@@ -64,6 +67,7 @@ function RollingImg({ image, className, priority }: { image: MagazineImage; clas
         if (cancelled) return;
         current = next;
         setLoaded((l) => (l.includes(next) ? l : [...l, next]));
+        setPlays((p) => ({ ...p, [next]: (p[next] ?? -1) + 1 }));
         setIdx(next);
       });
     }, ROLL_INTERVAL_MS);
@@ -82,7 +86,11 @@ function RollingImg({ image, className, priority }: { image: MagazineImage; clas
             key={i}
             aria-hidden={!active}
             className="absolute inset-0 block"
-            style={{ opacity: active ? 1 : 0, transition: `opacity ${FADE_MS}ms ease-in-out` }}
+            style={{
+              opacity: active ? 1 : 0,
+              transition: `opacity ${FADE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+              animation: `magKen${(plays[i] ?? 0) % 2} ${ZOOM_MS}ms cubic-bezier(0.25, 0.1, 0.25, 1) forwards`,
+            }}
           >
             {mobile && <source media={MOBILE_MEDIA} srcSet={mobile.url} />}
             <img

@@ -48,8 +48,28 @@ export async function PUT(
   if (WJUMUN_PRIVATE_SECTIONS.has(section)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
-  const config = await req.json();
+  let config = await req.json();
   const supabase = createAdminClient();
+  // 매거진 챕터 "사진 모음"(gallery) 보호 — 오래 열어 둔 관리자 화면·예전 버전 화면에서 저장하면 gallery 가 빈 값으로
+  // 덮어써져 올려 둔 사진이 사라진 적이 있다. 저장 요청에 gallery 가 없거나 비어 있으면 기존 값을 유지하고,
+  // 관리자가 일부러 비운 챕터만(__clearGallery) 비운다.
+  if (section === "home_magazine" && config && typeof config === "object") {
+    const cleared = new Set<string>(Array.isArray(config.__clearGallery) ? config.__clearGallery : []);
+    delete config.__clearGallery;
+    if (Array.isArray(config.chapters)) {
+      const { data: prev } = await supabase.from("site_settings").select("config").eq("section", section).maybeSingle();
+      const old = new Map<string, unknown>(((prev?.config as { chapters?: { id: string; gallery?: unknown[] }[] } | null)?.chapters ?? []).map((c) => [c.id, c.gallery]));
+      config = {
+        ...config,
+        chapters: config.chapters.map((c: { id: string; gallery?: unknown[] }) => {
+          const have = Array.isArray(c.gallery) && c.gallery.length > 0;
+          const prevG = old.get(c.id);
+          if (have || cleared.has(c.id) || !Array.isArray(prevG) || prevG.length === 0) return c;
+          return { ...c, gallery: prevG };
+        }),
+      };
+    }
+  }
   const { error } = await supabase
     .from("site_settings")
     .upsert({ section, config, updated_at: new Date().toISOString() }, { onConflict: "section" });

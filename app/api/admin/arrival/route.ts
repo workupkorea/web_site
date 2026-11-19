@@ -51,6 +51,7 @@ export async function POST(req: Request) {
       brand: String(p.brand ?? "").trim(),
       category: String(p.category ?? "").trim(),
       color: String(p.color ?? "").trim(),
+      size: String(p.size ?? "").trim() || undefined,
       price: Number(p.price) || 0,
       arrivalDate: String(p.arrivalDate ?? "").trim(),
       status: p.status || "입고예정",

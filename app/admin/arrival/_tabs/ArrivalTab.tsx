@@ -205,7 +205,7 @@ function EditModal({
   const isInternal = (product.note ?? "").includes("내부활용");
   const [info, setInfo] = useState({
     productCode: product.productCode, productName: product.productName ?? "", brand: product.brand ?? "", category: product.category ?? "",
-    color: product.color ?? "", costPrice: product.costPrice ?? 0, supplyPrice: product.supplyPrice ?? 0,
+    color: product.color ?? "", size: product.size ?? "", costPrice: product.costPrice ?? 0, supplyPrice: product.supplyPrice ?? 0,
     price: product.price ?? 0, description: product.description ?? "", note: product.note ?? "",
   });
   const [noCodeEdit, setNoCodeEdit] = useState(product.productCode.startsWith("NC-")); // 품번 없음 = 임시 코드(NC-…)
@@ -349,7 +349,7 @@ function EditModal({
           {isInternal && (
             <div className="space-y-2 pb-4 border-b border-gray-100">
               <p className="text-[11px] tracking-widest text-gray-500 uppercase">제품 정보 (내부활용용)</p>
-              {([["품번", "productCode", "text"], ["상품명", "productName", "text"], ["브랜드", "brand", "text"], ["카테고리", "category", "text"], ["컬러", "color", "text"],
+              {([["품번", "productCode", "text"], ["상품명", "productName", "text"], ["브랜드", "brand", "text"], ["카테고리", "category", "text"], ["컬러", "color", "text"], ["사이즈", "size", "text"],
                  ["원가", "costPrice", "number"], ["공급가", "supplyPrice", "number"], ["판매가", "price", "number"], ["비고", "note", "text"]] as const).map(([label, key, type]) => (
                 <div key={key} className="flex items-center gap-2">
                   <span className="w-14 shrink-0 text-[12px] text-gray-500">{label}</span>
@@ -808,6 +808,7 @@ function AddProductModal({
               className="w-full border border-gray-200 px-3 py-2 text-[13px] rounded-lg bg-white focus:outline-none focus:border-[#1a1a1a]" />
           </div>
           {field("컬러", "color", "text", "블랙")}
+          {field("사이즈", "size", "text", "S - 4XL")}
           <div>
             <label className="text-[11px] tracking-widest text-gray-500 uppercase block mb-1">가격</label>
             <MoneyInput value={form.price} onChange={n => set("price", n)} placeholder="50,000"

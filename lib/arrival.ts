@@ -318,6 +318,7 @@ export async function addNewProduct(product: ArrivalProduct): Promise<void> {
     product_type:     product.productType ?? null,
     new_arrival_type: product.newArrivalType ?? null,
     color:            product.color,
+    size:             product.size ?? null,
     cost_price:       product.costPrice ?? 0,
     supply_price:     product.supplyPrice ?? 0,
     price:            product.price,
@@ -342,7 +343,7 @@ export async function addNewProduct(product: ArrivalProduct): Promise<void> {
 
 // 개별 등록(내부활용) 제품의 기본 정보 수정 — 시트 동기화 제품은 시트가 원본이므로 대상이 아니다.
 export type ManualProductFields = Partial<Pick<ArrivalProduct,
-  "productName" | "brand" | "category" | "color" | "costPrice" | "supplyPrice" | "price" | "description" | "note">>;
+  "productName" | "brand" | "category" | "color" | "size" | "costPrice" | "supplyPrice" | "price" | "description" | "note">>;
 export async function updateManualProduct(productCode: string, arrivalDate: string, f: ManualProductFields): Promise<void> {
   const supabase = createAdminClient();
   const row: Record<string, unknown> = {};
@@ -350,6 +351,7 @@ export async function updateManualProduct(productCode: string, arrivalDate: stri
   if (f.brand       !== undefined) row.brand        = f.brand;
   if (f.category    !== undefined) row.category     = f.category;
   if (f.color       !== undefined) row.color        = f.color;
+  if (f.size        !== undefined) row.size         = f.size || null;
   if (f.costPrice   !== undefined) row.cost_price   = f.costPrice;
   if (f.supplyPrice !== undefined) row.supply_price = f.supplyPrice;
   if (f.price       !== undefined) row.price        = f.price;

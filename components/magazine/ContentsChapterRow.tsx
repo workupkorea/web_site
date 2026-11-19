@@ -52,19 +52,19 @@ export default function ContentsChapterRow({ number, items, interval = 7000 }: {
   });
 
   return (
-    <li className="border-t border-[#1d1e20]/25 last:border-b">
+    <li className="border-t border-[#1d1e20]/25 md:last:border-b">
       <a
         href={`#mag-chapter-${cur.id}`}
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
         onFocus={() => setPaused(true)}
         onBlur={() => setPaused(false)}
-        className="group flex items-baseline gap-4 md:gap-8 py-3 md:py-4 min-h-[44px] hover:bg-[#f6f4ef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B] transition-colors"
+        className="group flex items-baseline gap-4 md:gap-8 py-3 md:py-7 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B] transition-colors"
       >
         <span className="shrink-0 w-8 md:w-14 text-[13px] md:text-[18px] font-black text-[#E5541B]">{number}</span>
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0 flex-1 transition-transform duration-300 ease-out md:group-hover:translate-x-3">
           {/* 제목 롤링 */}
-          <span className="block overflow-hidden text-[17px] md:text-[24px] font-bold tracking-tight" style={{ height: `${LINE}em`, lineHeight: LINE }}>
+          <span className="block overflow-hidden text-[17px] md:text-[24px] font-bold tracking-tight transition-colors duration-300 group-hover:text-[#E5541B]" style={{ height: `${LINE}em`, lineHeight: LINE }}>
             <span className="block will-change-transform" style={track(LINE)}>
               {rolled.map((it, i) => (
                 <span key={i} className="block truncate" style={{ height: `${LINE}em` }} aria-hidden={i === len ? true : undefined}>
@@ -89,7 +89,7 @@ export default function ContentsChapterRow({ number, items, interval = 7000 }: {
             <b className="text-[#1d1e20]">{(idx % len) + 1}</b>/{len}
           </span>
         )}
-        <span aria-hidden className="shrink-0 text-lg text-[#1d1e20]/40 transition-transform group-hover:translate-x-1 group-hover:text-[#E5541B]">
+        <span aria-hidden className="shrink-0 text-lg text-[#1d1e20]/40 transition-transform group-hover:translate-x-2 group-hover:text-[#E5541B]">
           →
         </span>
       </a>

@@ -22,15 +22,15 @@ export default function MagazineContents({ config }: { config: HomeMagazineConfi
   const subtitle = config.contents.subtitle ?? config.issue.season;
 
   return (
-    <section aria-labelledby="mag-contents" className="mag-sans px-5 py-8 md:px-14 md:py-12 bg-white text-[#1d1e20]">
-      <div className="mag-label flex items-baseline justify-between text-[10px] md:text-[11px] tracking-[0.28em] uppercase">
+    <section aria-labelledby="mag-contents" className="mag-sans px-5 py-14 md:px-14 md:py-24 bg-white text-[#1d1e20]">
+      <div className="mag-label hidden items-baseline justify-between text-[10px] md:text-[11px] tracking-[0.28em] uppercase">
         <b className="font-bold">Contents</b>
         <span className="text-[#1d1e20]/45">{config.issue.label}</span>
       </div>
 
-      <div className="mt-5 md:mt-8 md:grid md:grid-cols-12 md:gap-x-8">
+      <div className="md:grid md:grid-cols-12 md:gap-x-8">
         <div className="md:col-span-4">
-          <h2 id="mag-contents" className="mag-display text-[30px] md:text-[44px] font-black tracking-tight leading-[1.05]">
+          <h2 id="mag-contents" className="mag-display text-[40px] md:text-[56px] font-black tracking-tight leading-[1.05]">
             {heading.map((line, i) => (
               <span key={i}>
                 {i > 0 && <br />}
@@ -54,18 +54,18 @@ export default function MagazineContents({ config }: { config: HomeMagazineConfi
             }
             const external = /^https?:\/\//.test(it.href ?? "");
             return (
-              <li key={it.id} className="border-t border-[#1d1e20]/25 last:border-b">
+              <li key={it.id} className="border-t border-[#1d1e20]/25 md:last:border-b">
                 <a
                   href={contentsItemHref(it)}
                   {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className="group flex items-baseline gap-4 md:gap-8 py-3 md:py-4 min-h-[44px] hover:bg-[#f6f4ef] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B] transition-colors"
+                  className="group flex items-baseline gap-4 md:gap-8 py-3 md:py-7 min-h-[44px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#E5541B] transition-colors"
                 >
                   <span className="shrink-0 w-8 md:w-14 text-[13px] md:text-[18px] font-black text-[#E5541B]">{pad(i + 1)}</span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[17px] md:text-[24px] font-bold tracking-tight leading-snug break-keep">{it.title}</span>
+                  <span className="min-w-0 flex-1 transition-transform duration-300 ease-out md:group-hover:translate-x-3">
+                    <span className="block text-[17px] md:text-[24px] font-bold tracking-tight leading-snug break-keep transition-colors duration-300 group-hover:text-[#E5541B]">{it.title}</span>
                     {it.note && <span className="block mt-1 text-[11px] md:text-xs tracking-[0.12em] uppercase text-[#55575b] truncate">{it.note}</span>}
                   </span>
-                  <span aria-hidden className="shrink-0 text-lg text-[#1d1e20]/40 transition-transform group-hover:translate-x-1 group-hover:text-[#E5541B]">→</span>
+                  <span aria-hidden className="shrink-0 text-lg text-[#1d1e20]/40 transition-transform group-hover:translate-x-2 group-hover:text-[#E5541B]">→</span>
                 </a>
               </li>
             );

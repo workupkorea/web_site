@@ -450,3 +450,11 @@ html {
 .mag-custom-bg .mag-own-bg {
   background-color: transparent !important;
 }
+
+
+/* 매거진 커버 롤링 — 보이는 동안 천천히 줌아웃(두 이름을 번갈아 써서 슬라이드가 다시 나올 때마다 재생) */
+@keyframes magKen0 { from { transform: scale(1.08); } to { transform: scale(1); } }
+@keyframes magKen1 { from { transform: scale(1.08); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  picture[style*="magKen"] { animation: none !important; }
+}
