@@ -223,6 +223,12 @@ export async function POST(req: Request) {
       // 내부 키(_로 시작: 비밀번호 해시·답변 등)는 시트로 보내지 않는다.
       const publicPayload = Object.fromEntries(Object.entries(payload).filter(([k]) => !k.startsWith("_")));
       // 담당자 메일 제목: "[워크업] 문의제목 / 담당자명" (제목이 없으면 유형명으로 대체)
+      const attached = parseFiles(payload._files);
+      const attachLinks: { name: string; size: number; url: string }[] = [];
+      for (const f of attached) {
+        const { data } = await supabase.storage.from(PARTNERSHIP_BUCKET).createSignedUrl(f.path, 60 * 60 * 24 * 7);
+        if (data?.signedUrl) attachLinks.push({ name: f.name, size: f.size, url: data.signedUrl });
+      }
       const mailTitle = String(payload.title ?? "").trim() || typeLabelOf(type);
       const mailName = String(payload.name ?? payload.manager ?? "").trim() || "이름없음";
       const outgoing = {
@@ -231,7 +237,9 @@ export async function POST(req: Request) {
         ...publicPayload,
         mail_subject: `[워크업] ${mailTitle} / ${mailName}`,
         // 첨부파일은 비공개라 파일명만 전달(내려받기는 관리자 문의 화면에서)
-        attachment_names: parseFiles(payload._files).map((f) => f.name).join(", "),
+        attachment_names: attached.map((f) => f.name).join(", "),
+        // 메일 첨부·다운로드 링크용 서명 URL(7일 유효). Apps Script가 내려받아 메일에 붙인다.
+        attachments: attachLinks,
         submitted_at: new Date().toISOString(),
         notify_email: notifyEmail, // Apps Script가 이 값으로 담당자 메일 발송
       };

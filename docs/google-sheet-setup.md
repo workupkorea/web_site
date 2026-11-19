@@ -55,14 +55,43 @@ function doPost(e) {
       // 제목: [워크업] 문의제목 / 담당자명 (사이트가 mail_subject로 내려줌, 없으면 직접 조합)
       var subject = d.mail_subject ||
         ('[워크업] ' + (d.title || typeLabel) + ' / ' + (name || '이름없음'));
-      var lines = ['유형: ' + typeLabel, '이름: ' + name, '연락처: ' + (d.phone || '')];
-      if (extra)   lines.push('지역/품목/구분: ' + extra);
-      if (d.brand) lines.push('브랜드: ' + d.brand);
-      if (d.link)  lines.push('링크: ' + d.link);
-      if (d.attachment_names) lines.push('첨부파일: ' + d.attachment_names + ' (관리자 > 문의 관리에서 내려받기)');
-      lines.push('내용: ' + (d.message || ''));
-      lines.push('접수시각: ' + (d.submitted_at || ''));
-      MailApp.sendEmail(d.notify_email, subject, lines.join('\n'));
+      // 본문: 표(HTML) + 표를 못 보는 환경용 일반 텍스트
+      var when = d.submitted_at
+        ? Utilities.formatDate(new Date(d.submitted_at), 'Asia/Seoul', 'yyyy-MM-dd HH:mm') : '';
+      var rows = [['유형', typeLabel], ['문의 제목', d.title || ''], ['이름', name], ['연락처', d.phone || '']];
+      if (extra)   rows.push(['지역/품목/구분', extra]);
+      if (d.brand) rows.push(['브랜드', d.brand]);
+      if (d.link)  rows.push(['링크', d.link]);
+      // 첨부파일: 합계 20MB 이하면 메일에 직접 첨부, 못 붙이면 다운로드 링크(7일 유효)로 대체
+      var files = d.attachments || [], blobs = [], totalSize = 0, fetchErr = '';
+      files.forEach(function (f) { totalSize += f.size || 0; });
+      if (files.length && totalSize <= 20 * 1024 * 1024) {
+        files.forEach(function (f) {
+          try { blobs.push(UrlFetchApp.fetch(f.url).getBlob().setName(f.name)); }
+          catch (fe) { fetchErr = String(fe); }
+        });
+      }
+      var allAttached = files.length > 0 && blobs.length === files.length;
+      if (files.length) {
+        rows.push(['첨부파일', allAttached ? files.length + '개 (메일에 첨부됨)'
+          : (totalSize > 20 * 1024 * 1024 ? '용량이 커서 링크로 대체 (7일 유효)' : '첨부 실패, 링크로 대체 (7일 유효)')]);
+        if (!allAttached) files.forEach(function (f) { rows.push(['└ ' + f.name, { link: f.url, text: '다운로드' }]); });
+      }
+      rows.push(['내용', d.message || '']);
+      rows.push(['접수시각', when]);
+      var esc = function (v) {
+        return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+      };
+      var cell = function (v) {
+        return (v && typeof v === 'object') ? '<a href="' + esc(v.link) + '">' + esc(v.text) + '</a>' : esc(v);
+      };
+      var html = '<table style="border-collapse:collapse;table-layout:fixed;width:640px;max-width:100%;font-size:14px">' +
+        rows.map(function (r) {
+          return '<tr><th style="width:130px;background:#f3f4f6;border:1px solid #d1d5db;padding:8px 12px;text-align:left;vertical-align:top;word-break:break-all">' +
+            esc(r[0]) + '</th><td style="border:1px solid #d1d5db;padding:8px 12px;word-break:break-all">' + cell(r[1]) + '</td></tr>';
+        }).join('') + '</table>';
+      var text = rows.map(function (r) { return r[0] + ': ' + (r[1] && r[1].link ? r[1].link : r[1]); }).join('\n');
+      MailApp.sendEmail(d.notify_email, subject, text, { htmlBody: html, attachments: blobs });
     } catch (mailErr) { /* 메일 실패는 무시(시트 기록은 유지) */ }
   }
 

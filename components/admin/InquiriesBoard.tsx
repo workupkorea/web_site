@@ -134,6 +134,12 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
           {q.payload._reply && <span className="text-emerald-600 text-[11px] flex-shrink-0">✓답변</span>}
           {subject && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 flex-shrink-0">{subject}</span>}
           <span className="truncate">{getTitle(q)}</span>
+          {attachedFiles.length > 0 && (
+            <span className="inline-flex items-center gap-0.5 flex-shrink-0 text-[11px] text-slate-500" title={`첨부파일 ${attachedFiles.length}개`}>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 11.5l-8.5 8.5a5 5 0 01-7-7L14 4.5a3.5 3.5 0 015 5L10.5 18a2 2 0 01-3-3L15 7.5" /></svg>
+              {attachedFiles.length}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-1.5 justify-end">
           <span className={`text-[11px] px-2 py-0.5 rounded ${STATUS_STYLE[q.status]}`}>{INQUIRY_STATUS_LABEL[q.status]}</span>
@@ -395,7 +401,6 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
       .then(d => d && setFileTotal({ count: d.totalCount ?? 0, bytes: d.totalBytes ?? 0 }))
       .catch(() => {});
   };
-  useEffect(() => { loadFileTotal(); }, []);
   const purgeOldFiles = async () => {
     setPurgingFiles(true);
     try {
@@ -509,13 +514,13 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
               </button>
             ))}
             <span className="ml-auto text-xs text-slate-500">
-              누적 첨부파일 {fileTotal ? `${fileTotal.count.toLocaleString()}개 · ${fmtSize(fileTotal.bytes)}` : "집계 중..."}
+              누적 첨부파일 {fileTotal ? `${fileTotal.count.toLocaleString()}개 · ${fmtSize(fileTotal.bytes)}` : "새로고침 시 집계"}
             </span>
             <button onClick={purgeOldFiles} disabled={purgingFiles}
               className="inline-flex items-center text-xs font-medium text-red-600 border border-red-200 rounded-lg px-3 py-1.5 hover:bg-red-50 disabled:opacity-50 transition-colors">
               {purgingFiles ? "확인 중..." : `${RETENTION_MONTHS}개월 지난 첨부파일 삭제`}
             </button>
-            <button onClick={loadInquiries}
+            <button onClick={() => { loadInquiries(); loadFileTotal(); }}
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50 hover:border-slate-300 transition-colors">
             <svg className={`w-3.5 h-3.5 ${loadingList ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
