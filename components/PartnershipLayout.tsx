@@ -23,13 +23,13 @@ export default function PartnershipLayout({ info, boardType, guide, children }: 
             {/* 좌: 소개 패널 + 폼 (세로 스택) — 모바일은 여백 없는 전체화면형, lg 이상은 카드형 */}
             <div className="flex flex-col border-0 lg:border border-gray-200/70 bg-white overflow-hidden min-w-0">
               {/* 창업안내 탭이 있으면 혜택 목록은 우측 안내로 옮겨 표시하고 영문 보조 문구(eyebrow)는 쓰지 않으므로 좌측 패널에서는 뺀다 */}
-              <PartnershipPanel info={guide ? { ...info, benefits: [], eyebrow: "" } : info} />
+              <PartnershipPanel info={guide ? { ...info, benefits: [], eyebrow: "" } : info} compact={Boolean(guide)} />
 
               {/* 모바일: '문의하기 | 창업안내' 탭 (PC는 우측 탭을 사용) */}
               {guide && <MobileTabBar />}
 
               {/* 모바일에서 '창업안내' 탭 선택 시 폼 숨김 */}
-              <div className="px-6 sm:px-8 py-8 max-lg:group-data-[mtab=guide]/m:hidden">
+              <div className={`px-6 sm:px-8 py-8 max-lg:group-data-[mtab=guide]/m:hidden ${guide ? "lg:py-6" : ""}`}>
                 <h3 className="font-extrabold tracking-[-0.03em]" style={{ fontSize: `max(${st.form_title.size}px, clamp(20px, 1.6vw, 24px))`, color: st.form_title.color }}>
                   {info.form_title}
                 </h3>

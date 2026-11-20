@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState } from "react";
+import styles from "./PartnershipShell.module.css";
 
 // 가맹 문의 페이지 모바일 전용 탭: '문의하기' ↔ '창업안내'.
 // PC(lg 이상)는 좌측 폼 + 우측 탭(창업안내|문의현황) 구조라 이 탭은 쓰지 않는다.
@@ -20,6 +21,7 @@ export function PartnershipShell({ children }: { children: React.ReactNode }) {
 
 export function MobileTabBar({ formLabel = "문의하기", guideLabel = "창업안내" }: { formLabel?: string; guideLabel?: string }) {
   const ctx = useContext(Ctx);
+  const [guideViewed, setGuideViewed] = useState(false);
   if (!ctx) return null;
   const items: { key: MobileTabKey; label: string }[] = [
     { key: "form", label: formLabel },
@@ -27,20 +29,35 @@ export function MobileTabBar({ formLabel = "문의하기", guideLabel = "창업�
   ];
   return (
     <div id="pt-mobile-tabs" role="tablist" className="lg:hidden scroll-mt-14 flex border-b border-gray-200 bg-white">
-      {items.map((it) => (
-        <button
-          key={it.key}
-          type="button"
-          role="tab"
-          aria-selected={ctx.tab === it.key}
-          onClick={() => ctx.setTab(it.key)}
-          className={`flex-1 min-h-[52px] text-sm font-extrabold tracking-[-0.02em] border-b-2 -mb-px transition-colors ${
-            ctx.tab === it.key ? "border-[#E5541B] text-[#303236]" : "border-transparent text-gray-400"
-          }`}
-        >
-          {it.label}
-        </button>
-      ))}
+      {items.map((it) => {
+        const selected = ctx.tab === it.key;
+        const highlight = it.key === "guide" && !guideViewed && !selected;
+        return (
+          <button
+            key={it.key}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            onClick={() => {
+              if (it.key === "guide") setGuideViewed(true);
+              ctx.setTab(it.key);
+            }}
+            className={`relative flex min-w-0 flex-1 flex-wrap items-center justify-center content-center gap-x-1.5 gap-y-0.5 min-h-[52px] px-1 text-sm font-extrabold tracking-[-0.02em] border-b-2 -mb-px transition-colors ${
+              selected ? "border-[#E5541B] text-[#303236]" : "border-transparent text-gray-400"
+            }`}
+          >
+            <span className="whitespace-nowrap">{it.label}</span>
+            {it.key === "guide" && (
+              <span className="whitespace-nowrap rounded-sm border border-[#e5541b]/40 px-1.5 py-0.5 text-[10px] leading-tight text-[#a9380b]">
+                상담 전 필수 확인
+              </span>
+            )}
+            {highlight && (
+              <span aria-hidden="true" className={`pointer-events-none absolute inset-x-0 -bottom-0.5 h-0.5 ${styles.guideUnderline}`} />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 }

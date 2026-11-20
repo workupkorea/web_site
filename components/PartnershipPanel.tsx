@@ -7,7 +7,7 @@ import type { PartnerInfo } from "@/data/partnership";
 // 제목은 모바일 26px → PC 32px로 커진다(CSS max/clamp).
 const fs = (size: number, min: number) => `max(${size}px, ${min}px)`;
 
-export default function PartnershipPanel({ info }: { info: PartnerInfo }) {
+export default function PartnershipPanel({ info, compact = false }: { info: PartnerInfo; compact?: boolean }) {
   const st = info.styles;
   // 연락처 칸에 이메일이 들어 있으면(예: 제휴 문의 메일) 전화 대신 메일 아이콘·링크를 쓴다.
   const isEmail = info.phone.includes("@");
@@ -19,7 +19,7 @@ export default function PartnershipPanel({ info }: { info: PartnerInfo }) {
   const accent = bgBlue ? "#8fb8ff" : st.bullet_color;
   const glow = bgBlue ? "bg-[#3b82f6]/30" : "bg-[#E5541B]/25";
   return (
-    <div className="relative isolate overflow-hidden px-8 py-10" style={{ backgroundColor: info.panel_bg }}>
+    <div className={`relative isolate overflow-hidden px-8 py-10 ${compact ? "lg:py-8" : ""}`} style={{ backgroundColor: info.panel_bg }}>
       {/* 장식: 우상단 컬러 글로우 + 좌하단 화이트 글로우 (텍스트 뒤, 클릭 무관) */}
       <div aria-hidden="true" className={`pointer-events-none absolute -top-28 -right-24 -z-10 h-72 w-72 rounded-full ${glow} blur-3xl`} />
       <div aria-hidden="true" className="pointer-events-none absolute -bottom-32 -left-20 -z-10 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
@@ -56,7 +56,7 @@ export default function PartnershipPanel({ info }: { info: PartnerInfo }) {
       )}
       {/* 문의 전화 안내: 라벨·전화번호·문의 시간을 같은 텍스트 스타일로 표기.
           PC(xl 이상)는 한 줄, 그 미만(모바일·태블릿)은 2줄(라벨 / 전화번호 | 시간) */}
-      <div className="mt-7 pt-6 border-t border-white/15 flex flex-col gap-1 xl:flex-row xl:items-center xl:gap-3 font-medium text-white" style={{ fontSize: 17 }}>
+      <div className={`mt-7 pt-6 border-t border-white/15 flex flex-col gap-1 xl:flex-row xl:items-center xl:gap-3 font-medium text-white ${compact ? "lg:mt-5 lg:pt-4" : ""}`} style={{ fontSize: 17 }}>
         <p className="flex items-center gap-2 whitespace-nowrap">
           <svg className="w-[18px] h-[18px] flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
             {isEmail ? (

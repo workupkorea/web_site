@@ -1,4 +1,5 @@
 import type { FranchiseGuideConfig } from "@/data/franchise-guide";
+import FranchiseConditionsBox from "./FranchiseConditionsBox";
 import { GoFormButton } from "./PartnershipShell";
 
 // 가맹 문의 페이지 안에 직접 보여주는 창업안내 (모바일 우선 반응형).
@@ -9,7 +10,7 @@ const LINE = "border-white/10";
 
 function SectionHead({ title, desc }: { title: string; desc?: string }) {
   return (
-    <div className="mb-6 md:mb-8">
+    <div className="mb-6 md:mb-8 lg:mb-6">
       <h2 className="text-[20px] md:text-[24px] font-extrabold tracking-[-0.03em] text-white leading-tight">{title}</h2>
       {desc && <p className="mt-2 text-[15px] md:text-base text-white/55 leading-relaxed" style={{ wordBreak: "keep-all" }}>{desc}</p>}
     </div>
@@ -37,11 +38,11 @@ export default function FranchiseGuideInline({ config, storeCount = 0, supports 
           aria-hidden="true"
         />
         <div className="absolute inset-0" style={{ background: "linear-gradient(180deg, rgba(0,0,0,.45) 0%, rgba(0,0,0,.88) 100%)" }} aria-hidden="true" />
-        <div className="relative z-10 px-5 sm:px-8 md:px-12 pt-14 pb-12 sm:pt-16 md:pt-24 md:pb-20">
+        <div className="relative z-10 px-5 sm:px-8 md:px-12 pt-14 pb-12 sm:pt-16 md:pt-24 md:pb-20 lg:pt-16 lg:pb-14">
           <h1 className="whitespace-pre-line font-extrabold tracking-[-0.04em] leading-[1.18] text-[24px] sm:text-[28px] md:text-[clamp(30px,2.5vw,42px)] max-w-3xl">
             {config.hero_title}
           </h1>
-          <p className="mt-4 md:mt-6 md:whitespace-pre-line text-[13.5px] sm:text-[14.5px] md:text-lg leading-relaxed text-white/70 max-w-2xl" style={{ wordBreak: "keep-all" }}>
+          <p className="mt-4 md:mt-6 lg:mt-5 md:whitespace-pre-line text-[13.5px] sm:text-[14.5px] md:text-lg leading-relaxed text-white/70 max-w-2xl" style={{ wordBreak: "keep-all" }}>
             {heroDesc}
           </p>
         </div>
@@ -50,7 +51,7 @@ export default function FranchiseGuideInline({ config, storeCount = 0, supports 
       {/* 핵심 수치 */}
       <section className={`grid grid-cols-3 border-b ${LINE}`} aria-label="워크업 창업 핵심 수치">
         {stats.map((st, i) => (
-          <div key={i} className={`px-2 py-6 md:py-10 text-center ${i > 0 ? `border-l ${LINE}` : ""}`}>
+          <div key={i} className={`px-2 py-6 md:py-10 lg:py-7 text-center ${i > 0 ? `border-l ${LINE}` : ""}`}>
             <strong className="block font-extrabold tracking-[-0.03em] text-[22px] sm:text-[26px] md:text-[clamp(30px,2.6vw,44px)] leading-none" style={{ color: accent }}>
               {st.value}
             </strong>
@@ -61,11 +62,11 @@ export default function FranchiseGuideInline({ config, storeCount = 0, supports 
 
       {/* 본사 지원 */}
       {supports.length > 0 && (
-        <section className={`px-5 sm:px-8 md:px-12 py-10 md:py-14 border-b ${LINE}`}>
+        <section className={`px-5 sm:px-8 md:px-12 py-10 md:py-14 lg:py-8 border-b ${LINE}`}>
           <SectionHead title="본사가 함께 지원합니다" />
           <ul className={`grid grid-cols-1 sm:grid-cols-2 border-t border-l ${LINE}`}>
             {supports.map((item, i) => (
-              <li key={i} className={`flex items-center gap-4 sm:block border-r border-b ${LINE} px-5 py-4 sm:p-5 md:p-6`} style={{ backgroundColor: col.card_bg }}>
+              <li key={i} className={`flex items-center gap-4 sm:block border-r border-b ${LINE} px-5 py-4 sm:p-5 md:p-6 lg:py-5`} style={{ backgroundColor: col.card_bg }}>
                 <span className="flex-shrink-0 sm:block text-xs font-bold tracking-[0.12em]" style={{ color: accent }}>{String(i + 1).padStart(2, "0")}</span>
                 <span className="sm:mt-2 block text-[15px] md:text-lg font-bold leading-snug tracking-[-0.02em]" style={{ wordBreak: "keep-all" }}>{item}</span>
               </li>
@@ -74,16 +75,32 @@ export default function FranchiseGuideInline({ config, storeCount = 0, supports 
         </section>
       )}
 
+      {/* 창업 기본 조건 */}
+      <section className={`px-5 sm:px-8 md:px-12 py-10 md:py-14 lg:py-8 border-b ${LINE} md:flex-1 lg:flex-none md:flex md:flex-col md:justify-center`}>
+        <FranchiseConditionsBox accent={accent}>
+          <SectionHead title={config.conditions_title} desc={config.conditions_desc} />
+          <div className={`grid md:grid-cols-2 md:gap-x-8 border-t ${LINE}`}>
+            {config.conditions.map((row, i) => (
+              <div key={i} className={`flex items-baseline justify-between gap-3 py-4 md:py-5 lg:py-4 border-b ${LINE}`}>
+                <span className="text-[15px] text-white/55 [word-break:keep-all]">{row.label}</span>
+                <strong className="text-right text-base md:text-lg font-extrabold tracking-[-0.02em] [word-break:keep-all]">{row.value}</strong>
+              </div>
+            ))}
+          </div>
+          {config.notice && <p className="mt-4 text-[13px] leading-relaxed text-white/55" style={{ wordBreak: "keep-all" }}>{config.notice}</p>}
+        </FranchiseConditionsBox>
+      </section>
+
       {/* 창업 포인트 */}
-      <section className={`px-5 sm:px-8 md:px-12 py-10 md:py-14 border-b ${LINE} md:flex-1 md:flex md:flex-col md:justify-center`}>
+      <section className="px-5 sm:px-8 md:px-12 py-10 md:py-14 lg:py-8 md:flex-1 lg:flex-none md:flex md:flex-col md:justify-center">
         <SectionHead title={config.section_title} desc={config.section_desc} />
         <div className={`grid md:grid-cols-3 border-t ${LINE}`}>
           {config.benefits.map((b, i) => (
             <article
               key={i}
-              className={`flex gap-4 md:block py-6 md:py-8 border-b last:border-b-0 md:border-b-0 ${LINE} ${i > 0 ? "md:border-l md:pl-7" : ""} ${i < config.benefits.length - 1 ? "md:pr-7" : ""}`}
+              className={`flex gap-4 md:block py-6 md:py-8 lg:py-6 border-b last:border-b-0 md:border-b-0 ${LINE} ${i > 0 ? "md:border-l md:pl-7" : ""} ${i < config.benefits.length - 1 ? "md:pr-7" : ""}`}
             >
-              <span className="flex-shrink-0 w-9 md:w-auto text-[26px] md:text-[40px] font-extrabold leading-none tracking-[-0.04em] md:mb-5 md:block" style={{ color: accent }}>
+              <span className="flex-shrink-0 w-9 md:w-auto text-[26px] md:text-[40px] font-extrabold leading-none tracking-[-0.04em] md:mb-5 lg:mb-4 md:block" style={{ color: accent }}>
                 {String(i + 1).padStart(2, "0")}
               </span>
               <div className="min-w-0">
@@ -93,20 +110,6 @@ export default function FranchiseGuideInline({ config, storeCount = 0, supports 
             </article>
           ))}
         </div>
-      </section>
-
-      {/* 창업 기본 조건 */}
-      <section className="px-5 sm:px-8 md:px-12 py-10 md:py-14 md:flex-1 md:flex md:flex-col md:justify-center">
-        <SectionHead title={config.conditions_title} desc={config.conditions_desc} />
-        <div className={`grid md:grid-cols-2 md:gap-x-12 border-t ${LINE}`}>
-          {config.conditions.map((row, i) => (
-            <div key={i} className={`flex items-baseline justify-between gap-4 py-4 md:py-5 border-b ${LINE}`}>
-              <span className="text-[15px] text-white/55">{row.label}</span>
-              <strong className="text-right text-base md:text-lg font-extrabold tracking-[-0.02em]">{row.value}</strong>
-            </div>
-          ))}
-        </div>
-        {config.notice && <p className="mt-4 text-[13px] leading-relaxed text-white/40" style={{ wordBreak: "keep-all" }}>{config.notice}</p>}
       </section>
 
       {/* 모바일 전용: 안내를 읽은 뒤 바로 문의 폼으로 */}

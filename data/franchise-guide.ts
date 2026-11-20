@@ -69,7 +69,7 @@ export const DEFAULT_FRANCHISE_GUIDE: FranchiseGuideConfig = {
   section_desc: "복잡한 설명보다, 매장을 운영할 때 실제로 도움이 되는 조건만 담았습니다.",
   benefits: [
     { title: "안정적인 영업권", desc: "지점 간 5km 기준으로 불필요한 상권 경쟁을 줄이고, 매장이 오래 운영될 수 있는 기반을 만듭니다." },
-    { title: "낮은 초기 부담", desc: "교육비와 가맹비 없이 시작합니다. 보여주기 위한 비용보다 매장과 상품에 집중할 수 있습니다." },
+    { title: "저렴한 가맹비", desc: "초기 교육비와 가맹 보증금은 없으며, 월 가맹비는 50만원입니다. 초도 상품과 시설·인테리어 비용은 별도로 필요합니다." },
     { title: "현장 중심 운영 지원", desc: "상품 공급부터 매장 운영, 지역 마케팅까지 실제 매출과 연결되는 업무를 지원합니다." },
   ],
   conditions_title: "창업 기본 조건",
@@ -78,7 +78,7 @@ export const DEFAULT_FRANCHISE_GUIDE: FranchiseGuideConfig = {
     { label: "매장 규모", value: "70평 이상" },
     { label: "초도 상품", value: "약 1억 5천만원" },
     { label: "시설·인테리어", value: "약 3천만원" },
-    { label: "상권 기준", value: "기존 지점과 5km 이상" },
+    { label: "거래 조건", value: "기존 지점과 5km 이상" },
   ],
   notice: "※ 매출, 수익, 개설 비용은 매장 위치와 규모, 운영 방식에 따라 달라질 수 있습니다.",
   cta_title: "내 지역에서 가능한지 먼저 확인하세요.",
@@ -148,13 +148,26 @@ export function normalizeFranchiseGuide(raw: Partial<FranchiseGuideConfig> | nul
     section_desc: str(c.section_desc, d.section_desc),
     benefits: d.benefits.map((db, i) => {
       const b = bens[i] ?? {};
-      return { title: str(b.title, db.title), desc: str(b.desc, db.desc) };
+      const oldTitle =
+        b.title === "낮은 초기 부담" || b.title === "교육비·가맹비 無" || b.title === "월 가맹비 50만원";
+      const oldDesc =
+        b.desc === "교육비와 가맹비 없이 시작합니다. 보여주기 위한 비용보다 매장과 상품에 집중할 수 있습니다." ||
+        b.desc === "초도 상품과 시설·인테리어 비용은 별도로 필요합니다." ||
+        b.desc === "초기 교육비와 가맹 보증금은 없습니다. 초도 상품과 시설·인테리어 비용은 별도로 필요합니다.";
+      // 기존에 저장된 02번 기본 문구도 갱신하고 관리자 지정 문구는 유지한다.
+      return {
+        title: i === 1 && oldTitle ? db.title : str(b.title, db.title),
+        desc: i === 1 && oldDesc ? db.desc : str(b.desc, db.desc),
+      };
     }),
     conditions_title: str(c.conditions_title, d.conditions_title),
     conditions_desc: str(c.conditions_desc, d.conditions_desc),
     conditions: d.conditions.map((dc, i) => {
       const row = conds[i] ?? {};
-      return { label: str(row.label, dc.label), value: str(row.value, dc.value) };
+      return {
+        label: row.label === "상권 기준" ? "거래 조건" : str(row.label, dc.label),
+        value: str(row.value, dc.value),
+      };
     }),
     notice: str(c.notice, d.notice),
     cta_title: str(c.cta_title, d.cta_title),
