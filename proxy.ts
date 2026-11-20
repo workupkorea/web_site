@@ -4,6 +4,13 @@ import type { NextRequest } from "next/server";
 // 강제 재배포 트리거 — 신발 카테고리 상품 404 이슈 확인용 (2026-07-15)
 
 export function proxy(request: NextRequest) {
+  if (request.nextUrl.pathname === "/mate/participate") {
+    const forwarded = new Headers(request.headers);
+    forwarded.set("x-pathname", "/mate/participate");
+    const response = NextResponse.next({ request: { headers: forwarded } });
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
   const res = NextResponse.next();
   res.headers.set("x-pathname", request.nextUrl.pathname);
   return res;

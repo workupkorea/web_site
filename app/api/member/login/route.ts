@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { hashPassword } from "@/lib/password";
 import { cookies } from "next/headers";
+import { ADMIN_GRADE, SUPER_ADMIN_GRADE } from "@/lib/admin-auth";
+import { ADMIN_SESSION_AGE, ADMIN_SESSION_COOKIE, createAdminSession } from "@/lib/admin-session";
 
 export async function POST(req: Request) {
   try {
@@ -36,6 +38,18 @@ export async function POST(req: Request) {
       maxAge: 60 * 60 * 24 * 30,
       path: "/",
     });
+
+    if (member.grade === ADMIN_GRADE || member.grade === SUPER_ADMIN_GRADE) {
+      cookieStore.set(ADMIN_SESSION_COOKIE, createAdminSession(String(member.id), member.password_hash), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: ADMIN_SESSION_AGE,
+        path: "/",
+      });
+    } else {
+      cookieStore.delete(ADMIN_SESSION_COOKIE);
+    }
 
     return NextResponse.json({
       ok: true,

@@ -4,6 +4,7 @@
 // (cookies/service-role 키를 쓰므로 서버 컴포넌트·route handler 에서만 import 할 것.)
 import { cookies } from "next/headers";
 import { createAdminClient } from "./supabase-server";
+import { ADMIN_SESSION_COOKIE, verifyAdminSession } from "./admin-session";
 
 export const ADMIN_GRADE = "관리자";
 export const SUPER_ADMIN_GRADE = "S관리자";
@@ -21,18 +22,21 @@ export async function getAdminMember(): Promise<AdminMember | null> {
   try {
     const store = await cookies();
     const memberId = store.get("wu-member")?.value;
-    if (!memberId) return null;
+    const session = store.get(ADMIN_SESSION_COOKIE)?.value;
+    if (!memberId || !session) return null;
 
     const sb = createAdminClient();
     const { data } = await sb
       .from("members")
-      .select("id, name, email, grade, status")
+      .select("id, name, email, grade, status, password_hash")
       .eq("id", memberId)
       .maybeSingle();
 
     if (!data || data.status !== "active") return null;
     if (data.grade !== ADMIN_GRADE && data.grade !== SUPER_ADMIN_GRADE) return null;
-    return data as AdminMember;
+    const { password_hash: passwordHash, ...admin } = data;
+    if (!passwordHash || !verifyAdminSession(session, String(admin.id), passwordHash)) return null;
+    return admin as AdminMember;
   } catch {
     return null;
   }

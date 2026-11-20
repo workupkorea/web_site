@@ -12,7 +12,6 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get("from");
-  const ADMIN_GRADE = "관리자";
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -31,7 +30,7 @@ function LoginContent() {
       });
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
-        const isAdmin = data?.member?.grade === ADMIN_GRADE;
+        const isAdmin = ["관리자", "S관리자"].includes(data?.member?.grade);
         // 관리자는 대시보드로, 그 외에는 원래 흐름(찜/마이페이지)으로.
         const dest = isAdmin ? "/admin" : from === "cart" ? "/cart" : "/mypage";
         router.push(dest);

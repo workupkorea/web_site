@@ -7,13 +7,17 @@ import { useEffect, useRef, useState } from "react";
 declare global {
   interface Window {
     daum?: {
-      Postcode: new (options: { oncomplete: (data: DaumPostcodeResult) => void }) => { open: () => void };
+      Postcode: new (options: {
+        oncomplete: (data: DaumPostcodeResult) => void;
+        width?: string;
+        height?: string;
+      }) => { open: () => void; embed: (container: HTMLElement) => void };
     };
   }
 }
 type DaumPostcodeResult = { address: string; addressType: string; bname: string; buildingName: string };
 
-const SCRIPT_SRC = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+const SCRIPT_SRC = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
 let scriptPromise: Promise<void> | null = null;
 
 export function loadDaumPostcodeScript(): Promise<void> {
@@ -22,8 +26,16 @@ export function loadDaumPostcodeScript(): Promise<void> {
   scriptPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = SCRIPT_SRC;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("주소 검색 스크립트를 불러오지 못했습니다."));
+    const fail = () => {
+      scriptPromise = null;
+      script.remove();
+      reject(new Error("주소 검색 스크립트를 불러오지 못했습니다."));
+    };
+    script.onload = () => {
+      if (window.daum?.Postcode) resolve();
+      else fail();
+    };
+    script.onerror = fail;
     document.head.appendChild(script);
   });
   return scriptPromise;

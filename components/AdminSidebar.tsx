@@ -167,6 +167,16 @@ export const navGroups: NavGroup[] = [
     label: "회원 관리",
     items: [
       {
+        label: "워크업 메이트",
+        href: "/admin/mate",
+        exact: true,
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm2 6h6m-6 4h6m-6 4h3" />
+          </svg>
+        ),
+      },
+      {
         label: "회원 관리",
         href: "/admin/members",
         exact: true,

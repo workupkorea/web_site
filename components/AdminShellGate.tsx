@@ -4,7 +4,8 @@ import AdminShell from "./AdminShell";
 
 export default function AdminShellGate({ children, superAdmin }: { children: React.ReactNode; superAdmin?: boolean }) {
   const pathname = usePathname();
-  if (pathname.startsWith("/admin/influencer-hub") || pathname.startsWith("/admin/print-studio")) {
+  if (pathname.startsWith("/admin/influencer-hub") || pathname.startsWith("/admin/print-studio")
+    || pathname === "/admin/mate/results") {
     return <>{children}</>;
   }
   return <AdminShell superAdmin={superAdmin}>{children}</AdminShell>;
