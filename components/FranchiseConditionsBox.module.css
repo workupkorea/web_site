@@ -1,0 +1,14 @@
+.outline {
+  animation: traceOutline 5s linear infinite paused;
+}
+
+@keyframes traceOutline {
+  to { stroke-dashoffset: var(--outline-offset, 0px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .outline {
+    visibility: hidden;
+    animation: none;
+  }
+}

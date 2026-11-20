@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import styles from "./FranchiseConditionsBox.module.css";
 
 export default function FranchiseConditionsBox({ accent, children }: { accent: string; children: ReactNode }) {
   const boxRef = useRef<HTMLDivElement>(null);
@@ -9,64 +10,41 @@ export default function FranchiseConditionsBox({ accent, children }: { accent: s
   useEffect(() => {
     const box = boxRef.current;
     const line = lineRef.current;
-    if (!box || !line) return;
+    const svg = line?.ownerSVGElement;
+    if (!box || !line || !svg) return;
 
-    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let inView = false;
-    let animation: Animation | undefined;
-
-    const updateAnimation = () => {
-      if (reducedMotion.matches) {
-        animation?.cancel();
-        animation = undefined;
-      } else if (inView) {
-        animation ??= line.animate(
-          [
-            { strokeDashoffset: 0, opacity: 1 },
-            { strokeDashoffset: -100, opacity: 1 },
-          ],
-          { duration: 5000, iterations: Infinity, easing: "linear" },
-        );
-        animation.play();
-      } else {
-        animation?.pause();
-      }
-    };
-
-    const observer = new IntersectionObserver(([entry]) => {
-      inView = entry.intersectionRatio >= 0.2;
-      updateAnimation();
-    }, { threshold: 0.2 });
-    observer.observe(box);
-    reducedMotion.addEventListener("change", updateAnimation);
+    const sizeObserver = new ResizeObserver(([{ contentRect }]) => {
+      const width = Math.max(0, contentRect.width - 2);
+      const height = Math.max(0, contentRect.height - 2);
+      const perimeter = 2 * (width + height);
+      line.setAttribute("width", String(width));
+      line.setAttribute("height", String(height));
+      line.setAttribute("stroke-dasharray", `${perimeter * 0.16} ${perimeter * 0.84}`);
+      line.style.setProperty("--outline-offset", `${-perimeter}px`);
+    });
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      line.style.animationPlayState = entry.isIntersecting ? "running" : "paused";
+    });
+    sizeObserver.observe(svg);
+    visibilityObserver.observe(box);
 
     return () => {
-      observer.disconnect();
-      reducedMotion.removeEventListener("change", updateAnimation);
-      animation?.cancel();
+      sizeObserver.disconnect();
+      visibilityObserver.disconnect();
     };
   }, []);
 
   return (
     <div ref={boxRef} className="relative p-4 sm:p-6 md:p-8 lg:py-6">
+      <span aria-hidden="true" className="pointer-events-none absolute inset-px border opacity-55" style={{ borderColor: accent }} />
       <svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full" fill="none">
         <rect
-          x="1"
-          y="1"
-          style={{ width: "calc(100% - 2px)", height: "calc(100% - 2px)" }}
-          stroke={accent}
-          strokeOpacity="0.55"
-        />
-        <rect
           ref={lineRef}
+          className={styles.outline}
           x="1"
           y="1"
-          style={{ width: "calc(100% - 2px)", height: "calc(100% - 2px)" }}
-          pathLength="100"
           stroke={accent}
           strokeWidth="2"
-          strokeDasharray="16 84"
-          opacity="0"
         />
       </svg>
       {children}

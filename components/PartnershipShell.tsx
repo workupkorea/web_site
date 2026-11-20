@@ -21,7 +21,6 @@ export function PartnershipShell({ children }: { children: React.ReactNode }) {
 
 export function MobileTabBar({ formLabel = "문의하기", guideLabel = "창업안내" }: { formLabel?: string; guideLabel?: string }) {
   const ctx = useContext(Ctx);
-  const [guideViewed, setGuideViewed] = useState(false);
   if (!ctx) return null;
   const items: { key: MobileTabKey; label: string }[] = [
     { key: "form", label: formLabel },
@@ -31,17 +30,14 @@ export function MobileTabBar({ formLabel = "문의하기", guideLabel = "창업�
     <div id="pt-mobile-tabs" role="tablist" className="lg:hidden scroll-mt-14 flex border-b border-gray-200 bg-white">
       {items.map((it) => {
         const selected = ctx.tab === it.key;
-        const highlight = it.key === "guide" && !guideViewed && !selected;
+        const highlight = it.key === "guide" && !selected;
         return (
           <button
             key={it.key}
             type="button"
             role="tab"
             aria-selected={selected}
-            onClick={() => {
-              if (it.key === "guide") setGuideViewed(true);
-              ctx.setTab(it.key);
-            }}
+            onClick={() => ctx.setTab(it.key)}
             className={`relative flex min-w-0 flex-1 flex-wrap items-center justify-center content-center gap-x-1.5 gap-y-0.5 min-h-[52px] px-1 text-sm font-extrabold tracking-[-0.02em] border-b-2 -mb-px transition-colors ${
               selected ? "border-[#E5541B] text-[#303236]" : "border-transparent text-gray-400"
             }`}
