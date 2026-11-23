@@ -78,7 +78,7 @@ export const DEFAULT_FRANCHISE_GUIDE: FranchiseGuideConfig = {
     { label: "매장 규모", value: "70평 이상" },
     { label: "초도 상품", value: "약 1억 5천만원" },
     { label: "시설·인테리어", value: "약 3천만원" },
-    { label: "거래 조건", value: "기존 지점과 5km 이상" },
+    { label: "거래 조건", value: "사입거래" },
   ],
   notice: "※ 매출, 수익, 개설 비용은 매장 위치와 규모, 운영 방식에 따라 달라질 수 있습니다.",
   cta_title: "내 지역에서 가능한지 먼저 확인하세요.",
