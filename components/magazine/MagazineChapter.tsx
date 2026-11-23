@@ -14,7 +14,11 @@ const pad = (n: number) => String(n).padStart(2, "0");
 export default function MagazineChapter({ chapter, no, tight = false }: { chapter: Chapter; no: number; tight?: boolean }) {
   const paras = (chapter.body ?? "").split(/\n+/).map((t) => t.trim()).filter(Boolean);
   // 챕터 사진 전체 보기 — 레이아웃에 다 못 담는 B컷까지 모아 본다(A컷+B컷+사진 모음). 제목·리드 바로 아래에 둬서 어느 챕터 버튼인지 분명하게 한다.
-  const photos = [chapter.main, ...chapter.subs, ...(chapter.gallery ?? [])].filter((i) => i.url);
+  // 관리자가 '챕터 사진 모음'을 올렸다면 그 사진만(올린 그대로) 보여준다 — A·B컷을 또 합치면 같은 사진이 중복 노출된다.
+  // 사진 모음이 비어 있을 때만 A·B컷으로 대체한다. 같은 URL은 한 번만.
+  const curated = (chapter.gallery ?? []).filter((i) => i.url);
+  const source = curated.length > 0 ? curated : [chapter.main, ...chapter.subs].filter((i) => i.url);
+  const photos = source.filter((img, idx) => source.findIndex((o) => o.url === img.url) === idx);
   const gallery = (tone: "dark" | "light" = "dark", full = false) => (photos.length < 2 ? null : <ChapterGallery title={chapter.title} no={no} images={photos} tone={tone} full={full} />);
   const props = { chapter, no, tight, headingId: `mag-chapter-${chapter.id}`, lead: paras[0], rest: paras.slice(1), gallery };
   if (chapter.layout === "fullbleed") return <Fullbleed {...props} />;

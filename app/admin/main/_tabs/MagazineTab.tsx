@@ -997,7 +997,7 @@ export default function MagazineTab() {
               <ImageListField
                 label="챕터 사진 모음 (전체 보기용)"
                 kind="small"
-                hint="A·B컷 외에 더 보여줄 사진 — 개수 제한 없음. 메인에서 '사진 속 하루 더 보기'를 누르면 A·B컷과 함께 모두 나옵니다."
+                hint="여기 올린 사진만 '사진 속 하루 더 보기'에 그대로 나옵니다(개수 제한 없음). 비워두면 A·B컷이 대신 나옵니다."
                 compact
                 dense
                 images={ch.gallery ?? []}
