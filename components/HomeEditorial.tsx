@@ -9,7 +9,7 @@ export default async function HomeEditorial({ editorialFilter }: { editorialFilt
   return (
     <section>
       {items.map(({ editorial, reversed }, i) => (
-        <FeatureHeroLayout key={editorial.slug || i} editorial={editorial} reversed={reversed} headingTag="h2" />
+        <FeatureHeroLayout key={editorial.slug || i} editorial={editorial} reversed={reversed} headingTag="h2" trackHomeSections />
       ))}
     </section>
   );

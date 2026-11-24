@@ -4,6 +4,8 @@ export const MATE_STYLES = {
   lifestyle: "데일리 & 라이프스타일",
 } as const;
 
+export const MATE_APPLICATION_REQUIREMENTS = "SNS를 활발하게 운영하며 자신만의 스타일로 정기적으로 콘텐츠를 제작할 수 있는 분";
+
 export const MATE_GENDERS = {
   female: "여성",
   male: "남성",
@@ -83,6 +85,15 @@ export function mateRoundStatus(round: MateRound, today = seoulDate()) {
   if (round.starts_on && today < round.starts_on) return "모집 예정";
   if (round.ends_on && today > round.ends_on) return "모집 마감";
   return "모집 중";
+}
+
+export const MATE_COHORT_STAGES = { recruitment: "모집 중", operations: "운영 중", ended: "종료" } as const;
+export type MateCohortStage = keyof typeof MATE_COHORT_STAGES;
+
+export function mateCohortStage(round: MateRound, hasActivities: boolean, today = seoulDate()): MateCohortStage {
+  if (round.retain_through && today > round.retain_through) return "ended";
+  if (hasActivities || (round.ends_on && today > round.ends_on)) return "operations";
+  return "recruitment";
 }
 
 export function parseRound(value: unknown) {

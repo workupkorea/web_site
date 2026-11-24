@@ -92,6 +92,15 @@ export function trackHomeClick(label: string, href: string) {
   sendNav({ event_type: "home_click", nav_label: label, href, path: "/" });
 }
 
+export function trackHomeStoreSearch(keyword: string) {
+  if (typeof window === "undefined" || !keyword) return;
+  sendNav({ event_type: "store_search", nav_label: keyword, path: "/" });
+}
+
+export function trackExhibitionProductClick(label: string, href: string, path: string) {
+  sendNav({ event_type: "exhibition_product_click", nav_label: label, href, path });
+}
+
 export function takeNavPending(pathname: string): NavPending | null {
   try {
     const raw = sessionStorage.getItem(NAV_PENDING_KEY);

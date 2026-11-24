@@ -5,6 +5,7 @@ import { getBannerDetail, getHeroDetail, MAIN_DETAIL_SLUG } from "@/lib/editoria
 import { ikSrc } from "@/lib/imageSrc";
 import ProductFeatureGrid from "@/components/ProductFeatureGrid";
 import { isAdmin } from "@/lib/admin-auth";
+import { subExhibitionPath } from "@/lib/home-layout";
 
 // banner가 "main"이면 메인 기획전 상세, 숫자면 서브 배너 상세
 const loadDetail = (slug: string, banner: string, preview: boolean) =>
@@ -37,10 +38,12 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function BannerDetailPage({ params, searchParams }: Props) {
   const { slug, banner } = await params;
   const { product: initialProductId, item: initialItemId, campaign } = await searchParams;
-  const detail = await loadDetail(slug, banner, await isCampaignPreview(campaign));
+  const preview = await isCampaignPreview(campaign);
+  const detail = await loadDetail(slug, banner, preview);
   if (!detail) notFound();
 
   const products = detail.products.filter((p) => p.productId || p.name);
+  const trackingPath = preview ? undefined : subExhibitionPath(`/products/feature/${encodeURIComponent(detail.blockId)}/${detail.bannerIndex}`);
 
   return (
     <main className="bg-[#FAFAF8]">
@@ -79,7 +82,7 @@ export default async function BannerDetailPage({ params, searchParams }: Props) 
       {/* ── 하단: 제품 카드 목록(사진+제품명, 클릭 시 제품 상세로 이동) ─── */}
       {products.length > 0 && (
         <section className="max-w-screen-xl mx-auto px-6 md:px-10 pb-16 md:pb-24">
-          <ProductFeatureGrid products={products} initialProductId={initialProductId} initialItemId={initialItemId} />
+          <ProductFeatureGrid products={products} initialProductId={initialProductId} initialItemId={initialItemId} trackingPath={trackingPath} />
         </section>
       )}
 

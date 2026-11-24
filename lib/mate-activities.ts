@@ -45,6 +45,7 @@ export type MateActivity = {
   source_code?: string | null;
   unit_cost?: number | null;
   published: boolean;
+  closed_at?: string | null;
 };
 
 export type MateActivityProgress = {
@@ -66,6 +67,31 @@ export function mateActivityCosts(activity: MateActivity, participants: number) 
   return { products, shipping, total: products === null ? null : products + shipping };
 }
 
+export function hasMateActivityStarted(activity: MateActivity, progress?: MateActivityProgress) {
+  return activity.published || Boolean(activity.closed_at || (progress && (progress.joined || progress.declined || progress.submitted)));
+}
+
+export function mateActivityStatus(activity: MateActivity) {
+  return activity.closed_at ? "종료" : activity.published ? "공개 중" : "비공개";
+}
+
+export function summarizeMateActivities(rows: { activity: MateActivity; progress: MateActivityProgress }[]) {
+  const counts = { eligible: 0, joined: 0, declined: 0, submitted: 0 };
+  const costs: ReturnType<typeof mateActivityCosts> = { products: 0, shipping: 0, total: 0 };
+  for (const { activity, progress } of rows) {
+    counts.eligible += progress.eligible;
+    counts.joined += progress.joined;
+    counts.declined += progress.declined;
+    counts.submitted += progress.submitted;
+
+    const row = mateActivityCosts(activity, progress.joined);
+    costs.products = costs.products === null || row.products === null ? null : costs.products + row.products;
+    costs.shipping += row.shipping;
+  }
+  costs.total = costs.products === null ? null : costs.products + costs.shipping;
+  return { counts, costs };
+}
+
 export function formatMateWon(value: number | null) {
   return value === null ? "미확정" : value.toLocaleString("ko-KR") + "원";
 }
@@ -79,17 +105,19 @@ export type MateResponse = {
   color?: string | null;
   result_instagram_url?: string | null;
   result_submitted_at?: string | null;
-  result_metrics?: MateResultMetrics | null;
-  result_metrics_updated_at?: string | null;
   additional_selections?: MateProductSelection[];
   updated_at: string;
 };
 
-export const MATE_RESULT_METRICS = { views: "조회수", likes: "좋아요", comments: "댓글" } as const;
-export const MATE_RESULT_METRIC_KEYS = Object.keys(MATE_RESULT_METRICS) as (keyof typeof MATE_RESULT_METRICS)[];
-export type MateResultMetrics = Record<keyof typeof MATE_RESULT_METRICS, number | null>;
-export type MateResultMetricsSummary = { [Key in keyof MateResultMetrics as `${Key}_sum`]: number | null }
-  & { [Key in keyof MateResultMetrics as `${Key}_count`]: number };
+export function mateResponseProducts(productName: string, response?: Pick<MateResponse, "choice" | "size" | "color" | "additional_selections">) {
+  if (response?.choice !== "yes") return [];
+  return [
+    { name: productName, size: response.size ? formatMateSize(response.size) : "", color: response.color ?? "" },
+    ...(response.additional_selections ?? []).map(({ product_name, size, color }) => ({
+      name: product_name, size: formatMateSize(size), color: color ?? "",
+    })),
+  ];
+}
 
 export type MateProfile = Pick<MateApplication, "name" | "sns_id" | "phone" | "address" | "gender" | "height_cm" | "feed_styles">;
 
@@ -114,8 +142,10 @@ export function validMateProductUrl(value: string) {
     return false;
   }
 }
-export function mateActivityImageHref(round: number, activity: number, version: string) {
-  return `/api/mate/activity-image?round=${round}&activity=${activity}&v=${encodeURIComponent(version)}`;
+export function mateActivityImageHref(round: number, activity: number, version: string, view?: "recruitment") {
+  const query = new URLSearchParams({ round: String(round), activity: String(activity), v: version });
+  if (view) query.set("view", view);
+  return `/api/mate/activity-image?${query}`;
 }
 export function mateInstagramResultUrl(value: string) {
   try {

@@ -214,6 +214,20 @@ async function fetchBrandLogoMap(): Promise<Record<string, string>> {
 }
 
 // ── 홈 에디토리얼 목록 ────────────────────────────────────────
+// 과거 클릭도 분류할 수 있도록 현재 노출 여부와 관계없이 등록된 기획전을 조회한다.
+export async function getEditorialsForClickAnalytics(): Promise<{ all: Editorial[]; current: Editorial[] }> {
+  const [blocks, filter] = await Promise.all([fetchBlocks(), getCampaignEditorialFilter()]);
+  const visible = visibleEditorialBlocks(blocks ?? []);
+  const all = blocks?.map(blockToEditorial) ?? editorials;
+  if (!visible.length) return { all: blocks ? [...all, ...editorials] : all, current: editorials };
+  const bySlug = new Map(all.map((editorial) => [editorial.slug, editorial]));
+  const current = visible.flatMap((block) => {
+    const editorial = bySlug.get(block.id);
+    return editorial && passesIdFilter(filter, block.id) ? [editorial] : [];
+  });
+  return { all, current };
+}
+
 // 예약 메인(캠페인)의 기획전 필터 — 접속 시각 기준. 목록과 상세페이지가 같은 규칙을 쓴다.
 // 예약 기간 밖: 예약 전용 기획전 제외 / 기간 중: 예약 전용 기획전만 노출 (예약 미설정이면 필터 없음)
 async function getCampaignEditorialFilter(): Promise<HeroFilter> {
@@ -225,12 +239,14 @@ async function getCampaignEditorialFilter(): Promise<HeroFilter> {
 }
 
 // filter 를 직접 넘기면(관리자 미리보기) 그 값을, 생략하면 접속 시각 기준 값을 쓴다.
+function visibleEditorialBlocks(blocks: DBBlock[]) {
+  return blocks.filter((b) => b.is_visible !== false).sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
+
 export async function getHomeEditorials(filter?: HeroFilter): Promise<{ editorial: Editorial; reversed: boolean }[]> {
   const blockList = await fetchBlocks();
   if (blockList) {
-    const visible = blockList
-      .filter((b) => b.is_visible !== false)
-      .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+    const visible = visibleEditorialBlocks(blockList);
     if (visible.length > 0) {
       const f = filter === undefined ? await getCampaignEditorialFilter() : filter;
       const blocks = visible.filter((b) => passesIdFilter(f, b.id));

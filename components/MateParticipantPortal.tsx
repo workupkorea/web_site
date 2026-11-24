@@ -5,11 +5,12 @@ import { MATE_APPLICATION_GENDERS, MATE_GENDERS, MATE_STYLES, normalizeMatePhone
 import { formatMateSize, mateActivityImageHref, type MatePortal, type MateProfile } from "@/lib/mate-activities";
 import MateActivityImage from "./MateActivityImage";
 import MatePhoneInput from "./MatePhoneInput";
-import { MateActivityResult, MateParticipationHistory } from "./MateParticipationHistory";
+import { MateActivityResult, MateParticipationHistory, type MateHistoryEntry } from "./MateParticipationHistory";
 
-const panel = "rounded-lg border border-[#d8dfd7] bg-white p-4 sm:p-6";
-const field = "min-h-11 w-full min-w-0 rounded-md border border-[#a7b8ac] px-3 py-2 font-normal focus:outline-2 focus:outline-[#356454]";
-const button = "min-h-11 rounded-md bg-[#285746] px-4 py-2 font-bold text-white hover:bg-[#203f35] disabled:opacity-60";
+const panel = "rounded-sm border border-[#d9d7d0] bg-white";
+const field = "min-h-11 w-full min-w-0 rounded-sm border border-[#bfbcb3] bg-white px-3 py-2 text-base font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#95501f]";
+const button = "min-h-11 rounded-sm bg-[#221f1b] px-5 py-2 text-sm font-bold text-white hover:bg-[#484037] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#95501f] disabled:opacity-60";
+const disclosure = "flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-2.5 text-sm font-bold hover:bg-[#f3f1ed] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#95501f] [&::-webkit-details-marker]:hidden";
 type Activity = MatePortal["activities"][number];
 type Save = (payload: object) => Promise<string | null>;
 
@@ -38,28 +39,40 @@ function ActivityCard({ round, activity, save }: { round: number; activity: Acti
     setPending(false);
   }
 
-  return (
-    <section className={panel}>
-      <h3 className="text-lg font-black">{activity.activity_no}회차 · {activity.product_name}</h3>
+  const status = activity.response?.result_instagram_url ? "결과물 제출 완료"
+    : activity.response?.choice === "yes" ? "참여 응답 완료" : activity.response?.choice === "no" ? "불참 응답 완료" : "응답 필요";
+  const heading = <>
+    <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+      <span className="shrink-0 bg-[#26221d] px-2 py-1 text-xs leading-none font-bold text-white tabular-nums">{activity.activity_no}회차</span>
+      <span className="min-w-0 break-words text-xl leading-snug font-extrabold tracking-tight sm:text-2xl">{activity.product_name}</span>
+    </span>
+    <span className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap text-xs font-semibold before:size-1.5 before:rounded-full before:bg-current ${status === "응답 필요"
+      ? "text-[#883a12]" : "text-[#645b51]"}`}>{status}</span>
+  </>;
+  const content = (
+    <div className="border-t border-[#e5e1d9] px-4 py-4 sm:px-6">
       {activity.product_image_version && <MateActivityImage
         url={mateActivityImageHref(round, activity.activity_no, activity.product_image_version)} alt={activity.product_name} />}
-      {activity.product_info && <p className="mt-2 whitespace-pre-wrap break-words text-sm">{activity.product_info}</p>}
-      {activity.product_url && <a href={activity.product_url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-sm font-bold underline">제품 정보 열기</a>}
+      {activity.product_info && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[#5e554a]">{activity.product_info}</p>}
+      {activity.product_url && <a href={activity.product_url} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-sm font-bold underline underline-offset-4">제품 정보 열기</a>}
       {products.length > 0 && <ul aria-label="추가 제공 제품" className="mt-3 list-disc space-y-1 pl-5 text-sm">
         {products.map((product) => <li key={product.id}>{product.product_url
           ? <a href={product.product_url} target="_blank" rel="noreferrer" className="font-bold underline">{product.name}</a>
           : product.name}</li>)}
       </ul>}
-      <form onSubmit={submit} className="mt-4 space-y-3">
+      <form onSubmit={submit} className="space-y-3 [&:not(:first-child)]:mt-4">
         <fieldset>
-          <legend className="font-bold">이 제품으로 활동에 참여하시겠습니까?</legend>
-          <div className="mt-1 flex gap-5">
-            <label className="inline-flex min-h-11 items-center gap-2"><input type="radio" name="choice" checked={choice === "yes"} onChange={() => setChoice("yes")} required /> 참여 (Yes)</label>
-            <label className="inline-flex min-h-11 items-center gap-2"><input type="radio" name="choice" checked={choice === "no"} onChange={() => setChoice("no")} required /> 불참 (No)</label>
+          <legend className="text-sm font-bold">참여 여부</legend>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:max-w-xs">
+            {([["yes", "참여"], ["no", "불참"]] as const).map(([value, label]) => (
+              <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-sm border border-[#d8d4cb] px-3 text-sm font-semibold has-[:checked]:border-[#9b5020] has-[:checked]:bg-[#f9eee1]">
+                <input type="radio" name="choice" className="accent-[#221f1b]" checked={choice === value} onChange={() => setChoice(value)} required />{label}
+              </label>
+            ))}
           </div>
         </fieldset>
-        {choice === "yes" && <div className="grid gap-3 sm:grid-cols-2">
-          {products.length > 0 && <p className="font-bold sm:col-span-2">{activity.product_name}</p>}
+        {choice === "yes" && <div className={`grid gap-3 ${colors.length ? "grid-cols-2" : ""}`}>
+          {products.length > 0 && <p className="col-span-full font-bold">{activity.product_name}</p>}
           <label className="grid gap-1 text-sm font-bold">사이즈
             {sizes.length ? <select className={field} value={sizes.includes(size) ? size : ""} onChange={(event) => setSize(event.target.value)} required>
               <option value="">사이즈 선택</option>
@@ -80,7 +93,7 @@ function ActivityCard({ round, activity, save }: { round: number; activity: Acti
             setExtra((previous) => ({ ...previous, [product.id]: { ...(previous[product.id] ?? current), ...patch } }));
           }
           return (
-            <fieldset key={product.id} className="grid gap-3 rounded-md border border-[#d8dfd7] p-3 sm:grid-cols-2">
+            <fieldset key={product.id} className={`grid min-w-0 gap-3 rounded-md border border-[#ddd8cf] p-3 ${product.color_options.length ? "grid-cols-2" : ""}`}>
               <legend className="px-1 font-bold">{product.name}</legend>
               <label className="grid gap-1 text-sm font-bold">사이즈
                 {product.size_options.length ? <select aria-label={product.name + " 사이즈"} className={field}
@@ -100,12 +113,18 @@ function ActivityCard({ round, activity, save }: { round: number; activity: Acti
             </fieldset>
           );
         })}
-        <button className={button} disabled={pending}>응답 저장</button>
-        {message && <p role="status" className="text-sm">{message}</p>}
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          {message && <p role="status" className="mr-auto text-sm">{message}</p>}
+          <button className={button} disabled={pending}>응답 저장</button>
+        </div>
       </form>
       {activity.response?.choice === "yes" && <MateActivityResult activity={activity} save={save} />}
-    </section>
+    </div>
   );
+  return <section className={`${panel} shadow-[0_10px_25px_-23px_#403b32]`}>
+    <h3 className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t-2 border-[#ed6d0f] bg-[#f7f5ef] px-4 py-4 sm:px-6 sm:py-5">{heading}</h3>
+    {content}
+  </section>;
 }
 
 function ProfileForm({ profile, save }: { profile: MateProfile; save: Save }) {
@@ -132,15 +151,19 @@ function ProfileForm({ profile, save }: { profile: MateProfile; save: Save }) {
   }
 
   return (
-    <details className={panel}>
-      <summary className="cursor-pointer text-lg font-black">내 기본 정보 확인·수정</summary>
-      <p className="mt-2 text-sm text-stone-700">지원서에 입력한 정보입니다. 바뀐 항목만 수정해 주세요.</p>
-      <form onSubmit={submit} className="mt-4 grid gap-4 sm:grid-cols-2">
+    <details className="group bg-white">
+      <summary className={`rounded-sm ${disclosure}`}>
+        내 기본 정보 확인·수정
+        <span aria-hidden="true" className="size-2 shrink-0 rotate-45 border-r border-b border-[#63574b] group-open:rotate-[225deg]" />
+      </summary>
+      <div className="border-t border-[#e5e1d9] p-4">
+      <p className="text-sm text-[#5e554a]">바뀐 항목만 수정해 주세요.</p>
+      <form onSubmit={submit} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
         <label className="grid gap-1 text-sm font-bold">이름<input className={field} name="name" defaultValue={profile.name} maxLength={60} required /></label>
         <label className="grid gap-1 text-sm font-bold">인스타그램 아이디<input className={field} name="sns_id" defaultValue={profile.sns_id} maxLength={31} required /></label>
         <label className="grid gap-1 text-sm font-bold">연락처<MatePhoneInput className={field} initial={profile.phone} /></label>
         <label className="grid gap-1 text-sm font-bold">키 (cm)<input className={field} name="height_cm" type="number" min={50} max={260} step="0.1" defaultValue={profile.height_cm} required /></label>
-        <label className="grid gap-1 text-sm font-bold sm:col-span-2">주소<input className={field} name="address" defaultValue={profile.address} maxLength={240} required /></label>
+        <label className="grid gap-1 text-sm font-bold sm:col-span-2 lg:col-span-1">주소<input className={field} name="address" defaultValue={profile.address} maxLength={240} required /></label>
         <label className="grid gap-1 text-sm font-bold">성별
           <select name="gender" className={field} defaultValue={Object.hasOwn(MATE_APPLICATION_GENDERS, profile.gender) ? profile.gender : ""}>
             {!Object.hasOwn(MATE_APPLICATION_GENDERS, profile.gender) && <option value="">{MATE_GENDERS[profile.gender]} (현재)</option>}
@@ -153,11 +176,12 @@ function ProfileForm({ profile, save }: { profile: MateProfile; save: Save }) {
             {Object.entries(MATE_STYLES).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <div className="space-y-2 sm:col-span-2">
+        <div className="space-y-2 sm:col-span-2 lg:col-span-1">
           <button className={button} disabled={pending}>수정한 정보 저장</button>
           {message && <p role="status" className="text-sm">{message}</p>}
         </div>
       </form>
+      </div>
     </details>
   );
 }
@@ -246,31 +270,52 @@ export default function MateParticipantPortal() {
     }
   }
 
+  const latest = portal?.activities[0];
+  const historyByRound = new Map<number, MateHistoryEntry>(portal?.history.map((entry) => [entry.activity_no, entry]));
+  for (const activity of portal?.activities ?? []) {
+    if (activity === latest && !activity.closed_at) continue;
+    const saved = historyByRound.get(activity.activity_no);
+    historyByRound.set(activity.activity_no, {
+      activity_no: activity.activity_no,
+      product_name: activity.product_name,
+      product_info: activity.product_info,
+      product_url: activity.product_url,
+      response: saved?.response ?? activity.response,
+    });
+  }
+  const history = [...historyByRound.values()].sort((a, b) => b.activity_no - a.activity_no);
   return (
-    <main className="min-h-screen bg-[#eef1ec] text-[#1f3028]">
-      {portal && <header className="border-b-[5px] border-[#c5a46a] bg-[#1b2b26] text-[#fcfaf4]">
-        <div className="mx-auto grid max-w-5xl items-end gap-6 px-5 py-8 sm:grid-cols-[1fr_auto] sm:px-8 sm:py-11">
-          <div>
-            <h1 className="text-[clamp(2rem,6vw,4rem)] font-black leading-none tracking-[-0.045em]">WORKUP MATE <span className="whitespace-nowrap">{portal.round}기</span></h1>
-            <p className="mt-4 text-base text-[#dce6dc]">{portal.profile.name}님, 워크업 메이트로 함께해 주셔서 감사합니다.</p>
+    <main className="min-h-screen bg-[#f4f2ed] text-[#221f1b]">
+      {portal && <header className="border-b border-[#40372e] bg-[#221f1b] text-[#fbf8f1]">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-5 gap-y-3 px-4 py-5 sm:px-8 sm:py-7">
+          <div className="min-w-0">
+            <h1 className="text-[clamp(1.8rem,5vw,3.25rem)] leading-[1.05] font-black tracking-[-0.055em]">
+              WORKUP MATE <span className="whitespace-nowrap text-[#ff9c55]">{portal.round}기</span>
+            </h1>
+            <p className="mt-2 break-words text-sm text-[#d8d1c5]"><strong className="font-semibold text-[#fbf8f1]">@{portal.profile.sns_id}</strong>님, 함께해 주셔서 감사합니다.</p>
           </div>
-          <div className="w-fit min-w-48 border border-[#bd9d64] bg-[#23372e] px-4 py-3 text-[#ecd5a9]">
-            <p className="text-xs font-bold tracking-[0.16em]">MATE NO.</p>
-            <p aria-label={`메이트 번호 ${portal.mate_no}`} className="mt-1 font-mono text-2xl font-bold tabular-nums tracking-[0.08em]">{portal.mate_no}</p>
+          <div className="flex items-center gap-3 border border-[#6b5f50] bg-[#2d2821] px-3 py-2 sm:grid sm:gap-1 sm:px-4 sm:py-2.5">
+            <p className="text-[11px] font-bold tracking-[0.13em] text-[#e6b58d]">MATE NO.</p>
+            <p aria-label={`메이트 번호 ${portal.mate_no}`} className="font-mono text-sm font-semibold tabular-nums tracking-[0.06em] sm:text-lg">{portal.mate_no}</p>
           </div>
         </div>
       </header>}
-      <div className="mx-auto max-w-4xl space-y-4 px-4 py-6 sm:px-8 sm:py-8">
+      <div className="mx-auto max-w-6xl space-y-4 px-4 py-5 sm:px-8 sm:py-6">
         {!portal && <h1 className="text-3xl font-black">WORKUP MATE</h1>}
-        {error && <p role="alert" className={panel}>{error}</p>}
+        {error && <p role="alert" className={`p-4 ${panel}`}>{error}</p>}
         {!portal && !error && <p role="status">활동 정보를 불러오는 중입니다.</p>}
-        {portal && <>
-          <MateParticipationHistory history={portal.history} />
-          <ProfileForm profile={portal.profile} save={save} />
-          <h2 className="pt-3 text-xl font-black">활동 회차</h2>
-          {!portal.activities.length && <p className={panel}>공개된 활동이 없습니다.</p>}
-          {portal.activities.map((activity) => <ActivityCard round={portal.round} activity={activity} save={save} key={activity.activity_no} />)}
-        </>}
+        {portal && <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_16rem]">
+          <div className={`grid min-w-0 divide-y divide-[#e5e1d9] sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:col-start-2 lg:row-start-1 lg:mt-[2.65rem] lg:grid-cols-1 lg:divide-x-0 lg:divide-y ${panel}`}>
+            <MateParticipationHistory history={history} />
+            <ProfileForm profile={portal.profile} save={save} />
+          </div>
+          <section aria-labelledby="mate-portal-activities" className="min-w-0 space-y-2.5 lg:col-start-1 lg:row-start-1">
+            <h2 id="mate-portal-activities" className="mb-3 text-[1.4rem] font-extrabold tracking-[-0.035em]">활동 회차</h2>
+            {latest && !latest.closed_at
+              ? <ActivityCard round={portal.round} activity={latest} save={save} key={latest.activity_no} />
+              : <p className={`p-4 ${panel}`}>현재 응답할 수 있는 활동 회차가 없습니다.</p>}
+          </section>
+        </div>}
       </div>
     </main>
   );

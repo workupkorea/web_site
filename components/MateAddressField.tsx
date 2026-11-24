@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { loadDaumPostcodeScript } from "@/components/ih/influencers/IHAddressSearchField";
 
-const fieldClass = "min-h-11 min-w-0 w-full rounded-md border border-stone-400 bg-white px-3 py-2";
-const buttonClass = "inline-flex min-h-11 shrink-0 items-center rounded-md border border-stone-400 px-3 py-2 text-sm font-bold hover:bg-stone-100";
+const fieldClass = "min-h-11 min-w-0 w-full rounded-lg border border-[#bcc2b9] bg-white px-3 py-2 text-base focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#384436]";
+const buttonClass = "inline-flex min-h-11 shrink-0 items-center rounded-lg border border-[#bcc2b9] px-3 py-2 text-sm font-bold hover:bg-[#eef2eb]";
 
 export default function MateAddressField() {
   const [address, setAddress] = useState("");
@@ -60,7 +60,7 @@ export default function MateAddressField() {
       <label htmlFor="mate-address" className="block font-bold">주소</label>
       <div className="flex gap-2">
         <input id="mate-address" name="address" value={address} onChange={(event) => setAddress(event.target.value)}
-          className={fieldClass + " read-only:bg-stone-50"} readOnly={!searchError}
+          className={fieldClass + " read-only:bg-[#f7f9f5]"} readOnly={!searchError}
           placeholder={searchError ? "도로명 주소를 입력해 주세요" : "주소 검색으로 선택해 주세요"}
           autoComplete="address-line1" maxLength={180} required />
         <button type="button" ref={searchButton} className={buttonClass} onClick={() => {
@@ -68,7 +68,7 @@ export default function MateAddressField() {
           else setShowSearch(true);
         }} aria-expanded={showSearch} aria-controls="mate-address-search">주소 검색</button>
       </div>
-      <div id="mate-address-search" hidden={!showSearch} className="rounded-md border border-stone-300">
+      <div id="mate-address-search" hidden={!showSearch} className="rounded-lg border border-[#d6dbd3]">
         {showSearch && (
           <>
             <div className="flex justify-end px-2">
@@ -79,7 +79,7 @@ export default function MateAddressField() {
         )}
       </div>
       {searchError && <p role="status" className="text-sm text-stone-700">주소 검색을 열 수 없습니다. 주소를 직접 입력해 주세요.</p>}
-      <label htmlFor="mate-address-detail" className="block text-sm font-medium">상세주소</label>
+      <label htmlFor="mate-address-detail" className="block text-sm font-medium">상세주소 <span className="font-normal text-stone-600">(선택)</span></label>
       <input id="mate-address-detail" name="address_detail" ref={detail} className={fieldClass}
         autoComplete="address-line2" placeholder="동·호수 등 (해당하는 경우)" maxLength={58} />
     </div>

@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import type { Editorial, EditorialSection, EditorialSectionTag, EditorialTag } from "@/data/editorial";
 import { ikSrc } from "@/lib/imageSrc";
 import { heroPanelHeight } from "@/lib/heroPanel";
+import { HOME_MAIN_EXHIBITION_LABEL, HOME_SUB_EXHIBITION_LABEL, exhibitionClickSection } from "@/lib/home-layout";
 
 // 메인 배너 이미지 위 제품 태그 — 이미지 속 착용 제품 위에 "브랜드(작게, 위 오른쪽) + 제품명 박스"로 항상 노출.
 // 점 좌표가 라벨의 중심이며, 클릭 시 제품 상세로 이동한다.
@@ -440,10 +441,12 @@ function WhiteBox({
   section,
   colIndex,
   delayMs = 0,
+  trackHomeSections = false,
 }: {
   section: EditorialSection;
   colIndex: number;
   delayMs?: number;
+  trackHomeSections?: boolean;
 }) {
   const [visible, setVisible] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -465,6 +468,7 @@ function WhiteBox({
   return (
     <div
       ref={ref}
+      data-home-section={trackHomeSections ? exhibitionClickSection(HOME_SUB_EXHIBITION_LABEL, section.title) : undefined}
       style={{
         width: "100%",
         // 통이미지형은 행(옆 카드) 전체 높이를 채운다 — 하단까지
@@ -559,10 +563,12 @@ export default function FeatureHeroLayout({
   editorial,
   reversed = false,
   headingTag: HeadingTag = "h1",
+  trackHomeSections = false,
 }: {
   editorial: Editorial;
   reversed?: boolean;
   headingTag?: "h1" | "h2";
+  trackHomeSections?: boolean;
 }) {
   const [sheetOpen, setSheetOpen] = useState(false);
 
@@ -596,6 +602,7 @@ export default function FeatureHeroLayout({
   }, [sheetOpen]);
 
   const { tags, sections } = editorial;
+  const heroTrackingSection = trackHomeSections ? exhibitionClickSection(HOME_MAIN_EXHIBITION_LABEL, editorial.title) : undefined;
 
   // 대배너 롤링 — 대표 이미지(0번) + 추가 이미지. PC/모바일 대표·추가 이미지는 각자(PC 추가 이미지가 없으면 모바일 것을 공통 사용).
   const heroExtras = editorial.heroImageUrls ?? [];
@@ -616,6 +623,7 @@ export default function FeatureHeroLayout({
   const heroImageUrlPc = editorial.heroImageUrlPc || editorial.heroImageUrl;
   const heroPanel = (
     <div
+      data-home-section={heroTrackingSection}
       className="sticky top-0 self-start overflow-hidden bg-gray-100"
       style={{ flex: "0 0 49.947%", minWidth: 0, height: heroHeight ? `${heroHeight}px` : "100vh" }}
     >
@@ -668,18 +676,18 @@ export default function FeatureHeroLayout({
     >
       <div style={{ display: "flex", gap: "25px" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <WhiteBox section={sections[0]} colIndex={0} />
+          <WhiteBox section={sections[0]} colIndex={0} trackHomeSections={trackHomeSections} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <WhiteBox section={sections[1] ?? sections[0]} colIndex={1} delayMs={80} />
+          <WhiteBox section={sections[1] ?? sections[0]} colIndex={1} delayMs={80} trackHomeSections={trackHomeSections} />
         </div>
       </div>
       <div style={{ display: "flex", gap: "25px" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <WhiteBox section={sections[2] ?? sections[0]} colIndex={2} delayMs={160} />
+          <WhiteBox section={sections[2] ?? sections[0]} colIndex={2} delayMs={160} trackHomeSections={trackHomeSections} />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <WhiteBox section={sections[3] ?? sections[1]} colIndex={3} delayMs={240} />
+          <WhiteBox section={sections[3] ?? sections[1]} colIndex={3} delayMs={240} trackHomeSections={trackHomeSections} />
         </div>
       </div>
     </div>
@@ -714,6 +722,7 @@ export default function FeatureHeroLayout({
 
         {/* 히어로 이미지 — 전체 너비 */}
         <div
+          data-home-section={heroTrackingSection}
           className="relative w-full overflow-hidden bg-gray-100"
           style={{ aspectRatio: "3 / 4" }}
         >
@@ -755,18 +764,18 @@ export default function FeatureHeroLayout({
         >
           <div style={{ display: "flex", gap: "20px" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <WhiteBox section={sections[0]} colIndex={0} />
+              <WhiteBox section={sections[0]} colIndex={0} trackHomeSections={trackHomeSections} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <WhiteBox section={sections[1] ?? sections[0]} colIndex={1} delayMs={80} />
+              <WhiteBox section={sections[1] ?? sections[0]} colIndex={1} delayMs={80} trackHomeSections={trackHomeSections} />
             </div>
           </div>
           <div style={{ display: "flex", gap: "20px" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <WhiteBox section={sections[2] ?? sections[0]} colIndex={2} delayMs={160} />
+              <WhiteBox section={sections[2] ?? sections[0]} colIndex={2} delayMs={160} trackHomeSections={trackHomeSections} />
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <WhiteBox section={sections[3] ?? sections[1]} colIndex={3} delayMs={240} />
+              <WhiteBox section={sections[3] ?? sections[1]} colIndex={3} delayMs={240} trackHomeSections={trackHomeSections} />
             </div>
           </div>
         </div>
@@ -854,6 +863,7 @@ export default function FeatureHeroLayout({
 
         {/* 히어로 이미지 — 3:4 비율 컨테이너, 이미지+태그가 동일 좌표 공간 */}
         <div
+          data-home-section={heroTrackingSection}
           className="relative w-full overflow-hidden bg-gray-100"
           style={{ aspectRatio: "3 / 4" }}
         >
@@ -894,7 +904,11 @@ export default function FeatureHeroLayout({
           }}
         >
           {sections.map((section, i) => (
-            <div key={i} style={{ backgroundColor: "white", overflow: "hidden", width: "100%" }}>
+            <div
+              key={i}
+              data-home-section={trackHomeSections ? exhibitionClickSection(HOME_SUB_EXHIBITION_LABEL, section.title) : undefined}
+              style={{ backgroundColor: "white", overflow: "hidden", width: "100%" }}
+            >
               {section.cardType === "image" ? (
                 <ImageOnlyCard imageUrl={section.imageUrl} link={section.link} title={section.title} />
               ) : (

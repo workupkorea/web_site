@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import { formatMatePhone } from "@/lib/mate";
+import { formatMatePhone, normalizeMatePhone } from "@/lib/mate";
 
-export default function MatePhoneInput({ className, initial = "" }: { className: string; initial?: string }) {
+export default function MatePhoneInput({ className, initial = "", placeholder }: { className: string; initial?: string; placeholder?: string }) {
   const [value, setValue] = useState(formatMatePhone(initial));
-  return <input type="tel" name="phone" value={value} onChange={(event) => setValue(formatMatePhone(event.target.value))}
-    className={className} autoComplete="tel" inputMode="tel" maxLength={24} required />;
+  return <input type="tel" name="phone" value={value}
+    onChange={(event) => setValue(formatMatePhone(normalizeMatePhone(event.target.value).replace(/[^0-9]/g, "").slice(0, 15)))}
+    className={className} autoComplete="tel" inputMode="numeric" placeholder={placeholder} maxLength={24} required />;
 }

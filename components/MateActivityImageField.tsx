@@ -28,7 +28,7 @@ async function prepareImage(file: File) {
   }
 }
 
-export default function MateActivityImageField({ current }: { current: string | null }) {
+export default function MateActivityImageField({ hasImage }: { hasImage: boolean }) {
   const input = useRef<HTMLInputElement>(null);
   const selection = useRef(0);
   const [stagedImage, setStagedImage] = useState("");
@@ -36,7 +36,7 @@ export default function MateActivityImageField({ current }: { current: string | 
   const [remove, setRemove] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const preview = requestedImage || (remove ? "" : current);
+  const imageAttached = Boolean(requestedImage) || (hasImage && !remove);
 
   async function select(event: ChangeEvent<HTMLInputElement>) {
     const target = event.currentTarget;
@@ -76,6 +76,15 @@ export default function MateActivityImageField({ current }: { current: string | 
             setRemove(false);
             input.current?.setCustomValidity("");
           }}>이미지 추가</button>
+        {imageAttached && <button type="button" disabled={loading} className="min-h-9 px-2 text-sm font-semibold text-red-700 underline" onClick={() => {
+          setRequestedImage("");
+          setStagedImage("");
+          setRemove(hasImage);
+          if (input.current) {
+            input.current.value = "";
+            input.current.setCustomValidity("");
+          }
+        }}>이미지 삭제</button>}
       </div>
       <input type="hidden" name="product_image_webp" value={requestedImage.split(",")[1] ?? ""} />
       <input type="hidden" name="remove_product_image" value={remove ? "yes" : "no"} />
@@ -88,19 +97,7 @@ export default function MateActivityImageField({ current }: { current: string | 
           input.current.setCustomValidity("");
         }
       }}>선택 취소</button>}
-      {preview && <div className="flex flex-wrap items-end gap-2">
-        {/* eslint-disable-next-line @next/next/no-img-element -- Local or access-controlled preview. */}
-        <img src={preview} alt="제품 이미지 미리보기" className="max-h-36 max-w-full rounded-md border border-slate-200 object-contain" />
-        <button type="button" disabled={loading} className="min-h-9 px-2 text-sm font-semibold text-red-700 underline" onClick={() => {
-          setRequestedImage("");
-          setStagedImage("");
-          setRemove(Boolean(current));
-          if (input.current) {
-            input.current.value = "";
-            input.current.setCustomValidity("");
-          }
-        }}>이미지 삭제</button>
-      </div>}
+      {imageAttached && <p className="text-xs text-slate-600">{requestedImage ? "회차 설정을 저장하면 사진이 등록됩니다." : "사진 등록됨 · 공개된 회차의 사진은 접수 페이지에 표시됩니다."}</p>}
       {remove && !requestedImage && <p className="text-sm text-slate-600">저장하면 기존 이미지가 삭제됩니다.</p>}
     </div>
   );

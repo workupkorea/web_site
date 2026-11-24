@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
-import { listMateActivities, listMateSubmittedResults, summarizeMateResultMetrics } from "@/lib/mate-activity-server";
-import { MATE_RESULT_METRIC_KEYS, MATE_RESULT_METRICS, mateInstagramResultUrl } from "@/lib/mate-activities";
+import { listMateActivities, listMateSubmittedResults } from "@/lib/mate-activity-server";
+import { mateInstagramResultUrl } from "@/lib/mate-activities";
 import { formatMateDateTime, formatMateShortDate, parseRound } from "@/lib/mate";
 import { listMateRounds, localMatePreview } from "@/lib/mate-server";
 
@@ -43,11 +43,10 @@ export default async function MateResultsPage({ searchParams }: {
   const selected = rounds.data?.find((round) => round.round === requested) ?? rounds.data?.[0];
   const activity = parseRound(search.activity);
   const page = typeof search.page === "string" && /^[1-9][0-9]{0,5}$/.test(search.page) ? Number(search.page) : 1;
-  const [activities, results, metrics] = selected ? await Promise.all([
+  const [activities, results] = selected ? await Promise.all([
     listMateActivities(selected.round),
     listMateSubmittedResults(selected.round, activity, (page - 1) * pageSize, pageSize),
-    summarizeMateResultMetrics(selected.round, activity),
-  ]) : [null, null, null];
+  ]) : [null, null];
   const total = results?.count ?? 0;
   const loadFailed = Boolean(rounds.error || activities?.error || results?.error);
   const activityNames = new Map(activities?.data?.map((item) => [item.activity_no, item.product_name]));
@@ -92,16 +91,6 @@ export default async function MateResultsPage({ searchParams }: {
               <button className={control + " hover:bg-stone-100"}>보기</button>
             </form>
           </div>
-          {metrics?.error ? <p role="status" className="text-sm text-stone-600">게시물 지표 집계를 불러오지 못했습니다.</p> : metrics?.data && total > 0 && (
-            <dl aria-label="입력된 게시물 지표 합계" className="grid grid-cols-3 divide-x divide-stone-200 overflow-hidden rounded-lg border border-stone-200 bg-white">
-              {MATE_RESULT_METRIC_KEYS.map((key) => <div key={key} className="min-w-0 px-3 py-2.5 sm:px-4">
-                <dt className="text-xs font-semibold text-[#52665b]">{MATE_RESULT_METRICS[key]} 합계</dt>
-                <dd className="mt-0.5 break-words text-lg font-black tabular-nums">{metrics.data?.[`${key}_sum`]?.toLocaleString("ko-KR") ?? "—"}</dd>
-                <dd className="text-xs text-[#52665b]">{metrics.data?.[`${key}_count`].toLocaleString("ko-KR")} / {total.toLocaleString("ko-KR")}건 기록</dd>
-              </div>)}
-            </dl>
-          )}
-          {metrics?.data && total > 0 && <p className="text-xs text-[#52665b]">실무자가 기록한 지표를 집계합니다.</p>}
           {!results?.data?.length ? (
             <p className="rounded-lg border border-stone-200 bg-white p-5">{page > 1 ? "이 페이지에는 제출물이 없습니다." : "제출된 인스타그램 링크가 없습니다."}</p>
           ) : [...submissionsByActivity].map(([activityNo, posts]) => (
@@ -122,14 +111,6 @@ export default async function MateResultsPage({ searchParams }: {
                       {" · 제출 "}<time dateTime={row.result_submitted_at} title={formatMateDateTime(row.result_submitted_at)}>{formatMateShortDate(row.result_submitted_at)}</time>
                     </p>
                   </div>
-                  <dl aria-label="게시물 지표" className="grid grid-cols-3 divide-x divide-stone-200 border-t border-stone-200 bg-[#f5f4ef] text-center">
-                    {MATE_RESULT_METRIC_KEYS.map((key) => <div key={key} className="min-w-0 px-2 py-1.5">
-                      <dt className="text-xs text-[#52665b]">{MATE_RESULT_METRICS[key]}</dt>
-                      <dd className="break-words text-sm font-bold tabular-nums">{row.result_metrics?.[key]?.toLocaleString("ko-KR") ?? "—"}</dd>
-                    </div>)}
-                  </dl>
-                  {row.result_metrics_updated_at && <p className="px-4 py-1 text-xs text-[#52665b]">지표 기록 <time dateTime={row.result_metrics_updated_at}
-                    title={formatMateDateTime(row.result_metrics_updated_at)}>{formatMateShortDate(row.result_metrics_updated_at)}</time></p>}
                   <InstagramPost url={row.result_instagram_url} title={`${row.creator.name} ${row.activity_no}회차 제출 게시물`} />
                 </li>;
               })}

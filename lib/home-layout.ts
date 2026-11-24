@@ -12,6 +12,24 @@ export type HomeSectionKey =
   | "youtube"
   | "instagram";
 
+export const HOME_MAIN_EXHIBITION_LABEL = "메인 기획전";
+export const HOME_SUB_EXHIBITION_LABEL = "서브 기획전";
+export const HOME_CLICK_SECTION_MAX_LENGTH = 56;
+export const HOME_CLICK_ELEMENT_MAX_LENGTH = 40;
+
+export function subExhibitionPath(href: string): string | undefined {
+  const path = href.split(/[?#]/, 1)[0].replace(/\/$/, "");
+  return /^\/products\/feature\/[^/]+\/[1-4]$/.test(path) ? path : undefined;
+}
+
+export function exhibitionClickSection(
+  label: typeof HOME_MAIN_EXHIBITION_LABEL | typeof HOME_SUB_EXHIBITION_LABEL,
+  title: string,
+): string {
+  const name = title.replace(/\s+/g, " ").trim().replaceAll(" · ", "·");
+  return name ? `${label} - ${name}`.slice(0, HOME_CLICK_SECTION_MAX_LENGTH) : label;
+}
+
 export type HomeSectionMeta = {
   key: HomeSectionKey;
   label: string; // 관리자에 표시되는 이름

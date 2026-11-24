@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { trackHomeStoreSearch } from "@/lib/track";
 
 // 메인 페이지 슬라이딩 배너(히어로) 바로 아래에 놓이는 전체 폭 매장 검색행.
 // 온라인 판매가 아닌 "매장 방문 유도"가 목적이므로, 검색 시 매장 찾기(/store)로 이동해
@@ -11,13 +12,14 @@ export default function StoreSearchBar() {
 
   const handleSearch = () => {
     const q = query.trim();
+    if (q) trackHomeStoreSearch(q);
     router.push(q ? `/store?q=${encodeURIComponent(q)}` : "/store");
   };
 
   // 어두운 전체 폭 띠 안에 입력+돋보기를 하나의 얇은 선 바로 묶는다. (모바일·PC 공통)
   // PC는 화면이 넓어 바가 가로를 꽉 채우고 높이를 키워 여백이 비어 보이지 않게 한다.
   return (
-    <div className="bg-[#303236]">
+    <div className="bg-[#303236]" data-home-section="매장 검색">
       <div className="flex items-center gap-4 px-5 py-5 md:gap-8 md:px-[70px] md:py-10">
         {/* 모바일 전용: 검색 바 앞 W 로고 마크 */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -41,7 +43,7 @@ export default function StoreSearchBar() {
               autoCorrect="off"
               className="h-12 w-full bg-transparent px-4 text-sm text-white outline-none md:h-16 md:px-7 md:text-base"
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleSearch();
+                if (e.key === "Enter" && !e.nativeEvent.isComposing && !e.repeat) handleSearch();
                 if (e.key === "Escape") { setQuery(""); e.currentTarget.blur(); }
               }}
             />

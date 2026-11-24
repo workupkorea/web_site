@@ -1,6 +1,6 @@
 import { MATE_APPLICATION_GENDERS, MATE_STYLES, normalizeMatePhone, parseRound } from "@/lib/mate";
 import { mateInstagramResultUrl, type MateProductSelectionInput, type MateProfile } from "@/lib/mate-activities";
-import { loadMatePortal, mateParticipantForRequest, saveMateResponse, submitMateActivityResult, updateMateProfile } from "@/lib/mate-activity-server";
+import { loadMatePortal, MateActivityClosedError, mateParticipantForRequest, saveMateResponse, submitMateActivityResult, updateMateProfile } from "@/lib/mate-activity-server";
 
 function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", Vary: "Authorization" } });
@@ -117,7 +117,8 @@ export async function PATCH(request: Request) {
     const response = await saveMateResponse(participant, activity, body.choice, size, color, additional);
     return response ? json({ ok: true, activity_no: activity, response })
       : json({ error: "공개 여부나 제품 옵션이 변경되었습니다. 화면을 새로고침해 주세요." }, 409);
-  } catch {
+  } catch (error) {
+    if (error instanceof MateActivityClosedError) return json({ error: "종료된 회차입니다. 응답과 결과물은 참여 이력에서 확인할 수 있습니다." }, 409);
     return unavailable();
   }
 }

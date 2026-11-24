@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import MateFeedStyleIcon from "@/components/MateFeedStyleIcon";
+import MateActionForm from "@/components/MateActionForm";
 import MateActivityImageField from "@/components/MateActivityImageField";
 import MateActivityProductsField from "@/components/MateActivityProductsField";
 import MateParticipantLink, { issuedMateParticipantPath } from "@/components/MateParticipantLink";
-import MateResultMetricsEditor from "@/components/MateResultMetricsEditor";
 import { isAdmin } from "@/lib/admin-auth";
 import { MATE_GENDERS, MATE_STYLES, formatMateDateTime, formatMatePhone, formatMateShortDate, parseRound } from "@/lib/mate";
 import { listMateActivities, listMateActivityProgress, listMateActivityResponses } from "@/lib/mate-activity-server";
-import { formatMateWon, MATE_SHIPPING_COST, mateActivityCosts, mateActivityImageHref,
-  mateInstagramResultUrl, type MateActivity, type MateActivityProgress } from "@/lib/mate-activities";
+import { formatMateWon, MATE_SHIPPING_COST, mateActivityCosts, mateActivityStatus,
+  mateInstagramResultUrl, mateResponseProducts, type MateActivity, type MateActivityProgress } from "@/lib/mate-activities";
 import { listMateApplications, listMateRounds } from "@/lib/mate-server";
 import ActivitySummary from "./activity-summary";
+import { changeMateActivityClosure } from "./actions";
 
 const panel = "rounded-xl border border-slate-200 bg-white p-4 sm:p-6";
 const button = "inline-flex min-h-11 items-center justify-center rounded-md bg-slate-900 px-4 py-2 font-bold text-white disabled:opacity-60";
@@ -64,13 +66,20 @@ export default async function ActivityManagement({ search, direct = false, embed
     { label: "불참자", choice: "no", color: "bg-slate-100 text-slate-800" },
     { label: "미응답자", choice: undefined, color: "bg-amber-50 text-amber-900" },
   ].map((group) => ({ ...group, members: applicants.filter((app) => byApplicant.get(app.id)?.choice === group.choice) }));
-  const responseColumns = ["이름", "SNS", "연락처", "성별", "피드 스타일", "참여 여부", "응답일", "결과물", "제출일", "개인 링크"];
+  const responseColumns = ["이름", "SNS", "연락처", "성별", "제품명 / 사이즈", "응답일", "결과물", "제출일", "개인 링크"];
   const base = `/admin/mate/activities?round=${round}`;
   function detailPath(activity: number, pageNumber?: number) {
     if (embedded) return embedded.href(activity, pageNumber);
     return `/admin/mate/activities/${round}/${activity}${pageNumber ? `?page=${pageNumber}` : ""}`;
   }
   const Container = embedded ? "div" : "main";
+  const settingsForm = (
+    <MateActivityProductsField key={selected?.activity_no ?? "new"} current={selected} round={round}
+      inline={Boolean(embedded)} nextNumber={Math.min(999, (list[0]?.activity_no ?? 0) + 1)}>
+      <MateActivityImageField key={selected?.product_image_version ?? "no-image"}
+        hasImage={Boolean(selected?.product_image_version)} />
+    </MateActivityProductsField>
+  );
 
   return (
     <Container className={embedded ? "min-w-0 space-y-3 bg-slate-50 p-3 text-slate-900" : "w-full min-w-0 space-y-5 p-4 text-slate-900 sm:p-8"}>
@@ -86,19 +95,51 @@ export default async function ActivityManagement({ search, direct = false, embed
           {list.map((activity) => <Link key={activity.activity_no} href={detailPath(activity.activity_no)} scroll={!embedded} prefetch={embedded ? false : undefined}
             aria-current={selected?.activity_no === activity.activity_no ? "page" : undefined}
             className={selected?.activity_no === activity.activity_no ? button : outline}>
-            {activity.activity_no}회차 · {activity.published ? "공개" : "비공개"}
+            {activity.activity_no}회차 · {mateActivityStatus(activity)}
           </Link>)}
         </nav>}
-        <section className={panel}>
-          <MateActivityProductsField key={selected?.activity_no ?? "new"} current={selected} round={round}
-            inline={Boolean(embedded)} nextNumber={Math.min(999, (list[0]?.activity_no ?? 0) + 1)}>
-            <MateActivityImageField key={selected?.product_image_version ?? "no-image"}
-              current={selected?.product_image_version ? mateActivityImageHref(round, selected.activity_no, selected.product_image_version) : null} />
-          </MateActivityProductsField>
-        </section>
+        {selected ? (
+          <details key={selected.activity_no} className="group rounded-xl border border-slate-200 bg-white">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-2 font-bold hover:bg-slate-50 sm:px-6 [&::-webkit-details-marker]:hidden">
+              {selected.activity_no}회차 설정
+              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
+                className="size-4 text-slate-600 group-open:rotate-180">
+                <path d="m5 8 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </summary>
+            <div className="border-t border-slate-200 px-4 pb-4 pt-3 sm:px-6">{settingsForm}</div>
+          </details>
+        ) : <section className={panel}>{settingsForm}</section>}
         {selected && <section className={panel}>
-          <h2 className="text-lg font-black">{selected.activity_no}회차 응답 · 선정 메이트 {(roster?.count ?? 0).toLocaleString("ko-KR")}명</h2>
-          <p className="mt-1 text-sm text-slate-600">활동 회차를 공개하면 선정 메이트 모두가 각자의 기존 링크에서 제품 정보와 응답란을 확인합니다.</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-black">{selected.activity_no}회차 응답 · 선정 메이트 {(roster?.count ?? 0).toLocaleString("ko-KR")}명</h2>
+              {selected.closed_at && <span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                종료 <time dateTime={selected.closed_at} title={formatMateDateTime(selected.closed_at)}>{formatMateShortDate(selected.closed_at)}</time>
+              </span>}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {!!(progress?.joined ?? responseGroups[0].members.length) && <a
+                href={`/api/admin/mate/invoice?round=${round}&activity=${selected.activity_no}`}
+                className="inline-flex min-h-9 items-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-bold text-emerald-900 hover:bg-emerald-100">송장 다운로드</a>}
+              <MateActionForm action={changeMateActivityClosure} className="flex flex-wrap items-center gap-2"
+                buttonClassName={selected.closed_at
+                  ? "min-h-9 rounded-md border border-slate-300 px-3 text-sm font-bold hover:bg-slate-100"
+                  : "min-h-9 rounded-md border border-amber-300 bg-amber-50 px-3 text-sm font-bold text-amber-900 hover:bg-amber-100"}
+                submitLabel={selected.closed_at ? "마감 해제" : "회차 종료"}>
+                <input type="hidden" name="round" value={round} />
+                <input type="hidden" name="activity_no" value={selected.activity_no} />
+                <input type="hidden" name="mode" value={selected.closed_at ? "open" : "close"} />
+              </MateActionForm>
+            </div>
+          </div>
+          <ul aria-label="피드 스타일 아이콘" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+            {(Object.keys(MATE_STYLES) as (keyof typeof MATE_STYLES)[]).map((style) => (
+              <li key={style} className="inline-flex items-center gap-1">
+                <span aria-hidden="true"><MateFeedStyleIcon style={style} /></span>{MATE_STYLES[style]}
+              </li>
+            ))}
+          </ul>
           {roster?.error || answers?.error ? <p role="alert" className="mt-4 text-sm text-red-700">응답을 불러오지 못했습니다.</p> : applicants.length ? (
             <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
               <table className="w-full min-w-[960px] border-collapse text-center text-sm [&_th]:border-r [&_th]:border-slate-200 [&_th]:px-2 [&_th]:align-middle [&_th]:last:border-r-0 [&_td]:border-r [&_td]:border-slate-200 [&_td]:px-2 [&_td]:align-middle [&_td]:last:border-r-0">
@@ -115,27 +156,28 @@ export default async function ActivityManagement({ search, direct = false, embed
                     const answer = byApplicant.get(app.id);
                     const participantHref = issuedMateParticipantPath(app);
                     const result = answer?.result_instagram_url && mateInstagramResultUrl(answer.result_instagram_url);
+                    const products = mateResponseProducts(selected.product_name, answer);
                     return <tr key={app.id}>
                       <th scope="row" className="whitespace-nowrap px-3 py-1 font-bold">
-                        {participantHref ? <a href={participantHref} target="_blank" rel="noreferrer" className="text-blue-800 underline underline-offset-2">{app.name}</a> : app.name}
+                        <span className="inline-flex items-center gap-1.5">
+                          {app.feed_styles.map((style) => <MateFeedStyleIcon key={style} style={style} />)}
+                          {participantHref ? <a href={participantHref} target="_blank" rel="noreferrer" className="text-blue-800 underline underline-offset-2">{app.name}</a> : app.name}
+                        </span>
                       </th>
                       <td className="whitespace-nowrap px-3 py-1">
                         <a href={`https://www.instagram.com/${encodeURIComponent(app.sns_id)}/`} target="_blank" rel="noreferrer" className="text-blue-800 underline underline-offset-2">@{app.sns_id}</a>
                       </td>
                       <td className="whitespace-nowrap px-4 py-1">{formatMatePhone(app.phone)}</td>
                       <td className="whitespace-nowrap px-4 py-1">{MATE_GENDERS[app.gender]}</td>
-                      <td className="px-4 py-1">{app.feed_styles.map((style) => MATE_STYLES[style]).join(", ")}</td>
-                      <td className="px-4 py-1">{answer?.choice === "yes" ? "참여" : answer?.choice === "no" ? "불참" : "응답 대기"}</td>
+                      <td className="px-4 py-1">{products.length ? <ul className="space-y-0.5">
+                        {products.map((product, index) => <li key={index} className="break-keep">
+                          {product.name} <span className="whitespace-nowrap font-semibold text-slate-600">· {product.size || "미입력"}</span>
+                        </li>)}
+                      </ul> : "—"}</td>
                       <td className="whitespace-nowrap py-1 tabular-nums">{answer?.updated_at
                         ? <time dateTime={answer.updated_at} title={formatMateDateTime(answer.updated_at)}>{formatMateShortDate(answer.updated_at)}</time> : "—"}</td>
-                      <td className="whitespace-nowrap px-3 py-1">{result && answer
-                        ? <div className="flex flex-wrap items-center justify-center gap-x-1">
-                          <a href={result} target="_blank" rel="noreferrer" className="text-blue-800 underline">인스타그램</a>
-                          <MateResultMetricsEditor key={result} answer={{
-                            round: answer.round, activity_no: answer.activity_no, application_id: answer.application_id,
-                            result_instagram_url: answer.result_instagram_url, result_metrics: answer.result_metrics,
-                          }} />
-                        </div> : "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-1">{result
+                        ? <a href={result} target="_blank" rel="noreferrer" className="text-blue-800 underline">인스타그램</a> : "—"}</td>
                       <td className="whitespace-nowrap py-1 tabular-nums">{answer?.result_submitted_at
                         ? <time dateTime={answer.result_submitted_at} title={formatMateDateTime(answer.result_submitted_at)}>{formatMateShortDate(answer.result_submitted_at)}</time> : "—"}</td>
                       <td className="px-3 py-1 [&>div]:justify-center [&_button]:md:min-h-7 [&_button]:md:px-2"><MateParticipantLink application={app} showOpenLink={false} /></td>

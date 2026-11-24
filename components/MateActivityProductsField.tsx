@@ -85,7 +85,9 @@ export default function MateActivityProductsField({ current, nextNumber, round, 
       buttonClassName="inline-flex min-h-10 items-center rounded-md bg-slate-900 px-3 text-sm font-bold text-white disabled:opacity-50"
       submitLabel={current ? "회차 설정 저장" : "활동 회차 등록"}
       successContent={inline && !current ? <p>회차 목록에서 등록한 회차를 열 수 있습니다.</p> : undefined}
-      submitTitle={<h2 className="text-lg font-black">{current ? `${current.activity_no}회차 설정` : "새 활동 회차"}</h2>}
+      submitTitle={current
+        ? <h2 className="grow"><span className="sr-only">{current.activity_no}회차 설정 편집</span></h2>
+        : <h2 className="text-lg font-black">새 활동 회차</h2>}
       submitLeading={<>
         <label className="inline-flex min-h-10 items-center gap-2 whitespace-nowrap text-sm font-bold">
           <input type="checkbox" name="published" value="yes" defaultChecked={current?.published} />선정 메이트 전체에게 공개

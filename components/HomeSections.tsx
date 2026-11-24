@@ -10,6 +10,7 @@ import HomeYoutubeLongform from "@/components/HomeYoutubeLongform";
 import StoreSearchBar from "@/components/StoreSearchBar";
 import HomeMagazine from "@/components/HomeMagazine";
 import type { HomeMagazineConfig } from "@/lib/home-magazine";
+import { HOME_SUB_EXHIBITION_LABEL } from "@/lib/home-layout";
 import type { HeroFilter, HomeSectionKey, HomeSectionLayout } from "@/lib/home-layout";
 
 // 메인 페이지의 섹션 렌더링(배치 순서·노출 반영). 실제 메인(app/page.tsx)과
@@ -38,7 +39,7 @@ const SECTION_NAMES: Record<HomeSectionKey, string> = {
   brandLogos: "브랜드 로고",
   newArrivals: "신상품",
   category: "카테고리",
-  editorial: "에디토리얼",
+  editorial: HOME_SUB_EXHIBITION_LABEL,
   people: "피플",
   youtube: "유튜브",
   instagram: "인스타그램",

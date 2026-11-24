@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { seoulDate, type MateApplication, type MateRound } from "./mate";
-import type { MateActivity, MateResponse } from "./mate-activities";
+import type { MateActivity, MateActivityProgress, MateResponse } from "./mate-activities";
 
 const file = join(process.cwd(), "generated", "mate-preview.json");
 
@@ -11,6 +11,7 @@ type Preview = {
   applications: MateApplication[];
   activities: (MateActivity & { product_image_webp?: string | null })[];
   responses: MateResponse[];
+  activityAnalyses?: (MateActivityProgress & { round: number })[];
   activityDemoVersion: 2;
 };
 

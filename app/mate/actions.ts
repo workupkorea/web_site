@@ -36,8 +36,8 @@ export async function submitMateApplication(_: MateActionState, form: FormData):
   if (!/^\d{2,3}(\.\d)?$/.test(height) || Number(height) < 50 || Number(height) > 260) {
     return { error: "키는 50~260cm 범위에서 입력해 주세요." };
   }
-  if (Array.from(message).length < 10) return { error: "하고 싶은 말을 10자 이상 입력해 주세요." };
-  if (message.length > 1500) return { error: "하고 싶은 말은 1,500자까지 입력할 수 있습니다." };
+  if (Array.from(message).length < 10) return { error: "지원 내용을 10자 이상 입력해 주세요." };
+  if (message.length > 1500) return { error: "지원 내용은 1,500자까지 입력할 수 있습니다." };
 
   const data = await storeMateApplication({
     round,

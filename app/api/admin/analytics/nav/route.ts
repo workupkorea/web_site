@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
+import { getEditorialsForClickAnalytics } from "@/lib/editorial-blocks";
+import { HOME_CLICK_ELEMENT_MAX_LENGTH, HOME_MAIN_EXHIBITION_LABEL, HOME_SUB_EXHIBITION_LABEL, exhibitionClickSection, subExhibitionPath } from "@/lib/home-layout";
 
 const KST_MS = 9 * 3600 * 1000;
 const DAY_MS = 86400000;
@@ -63,6 +65,48 @@ const topList = (m: Map<string, number>, limit: number) =>
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([key, count]) => ({ key, count }));
+
+const legacyExhibitionGroups = new Set(["에디토리얼", HOME_MAIN_EXHIBITION_LABEL, HOME_SUB_EXHIBITION_LABEL]);
+const legacyExhibitionKey = (label: string, href: string) =>
+  JSON.stringify([label.replace(/\s+/g, " ").trim().slice(0, HOME_CLICK_ELEMENT_MAX_LENGTH), href === "#magazine" ? "/magazine" : href]);
+
+async function getExhibitionSections() {
+  const sections = new Map<string, string | null>();
+  const subPaths = new Map<string, Set<string>>();
+  const { all, current } = await getEditorialsForClickAnalytics();
+  const defaultSections = [...new Set(current.flatMap((editorial) => editorial.sections.flatMap((card) =>
+    card.title.trim() ? [exhibitionClickSection(HOME_SUB_EXHIBITION_LABEL, card.title)] : [],
+  )))].slice(0, 4);
+  const addPath = (section: string, path: string) => {
+    let paths = subPaths.get(section);
+    if (!paths) subPaths.set(section, (paths = new Set()));
+    paths.add(path);
+  };
+  const register = (label: string, href: string, section: string) => {
+    const key = legacyExhibitionKey(label, href);
+    const previous = sections.get(key);
+    sections.set(key, previous === undefined || previous === section ? section : null);
+  };
+  for (const editorial of all) {
+    if (editorial.title.trim() && editorial.heroCtaHref) {
+      register(editorial.heroCtaLabel || "자세히 보기", editorial.heroCtaHref,
+        exhibitionClickSection(HOME_MAIN_EXHIBITION_LABEL, editorial.title));
+    }
+    for (const card of editorial.sections) {
+      if (!card.title.trim()) continue;
+      const section = exhibitionClickSection(HOME_SUB_EXHIBITION_LABEL, card.title);
+      const href = card.cardType === "image" ? card.link : card.detailHref;
+      const path = href && subExhibitionPath(href);
+      if (path) addPath(section, path);
+      if (card.link) register(card.title, card.link, section);
+      if (card.detailHref) {
+        register(card.title, card.detailHref, section);
+        register(`${card.title} 스타일 보기`, card.detailHref, section);
+      }
+    }
+  }
+  return { sections, subPaths, defaultSections, addPath };
+}
 
 // GET /api/admin/analytics/nav?from=YYYY-MM-DD&to=YYYY-MM-DD[&menu=메뉴명]   (from/to 없으면 전체 기간)
 export async function GET(req: Request) {
@@ -247,26 +291,92 @@ export async function GET(req: Request) {
     // 메인 페이지 클릭 (메뉴 선택과 무관, 기간 필터만 적용). 라벨은 "섹션 · 요소명"
     const homeSections = new Map<string, number>();
     const homeItems = new Map<string, { section: string; label: string; href: string; count: number }>();
+    const otherItems = new Map<string, number>();
+    const storeSearchKeywords = new Map<string, number>();
+    const productsByPath = new Map<string, Map<string, { key: string; name: string; count: number }>>();
+    let storeSearchTotal = 0;
     let homeTotal = 0;
     const homeVisitors = new Set<string>();
+    const exhibitions = await getExhibitionSections();
     for (const e of events) {
+      if (e.event_type === "exhibition_product_click") {
+        const path = subExhibitionPath(e.path ?? "");
+        if (!path) continue;
+        let products = productsByPath.get(path);
+        if (!products) productsByPath.set(path, (products = new Map()));
+        const key = JSON.stringify([e.nav_label, e.href]);
+        const product = products.get(key);
+        if (product) product.count++;
+        else products.set(key, { key, name: e.nav_label, count: 1 });
+        continue;
+      }
+      if (e.event_type === "store_search" && e.path === "/") {
+        const keyword = e.nav_label.trim();
+        if (keyword) {
+          countMap(storeSearchKeywords, keyword);
+          storeSearchTotal++;
+        }
+        continue;
+      }
       if (e.event_type !== "home_click") continue;
       homeTotal++;
       if (e.visitor_id) homeVisitors.add(e.visitor_id);
       const sep = e.nav_label.indexOf(" · ");
-      const section = sep > 0 ? e.nav_label.slice(0, sep) : "기타";
+      const recordedSection = sep > 0 ? e.nav_label.slice(0, sep) : "기타";
       const label = sep > 0 ? e.nav_label.slice(sep + 3) : e.nav_label;
-      countMap(homeSections, section);
       const href = e.href ?? "";
-      const k = `${e.nav_label}|${href}`;
+      let section = recordedSection;
+      if (section === "기타" && label === "매장 검색" && !href) section = "매장 검색";
+      if (legacyExhibitionGroups.has(recordedSection)) {
+        const namedSection = exhibitions.sections.get(legacyExhibitionKey(label, href));
+        const isMagazineCta = label === "매거진 보기" && (href === "/magazine" || href === "#magazine");
+        // 기존 기록에서 카드의 스타일 보기 링크는 요소명에 제목을 포함한다.
+        const styleSuffix = " 스타일 보기";
+        const isSubStyleLink = subExhibitionPath(href) && label.endsWith(styleSuffix);
+        if (namedSection && (recordedSection !== HOME_MAIN_EXHIBITION_LABEL || namedSection.startsWith(HOME_MAIN_EXHIBITION_LABEL))) {
+          section = namedSection;
+        } else if (recordedSection === HOME_MAIN_EXHIBITION_LABEL || isMagazineCta) {
+          section = HOME_MAIN_EXHIBITION_LABEL;
+        } else if (isSubStyleLink) {
+          section = exhibitionClickSection(HOME_SUB_EXHIBITION_LABEL, label.slice(0, -styleSuffix.length));
+        } else {
+          section = HOME_SUB_EXHIBITION_LABEL;
+        }
+      }
+      countMap(homeSections, section);
+      if (section === HOME_SUB_EXHIBITION_LABEL || section.startsWith(`${HOME_SUB_EXHIBITION_LABEL} - `)) {
+        const path = subExhibitionPath(href);
+        if (path) exhibitions.addPath(section, path);
+      }
+      if (section === "기타") countMap(otherItems, label || "(이름 없음)");
+      const k = JSON.stringify([section, label, href]);
       const cur = homeItems.get(k);
       if (cur) cur.count++;
       else homeItems.set(k, { section, label, href, count: 1 });
     }
+    const exhibitionsBySection = Object.fromEntries(
+      [...exhibitions.subPaths].filter(([section]) => homeSections.has(section) || exhibitions.defaultSections.includes(section)).map(([section, paths]) => {
+        const products = new Map<string, { key: string; name: string; count: number }>();
+        let total = 0;
+        for (const path of paths) {
+          for (const item of productsByPath.get(path)?.values() ?? []) {
+            total += item.count;
+            const product = products.get(item.key);
+            if (product) product.count += item.count;
+            else products.set(item.key, { ...item });
+          }
+        }
+        return [section, { total, products: [...products.values()].sort((a, b) => b.count - a.count) }];
+      }),
+    );
     const home = {
       total: homeTotal,
       visitors: homeVisitors.size,
-      sections: topList(homeSections, 12),
+      sections: topList(homeSections, homeSections.size),
+      exhibitions: exhibitionsBySection,
+      defaultExhibitions: exhibitions.defaultSections,
+      otherItems: topList(otherItems, 3),
+      storeSearch: { total: storeSearchTotal, unique: storeSearchKeywords.size, keywords: topList(storeSearchKeywords, 20) },
       items: [...homeItems.values()].sort((a, b) => b.count - a.count).slice(0, 15),
     };
 

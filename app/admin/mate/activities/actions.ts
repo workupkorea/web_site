@@ -5,10 +5,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/admin-auth";
 import { parseRound, readMateField, type MateActionState } from "@/lib/mate";
-import { MATE_RESULT_METRIC_KEYS, mateInstagramResultUrl, mateSizeLabels, validMateProductUrl,
-  type MateAdminActivityProduct, type MateInventoryProduct, type MateResultMetrics } from "@/lib/mate-activities";
+import { mateSizeLabels, validMateProductUrl, type MateAdminActivityProduct, type MateInventoryProduct } from "@/lib/mate-activities";
 import { createAdminClient } from "@/lib/supabase-server";
-import { storeMateActivity, storeMateResultMetrics, type MateActivityImageChange } from "@/lib/mate-activity-server";
+import { setMateActivityClosed, storeMateActivity, type MateActivityImageChange } from "@/lib/mate-activity-server";
 
 export async function searchMateInventory(value: string): Promise<{ items: MateInventoryProduct[]; error?: string }> {
   if (!(await isAdmin())) return { items: [], error: "관리자 로그인이 필요합니다." };
@@ -111,6 +110,7 @@ async function saveActivity(form: FormData, inline: boolean): Promise<MateAction
   revalidatePath("/admin/mate");
   revalidatePath("/admin/mate/activities");
   revalidatePath("/admin/mate/results");
+  revalidatePath(`/mate/${round}`);
   const path = `/admin/mate/activities/${round}/${activity}`;
   revalidatePath(path);
   if (create) redirect(inline ? `/admin/mate?round=${round}&activity=${activity}` : path);
@@ -124,26 +124,15 @@ export async function saveInlineMateActivity(_: MateActionState, form: FormData)
   return saveActivity(form, true);
 }
 
-export async function saveMateResultMetrics(_: MateActionState, form: FormData): Promise<MateActionState> {
+export async function changeMateActivityClosure(_: MateActionState, form: FormData): Promise<MateActionState> {
   if (!(await isAdmin())) return { error: "관리자 로그인이 필요합니다." };
   const round = parseRound(form.get("round"));
   const activity = parseRound(form.get("activity_no"));
-  const id = readMateField(form, "application_id");
-  const url = readMateField(form, "result_url");
-  if (!round || !activity || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id) || !mateInstagramResultUrl(url)) {
-    return { error: "제출한 게시물을 확인해 주세요." };
-  }
-  const counts: MateResultMetrics = { views: null, likes: null, comments: null };
-  for (const key of MATE_RESULT_METRIC_KEYS) {
-    const raw = readMateField(form, key);
-    if (raw && !/^\d{1,9}$/.test(raw)) return { error: "각 지표는 0 이상의 정수로 입력해 주세요." };
-    counts[key] = raw ? Number(raw) : null;
-  }
-  if (!(await storeMateResultMetrics(round, activity, id, url, counts))) {
-    return { error: "저장하지 못했습니다. 제출 링크가 바뀌었다면 화면을 새로고침해 주세요." };
-  }
+  const mode = form.get("mode");
+  if (!round || !activity || (mode !== "close" && mode !== "open")) return { error: "활동 회차를 확인해 주세요." };
+  if (!(await setMateActivityClosed(round, activity, mode === "close"))) return { error: "회차 상태를 저장하지 못했습니다." };
   revalidatePath("/admin/mate");
-  revalidatePath("/admin/mate/results");
+  revalidatePath("/admin/mate/overview");
   revalidatePath(`/admin/mate/activities/${round}/${activity}`);
-  return { success: "지표를 저장했습니다." };
+  return { success: mode === "close" ? "회차를 종료했습니다." : "접수 마감을 해제했습니다." };
 }

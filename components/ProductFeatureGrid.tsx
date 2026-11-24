@@ -1,6 +1,7 @@
 import { cleanSizeLabel } from "@/lib/sizeLabel";
 import type { DetailProduct } from "@/lib/editorial-blocks";
 import { ikSrc } from "@/lib/imageSrc";
+import ExhibitionProductLink from "@/components/ExhibitionProductLink";
 
 // 기획전 상세페이지 하단 — 제품을 "사진 + 제품명" 카드로 한눈에 보여주는 간결한 목록(중앙 정렬).
 // 사이즈·품번·상세정보는 여기서 다루지 않는다. 예전 제품 상세(/products/[id])로 가는 링크는 두지 않는다.
@@ -10,10 +11,12 @@ export default function ProductFeatureGrid({
   products,
   initialProductId,
   initialItemId,
+  trackingPath,
 }: {
   products: DetailProduct[];
   initialProductId?: string;
   initialItemId?: string;
+  trackingPath?: string;
 }) {
   const isInitial = (p: DetailProduct) =>
     initialItemId ? p.itemId === initialItemId : !!initialProductId && p.productId === initialProductId;
@@ -56,15 +59,14 @@ export default function ProductFeatureGrid({
           <li key={`${p.productId}-${i}`}>
             {safeStoreUrl ? (
               // 카드 전체가 스마트스토어 링크 (별도 버튼 없음)
-              <a
+              <ExhibitionProductLink
                 href={safeStoreUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${p.name} 스마트스토어에서 보기`}
+                name={p.name}
+                trackingPath={trackingPath}
                 className={`${cardCls} transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#303236]`}
               >
                 {body}
-              </a>
+              </ExhibitionProductLink>
             ) : (
               <div className={cardCls}>{body}</div>
             )}

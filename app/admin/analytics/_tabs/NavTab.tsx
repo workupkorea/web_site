@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { HOME_SUB_EXHIBITION_LABEL } from "@/lib/home-layout";
 
 type NavRow = {
   label: string;
@@ -10,7 +11,6 @@ type NavRow = {
   dwellSamples: number;
   avgDwellSec: number | null;
 };
-type Funnel = { visitors: number; storeViewed: number; converted: number; actions: { key: string; label: string; visitors: number }[] };
 type DeviceRow = { key: string; label: string; clicks: number; visitors: number; converted: number | null; avgDwellSec: number | null };
 type KeyCount = { key: string; count: number };
 type Detail = {
@@ -23,7 +23,6 @@ type Detail = {
   trend: { key: string; clicks: number }[];
   heat: number[][];
   pages: KeyCount[];
-  funnel: Funnel | null;
   devices: DeviceRow[];
 };
 type Resp = {
@@ -31,7 +30,15 @@ type Resp = {
   totals: { clicks: number; visitors: number; prevClicks: number | null; prevVisitors: number | null };
   rows: NavRow[];
   meta: { deviceAvailable: boolean; conversionAvailable: boolean };
-  home: { total: number; visitors: number; sections: KeyCount[]; items: { section: string; label: string; href: string; count: number }[] };
+  home: {
+    total: number;
+    visitors: number;
+    sections: KeyCount[];
+    exhibitions: Record<string, { total: number; products: { key: string; name: string; count: number }[] }>;
+    defaultExhibitions: string[];
+    otherItems?: KeyCount[];
+    storeSearch?: { total: number; unique: number; keywords: KeyCount[] };
+  };
   detail: Detail;
 };
 
@@ -46,6 +53,7 @@ const PRESETS = [
 ];
 const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 const ACCENT = "#E5541B";
+const exhibitionPanelId = (section: string) => `exhibition-products-${encodeURIComponent(section)}`;
 
 // 관리자는 한국 시간 기준으로 본다 (API와 동일)
 const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
@@ -85,31 +93,80 @@ function Delta({ cur, prev }: { cur: number; prev: number | null }) {
   );
 }
 
-function BarList({ items, labels, total }: { items: KeyCount[]; labels?: Record<string, string>; total: number }) {
+function BarList({
+  items, labels, total, descriptions, selection, showClickShare = false,
+}: {
+  items: KeyCount[];
+  labels?: Record<string, string>;
+  total: number;
+  descriptions?: Record<string, string>;
+  selection?: { keys: string[]; active: string; onChange: (key: string) => void };
+  showClickShare?: boolean;
+}) {
   if (!items.length) return <p className="text-[13px] text-gray-400">데이터가 없습니다.</p>;
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
     <ul className="space-y-2">
-      {items.map((i) => (
-        <li key={i.key} className="text-[13px]">
-          <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="font-semibold text-gray-800 truncate">{labels?.[i.key] ?? (i.key || "미수집")}</span>
-            <span className="tabular-nums text-gray-500 shrink-0">
-              {i.count.toLocaleString()} <span className="text-gray-300">· {total > 0 ? ((i.count / total) * 100).toFixed(0) : 0}%</span>
+      {items.map((i) => {
+        const selectable = selection?.keys.includes(i.key);
+        const selected = selection?.active === i.key;
+        const content = (
+          <>
+            <span className="flex items-center justify-between gap-2 mb-1">
+              <span className="min-w-0 break-keep font-semibold text-gray-800">{labels?.[i.key] ?? (i.key || "미수집")}</span>
+              <span className="flex shrink-0 items-center gap-1 tabular-nums text-gray-500">
+                {i.count.toLocaleString()}{showClickShare && "회"}
+                <span className={showClickShare ? "font-bold text-gray-800" : "text-gray-500"}>· {pctOf(i.count, total).toFixed(showClickShare ? 1 : 0)}%</span>
+                {selectable && <span aria-hidden="true" className="ml-1 text-base leading-none text-[#B74416]">›</span>}
+              </span>
             </span>
-          </div>
-          <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-            <div className="h-full" style={{ width: `${(i.count / max) * 100}%`, background: ACCENT }} />
-          </div>
-        </li>
-      ))}
+            <span className="block h-1.5 rounded-full bg-gray-100 overflow-hidden" aria-hidden="true">
+              <span className="block h-full" style={{ width: `${pctOf(i.count, showClickShare ? total : max)}%`, background: ACCENT }} />
+            </span>
+          </>
+        );
+        return (
+          <li key={i.key} className="text-[13px]">
+            {selectable ? (
+              <button
+                type="button"
+                aria-pressed={selected}
+                aria-controls={exhibitionPanelId(i.key)}
+                onClick={() => selection?.onChange(selected ? "" : i.key)}
+                className={`block w-full min-h-11 rounded-lg px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#B74416] ${selected ? "bg-orange-50 ring-1 ring-orange-300" : "hover:bg-gray-50"}`}
+              >
+                {content}
+              </button>
+            ) : selection ? (
+              <div className="flex min-h-11 flex-col justify-center px-2 py-1.5">{content}</div>
+            ) : content}
+            {descriptions?.[i.key] && (
+              <p className={`mt-1 break-keep text-[11px] leading-relaxed text-gray-500 ${selection ? "px-2" : ""}`}>{descriptions[i.key]}</p>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }
 
-function Card({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
+function Card({ title, children, collapsible = false }: { title: string; children: React.ReactNode; collapsible?: boolean }) {
+  if (collapsible) {
+    return (
+      <details className="group rounded-2xl border border-gray-100 bg-white">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-2xl px-4 py-2 text-[13px] font-bold text-gray-900 hover:bg-gray-50 [&::-webkit-details-marker]:hidden">
+          {title}
+          <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="size-4 shrink-0 text-gray-500 group-open:rotate-180">
+            <path d="m5 8 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </summary>
+        <div className="px-4 pb-4">{children}</div>
+      </details>
+    );
+  }
+
   return (
-    <div className={`bg-white rounded-2xl border border-gray-100 p-4 ${className}`}>
+    <div className="bg-white rounded-2xl border border-gray-100 p-4">
       <h3 className="text-[13px] font-bold text-gray-900 mb-3">{title}</h3>
       {children}
     </div>
@@ -118,11 +175,12 @@ function Card({ title, children, className = "" }: { title: string; children: Re
 
 // 마케팅/분석 → 메뉴 분석: 기간 지정, 메뉴별 상세(추이·요일/시간대·유입 페이지·신규/재방문)
 export default function NavTab() {
-  const today = useMemo(kstToday, []);
+  const [today] = useState(kstToday);
   const [from, setFrom] = useState(today); // 기본값: 오늘
   const [to, setTo] = useState(today);
   const [all, setAll] = useState(false);
   const [menu, setMenu] = useState("");
+  const [exhibition, setExhibition] = useState("");
   const [data, setData] = useState<Resp | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -190,8 +248,28 @@ export default function NavTab() {
   const heatMax = Math.max(1, ...(detail?.heat.flat() ?? [0]));
   const trendMax = Math.max(1, ...(detail?.trend.map((t) => t.clicks) ?? [0]));
   const unit = data?.range.unit ?? "day";
-  const funnel = detail?.funnel ?? null;
   const conversionOn = data?.meta.conversionAvailable ?? false;
+  const storeSearch = data?.home.storeSearch;
+  const exhibitionSections = (data?.home.sections ?? [])
+    .filter(({ key }) => key === HOME_SUB_EXHIBITION_LABEL || key.startsWith(`${HOME_SUB_EXHIBITION_LABEL} - `))
+    .map(({ key }) => key);
+  const selectedExhibition = exhibitionSections.includes(exhibition) ? exhibition : "";
+  const defaultExhibitions = [...new Set([...(data?.home.defaultExhibitions ?? []), ...exhibitionSections])].slice(0, 4);
+  const displayExhibitions = selectedExhibition && !defaultExhibitions.includes(selectedExhibition)
+    ? [...defaultExhibitions, selectedExhibition]
+    : defaultExhibitions;
+
+  useEffect(() => {
+    if (!selectedExhibition) return;
+    document.getElementById(exhibitionPanelId(selectedExhibition))?.scrollIntoView({ block: "nearest" });
+  }, [selectedExhibition]);
+  const otherItems = data?.home.otherItems ?? [];
+  const otherCount = data?.home.sections.find((section) => section.key === "기타")?.count ?? 0;
+  const otherRemaining = otherCount - otherItems.reduce((sum, item) => sum + item.count, 0);
+  const otherDetails = otherItems.map((item) => `${item.key} ${item.count.toLocaleString()}회`).join(" · ");
+  const otherDescription = otherDetails && otherRemaining > 0
+    ? `${otherDetails} · 외 ${otherRemaining.toLocaleString()}회`
+    : otherDetails;
 
   // 4분면 진단: 체류 측정이 3건 이상인 메뉴만 대상 (표본 부족 시 오판 방지)
   const quadByLabel = useMemo(() => {
@@ -207,29 +285,6 @@ export default function NavTab() {
     }
     return m;
   }, [rows]);
-
-  // 자동 인사이트: 이미 집계된 값으로 핵심 문장 생성
-  const insights = useMemo(() => {
-    const out: { tone: "good" | "warn" | "info"; text: string }[] = [];
-    if (!rows.length || !totals) return out;
-    const grow = rows
-      .filter((r) => r.prevClicks != null && r.prevClicks >= 5 && r.clicks >= 5)
-      .map((r) => ({ r, pct: ((r.clicks - (r.prevClicks as number)) / (r.prevClicks as number)) * 100 }))
-      .sort((a, b) => b.pct - a.pct);
-    if (grow[0] && grow[0].pct >= 20) out.push({ tone: "good", text: `'${grow[0].r.label}' 클릭이 직전 기간보다 ${grow[0].pct.toFixed(0)}% 늘었습니다.` });
-    const last = grow[grow.length - 1];
-    if (last && last.pct <= -20) out.push({ tone: "warn", text: `'${last.r.label}' 클릭이 직전 기간보다 ${Math.abs(last.pct).toFixed(0)}% 줄었습니다.` });
-    const baits = rows.filter((r) => quadByLabel.get(r.label) === "bait");
-    if (baits.length) out.push({ tone: "warn", text: `'${baits[0].label}'은(는) 클릭이 많지만 체류가 짧습니다(${fmtDwell(baits[0].avgDwellSec)}). 이동 페이지 내용을 점검해 보세요.` });
-    const gems = rows.filter((r) => quadByLabel.get(r.label) === "gem");
-    if (gems.length) out.push({ tone: "info", text: `'${gems[0].label}'은(는) 클릭은 적지만 오래 머뭅니다. 노출 위치나 문구를 눈에 띄게 하면 효과가 큽니다.` });
-    const convRows = rows.filter((r) => r.converted != null && r.visitors >= 5).map((r) => ({ r, rate: pctOf(r.converted as number, r.visitors) })).sort((a, b) => b.rate - a.rate);
-    if (convRows[0] && convRows[0].rate > 0) out.push({ tone: "good", text: `매장 전환(길찾기·전화·카톡)이 가장 높은 메뉴는 '${convRows[0].r.label}'(방문자 ${convRows[0].rate.toFixed(1)}%)입니다.` });
-    const mob = detail?.devices.find((d) => d.key === "mobile");
-    const devTotal = detail?.devices.reduce((n, d) => n + d.clicks, 0) ?? 0;
-    if (mob && devTotal >= 20) out.push({ tone: "info", text: `메뉴 클릭의 ${pctOf(mob.clicks, devTotal).toFixed(0)}%가 모바일에서 발생했습니다.` });
-    return out.slice(0, 5);
-  }, [rows, totals, quadByLabel, detail]);
 
   const downloadCsv = () => {
     if (!data) return;
@@ -318,20 +373,6 @@ export default function NavTab() {
             </div>
           </div>
 
-          {/* 자동 인사이트 */}
-          {insights.length > 0 && (
-            <Card title="핵심 요약">
-              <ul className="space-y-1.5">
-                {insights.map((i, idx) => (
-                  <li key={idx} className="flex gap-2 text-[13px] text-gray-700 leading-relaxed">
-                    <span className={`mt-[7px] w-1.5 h-1.5 rounded-full shrink-0 ${i.tone === "good" ? "bg-emerald-500" : i.tone === "warn" ? "bg-red-500" : "bg-gray-400"}`} aria-hidden />
-                    <span>{i.text}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
-
           {/* 메뉴 표 */}
           <div className="bg-white rounded-2xl border border-gray-100 overflow-x-auto">
             {!data && loading ? (
@@ -407,24 +448,91 @@ export default function NavTab() {
               </table>
             )}
           </div>
-          {rows.length > 0 && (
-            <div className="-mt-2 space-y-1 text-[12px] text-gray-400 leading-relaxed">
-              <p>메뉴 행을 누르면 아래 상세 분석이 그 메뉴 기준으로 바뀝니다.</p>
-              {conversionOn && <p>매장 전환율 = 그 메뉴를 누른 방문자 중, 이후 길찾기·전화·카카오톡 상담을 누른 방문자 비율입니다.</p>}
-              {quadByLabel.size > 0 && (
-                <p>
-                  진단은 클릭 수와 평균 체류시간을 각각 중앙값과 비교해 나눕니다(체류 측정 3건 이상인 메뉴만):{" "}
-                  {(Object.keys(QUADS) as Quad[]).map((k) => `${QUADS[k].label}(${QUADS[k].desc})`).join(" · ")}
-                </p>
-              )}
-            </div>
+
+          {data && (
+            <>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <h2 className="text-[15px] font-extrabold text-gray-900">메인 페이지 분석 (본문 클릭)</h2>
+                {!!data?.home.total && (
+                  <span className="text-[12px] text-gray-400">
+                    총 {data.home.total.toLocaleString()}회 · 방문자 {data.home.visitors.toLocaleString()}명 (상단/하단 메뉴 제외)
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-3">
+                <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                  {!data?.home.total ? (
+                    <p className="text-[13px] text-gray-400">이 기간에 기록된 메인 페이지 클릭이 없습니다. (수집은 배포 후부터 시작됩니다)</p>
+                  ) : (
+                    <BarList
+                      items={data.home.sections}
+                      total={data.home.total}
+                      descriptions={{ 기타: otherDescription }}
+                      selection={{ keys: exhibitionSections, active: selectedExhibition, onChange: setExhibition }}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 space-y-3">
+                  {displayExhibitions.length > 0 && (
+                    <section aria-label="서브 기획전 상품 클릭 상세" className="space-y-3">
+                      {displayExhibitions.map((section) => {
+                        const exhibitionDetail = data.home.exhibitions?.[section];
+                        const selected = selectedExhibition === section;
+                        return (
+                          <div
+                            key={section}
+                            id={exhibitionPanelId(section)}
+                            className={`scroll-m-20 rounded-2xl ${selected ? "ring-1 ring-orange-400" : ""}`}
+                          >
+                            <Card title={section}>
+                              {exhibitionDetail?.total ? (
+                                <>
+                                  <p className="mb-3 text-[12px] text-gray-500">
+                                    상품 클릭 {exhibitionDetail.total.toLocaleString()}회 · 기획전 상세의 전체 상품 클릭 기준
+                                  </p>
+                                  <BarList
+                                    items={exhibitionDetail.products}
+                                    labels={Object.fromEntries(exhibitionDetail.products.map(({ key, name }) => [key, name]))}
+                                    total={exhibitionDetail.total}
+                                    showClickShare
+                                  />
+                                </>
+                              ) : (
+                                <p className="text-[13px] text-gray-500">
+                                  {exhibitionDetail
+                                    ? "이 기간에 기록된 상품 클릭이 없습니다."
+                                    : "연결된 기획전 상세 페이지를 확인할 수 없습니다."}
+                                </p>
+                              )}
+                            </Card>
+                          </div>
+                        );
+                      })}
+                    </section>
+                  )}
+                  <Card title="매장 검색 키워드">
+                    {storeSearch?.total ? (
+                      <>
+                        <p className="mb-3 text-[12px] text-gray-500">
+                          검색 {storeSearch.total.toLocaleString()}회 · 키워드 {storeSearch.unique.toLocaleString()}개
+                          {storeSearch.unique > storeSearch.keywords.length && ` · 상위 ${storeSearch.keywords.length}개 표시`}
+                        </p>
+                        <BarList items={storeSearch.keywords} total={storeSearch.total} />
+                      </>
+                    ) : (
+                      <p className="text-[13px] text-gray-400">이 기간에 기록된 매장 검색 키워드가 없습니다.</p>
+                    )}
+                  </Card>
+                </div>
+              </div>
+            </>
           )}
 
           {/* 상세 분석 */}
           {detail && rows.length > 0 && (
             <>
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-[15px] font-extrabold text-gray-900">상세 분석 · {detail.menu ?? "전체 메뉴"}</h2>
+                <h2 className="text-[15px] font-extrabold text-gray-900">기기 및 방문 유형 분석 · {detail.menu ?? "전체 메뉴"}</h2>
                 {detail.menu && (
                   <button onClick={() => setMenu("")} className="px-3 min-h-[44px] rounded-full border border-gray-200 bg-white text-[12px] font-bold text-gray-600 hover:border-gray-400">
                     전체 메뉴 보기
@@ -436,39 +544,6 @@ export default function NavTab() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <Card title="매장 방문 전환 퍼널">
-                  {!funnel ? (
-                    <p className="text-[13px] text-gray-400">매장 이벤트(store_events)를 불러오지 못해 퍼널을 표시할 수 없습니다.</p>
-                  ) : funnel.visitors === 0 ? (
-                    <p className="text-[13px] text-gray-400">이 기간에 메뉴를 누른 방문자가 없습니다.</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {[
-                        { label: "메뉴 클릭", n: funnel.visitors },
-                        { label: "매장 확인 (매장 상세·목록 조회)", n: funnel.storeViewed },
-                        { label: "전환 행동 (길찾기·전화·카톡)", n: funnel.converted },
-                      ].map((st, i, arr) => (
-                        <div key={st.label} className="text-[13px]">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="font-semibold text-gray-800">{st.label}</span>
-                            <span className="tabular-nums text-gray-500 shrink-0">
-                              {st.n.toLocaleString()}명 <span className="text-gray-300">· 첫 단계 대비 {pctOf(st.n, funnel.visitors).toFixed(1)}%</span>
-                              {i > 0 && arr[i - 1].n > 0 && <span className="text-gray-300"> · 직전 단계 대비 {pctOf(st.n, arr[i - 1].n).toFixed(0)}%</span>}
-                            </span>
-                          </div>
-                          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full" style={{ width: `${pctOf(st.n, funnel.visitors)}%`, background: ACCENT }} />
-                          </div>
-                        </div>
-                      ))}
-                      <div className="pt-2 border-t border-gray-100">
-                        <p className="text-[12px] font-bold text-gray-500 mb-2">전환 행동별 방문자</p>
-                        <BarList items={funnel.actions.map((a) => ({ key: a.label, count: a.visitors }))} total={Math.max(1, funnel.converted)} />
-                      </div>
-                      <p className="text-[11px] text-gray-400 leading-relaxed">메뉴를 처음 누른 시점 이후의 행동만 집계합니다. 한 방문자가 여러 행동을 하면 행동별로 각각 포함됩니다.</p>
-                    </div>
-                  )}
-                </Card>
                 <Card title="기기별 (모바일 · 태블릿 · PC)">
                   {!detail.devices.length ? (
                     <p className="text-[13px] text-gray-400">기기 정보가 있는 기록이 없습니다.</p>
@@ -506,9 +581,26 @@ export default function NavTab() {
                     </div>
                   )}
                 </Card>
+                <Card title="신규 / 재방문 방문자">
+                  {detail.newVisitors == null ? (
+                    <p className="text-[13px] text-gray-400">기간을 지정하면 신규/재방문이 구분됩니다. (전체 기간은 구분 불가)</p>
+                  ) : (
+                    <BarList
+                      total={detail.visitors}
+                      labels={{ new: "신규 (이 기간 처음)", ret: "재방문 (이전 기록 있음)" }}
+                      items={[
+                        { key: "new", count: detail.newVisitors },
+                        { key: "ret", count: detail.returningVisitors ?? 0 },
+                      ]}
+                    />
+                  )}
+                </Card>
               </div>
 
-              <Card title={unit === "hour" ? "시간대별 클릭 (하루)" : "일별 클릭 추이"}>
+              <Card title="시간대·요일별 클릭" collapsible>
+                <h3 className="mb-3 text-[13px] font-bold text-gray-900">
+                  {unit === "hour" ? "시간대별 클릭 (하루)" : "일별 클릭 추이"}
+                </h3>
                 <div className="overflow-x-auto">
                   {(() => {
                     const hourly = unit === "hour";
@@ -540,9 +632,10 @@ export default function NavTab() {
                     );
                   })()}
                 </div>
-              </Card>
 
-              <Card title="요일 · 시간대별 클릭">
+                <h3 className="mb-3 mt-4 border-t border-gray-100 pt-4 text-[13px] font-bold text-gray-900">
+                  요일 · 시간대별 클릭
+                </h3>
                 <div className="overflow-x-auto">
                   <div className="min-w-[560px]">
                     <div className="grid gap-[2px]" style={{ gridTemplateColumns: "24px repeat(24, minmax(0, 1fr))" }}>
@@ -567,46 +660,6 @@ export default function NavTab() {
                   </div>
                 </div>
               </Card>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <Card title="메인 페이지 분석 (본문 클릭)">
-                  {!data?.home.total ? (
-                    <p className="text-[13px] text-gray-400">이 기간에 기록된 메인 페이지 클릭이 없습니다. (수집은 배포 후부터 시작됩니다)</p>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-[12px] text-gray-400">
-                        총 {data.home.total.toLocaleString()}회 · 방문자 {data.home.visitors.toLocaleString()}명 (상단/하단 메뉴 제외)
-                      </p>
-                      <div>
-                        <p className="text-[12px] font-bold text-gray-500 mb-2">섹션별</p>
-                        <BarList items={data.home.sections} total={data.home.total} />
-                      </div>
-                      <div>
-                        <p className="text-[12px] font-bold text-gray-500 mb-2">많이 클릭된 요소 TOP</p>
-                        <BarList
-                          total={data.home.total}
-                          items={data.home.items.map((i) => ({ key: `${i.section} · ${i.label}|${i.href}`, count: i.count }))}
-                          labels={Object.fromEntries(data.home.items.map((i) => [`${i.section} · ${i.label}|${i.href}`, `${i.section} · ${i.label}`]))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </Card>
-                <Card title="신규 / 재방문 방문자">
-                  {detail.newVisitors == null ? (
-                    <p className="text-[13px] text-gray-400">기간을 지정하면 신규/재방문이 구분됩니다. (전체 기간은 구분 불가)</p>
-                  ) : (
-                    <BarList
-                      total={detail.visitors}
-                      labels={{ new: "신규 (이 기간 처음)", ret: "재방문 (이전 기록 있음)" }}
-                      items={[
-                        { key: "new", count: detail.newVisitors },
-                        { key: "ret", count: detail.returningVisitors ?? 0 },
-                      ]}
-                    />
-                  )}
-                </Card>
-              </div>
             </>
           )}
         </div>

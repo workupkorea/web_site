@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
+import { subExhibitionPath } from "@/lib/home-layout";
 
-const ALLOWED = new Set(["nav_click", "dwell", "home_click"]);
+const ALLOWED = new Set(["nav_click", "dwell", "home_click", "store_search", "exhibition_product_click"]);
 const DEVICES = new Set(["mobile", "tablet", "desktop"]);
 const MAX_DWELL_SEC = 1800; // 30분 초과는 방치된 탭으로 보고 상한 처리
 
@@ -15,8 +16,12 @@ export async function POST(req: Request) {
   }
 
   const eventType = String(body?.event_type ?? "");
-  const label = String(body?.nav_label ?? "").slice(0, 100);
+  const rawLabel = String(body?.nav_label ?? "");
+  const label = (eventType === "store_search" ? rawLabel.trim().replace(/\s+/g, " ") : rawLabel).slice(0, 100);
   if (!ALLOWED.has(eventType) || !label) return NextResponse.json({ ok: false }, { status: 400 });
+  const rawPath = String(body?.path ?? "").slice(0, 300);
+  const path = eventType === "exhibition_product_click" ? subExhibitionPath(rawPath) : rawPath;
+  if (path === undefined) return NextResponse.json({ ok: false }, { status: 400 });
 
   let duration: number | null = null;
   if (eventType === "dwell") {
@@ -31,7 +36,7 @@ export async function POST(req: Request) {
       event_type: eventType,
       nav_label: label,
       href: String(body?.href ?? "").slice(0, 300),
-      path: String(body?.path ?? "").slice(0, 300),
+      path,
       duration_sec: duration,
       visitor_id: String(body?.visitor_id ?? "").slice(0, 64),
     };
