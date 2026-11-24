@@ -400,7 +400,7 @@ export default function TopbarManagePage() {
                   <div>
                     <label className="text-[11px] text-gray-500 block mb-1">링크</label>
                     <input type="text" value={it.href} onChange={(e) => updateItem(it.id, { href: e.target.value })}
-                      placeholder="/catalog · tel:0212345678 · https://..."
+                      placeholder="/brands · tel:0212345678 · https://..."
                       className="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:border-blue-400 bg-white" />
                   </div>
                   <label className="flex items-center gap-2 cursor-pointer select-none">
@@ -412,7 +412,7 @@ export default function TopbarManagePage() {
             </div>
           )}
           <p className="text-[11px] text-gray-400 leading-relaxed">
-            전화 연결은 <span className="font-mono">tel:0212345678</span>, 카카오/외부는 <span className="font-mono">https://…</span> 형태로 입력하세요. 내부 페이지는 <span className="font-mono">/catalog</span> 처럼 / 로 시작합니다.
+            전화 연결은 <span className="font-mono">tel:0212345678</span>, 카카오/외부는 <span className="font-mono">https://…</span> 형태로 입력하세요. 내부 페이지는 <span className="font-mono">/brands</span> 처럼 / 로 시작합니다.
           </p>
         </div>
       </div>

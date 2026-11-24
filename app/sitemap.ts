@@ -9,7 +9,6 @@ import { getHeaderNavConfig } from "@/lib/header-nav-server";
 const staticPaths = [
   "",
   "/products",
-  "/catalog",
   "/store",
   "/brands",
   "/field-test",

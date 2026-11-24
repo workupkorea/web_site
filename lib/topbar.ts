@@ -2,6 +2,8 @@
 // ⚠️ 이 파일은 클라이언트(관리자 페이지)와 서버(배너) 양쪽에서 import 되므로 서버 전용 코드를 넣지 않는다.
 //    서버 전용 조회 로직은 lib/topbar-server.ts 에 둔다.
 
+import { isLegacyCatalogHref } from "@/lib/legacy-catalog";
+
 // 관리자 탑바 ON/OFF 변경 시 발생시키는 브라우저 이벤트(detail: boolean) — 사이드바 상태 배지가 즉시 갱신된다.
 export const TOPBAR_ENABLED_EVENT = "wu:topbar-enabled";
 
@@ -63,7 +65,6 @@ export const DEFAULT_TOPBAR: TopbarConfig = {
   left_icon: "none",
   left_link: "",
   items: [
-    { id: "default-catalog", label: "카탈로그", href: "/catalog", icon: "catalog", newTab: false },
     { id: "default-partnership", label: "가맹/제휴문의", href: "/partnership", icon: "chat", newTab: false },
   ],
 };
@@ -126,8 +127,10 @@ export function normalizeTopbar(raw: Partial<TopbarConfig> | null | undefined): 
           icon: safeIcon(it.icon),
           newTab: !!it.newTab,
         }))
-        .filter((it) => it.label.trim() !== "" || it.href !== "")
+        .filter((it) => !isLegacyCatalogHref(it.href) && (it.label.trim() !== "" || it.href !== ""))
     : DEFAULT_TOPBAR.items;
+
+  const leftLink = safeHref(c.left_link);
 
   return {
     enabled: typeof c.enabled === "boolean" ? c.enabled : DEFAULT_TOPBAR.enabled,
@@ -141,7 +144,7 @@ export function normalizeTopbar(raw: Partial<TopbarConfig> | null | undefined): 
     letter_spacing: clampFloat(c.letter_spacing, 0, 0.5, DEFAULT_TOPBAR.letter_spacing),
     left_text: typeof c.left_text === "string" ? c.left_text : DEFAULT_TOPBAR.left_text,
     left_icon: safeIcon(c.left_icon),
-    left_link: safeHref(c.left_link),
+    left_link: isLegacyCatalogHref(leftLink) ? "" : leftLink,
     items,
   };
 }

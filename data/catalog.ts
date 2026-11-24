@@ -1,7 +1,7 @@
 // 카탈로그(디지털 카탈로그/룩북) 페이지 한 장.
 // 종류(page_type): image(단일 이미지+핫스팟) · split(분할 레이아웃) · cover(표지) · contents(목차) · divider(카테고리 구분)
 // cover/contents/divider 는 옛 플립북 디자인을 코드로 재현하며, 내용은 data(JSONB)에 담는다.
-// brand_id 가 빈 문자열이면 WORKUP 메인 카탈로그(/catalog), 값이 있으면 그 브랜드 카탈로그(/brands/[슬러그]/catalog).
+// 기존 WORKUP 카탈로그 데이터는 brand_id 가 빈 문자열이며, 브랜드 카탈로그는 브랜드 ID를 사용한다.
 // DB(snake_case) 행과 1:1로 매칭 — components/Hero.tsx 의 HeroSlide 패턴과 동일.
 
 export type CatalogPageType = "image" | "split" | "cover" | "contents" | "divider";

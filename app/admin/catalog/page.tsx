@@ -24,12 +24,12 @@ function AdminCatalogPageInner() {
           </h1>
           <p className="text-base text-gray-400 mt-1">디지털 카탈로그(플립북) 페이지 관리</p>
         </div>
-        <div className="flex items-center gap-3">
-          <a href={brandId ? `/brands/${brandId}/catalog` : "/catalog"} target="_blank"
+        {brandId && (
+          <a href={`/brands/${brandId}/catalog`} target="_blank"
             className="px-4 py-2.5 border border-slate-200 text-slate-600 text-sm font-medium rounded-lg hover:bg-slate-50 transition-colors">
             카탈로그 미리보기 ↗
           </a>
-        </div>
+        )}
       </div>
 
       <div className="mb-6 p-4 bg-blue-50/60 border border-blue-100 rounded-xl text-sm text-slate-600 leading-relaxed">

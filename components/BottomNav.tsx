@@ -140,7 +140,7 @@ export default function BottomNav({
                     {brandsExpanded && (
                       <div className="pb-3">
                         <Link
-                          href="/catalog"
+                          href="/brands"
                           onClick={() => { setBrandsExpanded(false); setMenuOpen(false); }}
                           className="block text-[11px] text-[#E5541B] font-medium tracking-wide py-2 border-t border-gray-50"
                         >

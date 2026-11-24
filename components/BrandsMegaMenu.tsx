@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { oxanium } from "@/lib/oxanium";
 import { BRANDS } from "@/lib/brands-data";
+import { resolveMegaBrandsCtaUrl } from "@/lib/mega-brands-defaults";
 import type { MegaBrandItem, MegaMenuSettings } from "@/lib/mega-brands-types";
 
 
@@ -55,7 +56,7 @@ export default function BrandsMegaMenu({
   const heading = propSettings?.heading ?? "OUR BRANDS";
   const body = propSettings?.body ?? "모든 워커를 위한\n매일 입는 워크업";
   const ctaLabel = propSettings?.ctaLabel ?? "브랜드 전체 보기 →";
-  const ctaUrl = propSettings?.ctaUrl ?? "/catalog";
+  const ctaUrl = resolveMegaBrandsCtaUrl(propSettings?.ctaUrl);
   const displayBrands = toDisplayBrands(propBrands);
 
   return (

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { oxanium } from "@/lib/oxanium";
-import { buildDefaultBrands, DEFAULT_MEGA_SETTINGS } from "@/lib/mega-brands-defaults";
+import { buildDefaultBrands, DEFAULT_MEGA_SETTINGS, resolveMegaBrandsCtaUrl } from "@/lib/mega-brands-defaults";
 import type { MegaBrandItem, MegaBrandsConfig, MegaMenuSettings } from "@/lib/mega-brands-types";
 
 
@@ -65,7 +65,7 @@ export default function MegaMenuTab() {
       .then((data: MegaBrandsConfig | null) => {
         if (data?.brands?.length && data?.settings) {
           setBrands(data.brands);
-          setSettings(data.settings);
+          setSettings({ ...data.settings, ctaUrl: resolveMegaBrandsCtaUrl(data.settings.ctaUrl) });
           setSelectedId(data.brands[0].id);
         } else {
           const defaults = buildDefaultBrands();
