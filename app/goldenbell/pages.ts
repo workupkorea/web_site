@@ -11,22 +11,27 @@ return `<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14120e">
+<meta name="theme-color" content="${preview ? "#14120e" : "#ff550c"}">
 <title>${preview ? "워크업 골든벨 | 아메리카노 즉석 추첨" : "워크업 연말연시 골든벨"}</title>
 <link rel="stylesheet" href="/goldenbell/style.css">
 <script src="/goldenbell/apply.js" defer></script>
 </head>
-<body${preview ? ' class="instant-preview"' : ""}>
+<body class="${preview ? "instant-preview" : "luckup"}">
 <main class="page">
-  <header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>
+  ${preview ? '<header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>' : ""}
 
   <section class="hero" aria-labelledby="title">
-    <p class="hook">${preview ? "구매 인증하고 아메리카노에 도전!" : "워크업에서 구매하고 금 1돈에 도전!"}</p>
+    ${preview ? `<p class="hook">구매 인증하고 아메리카노에 도전!</p>
     <div class="hero-title">
       <h1 id="title">연말연시 <em>골든벨</em></h1>
-      ${preview ? '<p class="instant-draw-title">아메리카노 즉석 추첨</p>' : ""}
+      <p class="instant-draw-title">아메리카노 즉석 추첨</p>
       <p class="period">응모기간 2026.12.01 – 12.31</p>
-    </div>
+    </div>` : `<h1 id="title" class="sr-only">워크업 연말연시 골든벨 응모</h1>
+    <picture class="hero-visual">
+      <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-still.webp">
+      <img src="/goldenbell/promo-hero.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="941" height="1672" fetchpriority="high">
+    </picture>
+    <p class="period">응모기간 2026.12.01 – 12.31</p>`}
     ${preview ? '<p class="preview-notice">테스트용 화면입니다. 실제 경품은 지급되지 않아요.</p>' : `<div class="activity">
       <span class="activity-label">테스트 예시</span>
       <span id="activity-text">매장에서 구매하고 골든벨에 응모하세요</span>
@@ -193,6 +198,7 @@ return `<!doctype html>
         <li>매장명·구매일·결제금액이 확인되지 않는 사진은 반려될 수 있어요.</li>
         <li>같은 영수증을 다른 번호로 중복 응모하거나 허위 영수증을 올리면 당첨이 취소될 수 있어요.</li>
         <li>금 1돈 당첨자는 2027.01.04 발표 예정이며, 입력한 휴대폰 번호로 안내해 드려요.</li>
+        ${preview ? "" : "<li>금 1돈은 방문 수령만 가능하며, 수령 시 수령증을 작성해야 해요.</li>"}
       </ul>
     </details>
   </section>
@@ -240,29 +246,52 @@ return `<!doctype html>
 <html lang="ko">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${title}</title><link rel="stylesheet" href="/goldenbell/style.css"><script src="/goldenbell/admin.js" defer></script>
+<title>${title}</title><link rel="stylesheet" href="/admin-ui.css"><link rel="stylesheet" href="/goldenbell/admin.css"><script src="/goldenbell/admin.js" defer></script>
 </head>
-<body${preview ? ' data-admin-api="/goldenbell/api/v2/admin"' : ""}>
-<main class="page admin-page">
-<header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>
-<section class="admin">
-  <div class="admin-title"><h1>${title}</h1><a href="${preview ? "/goldenbell/v2" : "/goldenbell/"}">고객 응모 화면 열기</a></div>
+<body class="admin-ui goldenbell-admin-body">
+<goldenbell-review class="goldenbell-review" data-admin-api="${preview ? "/goldenbell/api/v2/admin" : "/goldenbell/api/admin"}">
+<main>
+<header class="review-brand"><img src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>
+<div class="admin-title"><h1>${title}</h1><a href="${preview ? "/goldenbell/v2" : "/goldenbell/"}">고객 응모 화면 열기</a></div>
+${renderReviewPanels(preview)}
+</main>
+</goldenbell-review>
+</body></html>
+`;
+}
 
-  <section class="panel" aria-labelledby="p-status">
-    <h2 id="p-status">현황</h2>
-    <div class="stat-row" id="stats" aria-label="검수 현황"></div>
-    <details class="link-tool" open><summary>지점별 현황</summary><div id="store-stats"></div></details>
-  </section>
-
-  <section class="panel" aria-labelledby="p-filter">
-    <div class="panel-head"><h2 id="p-filter">검색·필터</h2><button type="button" id="export">엑셀 다운로드</button></div>
-    <div class="filters">
+export function renderReviewPanels(preview = false, { compact = false } = {}) {
+const filterFields = `
       <input id="search" type="search" aria-label="이름 또는 휴대폰 번호 검색" placeholder="이름 · 휴대폰 번호 검색">
       <select id="filter" aria-label="검수 상태"><option value="">전체 상태</option><option value="pending">검수 대기</option><option value="approved">승인</option><option value="rejected">반려</option></select>
       <select id="store-filter" aria-label="지점"><option value="">전체 지점</option></select>
-      <div class="date-range"><input id="from" type="date" aria-label="시작일"><span>~</span><input id="to" type="date" aria-label="종료일"></div>
+      <div class="date-range"><input id="from" type="date" aria-label="시작일"><span aria-hidden="true">~</span><input id="to" type="date" aria-label="종료일"></div>`;
+const exportButton = '<button type="button" id="export">엑셀 다운로드</button>';
+const stats = '<div class="stat-row" id="stats" aria-label="검수 현황"></div>';
+const groupColumns = '<div><span>응모자</span><span>응모 지점</span><span>검수 현황</span></div>';
+return `
+  ${compact ? `<section class="panel filter-bar" aria-labelledby="p-filter">
+    <h2 id="p-filter">검색·필터</h2>
+    <div class="filters">${filterFields}</div>
+    ${exportButton}
+  </section>` : ""}
+
+  <section class="panel" aria-labelledby="p-status">
+    ${compact ? `<div class="status-bar">
+      <h2 id="p-status">현황</h2>
+      ${stats}
+      <button type="button" class="review-toggle" aria-expanded="false" aria-controls="store-stats">지점별 현황</button>
     </div>
+    <div class="store-stats-grid" id="store-stats" hidden></div>` : `
+    <h2 id="p-status">현황</h2>
+    ${stats}
+    <details class="link-tool" open><summary>지점별 현황</summary><div id="store-stats"></div></details>`}
   </section>
+
+  ${compact ? "" : `<section class="panel" aria-labelledby="p-filter">
+    <div class="panel-head"><h2 id="p-filter">검색·필터</h2>${exportButton}</div>
+    <div class="filters">${filterFields}</div>
+  </section>`}
 
   ${preview ? `<section class="panel" aria-labelledby="p-coupon">
     <div class="panel-head"><h2 id="p-coupon">아메리카노 쿠폰 발송</h2><button type="button" id="coupon-export">쿠폰 발송용 엑셀</button></div>
@@ -283,7 +312,10 @@ return `<!doctype html>
   </section>` : ""}
 
   <section class="panel" aria-labelledby="p-list">
-    <div class="panel-head"><h2 id="p-list">응모 목록</h2><label class="select-all"><input type="checkbox" id="select-all"> 이 페이지 전체 선택</label></div>
+    <div class="panel-head"><h2 id="p-list">응모 목록</h2><div class="list-actions">
+      ${compact ? '<button type="button" id="toggle-groups" aria-controls="groups" disabled>모두 펼치기</button>' : ""}
+      <label class="select-all"><input type="checkbox" id="select-all"> 이 페이지 전체 선택</label>
+    </div></div>
     <div class="bulk-bar" id="bulk-bar" hidden>
       <strong id="bulk-count">0건 선택</strong>
       <button type="button" id="bulk-approve">승인</button>
@@ -292,12 +324,10 @@ return `<!doctype html>
       <button type="button" id="bulk-clear">선택 해제</button>
     </div>
     <p id="admin-message" role="status"></p>
+    ${compact ? `<div id="group-list-head" class="group-list-head" aria-hidden="true" hidden>${groupColumns}${groupColumns}</div>` : ""}
     <div id="groups"></div>
     <div class="pager"><button type="button" id="prev">이전</button><span id="page-label"></span><button type="button" id="next">다음</button></div>
   </section>
-</section>
-</main>
 <dialog id="lightbox" aria-label="영수증 크게 보기"><button type="button" id="lightbox-close">닫기</button><img id="lightbox-img" alt="영수증 사진"></dialog>
-</body></html>
 `;
 }

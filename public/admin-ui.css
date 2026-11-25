@@ -1,0 +1,96 @@
+.admin-ui {
+  --admin-canvas: #f1f5f9;
+  --admin-surface: #fff;
+  --admin-subtle: #f8fafc;
+  --admin-line: #cbd5e1;
+  --admin-ink: #0f172a;
+  --admin-muted: #475569;
+  --admin-accent: #1d4ed8;
+  --admin-accent-hover: #1e40af;
+  --admin-info-bg: #eff6ff;
+  --admin-info: #1e40af;
+  --admin-pending-bg: #fef3c7;
+  --admin-pending: #92400e;
+  --admin-success-bg: #dcfce7;
+  --admin-success: #166534;
+  --admin-danger-bg: #fee2e2;
+  --admin-danger: #991b1b;
+  background-color: var(--admin-canvas);
+}
+
+.admin-ui :where(*, *::before, *::after) {
+  border-radius: 0;
+}
+
+.admin-ui table > thead {
+  background-color: var(--admin-subtle);
+}
+
+.admin-ui table > thead > tr > :is(th, td) {
+  text-align: center;
+}
+
+.admin-ui table > :is(tbody, tfoot) > tr > td:where(:not([colspan], [data-align-start])) {
+  text-align: center;
+}
+
+.admin-ui table td[data-align-start] {
+  text-align: start;
+}
+
+.admin-ui table > :is(thead, tbody, tfoot) > tr > :is(th, td):not(:last-child) {
+  border-inline-end: 1px solid var(--admin-line);
+}
+
+.admin-ui input[type="checkbox"]:not([class*="appearance-none"]) {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  flex-shrink: 0;
+  inline-size: 1rem;
+  block-size: 1rem;
+  padding: 0;
+  vertical-align: middle;
+  border: 1px solid #64748b;
+  background: var(--admin-surface);
+}
+
+.admin-ui input[type="checkbox"]:not([class*="appearance-none"]):is(:checked, :indeterminate) {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent);
+}
+
+.admin-ui input[type="checkbox"]:not([class*="appearance-none"]):checked::before {
+  content: "";
+  inline-size: .55rem;
+  block-size: .32rem;
+  border: solid white;
+  border-width: 0 0 2px 2px;
+  transform: translateY(-1px) rotate(-45deg);
+}
+
+.admin-ui input[type="checkbox"]:not([class*="appearance-none"]):indeterminate::before {
+  content: "";
+  inline-size: .5rem;
+  border-block-end: 2px solid white;
+  transform: none;
+}
+
+.admin-ui input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--admin-accent);
+  outline-offset: 2px;
+}
+
+.admin-ui input[type="checkbox"]:disabled {
+  opacity: .55;
+}
+
+@media (forced-colors: active) {
+  .admin-ui input[type="checkbox"]:not([class*="appearance-none"]) {
+    appearance: auto;
+  }
+
+  .admin-ui input[type="checkbox"]::before {
+    display: none;
+  }
+}

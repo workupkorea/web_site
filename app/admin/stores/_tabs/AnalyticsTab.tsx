@@ -593,7 +593,7 @@ function PassMatrixTab() {
                             )}
                           </td>
                           {/* 상품명 + 공지 상태 */}
-                          <td className="sticky left-[96px] z-10 bg-white px-4 py-3 border-r border-gray-100">
+                          <td data-align-start className="sticky left-[96px] z-10 bg-white px-4 py-3 border-r border-gray-100">
                             <div className="flex items-center gap-2 min-w-0">
                               <span className={`flex-shrink-0 px-1.5 py-0.5 text-[10px] font-semibold rounded ${NOTICE_STATUS_STYLE[n.notice_status] ?? "bg-gray-100 text-gray-500"}`}>
                                 {n.notice_status}

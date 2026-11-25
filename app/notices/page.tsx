@@ -13,6 +13,7 @@ import { useIsPastClose } from "@/lib/hooks/useIsPastClose";
 import { getShipName } from "@/data/store-ship-names";
 
 const DEFAULT_CLOSE_TIME = "14:00";
+const noticeColumns = "lg:grid-cols-[minmax(0,7fr)_minmax(0,3fr)] lg:gap-5";
 
 // 공지는 이제 항상 마감패스 전용(products 테이블 미연결)으로만 등록된다.
 type NoticeRow = {
@@ -341,8 +342,8 @@ export default function NoticesPreviewPage() {
   };
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-col lg:flex-row gap-3 lg:gap-5">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-3 lg:flex-row">
           <nav className="lg:w-48 flex-shrink-0 grid grid-cols-3 lg:block gap-1.5 lg:gap-0 lg:space-y-1">
             {STATIC_NAV.map((n) => (
               <button
@@ -355,8 +356,8 @@ export default function NoticesPreviewPage() {
                   }
                   setAdminTab(n.key);
                 }}
-                className={`w-full lg:text-left max-lg:text-center px-2 lg:px-3 py-2.5 min-h-[44px] lg:min-h-0 whitespace-nowrap rounded-lg text-[13px] lg:text-sm font-medium transition-colors ${
-                  adminTab === n.key ? "bg-[#303236] text-white" : "text-gray-600 hover:bg-gray-100"
+                className={`w-full whitespace-nowrap px-2 py-2 text-[13px] font-semibold transition-colors max-lg:min-h-11 max-lg:text-center lg:px-3 lg:text-left ${
+                  adminTab === n.key ? "bg-[var(--admin-accent)] text-white" : "text-slate-600 hover:bg-white"
                 }`}
               >
                 {n.label}
@@ -480,56 +481,60 @@ export default function NoticesPreviewPage() {
               ) : (
                 <>
                   {/* 필터 + 엑셀 다운로드 */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {/* 빠른 선택 */}
-                    <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden">
-                      {(["today", "month"] as const).map((m) => (
-                        <button
-                          key={m}
-                          onClick={() => { setListFilterMode(m); setSelectedNoticeId(null); }}
-                          className={`px-3 max-lg:px-2.5 py-1.5 max-lg:min-h-[44px] text-sm max-lg:text-[13px] font-medium transition-colors ${listFilterMode === m ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
-                        >
-                          {m === "month" ? "이번 달" : "오늘"}
-                        </button>
-                      ))}
+                  <div className={`grid items-start gap-2 ${noticeColumns}`}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* 빠른 선택 */}
+                      <div className="flex gap-0 border border-gray-200 rounded-lg overflow-hidden">
+                        {(["today", "month"] as const).map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => { setListFilterMode(m); setSelectedNoticeId(null); }}
+                            className={`px-3 max-lg:px-2.5 py-1.5 max-lg:min-h-[44px] text-sm max-lg:text-[13px] font-medium transition-colors ${listFilterMode === m ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
+                          >
+                            {m === "month" ? "이번 달" : "오늘"}
+                          </button>
+                        ))}
+                      </div>
+                      {/* 날짜 범위 */}
+                      <div className="flex items-center gap-1 lg:gap-1.5 max-lg:flex-1 max-lg:min-w-[170px]">
+                        <input
+                          type="date"
+                          value={listFilterFrom}
+                          max={listFilterTo}
+                          onFocus={() => { setListFilterMode("range"); setSelectedNoticeId(null); }}
+                          onChange={(e) => { setListFilterMode("range"); setListFilterFrom(e.target.value); setSelectedNoticeId(null); }}
+                          className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] min-w-0 flex-1 lg:flex-none border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
+                        />
+                        <span className="text-gray-400 text-sm">~</span>
+                        <input
+                          type="date"
+                          value={listFilterTo}
+                          min={listFilterFrom}
+                          max={todayKst()}
+                          onFocus={() => { setListFilterMode("range"); setSelectedNoticeId(null); }}
+                          onChange={(e) => { setListFilterMode("range"); setListFilterTo(e.target.value); setSelectedNoticeId(null); }}
+                          className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] min-w-0 flex-1 lg:flex-none border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
+                        />
+                      </div>
                     </div>
-                    {/* 날짜 범위 */}
-                    <div className="flex items-center gap-1 lg:gap-1.5 max-lg:flex-1 max-lg:min-w-[170px]">
-                      <input
-                        type="date"
-                        value={listFilterFrom}
-                        max={listFilterTo}
-                        onFocus={() => { setListFilterMode("range"); setSelectedNoticeId(null); }}
-                        onChange={(e) => { setListFilterMode("range"); setListFilterFrom(e.target.value); setSelectedNoticeId(null); }}
-                        className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] min-w-0 flex-1 lg:flex-none border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
-                      />
-                      <span className="text-gray-400 text-sm">~</span>
-                      <input
-                        type="date"
-                        value={listFilterTo}
-                        min={listFilterFrom}
-                        max={todayKst()}
-                        onFocus={() => { setListFilterMode("range"); setSelectedNoticeId(null); }}
-                        onChange={(e) => { setListFilterMode("range"); setListFilterTo(e.target.value); setSelectedNoticeId(null); }}
-                        className={`px-1 lg:px-3 py-1.5 max-lg:min-h-[44px] min-w-0 flex-1 lg:flex-none border rounded-lg text-sm max-lg:text-[11px] max-lg:tracking-tight focus:outline-none transition-colors ${listFilterMode === "range" ? "border-[#303236]" : "border-gray-200"}`}
-                      />
-                    </div>
-                    <div className="w-full lg:w-auto lg:ml-auto flex items-center gap-2">
+                    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-2">
                       <select
                         value={excelDate}
+                        aria-label="엑셀 다운로드 날짜"
                         onChange={(e) => setExcelDate(e.target.value)}
-                        className="border border-gray-200 rounded-lg px-3 py-1.5 max-lg:min-h-[44px] text-sm bg-white focus:outline-none focus:border-[#303236]"
+                        className="h-11 min-w-0 border border-[var(--admin-line)] bg-white px-2.5 text-[13px] focus-visible:outline-2 focus-visible:outline-[var(--admin-accent)] lg:h-9"
                       >
                         {uniqueDates.map((d) => (
                           <option key={d} value={d}>{fmtNoticeDate(d)}</option>
                         ))}
                       </select>
                       <button
+                        type="button"
                         onClick={downloadDateExcel}
                         disabled={excelDownloading || !excelDate || uniqueDates.length === 0}
-                        className="px-3 py-1.5 max-lg:min-h-[44px] text-sm font-semibold border border-gray-200 rounded-lg hover:border-[#303236] disabled:opacity-50 flex-1 lg:flex-none"
+                        className="h-11 whitespace-nowrap bg-[var(--admin-accent)] px-2.5 text-[13px] font-semibold text-white hover:bg-[var(--admin-accent-hover)] disabled:opacity-50 lg:h-9"
                       >
-                        {excelDownloading ? "다운로드 중..." : "선택 일자 엑셀 다운로드"}
+                        {excelDownloading ? "다운로드 중..." : "선택 일자 엑셀 다운"}
                       </button>
                     </div>
                   </div>
@@ -538,7 +543,7 @@ export default function NoticesPreviewPage() {
                       {notices.length === 0 ? "아직 생성된 공지가 없습니다." : "해당 기간에 공지가 없습니다."}
                     </div>
                   )}
-                  {displayedNotices.length > 0 && <div className="flex gap-5 items-start">
+                  {displayedNotices.length > 0 && <div className={`grid items-start ${noticeColumns}`}>
                   {/* 모바일/태블릿: 카드 목록 — 선택한 카드 바로 아래에 지점별 패스 현황을 펼친다 */}
                   <div className="lg:hidden w-full min-w-0 space-y-3">
                     {displayedNotices.map((n, i) => {
@@ -579,7 +584,7 @@ export default function NoticesPreviewPage() {
                                   )}
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                  <p className="text-sm font-semibold text-gray-900 break-words">{noticeName(n)}</p>
+                                  <p className="break-words text-[13px] font-semibold leading-snug text-gray-900">{noticeName(n)}</p>
                                   <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                                     <NoticeStatusSelect
                                       noticeId={n.id}
@@ -610,7 +615,7 @@ export default function NoticesPreviewPage() {
                                   onClick={() => setEditingTempNotice(n)}
                                   className="min-h-[44px] text-[13px] font-semibold text-gray-600 border border-gray-300 rounded-lg active:bg-gray-50"
                                 >
-                                  공지 수정
+                                  수정
                                 </button>
                                 <button
                                   onClick={() => handleDelete(n.id, noticeName(n))}
@@ -644,14 +649,19 @@ export default function NoticesPreviewPage() {
                     })}
                   </div>
 
-                  <div className="hidden lg:block w-[70%] min-w-0 bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div
+                    className="hidden max-h-[max(12rem,calc(100dvh-16rem))] min-w-0 overflow-auto border border-gray-200 bg-white focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--admin-accent)] lg:block"
+                    role="region"
+                    aria-label="공지 목록"
+                    tabIndex={0}
+                  >
                     <table className="w-full">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="sticky top-0 z-10 bg-gray-50 shadow-[0_1px_0_var(--admin-line)]">
                         <tr>
-                          <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">공지일자</th>
-                          <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">상품명</th>
-                          <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">상태</th>
-                          <th className="px-5 py-3" />
+                          <th scope="col" className="whitespace-nowrap px-5 py-3 text-[12px] font-bold text-gray-500">공지일자</th>
+                          <th scope="col" className="px-5 py-3 text-[12px] font-bold text-gray-500">상품명</th>
+                          <th scope="col" className="px-5 py-3 text-[12px] font-bold text-gray-500">상태</th>
+                          <th scope="col" className="px-5 py-3 text-[12px] font-bold text-gray-500">관리</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -692,7 +702,7 @@ export default function NoticesPreviewPage() {
                                 </div>
                               </td>
                             )}
-                            <td className="px-5 py-3 text-sm font-semibold text-gray-900">
+                            <td data-align-start className="px-5 py-3 text-[13px] font-semibold leading-snug text-gray-900">
                               <div className="flex items-center gap-3">
                                 <div
                                   className={`flex-shrink-0 rounded-md overflow-hidden border border-gray-100 bg-gray-50 ${n.temp_image_portrait ? "h-12" : "w-[68px]"}`}
@@ -753,7 +763,7 @@ export default function NoticesPreviewPage() {
                                   }}
                                   className="px-2.5 py-1.5 text-[12px] font-semibold text-gray-600 border border-gray-300 rounded-lg hover:border-[#303236] hover:text-[#303236]"
                                 >
-                                  공지 수정
+                                  수정
                                 </button>
                                 <button
                                   onClick={(e) => {
@@ -776,7 +786,7 @@ export default function NoticesPreviewPage() {
                     </table>
                   </div>
 
-                  <div className="hidden lg:block w-[30%] min-w-0 space-y-3">
+                  <div className="hidden min-w-0 space-y-3 lg:block">
                     {selectedNotice ? (
                       <>
                         <NoticeStatusLine

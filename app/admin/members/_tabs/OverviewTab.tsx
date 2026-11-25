@@ -60,15 +60,14 @@ export default function OverviewTab() {
   );
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {/* 헤더 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h1 className="text-xl font-bold text-gray-900">회원 현황</h1>
-          <p className="text-sm text-gray-400">전체 회원 현황 및 최근 가입 회원</p>
         </div>
         <Link href="/admin/members?tab=list"
-          className="px-4 py-1.5 text-sm bg-[#303236] text-white hover:bg-[#243d5e] rounded font-bold">
+          className="inline-flex min-h-11 items-center bg-[var(--admin-accent)] px-3 text-sm font-semibold text-white hover:bg-[var(--admin-accent-hover)] sm:min-h-9">
           전체 회원 조회 →
         </Link>
       </div>
@@ -81,16 +80,16 @@ export default function OverviewTab() {
       )}
 
       {/* 통계 카드 */}
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         {[
-          { label: "이번달 신규", value: stats.newThisMonth, color: "text-[#E5541B]",    href: "/admin/members?tab=list" },
+          { label: "이번달 신규", value: stats.newThisMonth, color: "text-[var(--admin-accent)]", href: "/admin/members?tab=list" },
           { label: "전체 회원",   value: stats.total,        color: "text-[#303236]",    href: "/admin/members?tab=list" },
           { label: "활성 회원",   value: stats.active,       color: "text-emerald-600",  href: "/admin/members?tab=list" },
           { label: "휴면 회원",   value: stats.dormant,      color: "text-amber-500",    href: "/admin/members?tab=inactive&sub=dormant" },
           { label: "탈퇴 회원",   value: stats.withdrawn,    color: "text-red-500",      href: "/admin/members?tab=inactive&sub=withdrawn" },
         ].map(s => (
           <Link key={s.label} href={s.href}
-            className="bg-white border border-gray-200 rounded-xl px-4 py-2.5 hover:border-[#303236] hover:shadow-sm transition-all flex items-baseline justify-center gap-2">
+            className="flex flex-wrap items-baseline justify-center gap-x-1.5 border border-[var(--admin-line)] bg-white px-2 py-1.5 transition-colors hover:border-[var(--admin-accent)]">
             <p className="text-[13px] text-gray-500 font-medium">{s.label}</p>
             {loading
               ? <p className="text-xl font-black text-gray-200 animate-pulse">---</p>
@@ -103,18 +102,18 @@ export default function OverviewTab() {
 
       {/* 최근 가입 회원 */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-xl font-bold text-gray-800">최근 가입 회원</h2>
+        <div className="flex items-center justify-between border-b border-[var(--admin-line)] px-3 py-2">
+          <h2 className="text-base font-bold text-slate-900">최근 가입 회원</h2>
           <Link href="/admin/members?tab=list" className="text-[15px] text-[#303236] hover:underline font-semibold">
             전체 조회 →
           </Link>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="최근 가입 회원 표">
         <table className="w-full">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               {["가입일시", "이메일", "이름", "연락처", "등급", "상태"].map(h => (
-                <th key={h} className="px-6 py-3.5 text-left text-[13px] font-bold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                <th key={h} scope="col" className="whitespace-nowrap px-3 py-2 text-[13px] font-bold text-slate-600">{h}</th>
               ))}
             </tr>
           </thead>
@@ -126,17 +125,17 @@ export default function OverviewTab() {
                 가입된 회원이 없습니다.
               </td></tr>
             ) : recent.map(m => (
-              <tr key={m.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 text-[14px] text-gray-400 whitespace-nowrap">{fmtDateTime(m.created_at)}</td>
-                <td className="px-6 py-4 text-[15px] text-gray-700 whitespace-nowrap">{m.email}</td>
-                <td className="px-6 py-4 text-[15px] font-bold text-gray-900 whitespace-nowrap">{m.name}</td>
-                <td className="px-6 py-4 text-[14px] text-gray-500 whitespace-nowrap">{m.phone ?? "-"}</td>
-                <td className="px-6 py-4">
+              <tr key={m.id} className="hover:bg-gray-50 transition-colors [&>td]:px-3 [&>td]:py-1.5">
+                <td className="whitespace-nowrap text-[13px] tabular-nums text-gray-500">{fmtDateTime(m.created_at)}</td>
+                <td className="whitespace-nowrap text-[14px] text-gray-700">{m.email}</td>
+                <td className="whitespace-nowrap text-[14px] font-bold text-gray-900">{m.name}</td>
+                <td className="whitespace-nowrap text-[13px] tabular-nums text-gray-500">{m.phone ?? "-"}</td>
+                <td>
                   <span className={`inline-block whitespace-nowrap px-2.5 py-1 text-[12px] font-bold rounded-full ${GRADE_COLOR[m.grade] ?? "bg-gray-100 text-gray-600"}`}>
                     {m.grade}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td>
                   <span className={`inline-block whitespace-nowrap px-2.5 py-1 text-[12px] font-bold rounded-full ${
                     m.status === "active"   ? "bg-emerald-100 text-emerald-700" :
                     m.status === "dormant"  ? "bg-amber-100 text-amber-600"    :
@@ -153,20 +152,18 @@ export default function OverviewTab() {
       </div>
 
       {/* 빠른 메뉴 */}
-      <div className="grid grid-cols-4 gap-4">
+      <nav aria-label="회원 관리 바로가기" className="grid w-full grid-cols-3 gap-2">
         {[
-          { label: "회원 조회",     desc: "전체 회원 검색·필터·관리",  href: "/admin/members?tab=list",       icon: "🔍", border: "border-[#303236]/30" },
-          { label: "휴면회원 관리", desc: "장기 미활동 회원 관리",      href: "/admin/members?tab=inactive&sub=dormant",    icon: "💤", border: "border-amber-300" },
-          { label: "탈퇴 관리",     desc: "탈퇴 회원 이력 및 관리",    href: "/admin/members?tab=inactive&sub=withdrawn",  icon: "👋", border: "border-red-200" },
+          { label: "회원 조회", href: "/admin/members?tab=list" },
+          { label: "휴면회원 관리", href: "/admin/members?tab=inactive&sub=dormant" },
+          { label: "탈퇴 관리", href: "/admin/members?tab=inactive&sub=withdrawn" },
         ].map(item => (
           <Link key={item.href} href={item.href}
-            className={`bg-white border-2 ${item.border} rounded-xl p-5 hover:shadow-md transition-all`}>
-            <p className="text-3xl mb-3">{item.icon}</p>
-            <p className="text-[16px] font-bold text-gray-800">{item.label}</p>
-            <p className="text-[14px] text-gray-400 mt-1">{item.desc}</p>
+            className="flex min-h-11 items-center justify-center border border-[var(--admin-line)] bg-white px-2 py-2 text-center text-[13px] font-semibold text-slate-700 transition-colors hover:border-[var(--admin-accent)] hover:text-[var(--admin-accent)]">
+            {item.label}
           </Link>
         ))}
-      </div>
+      </nav>
     </div>
   );
 }

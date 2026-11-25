@@ -11,12 +11,16 @@ type StoreRow = {
   name: string;
   store_code: string | null;
   ship_name?: string | null;
-  manager_name: string | null;
   pass_link_token: string | null;
   closed_at?: string | null;
 };
 
 type HistoryRow = { id: number; summary: string; actor_name: string; created_at: string };
+type ShipFilter = "blocked" | "available";
+
+const filterButton = "inline-flex h-11 shrink-0 items-center justify-center whitespace-nowrap border px-3 text-[13px] font-semibold transition-colors disabled:opacity-50 lg:h-9";
+const inactiveFilter = "border-[var(--admin-line)] bg-white text-slate-600 hover:border-[var(--admin-accent)]";
+const activeFilter = "border-[var(--admin-accent)] bg-[var(--admin-accent)] text-white";
 
 function fmtHistTime(iso: string) {
   const d = new Date(iso);
@@ -33,17 +37,15 @@ export default function PassLinksPage() {
   const shownName = (s: StoreRow) => (showShip ? getShipName(s.store_code, s.name, s.ship_name) : s.name);
   const [stores, setStores] = useState<StoreRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<number | null>(null);
   const [regenId, setRegenId] = useState<number | null>(null);
   const [msg, setMsg] = useState("");
-  const [drafts, setDrafts] = useState<Record<number, string>>({});
   const [previewStoreId, setPreviewStoreId] = useState<number | null>(null);
   const [showStatus, setShowStatus] = useState(false);
   const [showSync, setShowSync] = useState(false);
   const [search, setSearch] = useState("");
   // 일괄출고금지 여부는 지점 현황(store_status)의 오픈일 값이 기준 — 계속 바뀌므로 목록은 지우지 않고 표시·필터만 한다.
-  const [bulkIds, setBulkIds] = useState<Set<number>>(new Set());
-  const [bulkOnly, setBulkOnly] = useState(false);
+  const [bulkIds, setBulkIds] = useState<Set<number> | null>(null);
+  const [shipFilter, setShipFilter] = useState<ShipFilter | null>(null);
   // 알림(웹푸시) 설정 현황 — 지점 화면에서 "알림받기"를 켠 기기 수. available=false면 확인 불가(테이블 미적용).
   const [push, setPush] = useState<{ available: boolean; stores: Record<number, { count: number; firstAt: string | null }> } | null>(null);
   const [pushOnly, setPushOnly] = useState(false); // 알림을 설정한 지점만 보기
@@ -57,9 +59,14 @@ export default function PassLinksPage() {
   const previewStore = stores.find((s) => s.id === previewStoreId) ?? null;
   const linkModalStore = stores.find((s) => s.id === linkModalStoreId) ?? null;
 
-  const filteredStores = stores
-    .filter((s) => !s.closed_at) // 폐업 지점만 제외 (오픈예정 지점도 출고 처리 대상)
-    .filter((s) => !bulkOnly || bulkIds.has(s.id))
+  const listedStores = stores.filter((s) => !s.closed_at); // 오픈예정 지점도 출고 처리 대상
+  const blockedCount = bulkIds ? listedStores.filter((s) => bulkIds.has(s.id)).length : 0;
+  const shipFilters = [
+    { key: "blocked", label: "일괄출고금지", count: blockedCount },
+    { key: "available", label: "출고가능", count: listedStores.length - blockedCount },
+  ] as const;
+  const filteredStores = listedStores
+    .filter((s) => !shipFilter || !bulkIds || bulkIds.has(s.id) === (shipFilter === "blocked"))
     .filter((s) => !pushOnly || !!push?.stores[s.id])
     .filter((s) => {
       const q = search.trim().toLowerCase();
@@ -77,19 +84,22 @@ export default function PassLinksPage() {
     setLoading(true);
     fetch("/api/admin/stores")
       .then((r) => (r.ok ? r.json() : []))
-      .then((data: StoreRow[]) => {
-        const list = Array.isArray(data) ? data : [];
-        setStores(list);
-        setDrafts(Object.fromEntries(list.map((s) => [s.id, s.manager_name ?? ""])));
-      })
+      .then((data: StoreRow[]) => setStores(Array.isArray(data) ? data : []))
       .finally(() => setLoading(false));
   };
 
   const loadBulk = () => {
     fetch("/api/admin/site-settings/store_status")
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to load store status");
+        return r.json();
+      })
       .then((config: { rows?: { storeId: number; openedAt: string }[] } | null) => {
         setBulkIds(new Set((config?.rows ?? []).filter((r) => isBulkShip(r.openedAt)).map((r) => r.storeId)));
+      })
+      .catch(() => {
+        setBulkIds(null);
+        setShipFilter(null);
       });
   };
 
@@ -109,26 +119,6 @@ export default function PassLinksPage() {
   const showMsg = (text: string) => {
     setMsg(text);
     setTimeout(() => setMsg(""), 3000);
-  };
-
-  const saveManager = async (id: number) => {
-    setSavingId(id);
-    try {
-      const res = await fetch(`/api/admin/stores/${id}/pass-link`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ manager_name: drafts[id] || null }),
-      });
-      if (res.ok) {
-        showMsg("담당자명이 저장됐습니다.");
-        load();
-      } else {
-        const d = await res.json().catch(() => ({}));
-        showMsg(`저장 실패: ${d.error ?? res.status}`);
-      }
-    } finally {
-      setSavingId(null);
-    }
   };
 
   const regenerate = async (id: number, name: string) => {
@@ -191,11 +181,11 @@ export default function PassLinksPage() {
 
   return (
     <>
-      <div className="space-y-5 lg:pr-[32vw]">
+      <div className="space-y-3 lg:pr-[32vw]">
         <div className="flex flex-col lg:flex-row items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">지점 링크 관리</h1>
-            <p className="text-sm text-gray-500 mt-1">링크 토큰이 지점코드 역할을 합니다. 유출이 의심되면 즉시 재발급하세요.</p>
+            <h1 className="text-[18px] font-bold text-slate-900">지점 링크 관리</h1>
+            <p className="mt-0.5 text-[12px] text-slate-600">링크 유출이 의심되면 즉시 재발급하세요.</p>
           </div>
           <div className="flex flex-wrap items-center lg:justify-end gap-2">
             {lastSync?.syncedAt && (
@@ -208,14 +198,14 @@ export default function PassLinksPage() {
             <button
               type="button"
               onClick={() => setShowSync(true)}
-              className="px-4 py-2 max-lg:min-h-[44px] text-sm font-semibold bg-[#303236] text-white rounded-lg hover:bg-[#1f2124]"
+              className="bg-[var(--admin-accent)] px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-[var(--admin-accent-hover)] max-lg:min-h-11"
             >
               wjumun 동기화
             </button>
             <button
               type="button"
               onClick={() => setShowStatus(true)}
-              className="px-4 py-2 max-lg:min-h-[44px] text-sm font-semibold border border-gray-300 rounded-lg text-gray-600 hover:border-[#303236] hover:text-[#303236]"
+              className="border border-[var(--admin-line)] bg-white px-3 py-1.5 text-[13px] font-semibold text-slate-600 hover:border-[var(--admin-accent)] max-lg:min-h-11"
             >
               지점 현황
             </button>
@@ -227,38 +217,39 @@ export default function PassLinksPage() {
         <div className="flex flex-wrap items-center gap-2">
           <input
             value={search}
+            aria-label="지점명 또는 지점코드 검색"
             onChange={(e) => setSearch(e.target.value)}
             placeholder="지점명 또는 지점코드 검색"
-            className="w-full lg:max-w-sm border border-gray-200 rounded-lg px-4 py-2.5 max-lg:min-h-[44px] text-sm focus:outline-none focus:border-[#303236]"
+            className="h-11 w-full min-w-36 border border-[var(--admin-line)] bg-white px-3 text-[13px] focus-visible:outline-2 focus-visible:outline-[var(--admin-accent)] lg:h-9 lg:flex-1"
           />
           <button
             type="button"
             onClick={toggleShip}
             title="지점명 ⇄ W지점명 전환"
-            className="px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
+            className={`${filterButton} ${inactiveFilter}`}
           >
             {showShip ? "W지점명" : "지점명"} ⇄
           </button>
-          <button
-            type="button"
-            onClick={() => setBulkOnly((v) => !v)}
-            aria-pressed={bulkOnly}
-            className={`px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border ${
-              bulkOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
-            }`}
-          >
-            일괄출고금지 {bulkIds.size}
-          </button>
+          {shipFilters.map(({ key, label, count }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setShipFilter((current) => current === key ? null : key)}
+              aria-pressed={shipFilter === key}
+              disabled={!bulkIds}
+              className={`${filterButton} ${shipFilter === key ? activeFilter : inactiveFilter}`}
+            >
+              {label}{bulkIds && !loading ? ` ${count}` : ""}
+            </button>
+          ))}
           {push?.available && (
             <button
               type="button"
               onClick={() => setPushOnly((v) => !v)}
               aria-pressed={pushOnly}
-              className={`px-4 py-2.5 max-lg:min-h-[44px] text-sm font-semibold rounded-lg border ${
-                pushOnly ? "bg-[#303236] text-white border-[#303236]" : "text-gray-600 border-gray-300 hover:border-[#303236] hover:text-[#303236]"
-              }`}
+              className={`${filterButton} ${pushOnly ? activeFilter : inactiveFilter}`}
             >
-              알림 설정 {stores.filter((s) => !s.closed_at &&!!push.stores[s.id]).length}
+              알림 설정 {listedStores.filter((s) => push.stores[s.id]).length}
             </button>
           )}
         </div>
@@ -280,11 +271,8 @@ export default function PassLinksPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[12px] text-gray-400 font-mono">{s.store_code || "-"}</p>
-                      <p className="text-[15px] font-bold text-gray-900 break-words">{shownName(s)}</p>
+                      <p className="break-words text-[13px] font-semibold text-slate-900">{shownName(s)}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        {bulkIds.has(s.id) && (
-                          <span className="px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold">일괄출고금지</span>
-                        )}
                         {push?.available && (
                           push.stores[s.id] ? (
                             <span className="px-2 py-0.5 text-[11px] font-semibold rounded-full bg-emerald-50 text-emerald-700">
@@ -296,24 +284,14 @@ export default function PassLinksPage() {
                         )}
                       </div>
                     </div>
-                    {!s.pass_link_token && (
-                      <span className="flex-shrink-0 px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-amber-100 text-amber-700">발급 필요</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={drafts[s.id] ?? ""}
-                      onChange={(e) => setDrafts((d) => ({ ...d, [s.id]: e.target.value }))}
-                      placeholder="담당자명"
-                      className="flex-1 min-w-0 min-h-[44px] border border-gray-200 rounded-lg px-3 text-sm focus:outline-none focus:border-[#303236]"
-                    />
-                    <button
-                      onClick={() => saveManager(s.id)}
-                      disabled={savingId === s.id}
-                      className="min-h-[44px] px-4 text-[13px] font-semibold whitespace-nowrap border border-gray-200 rounded-lg active:bg-gray-50 disabled:opacity-50"
-                    >
-                      저장
-                    </button>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      {bulkIds?.has(s.id) && (
+                        <span className="bg-[var(--admin-danger-bg)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--admin-danger)]">일괄출고금지</span>
+                      )}
+                      {!s.pass_link_token && (
+                        <span className="px-2.5 py-0.5 text-[12px] font-semibold bg-amber-100 text-amber-700">발급 필요</span>
+                      )}
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {s.pass_link_token ? (
@@ -346,60 +324,44 @@ export default function PassLinksPage() {
           <div className="hidden lg:block bg-white border border-gray-200 rounded-xl shadow-sm overflow-auto" style={{ maxHeight: "80vh" }}>
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
-                <tr>
-                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">지점코드</th>
-                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase"><ShipNameToggleButton showShip={showShip} onToggle={toggleShip} /></th>
-                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">담당자명</th>
-                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase">링크</th>
-                  <th className="px-5 py-3 text-left text-[12px] font-bold text-gray-500 uppercase whitespace-nowrap">알림</th>
-                  <th className="px-5 py-3" />
+                <tr className="whitespace-nowrap text-[12px] font-bold text-slate-600 [&>th]:px-3 [&>th]:py-2">
+                  <th scope="col">지점코드</th>
+                  <th scope="col"><ShipNameToggleButton showShip={showShip} onToggle={toggleShip} /></th>
+                  <th scope="col" className="w-28">일괄출고금지</th>
+                  <th scope="col">링크</th>
+                  <th scope="col">알림</th>
+                  <th scope="col"><span className="sr-only">화면 확인</span></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
+                {filteredStores.length === 0 && (
+                  <tr><td colSpan={6} className="py-10 text-center text-[13px] text-slate-500">조건에 맞는 지점이 없습니다.</td></tr>
+                )}
                 {filteredStores.map((s) => (
                   <tr
                     key={s.id}
-                    className={previewStore?.id === s.id ? "bg-gray-50" : !s.pass_link_token ? "bg-amber-50/60" : undefined}
+                    className={`[&>td]:px-3 [&>td]:py-1.5 ${previewStore?.id === s.id ? "bg-gray-50" : !s.pass_link_token ? "bg-amber-50/60" : ""}`}
                   >
-                    <td className="px-5 py-3 text-sm text-gray-500 font-mono">{s.store_code || "-"}</td>
-                    <td className="px-5 py-3 text-sm font-semibold text-gray-900">
-                      {shownName(s)}
-                      {bulkIds.has(s.id) && (
-                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 text-red-600 text-[11px] font-semibold align-middle">일괄출고금지</span>
+                    <td className="font-mono text-[12px] text-slate-500">{s.store_code || "-"}</td>
+                    <td className="text-[13px] font-semibold text-slate-900">{shownName(s)}</td>
+                    <td>
+                      {bulkIds?.has(s.id) && (
+                        <span className="whitespace-nowrap bg-[var(--admin-danger-bg)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--admin-danger)]">일괄출고금지</span>
                       )}
                     </td>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={drafts[s.id] ?? ""}
-                          onChange={(e) => setDrafts((d) => ({ ...d, [s.id]: e.target.value }))}
-                          placeholder="담당자명"
-                          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm w-32 focus:outline-none focus:border-[#303236]"
-                        />
-                        <button
-                          onClick={() => saveManager(s.id)}
-                          disabled={savingId === s.id}
-                          className="px-3 py-1.5 text-[13px] font-semibold whitespace-nowrap border border-gray-200 rounded-lg hover:border-[#303236] disabled:opacity-50"
-                        >
-                          저장
-                        </button>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3">
+                    <td>
                       {s.pass_link_token ? (
-                        <div className="flex items-center gap-1.5 flex-nowrap">
-                          <button
-                            onClick={() => copyLink(s.id, s.pass_link_token)}
-                            className="px-2.5 py-1 text-[12px] font-semibold whitespace-nowrap text-[#3A6DF0] border border-[#3A6DF0]/30 rounded-lg hover:bg-blue-50"
-                          >
-                            링크 복사
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => copyLink(s.id, s.pass_link_token)}
+                          className="h-7 whitespace-nowrap border border-[var(--admin-line)] px-2 text-[12px] font-semibold text-[var(--admin-accent)] hover:bg-blue-50"
+                        >
+                          링크 복사
+                        </button>
                       ) : (
                         <span className="px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-amber-100 text-amber-700">발급 필요</span>
                       )}
                     </td>
-                    <td className="px-5 py-3 whitespace-nowrap">
+                    <td className="whitespace-nowrap">
                       {!push?.available ? (
                         <span className="text-[12px] text-gray-300">-</span>
                       ) : push.stores[s.id] ? (
@@ -413,10 +375,10 @@ export default function PassLinksPage() {
                         <span className="px-2.5 py-0.5 text-[12px] font-semibold rounded-full bg-gray-100 text-gray-500">미설정</span>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-right whitespace-nowrap">
+                    <td className="whitespace-nowrap">
                       <button
                         onClick={() => setPreviewStoreId(s.id)}
-                        className={`px-3 py-1.5 text-[13px] font-semibold rounded-lg ${
+                        className={`h-7 px-2 text-[12px] font-semibold ${
                           previewStore?.id === s.id
                             ? "bg-[#303236] text-white"
                             : "border border-gray-300 text-gray-600 hover:border-[#303236] hover:text-[#303236]"

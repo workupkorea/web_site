@@ -351,7 +351,7 @@ export default function ArrivalTimelinePage() {
                           const mx = Math.max(1, weekProducts[0] ? Math.max(...weekProducts.map(x => Math.max(x.o, x.s))) : 1);
                           return (
                             <tr key={`${r.meta.product_code}-${r.meta.arrival_date}`} className="border-t border-gray-100">
-                              <td className="px-4 py-2.5">
+                              <td data-align-start className="px-4 py-2.5">
                                 <div className="text-xs text-gray-400">{[brand ? "" : r.meta.brand, r.meta.category].filter(Boolean).join(" · ")}</div>
                                 <div className="font-semibold text-gray-900">{r.meta.product_name || r.meta.product_code}</div>
                               </td>
@@ -439,7 +439,7 @@ export default function ArrivalTimelinePage() {
                     <tbody>
                       {speedList.map(p => (
                         <tr key={`${p.meta.product_code}-${p.meta.arrival_date}`} className="border-t border-gray-100">
-                          <td className="px-4 py-2.5">
+                          <td data-align-start className="px-4 py-2.5">
                             <div className="text-xs text-gray-400">{[brand ? "" : p.meta.brand, p.meta.category].filter(Boolean).join(" · ")}</div>
                             <div className="font-semibold text-gray-900">{p.meta.product_name || p.meta.product_code}</div>
                           </td>

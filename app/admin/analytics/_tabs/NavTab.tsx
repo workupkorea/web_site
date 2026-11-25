@@ -25,22 +25,29 @@ type Detail = {
   pages: KeyCount[];
   devices: DeviceRow[];
 };
-type Resp = {
+type MenuAnalytics = {
   range: { from: string; to: string; unit: "hour" | "day"; all: boolean };
   totals: { clicks: number; visitors: number; prevClicks: number | null; prevVisitors: number | null };
   rows: NavRow[];
   meta: { deviceAvailable: boolean; conversionAvailable: boolean };
-  home: {
-    total: number;
-    visitors: number;
-    sections: KeyCount[];
-    exhibitions: Record<string, { total: number; products: { key: string; name: string; count: number }[] }>;
-    defaultExhibitions: string[];
-    otherItems?: KeyCount[];
-    storeSearch?: { total: number; unique: number; keywords: KeyCount[] };
-  };
   detail: Detail;
 };
+type HomeAnalytics = {
+  total: number;
+  visitors: number;
+  sections: KeyCount[];
+  exhibitions: Record<string, { total: number; products: { key: string; name: string; count: number }[] }>;
+  defaultExhibitions: string[];
+  otherItems?: KeyCount[];
+  storeSearch?: { total: number; unique: number; keywords: KeyCount[] };
+};
+
+async function fetchAnalytics<T>(query: URLSearchParams, signal: AbortSignal): Promise<T> {
+  const response = await fetch(`/api/admin/analytics/nav?${query}`, { signal, cache: "no-store" });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data?.error ?? "불러오지 못했습니다.");
+  return data;
+}
 
 // daysAgoEnd: 종료일이 오늘에서 며칠 전인지 (0=오늘, 1=어제), days: 기간 길이(0=전체)
 const PRESETS = [
@@ -182,34 +189,65 @@ export default function NavTab() {
   const [all, setAll] = useState(false);
   const [menu, setMenu] = useState("");
   const [exhibition, setExhibition] = useState("");
-  const [data, setData] = useState<Resp | null>(null);
+  const [data, setData] = useState<MenuAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [homeRequest, setHomeRequest] = useState<string | null>(null);
+  const [homeSnapshot, setHomeSnapshot] = useState<{ range: string; data: HomeAnalytics } | null>(null);
+  const [homeError, setHomeError] = useState<{ range: string; message: string } | null>(null);
+  const rangeQuery = all ? "" : new URLSearchParams({ from, to }).toString();
+  const home = homeSnapshot?.range === rangeQuery ? homeSnapshot.data : null;
+  const homeLoading = homeRequest === rangeQuery;
 
   useEffect(() => {
     const ctrl = new AbortController();
     setLoading(true);
     setError("");
-    const qs = new URLSearchParams();
-    if (!all) {
-      qs.set("from", from);
-      qs.set("to", to);
-    }
+    const qs = new URLSearchParams(rangeQuery);
+    qs.set("scope", "menu");
     if (menu) qs.set("menu", menu);
-    fetch(`/api/admin/analytics/nav?${qs}`, { signal: ctrl.signal })
-      .then(async (r) => {
-        const d = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(d?.error ?? "불러오지 못했습니다");
-        setData(d);
+    fetchAnalytics<MenuAnalytics>(qs, ctrl.signal)
+      .then((result) => {
+        if (!ctrl.signal.aborted) setData(result);
       })
       .catch((e) => {
-        if (e?.name !== "AbortError") setError(String(e.message ?? e));
+        if (!ctrl.signal.aborted) setError(String(e.message ?? e));
       })
       .finally(() => {
         if (!ctrl.signal.aborted) setLoading(false);
       });
     return () => ctrl.abort();
-  }, [from, to, all, menu]);
+  }, [rangeQuery, menu, refreshVersion]);
+
+  useEffect(() => {
+    if (homeRequest === null) return;
+    if (homeRequest !== rangeQuery) {
+      setHomeRequest(null);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    const qs = new URLSearchParams(homeRequest);
+    qs.set("scope", "home");
+    fetchAnalytics<{ home: HomeAnalytics }>(qs, ctrl.signal)
+      .then(({ home: data }) => {
+        if (!ctrl.signal.aborted) setHomeSnapshot({ range: homeRequest, data });
+      })
+      .catch((e) => {
+        if (!ctrl.signal.aborted) setHomeError({ range: homeRequest, message: String(e.message ?? e) });
+      })
+      .finally(() => {
+        if (!ctrl.signal.aborted) setHomeRequest(null);
+      });
+    return () => ctrl.abort();
+  }, [homeRequest, rangeQuery]);
+
+  const refresh = () => {
+    setHomeError(null);
+    setHomeRequest(rangeQuery);
+    setRefreshVersion((version) => version + 1);
+  };
 
   const applyPreset = (p: (typeof PRESETS)[number]) => {
     if (p.days === 0) {
@@ -250,12 +288,12 @@ export default function NavTab() {
   const trendMax = Math.max(1, ...(detail?.trend.map((t) => t.clicks) ?? [0]));
   const unit = data?.range.unit ?? "day";
   const conversionOn = data?.meta.conversionAvailable ?? false;
-  const storeSearch = data?.home.storeSearch;
-  const exhibitionSections = (data?.home.sections ?? [])
+  const storeSearch = home?.storeSearch;
+  const exhibitionSections = (home?.sections ?? [])
     .filter(({ key }) => key === HOME_SUB_EXHIBITION_LABEL || key.startsWith(`${HOME_SUB_EXHIBITION_LABEL} - `))
     .map(({ key }) => key);
   const selectedExhibition = exhibitionSections.includes(exhibition) ? exhibition : "";
-  const defaultExhibitions = [...new Set([...(data?.home.defaultExhibitions ?? []), ...exhibitionSections])].slice(0, 4);
+  const defaultExhibitions = [...new Set([...(home?.defaultExhibitions ?? []), ...exhibitionSections])].slice(0, 4);
   const displayExhibitions = selectedExhibition && !defaultExhibitions.includes(selectedExhibition)
     ? [...defaultExhibitions, selectedExhibition]
     : defaultExhibitions;
@@ -264,8 +302,8 @@ export default function NavTab() {
     if (!selectedExhibition) return;
     document.getElementById(exhibitionPanelId(selectedExhibition))?.scrollIntoView({ block: "nearest" });
   }, [selectedExhibition]);
-  const otherItems = data?.home.otherItems ?? [];
-  const otherCount = data?.home.sections.find((section) => section.key === "기타")?.count ?? 0;
+  const otherItems = home?.otherItems ?? [];
+  const otherCount = home?.sections.find((section) => section.key === "기타")?.count ?? 0;
   const otherRemaining = otherCount - otherItems.reduce((sum, item) => sum + item.count, 0);
   const otherDetails = otherItems.map((item) => `${item.key} ${item.count.toLocaleString()}회`).join(" · ");
   const otherDescription = otherDetails && otherRemaining > 0
@@ -329,27 +367,40 @@ export default function NavTab() {
           <input type="date" aria-label="시작일" className={inputCls} value={all ? data?.range.from ?? from : from} max={today} onChange={(e) => onFrom(e.target.value)} />
           <span className="text-gray-400">~</span>
           <input type="date" aria-label="종료일" className={inputCls} value={all ? data?.range.to ?? to : to} max={today} onChange={(e) => onTo(e.target.value)} />
-          <button
-            onClick={downloadCsv}
-            disabled={!data}
-            className="ml-auto px-3.5 min-h-[44px] rounded-xl border border-gray-200 bg-white text-[13px] font-bold text-gray-600 hover:border-gray-400 disabled:opacity-40"
-          >
-            CSV 내려받기
-          </button>
+          <div className="ml-auto flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={homeLoading}
+              className="min-h-11 bg-[var(--admin-accent)] px-3.5 text-[13px] font-bold text-white hover:bg-[var(--admin-accent-hover)] disabled:opacity-60"
+            >
+              {homeLoading ? "새로고침 중…" : "새로고침"}
+            </button>
+            <button
+              type="button"
+              onClick={downloadCsv}
+              disabled={!data}
+              className="min-h-11 border border-gray-200 bg-white px-3.5 text-[13px] font-bold text-gray-600 hover:border-gray-400 disabled:opacity-40"
+            >
+              CSV 내려받기
+            </button>
+          </div>
         </div>
         <p className="text-[12px] text-gray-400">
           {unit === "hour" ? "하루(오늘/어제)는 시간대별로, 오늘은 지금까지의 데이터입니다." : "최근 N일은 오늘을 포함해 일 단위로 표시됩니다."} 한국 시간(KST) 기준 · 로그는 최근 90일까지 보관됩니다.
         </p>
       </div>
 
-      {error ? (
+      {error && (
         <div className="bg-white rounded-2xl border border-gray-100 p-6 text-[13px] text-red-500">
           {error}
           <br />
           <span className="text-gray-400">nav_events 테이블이 아직 없다면 SQL 에디터에서 migrate_add_nav_events.sql 을 실행하세요.</span>
         </div>
-      ) : (
-        <div className={loading ? "opacity-60 transition-opacity space-y-4" : "space-y-4"}>
+      )}
+      <div className="space-y-4">
+        {!error && (
+        <div aria-busy={loading} className={loading ? "opacity-60 transition-opacity space-y-4" : "space-y-4"}>
           {/* KPI */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="bg-white rounded-2xl border border-gray-100 p-4">
@@ -450,25 +501,38 @@ export default function NavTab() {
             )}
           </div>
 
-          {data && (
-            <>
+        </div>
+        )}
+
+          <section className="space-y-3" aria-labelledby="home-analytics-title" aria-busy={homeLoading}>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                <h2 className="text-[15px] font-extrabold text-gray-900">메인 페이지 분석 (본문 클릭)</h2>
-                {!!data?.home.total && (
+                <h2 id="home-analytics-title" className="text-[15px] font-extrabold text-gray-900">메인 페이지 분석 (본문 클릭)</h2>
+                {!!home?.total && (
                   <span className="text-[12px] text-gray-400">
-                    총 {data.home.total.toLocaleString()}회 · 방문자 {data.home.visitors.toLocaleString()}명 (상단/하단 메뉴 제외)
+                    총 {home.total.toLocaleString()}회 · 방문자 {home.visitors.toLocaleString()}명 (상단/하단 메뉴 제외)
                   </span>
                 )}
               </div>
+              {homeError?.range === rangeQuery && (
+                <p role="alert" className="border border-rose-200 bg-white p-4 text-[13px] text-rose-700">
+                  메인 페이지 분석을 불러오지 못했습니다. {homeError.message}
+                </p>
+              )}
+              {!home && homeError?.range !== rangeQuery && (
+                <p role="status" className="border border-gray-200 bg-white p-4 text-[13px] text-slate-600">
+                  {homeLoading ? "메인 페이지 분석을 불러오는 중입니다." : "상단의 새로고침을 누르면 선택한 기간의 메인 페이지 분석을 불러옵니다."}
+                </p>
+              )}
+              {home && (
               <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-3">
                 <div className="min-w-0 space-y-3">
                   <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                    {!data?.home.total ? (
+                    {!home.total ? (
                       <p className="text-[13px] text-gray-400">이 기간에 기록된 메인 페이지 클릭이 없습니다. (수집은 배포 후부터 시작됩니다)</p>
                     ) : (
                       <BarList
-                        items={data.home.sections}
-                        total={data.home.total}
+                        items={home.sections}
+                        total={home.total}
                         descriptions={{ 기타: otherDescription }}
                         selection={{ keys: exhibitionSections, active: selectedExhibition, onChange: setExhibition }}
                       />
@@ -492,7 +556,7 @@ export default function NavTab() {
                   {displayExhibitions.length > 0 && (
                     <section aria-label="서브 기획전 상품 클릭 상세" className="space-y-3">
                       {displayExhibitions.map((section) => {
-                        const exhibitionDetail = data.home.exhibitions?.[section];
+                        const exhibitionDetail = home.exhibitions?.[section];
                         const selected = selectedExhibition === section;
                         return (
                           <div
@@ -529,11 +593,11 @@ export default function NavTab() {
                   )}
                 </div>
               </div>
-            </>
-          )}
+              )}
+          </section>
 
           {/* 상세 분석 */}
-          {detail && rows.length > 0 && (
+          {!error && detail && rows.length > 0 && (
             <>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-[15px] font-extrabold text-gray-900">기기 및 방문 유형 분석 · {detail.menu ?? "전체 메뉴"}</h2>
@@ -666,8 +730,7 @@ export default function NavTab() {
               </Card>
             </>
           )}
-        </div>
-      )}
+      </div>
 
       <p className="text-[12px] text-gray-400 leading-relaxed">
         체류시간은 해당 메뉴로 이동한 페이지에서 화면이 보인 시간만 측정하며(괄호는 측정 건수), 30분 초과는 30분으로 처리합니다. 새 창으로 열리는 메뉴는 클릭만 집계됩니다.

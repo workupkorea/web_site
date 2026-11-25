@@ -19,13 +19,13 @@ export default function NoticesChrome({ children, adminName }: { children: React
   const embed = searchParams.get("embed") === "1";
 
   if (embed) {
-    return <div className="min-h-screen bg-[#f7f7f5] px-3 py-4 lg:px-6 lg:py-6">{children}</div>;
+    return <div className="admin-ui min-h-screen px-3 py-3 lg:px-5">{children}</div>;
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f7f5]">
-      <header className="bg-white border-b border-gray-200">
-        <div className="px-4 lg:px-6 py-3 lg:py-4 flex items-center justify-between gap-2">
+    <div className="admin-ui min-h-screen">
+      <header className="border-b border-[var(--admin-line)] bg-white">
+        <div className="flex min-h-12 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 lg:px-5">
           <Link href="/notices" className="flex items-center gap-2">
             <span className="text-[15px] font-black tracking-tight text-[#303236]">WORKUP</span>
             <span className="text-[13px] text-gray-400">· 지점 출고 패스</span>
@@ -45,8 +45,8 @@ export default function NoticesChrome({ children, adminName }: { children: React
             <Link
               key={t.href}
               href={t.href}
-              className={`flex items-center justify-center px-2 min-h-[44px] rounded-lg text-[13px] font-medium whitespace-nowrap ${
-                pathname.startsWith(t.href) && t.href !== "/notices" ? "bg-[#303236] text-white" : "text-gray-600 bg-white border border-gray-200"
+              className={`flex items-center justify-center px-2 min-h-[44px] text-[13px] font-medium whitespace-nowrap ${
+                pathname.startsWith(t.href) && t.href !== "/notices" ? "bg-[var(--admin-accent)] text-white" : "text-slate-600 bg-white border border-[var(--admin-line)]"
               }`}
             >
               {t.label}
@@ -54,7 +54,7 @@ export default function NoticesChrome({ children, adminName }: { children: React
           ))}
         </nav>
       )}
-      <main className="px-3 py-4 lg:px-6 lg:py-8">{children}</main>
+      <main className="px-3 py-3 lg:px-5">{children}</main>
     </div>
   );
 }

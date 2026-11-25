@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useId, useMemo } from "react";
 import InquiryTabs from "@/components/admin/InquiryTabs";
 import { RETENTION_MONTHS, fmtSize, parseFiles } from "@/lib/partnership-files";
 import { INQUIRY_STATUS_LABEL, type Inquiry, type InquiryStatus } from "@/data/partnership";
@@ -87,7 +87,7 @@ function GroupOrderTable({ q }: { q: Inquiry }) {
         {rows.map(([label, value]) => (
           <tr key={label} className="border-b border-slate-100 last:border-0">
             <th className="w-32 bg-slate-50 text-left font-medium text-slate-500 px-3.5 py-2 align-top whitespace-nowrap">{label}</th>
-            <td className="px-3.5 py-2 text-slate-800 whitespace-pre-line break-words">
+            <td data-align-start className="px-3.5 py-2 text-slate-800 whitespace-pre-line break-words">
               {value ? value : <span className="text-slate-300">미입력</span>}
             </td>
           </tr>
@@ -108,6 +108,7 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
   onSaveReply: (id: string, reply: string) => Promise<void>;
 }) {
   const [open, setOpen] = useState(false);
+  const detailId = useId();
   const existing = q.payload._reply ?? "";
   const repliedAt = q.payload._repliedAt ?? "";
   const [draft, setDraft] = useState(existing);
@@ -124,13 +125,18 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
   const save = async () => { setSaving(true); try { await onSaveReply(q.id, draft); } finally { setSaving(false); } };
 
   return (
-    <div className={`border-b border-slate-100 last:border-0 ${selected ? "bg-blue-50/40" : ""}`}>
-      <div className="grid grid-cols-[32px_84px_128px_112px_1fr_84px] items-center gap-3 px-4 py-2.5 hover:bg-slate-50 cursor-pointer" onClick={() => setOpen((o) => !o)}>
-        <input type="checkbox" checked={selected} onClick={(e) => e.stopPropagation()} onChange={() => onToggleSelect(q.id)} className="w-4 h-4 accent-blue-600" />
-        <span className={`text-[11px] px-2 py-0.5 rounded text-center whitespace-nowrap ${TYPE_BADGE[q.type] ?? "bg-gray-500 text-white"}`}>{TYPE_LABEL[q.type] ?? q.type}</span>
-        <span className="text-xs text-slate-400 whitespace-nowrap">{fmtDate(q.created_at)}</span>
-        <span className="text-sm text-slate-700 truncate">{name}</span>
-        <span className="text-sm text-slate-800 truncate flex items-center gap-1.5">
+    <>
+      <tr className={`cursor-pointer border-b border-slate-200 hover:bg-slate-50 [&>td]:px-2.5 [&>td]:py-1.5 ${selected || open ? "bg-blue-50/40" : ""}`} onClick={() => setOpen((o) => !o)}>
+        <td onClick={(e) => e.stopPropagation()}>
+          <input type="checkbox" aria-label={`${name} 문의 선택`} checked={selected} onChange={() => onToggleSelect(q.id)} />
+        </td>
+        <td><span className={`inline-block whitespace-nowrap px-2 py-0.5 text-[11px] ${TYPE_BADGE[q.type] ?? "bg-gray-500 text-white"}`}>{TYPE_LABEL[q.type] ?? q.type}</span></td>
+        <td className="whitespace-nowrap text-xs tabular-nums text-slate-500">{fmtDate(q.created_at)}</td>
+        <td className="break-words text-sm text-slate-700">{name}</td>
+        <td data-align-start>
+        <button type="button" aria-expanded={open} aria-controls={open ? detailId : undefined}
+          className="flex w-full min-w-0 items-center gap-1.5 text-start text-sm text-slate-800 hover:underline"
+          onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}>
           {q.payload._reply && <span className="text-emerald-600 text-[11px] flex-shrink-0">✓답변</span>}
           {subject && <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 flex-shrink-0">{subject}</span>}
           <span className="truncate">{getTitle(q)}</span>
@@ -140,15 +146,16 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
               {attachedFiles.length}
             </span>
           )}
-        </span>
-        <div className="flex items-center gap-1.5 justify-end">
+        </button>
+        </td>
+        <td><span className="inline-flex items-center gap-1.5 whitespace-nowrap">
           <span className={`text-[11px] px-2 py-0.5 rounded ${STATUS_STYLE[q.status]}`}>{INQUIRY_STATUS_LABEL[q.status]}</span>
           <svg className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-        </div>
-      </div>
+        </span></td>
+      </tr>
 
       {open && (
-        <div className="px-4 pb-4 pt-1 bg-slate-50/50">
+        <tr className="border-b border-slate-200"><td id={detailId} colSpan={6} className="bg-slate-50/50 px-4 py-3">
           {isGroupOrder ? <GroupOrderTable q={q} /> : (
             <div className="text-sm text-slate-800 whitespace-pre-line break-words border border-slate-100 bg-white rounded-lg p-3.5 mb-3">{getBody(q) || "(내용 없음)"}</div>
           )}
@@ -217,9 +224,9 @@ function InquiryRow({ q, selected, onToggleSelect, onStatus, onChangeType, onDel
               <span className="text-[11px] text-slate-400">저장 시 상태가 ‘완료’로 바뀝니다.</span>
             </div>
           </div>
-        </div>
+        </td></tr>
       )}
-    </div>
+    </>
   );
 }
 
@@ -482,10 +489,9 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
   return (
     <div>
       <InquiryTabs />
-      <div className="flex items-center justify-between mb-4 gap-4 flex-wrap">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
           <h1 className="text-3xl font-bold text-gray-900">{fixedType ? "B2B 문의" : "문의 관리"}</h1>
-          <p className="text-sm text-gray-500">{fixedType ? "단체복·대량구매 견적 문의를 확인하고 바로 답변합니다. 제목을 클릭하면 내용이 펼쳐집니다." : "실제 접수된 문의를 확인하고 바로 답변합니다. 제목을 클릭하면 내용이 펼쳐집니다."}</p>
         </div>
         <div className="flex items-center gap-3">
           {toast && <span className="text-sm font-medium text-green-600">{toast}</span>}
@@ -493,10 +499,10 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
       </div>
 
       {/* 탭 */}
-      {!fixedType && <div className="flex gap-1 border-b border-gray-200 mb-6">
+      {!fixedType && <div className="mb-2 flex gap-1 border-b border-[var(--admin-line)]">
         {([["list", "접수 목록"], ["notify", "알림 설정"]] as const).map(([t, label]) => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === t ? "border-slate-800 text-slate-900" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
+            className={`min-h-11 border-b-2 px-3 text-sm font-medium transition-colors sm:min-h-9 ${tab === t ? "border-[var(--admin-accent)] text-[var(--admin-accent)]" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
             {label}{t === "list" && inquiries.length > 0 ? ` (${inquiries.length.toLocaleString()})` : ""}
           </button>
         ))}
@@ -506,7 +512,7 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
       {tab === "list" && (
         <div>
           {/* 필터 — 전체를 제외한 나머지 버튼에 위 통계 카드에서 고른 기간 기준 건수를 표기한다(기간을 바꾸면 여기 숫자도 바뀐다). */}
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
             {!fixedType && FILTERS.map(([f, label]) => (
               <button key={f} onClick={() => setFilter(f)}
                 className={`text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${filter === f ? "bg-slate-800 text-white border-slate-800" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
@@ -530,7 +536,7 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
           </div>
 
           {/* 문의 통계 — 기간 프리셋(왼쪽) + 검색창(오른쪽) + 미답변 건수. 유형별 집계는 아래 필터 버튼에 표기(중복 제거). 영역은 작게 유지. */}
-          <div className="bg-white rounded-t-lg border border-b-0 border-slate-200 px-3.5 py-2.5">
+          <div className={`border border-[var(--admin-line)] bg-white p-2 ${!loadingList && filtered.length > 0 && selected.size === 0 ? "border-b-0" : ""}`}>
             <div className="flex items-center gap-2 flex-wrap">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {([["1m", "1개월"], ["3m", "3개월"], ["all", "전체"], ["custom", "직접선택"]] as const).map(([p, label]) => (
@@ -591,19 +597,26 @@ export default function InquiriesBoard({ mode = "all" }: { mode?: "all" | "b2b" 
               {kw || filter !== "all" ? "조건에 맞는 문의가 없습니다." : "접수된 문의가 없습니다."}
             </div>
           ) : (
-            <div className="bg-white rounded-b-xl border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <div className="min-w-[720px]">
-                  {/* 헤더 */}
-                  <div className="grid grid-cols-[32px_84px_128px_112px_1fr_84px] items-center gap-3 px-4 py-2.5 text-[11px] font-medium text-slate-400 border-b border-slate-100 bg-slate-50/50">
-                    <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} title="전체 선택" className="w-4 h-4 accent-blue-600" />
-                    <span className="text-center">유형</span><span>접수일</span><span>이름</span><span>제목</span><span className="text-right">상태</span>
-                  </div>
-                  {shown.map((q) => (
-                    <InquiryRow key={q.id} q={q} selected={selected.has(q.id)} onToggleSelect={toggleSelect}
-                      onStatus={changeStatus} onChangeType={changeType} onDelete={deleteInquiry} onSaveReply={saveReply} />
-                  ))}
-                </div>
+            <div className="border border-[var(--admin-line)] bg-white">
+              <div className="overflow-x-auto" tabIndex={0} role="region" aria-label="접수 문의 표">
+                <table className="w-full min-w-[720px] table-fixed">
+                  <thead className="border-b border-[var(--admin-line)] text-xs text-slate-600">
+                    <tr className="[&>th]:px-2.5 [&>th]:py-2">
+                      <th scope="col" className="w-10"><input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAll} aria-label="검색 결과 전체 선택" /></th>
+                      <th scope="col" className="w-26">유형</th>
+                      <th scope="col" className="w-34">접수일</th>
+                      <th scope="col" className="w-27">이름</th>
+                      <th scope="col">제목</th>
+                      <th scope="col" className="w-22">상태</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shown.map((q) => (
+                      <InquiryRow key={q.id} q={q} selected={selected.has(q.id)} onToggleSelect={toggleSelect}
+                        onStatus={changeStatus} onChangeType={changeType} onDelete={deleteInquiry} onSaveReply={saveReply} />
+                    ))}
+                  </tbody>
+                </table>
               </div>
               {filtered.length > visible && (
                 <button onClick={() => setVisible(v => v + 50)}

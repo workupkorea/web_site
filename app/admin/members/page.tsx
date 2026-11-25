@@ -17,9 +17,8 @@ const TABS = [
 
 export default function AdminMembersPage() {
   return (
-    <>
+    <AdminTabs basePath="/admin/members" tabs={TABS}>
       <DormantNotice />
-      <AdminTabs basePath="/admin/members" tabs={TABS} />
-    </>
+    </AdminTabs>
   );
 }

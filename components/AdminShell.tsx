@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import AdminSectionNav, { ADMIN_SECTION_NAV_IN_CONTENT } from "./admin/AdminSectionNav";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import AdminSidebar, { getNavLeafByHref, isDropdown, navGroups, type NavLeaf } from "./AdminSidebar";
 import { AdminUIContext, type AdminTab, type AdminUIValue } from "./admin-ui-context";
@@ -30,6 +30,7 @@ type TabTimestamps = Record<string, number>;
  */
 export default function AdminShell({ children, superAdmin }: { children: React.ReactNode; superAdmin?: boolean }) {
   const pathname = usePathname();
+  const isPromotion = pathname.startsWith("/admin/promotions/");
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -256,17 +257,17 @@ export default function AdminShell({ children, superAdmin }: { children: React.R
     <AdminUIContext.Provider value={value}>
       <AdminSidebar superAdmin={superAdmin} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {pathname.startsWith("/admin/promotions/") && (
-          <nav aria-label="프로모션" className="flex flex-wrap border-b border-slate-200 bg-white px-4 sm:hidden">
-            {promotionLinks?.map(({ href, label }) => (
-              <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined} className="inline-flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-semibold text-slate-600 aria-[current=page]:border-blue-700 aria-[current=page]:text-blue-700">
-                {label}
-              </Link>
-            ))}
-          </nav>
-        )}
-        <main className="flex-1 min-w-0 overflow-y-auto bg-[#f1f5f9]">
-          <div className="px-4 sm:px-6 lg:px-10 pt-5 pb-10 admin-content">{children}</div>
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <div className={`px-3 pt-3 pb-8 sm:px-5 lg:px-6 ${isPromotion ? "" : "admin-content"}`}>
+            {isPromotion && (
+              <AdminSectionNav
+                label="프로모션"
+                className={ADMIN_SECTION_NAV_IN_CONTENT}
+                links={(promotionLinks ?? []).map(({ href, label }) => ({ href, label, active: pathname === href }))}
+              />
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </AdminUIContext.Provider>

@@ -63,9 +63,9 @@ const sortValue = (s: StoreRow, key: SortKey): string | number => {
 type StoreStatus = "운영중" | "예정" | "폐업";
 const STATUS_OPTIONS: StoreStatus[] = ["운영중", "예정", "폐업"];
 const STATUS_COLOR: Record<StoreStatus, string> = {
-  운영중: "bg-emerald-100 text-emerald-700",
-  예정: "bg-amber-100 text-amber-700",
-  폐업: "bg-red-100 text-red-700",
+  운영중: "bg-[var(--admin-success-bg)] text-[var(--admin-success)]",
+  예정: "bg-[var(--admin-pending-bg)] text-[var(--admin-pending)]",
+  폐업: "bg-[var(--admin-danger-bg)] text-[var(--admin-danger)]",
 };
 const storeStatus = (s: Pick<StoreRow, "is_active" | "closed_at">): StoreStatus =>
   s.closed_at ? "폐업" : s.is_active ? "운영중" : "예정";
@@ -76,11 +76,14 @@ const isScheduled = (s: Pick<StoreRow, "is_active" | "closed_at" | "close_date">
 const CLOSE_REASONS = ["폐업", "점주변경", "이전", "계약종료"];
 
 const TYPE_COLOR: Record<string, string> = {
-  직영점: "bg-blue-100 text-blue-700",
-  대리점: "bg-green-100 text-green-700",
-  아울렛: "bg-purple-100 text-purple-700",
-  "복합쇼핑몰": "bg-orange-100 text-orange-700",
+  직영점: "bg-[var(--admin-info-bg)] text-[var(--admin-info)]",
+  대리점: "bg-teal-50 text-teal-800",
+  아울렛: "bg-violet-50 text-violet-800",
 };
+
+const toolbarButton = "inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap px-3 text-sm font-semibold transition-colors sm:min-h-9";
+const secondaryButton = `${toolbarButton} border border-[var(--admin-line)] bg-white text-slate-700 hover:bg-slate-50`;
+const filterField = "min-h-11 border border-[var(--admin-line)] bg-white px-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--admin-accent)] sm:min-h-9";
 
 export default function ListTab() {
   const [stores, setStores] = useState<StoreRow[]>([]);
@@ -298,17 +301,14 @@ export default function ListTab() {
   return (
     <div>
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-xl font-bold text-gray-900">스토어 관리</h1>
-          <p className="text-sm text-gray-400">전국 매장 정보를 관리합니다.</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-bold text-slate-900">스토어 관리</h1>
+        <div className="flex flex-wrap items-center gap-1.5">
           <Link
             href="/admin/stores/import"
-            className="flex items-center gap-2 px-4 py-1.5 border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-400 transition-colors rounded"
+            className={secondaryButton}
           >
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
             </svg>
             Excel 업로드
@@ -316,16 +316,16 @@ export default function ListTab() {
           <button
             onClick={downloadExcel}
             disabled={stores.length === 0}
-            className="flex items-center gap-2 px-4 py-1.5 border-2 border-gray-200 text-sm font-semibold text-gray-700 hover:border-gray-400 transition-colors rounded disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`${secondaryButton} disabled:opacity-40 disabled:cursor-not-allowed`}
           >
-            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
             Excel 다운로드
           </button>
           <Link
             href="/admin/stores/new"
-            className="flex items-center gap-2 px-5 py-1.5 bg-[#303236] text-white text-sm font-semibold hover:bg-[#243a63] transition-colors rounded"
+            className={`${toolbarButton} bg-[var(--admin-accent)] text-white hover:bg-[var(--admin-accent-hover)]`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -337,49 +337,54 @@ export default function ListTab() {
 
 
       {/* 필터 */}
-      <div className="bg-white border border-gray-200 rounded-t-xl border-b-0 px-5 py-3 mb-0 flex flex-wrap gap-4 items-center">
+      <div className={`flex flex-wrap items-center gap-2 border border-[var(--admin-line)] bg-white p-2 ${selected.size === 0 ? "border-b-0" : ""}`}>
         <input
           type="text"
+          aria-label="매장명 또는 주소 검색"
           placeholder="매장명 또는 주소 검색"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+          className={`${filterField} min-w-0 basis-full sm:min-w-40 sm:flex-1`}
         />
         <select
+          aria-label="지역"
           value={regionFilter}
           onChange={(e) => setRegionFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+          className={filterField}
         >
           {regions.map((r) => <option key={r} value={r}>{r === "전체" ? "지역 전체" : r}</option>)}
         </select>
         <select
+          aria-label="유형"
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-[#303236]"
+          className={filterField}
         >
           {types.map((t) => <option key={t} value={t}>{t === "전체" ? "유형 전체" : t}</option>)}
         </select>
-        <div className="flex gap-1 border border-gray-200 rounded-lg overflow-hidden">
+        <div className="flex max-w-full flex-wrap border border-[var(--admin-line)]">
           {(["전체", "운영중", "예정", "폐업"] as const).map((opt) => (
             <button
               key={opt}
+              type="button"
               onClick={() => setActiveFilter(opt)}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${activeFilter === opt ? "bg-[#303236] text-white" : "text-gray-500 hover:text-gray-900"}`}
+              aria-pressed={activeFilter === opt}
+              className={`min-h-[42px] whitespace-nowrap px-2 text-sm font-medium transition-colors sm:min-h-[34px] ${activeFilter === opt ? "bg-[var(--admin-accent)] text-white" : "text-slate-600 hover:bg-slate-50"}`}
             >
               {opt === "전체" ? opt : `${opt}(${statusCounts[opt]}건)`}
             </button>
           ))}
         </div>
-        <p className="text-sm text-gray-400 ml-auto">
+        <p className="ml-auto whitespace-nowrap px-1 text-xs tabular-nums text-slate-600">
           {filtered.length} / {statusCounts.전체}개 매장
         </p>
       </div>
 
       {/* 다중 선택 일괄 처리 */}
       {selected.size > 0 && (
-        <div className="bg-[#303236] rounded-xl px-5 py-3 mt-3 mb-3 flex items-center gap-4">
+        <div className="my-2 flex flex-wrap items-center gap-2 bg-[var(--admin-ink)] px-3 py-2">
           <span className="text-sm font-semibold text-white">{selected.size}개 선택됨</span>
-          <div className="flex items-center gap-2 ml-auto">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
               onClick={() => bulkSetActive(true)}
               disabled={bulkSaving}
@@ -420,14 +425,15 @@ export default function ListTab() {
       )}
 
       {/* 테이블 */}
-      <div className="bg-white border border-gray-200 rounded-b-xl overflow-hidden shadow-sm">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead className="bg-gray-50 border-b border-gray-200">
+      <div className="border border-[var(--admin-line)] bg-white">
+        <div className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--admin-accent)]" tabIndex={0} role="region" aria-label="매장 목록 표">
+          <table className="w-full min-w-[960px] text-[13px]">
+            <thead className="border-b border-[var(--admin-line)]">
               <tr>
                 <th className="px-3 py-2.5 text-left w-10">
                   <input
                     type="checkbox"
+                    aria-label="검색 결과 전체 선택"
                     checked={allFilteredSelected}
                     onChange={toggleAll}
                     className="w-4 h-4 rounded border-gray-300 accent-[#303236]"
@@ -443,7 +449,7 @@ export default function ListTab() {
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("is_active")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">상태<span className={sortKey === "is_active" ? "text-gray-900" : "text-gray-300"}>{sortKey === "is_active" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("page_active")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">스토어 페이지<span className={sortKey === "page_active" ? "text-gray-900" : "text-gray-300"}>{sortKey === "page_active" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
                 <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("created_at")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">등록일<span className={sortKey === "created_at" ? "text-gray-900" : "text-gray-300"}>{sortKey === "created_at" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
-                <th className="px-3 py-2.5 text-left text-[11px] font-semibold text-gray-500 uppercase whitespace-nowrap"><button type="button" onClick={() => toggleSort("updated_at")} className="inline-flex items-center gap-1 uppercase hover:text-gray-900">수정일 / 수정내역<span className={sortKey === "updated_at" ? "text-gray-900" : "text-gray-300"}>{sortKey === "updated_at" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
+                <th className="px-3 py-2.5 text-[11px] font-semibold text-gray-500 whitespace-nowrap"><button type="button" onClick={() => toggleSort("updated_at")} className="inline-flex items-center gap-1 hover:text-gray-900">수정일<span className={sortKey === "updated_at" ? "text-gray-900" : "text-gray-300"}>{sortKey === "updated_at" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}</span></button></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -473,6 +479,7 @@ export default function ListTab() {
                     <td className="px-3 py-2.5">
                       <input
                         type="checkbox"
+                        aria-label={`${store.name} 선택`}
                         checked={selected.has(store.id)}
                         onChange={() => toggleOne(store.id)}
                         className="w-4 h-4 rounded border-gray-300 accent-[#303236]"
@@ -484,17 +491,23 @@ export default function ListTab() {
                     </td>
                     <td className="px-3 py-2.5">
                       <Link href={`/admin/stores/${store.id}/edit`} className="font-medium text-gray-900 hover:text-blue-600 hover:underline">
-                        {store.close_reason && (
-                          <span className="mr-1.5 px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-semibold align-middle">{store.close_reason}</span>
+                        {store.open_date && (
+                          <span className="mr-1.5 inline-block whitespace-nowrap bg-[var(--admin-pending-bg)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--admin-pending)]">
+                            {store.open_date.slice(5).replace("-", "/")} 오픈예정
+                          </span>
+                        )}
+                        {store.close_date && !store.closed_at && (
+                          <span className="mr-1.5 inline-block whitespace-nowrap bg-[var(--admin-danger-bg)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--admin-danger)]">
+                            {store.close_date.slice(5).replace("-", "/")} 폐업예정
+                          </span>
                         )}
                         {store.name}
                       </Link>
-                      <p className="text-[11px] text-gray-400 mt-0.5 truncate max-w-[200px]">{store.address}</p>
                     </td>
                     <td className="px-3 py-2.5 text-gray-600 whitespace-nowrap">{store.ship_name || "-"}</td>
                     <td className="px-3 py-2.5 text-gray-600">{store.region || "-"}</td>
                     <td className="px-3 py-2.5">
-                      <span className={`px-2 py-0.5 text-[11px] font-semibold rounded-full ${TYPE_COLOR[store.store_type] ?? "bg-gray-100 text-gray-600"}`}>
+                      <span className={`whitespace-nowrap px-2 py-0.5 text-[11px] font-semibold ${TYPE_COLOR[store.store_type || "직영점"] ?? "bg-slate-100 text-slate-700"}`}>
                         {store.store_type || "직영점"}
                       </span>
                     </td>
@@ -504,28 +517,18 @@ export default function ListTab() {
                         value={storeStatus(store)}
                         onChange={(e) => changeStatus(store, e.target.value as StoreStatus)}
                         aria-label={`${store.name} 상태`}
-                        className={`px-2 py-0.5 text-[11px] font-semibold rounded-full cursor-pointer border-0 focus:outline-none focus:ring-2 focus:ring-gray-300 ${STATUS_COLOR[storeStatus(store)]}`}
+                        className={`cursor-pointer border-0 px-2 py-0.5 text-[11px] font-semibold focus-visible:outline-2 focus-visible:outline-[var(--admin-accent)] ${STATUS_COLOR[storeStatus(store)]}`}
                       >
                         {STATUS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                       </select>
                       {store.closed_at && (
                         <p className="mt-1 text-[11px] font-mono text-red-600 whitespace-nowrap">{fmtDate(store.closed_at)}</p>
                       )}
-                      {store.close_date && !store.closed_at && (
-                        <p className="mt-1 text-[11px] font-semibold text-red-600 whitespace-nowrap">
-                          {store.close_date.slice(5).replace("-", "/")} 폐업예정
-                        </p>
-                      )}
-                      {store.open_date && (
-                        <p className="mt-1 text-[11px] font-semibold text-[#E5541B] whitespace-nowrap">
-                          {store.open_date.slice(5).replace("-", "/")} 오픈예정
-                        </p>
-                      )}
                     </td>
                     <td className="px-3 py-2.5">
                       <button
                         onClick={() => togglePageActive(store)}
-                        className={`px-2 py-0.5 text-[11px] font-semibold rounded-full cursor-pointer transition-colors ${store.page_active ? "bg-blue-100 text-blue-700 hover:bg-blue-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                        className={`cursor-pointer px-2 py-0.5 text-[11px] font-semibold transition-colors hover:underline ${store.page_active ? "bg-[var(--admin-info-bg)] text-[var(--admin-info)]" : "bg-slate-100 text-slate-600"}`}
                       >
                         {store.page_active ? "노출" : "비노출"}
                       </button>
@@ -541,15 +544,17 @@ export default function ListTab() {
                         </Link>
                       )}
                     </td>
-                    <td className="px-3 py-2.5 align-top text-gray-500 text-[11px] font-mono whitespace-nowrap">{fmtDate(store.created_at)}</td>
-                    <td className="px-3 py-2.5 text-[11px] align-top">
-                      <p className="text-gray-500 font-mono whitespace-nowrap">{fmtDate(store.updated_at)}</p>
+                    <td className="px-3 py-2.5 text-gray-500 text-[11px] font-mono whitespace-nowrap">{fmtDate(store.created_at)}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[11px]">
+                      <span className="font-mono text-gray-500">{fmtDate(store.updated_at)}</span>
                       {(store.change_history?.length ?? 0) > 0 && (
                         <button
+                          type="button"
                           onClick={() => setHistoryOpen(store.id)}
-                          className="mt-0.5 text-blue-600 hover:underline"
+                          aria-label={`${store.name} 수정내역 ${store.change_history!.length}건 보기`}
+                          className="ml-1 text-[var(--admin-accent)] hover:underline"
                         >
-                          수정내역 ({store.change_history!.length})
+                          ({store.change_history!.length})
                         </button>
                       )}
                     </td>

@@ -6,7 +6,8 @@ import MateActionForm from "@/components/MateActionForm";
 import MateParticipantLink from "@/components/MateParticipantLink";
 import MateCohortSelect from "@/components/MateCohortSelect";
 import MateFeedStyleIcon from "@/components/MateFeedStyleIcon";
-import { isAdmin } from "@/lib/admin-auth";
+import { getAdminMember, SUPER_ADMIN_GRADE } from "@/lib/admin-auth";
+import MarketingTabs from "../analytics/_tabs/MarketingTabs";
 import { MATE_APPLICATION_GENDERS, MATE_COHORT_STAGES, MATE_GENDERS, MATE_REGION_PREFIXES, MATE_STATUSES, MATE_STYLES, formatMateDate, formatMatePhone, mateAddressRegion, mateCohortStage, mateRoundStatus, parseRound, seoulDate, type MateApplication, type MateApplicationFilters, type MateCohortStage, type MateRound } from "@/lib/mate";
 import { listMateApplications, listMateRounds } from "@/lib/mate-server";
 import { saveMateRound, updateMateApplication } from "./actions";
@@ -137,7 +138,8 @@ function ApplicantDetail({ opened }: { opened: MateApplication }) {
 export default async function AdminMatePage({ searchParams }: {
   searchParams: Promise<{ round?: string; stage?: string; status?: string; feed?: string; gender?: string; region?: string; page?: string; create?: string; activity?: string; activityPage?: string }>;
 }) {
-  if (!(await isAdmin())) redirect("/member/login?from=admin");
+  const admin = await getAdminMember();
+  if (!admin) redirect("/member/login?from=admin");
   const search = await searchParams;
   const [{ data, error }, activityCohorts] = await Promise.all([listMateRounds(null, false), listMateActivityCohorts()]);
   const rounds = data ?? [];
@@ -283,6 +285,8 @@ export default async function AdminMatePage({ searchParams }: {
   ) : null;
 
   return (
+    <>
+    <MarketingTabs active="mate" superAdmin={admin.grade === SUPER_ADMIN_GRADE} />
     <div className="w-full min-w-0 space-y-3 p-4 text-slate-900 sm:px-6 sm:py-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-black">워크업 메이트 관리</h1>
@@ -364,5 +368,6 @@ export default async function AdminMatePage({ searchParams }: {
         </>
       )}
     </div>
+    </>
   );
 }

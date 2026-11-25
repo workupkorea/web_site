@@ -1145,7 +1145,7 @@ export default function AdminProductsPage() {
                     )}
 
                     {/* 상품명 */}
-                    <td className="px-5 py-3">
+                    <td data-align-start className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <Link href={`/products/${p.id}`} target="_blank" title="제품페이지 보기"
                           className="relative w-[44px] h-[44px] flex-shrink-0 rounded-lg overflow-hidden border border-gray-100 block">
@@ -1198,7 +1198,7 @@ export default function AdminProductsPage() {
                     {/* 카테고리 (인라인 추가/삭제) — 컬럼 표시 토글 */}
                     {visibleCols["카테고리"] && (
                     <td className="px-5 py-4">
-                      <div className="flex flex-wrap items-center gap-1 min-w-[150px]">
+                      <div className="flex min-w-[150px] flex-wrap items-center justify-center gap-1">
                         {getProductCats(p).map((c, i) => (
                           <span key={i} className="inline-flex items-center gap-1 text-[12px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded whitespace-nowrap">
                             {c.main}{c.sub ? ` / ${c.sub}` : ""}
@@ -1232,7 +1232,7 @@ export default function AdminProductsPage() {
                     {visibleCols["색상"] && (
                     <td className="px-5 py-3">
                       {p.colors && p.colors.length > 0 ? (
-                        <div className="flex items-center gap-1 flex-wrap max-w-[140px]">
+                        <div className="mx-auto flex max-w-[140px] flex-wrap items-center justify-center gap-1">
                           {p.colors.slice(0, 6).map((c, i) => (
                             <span key={`${c.name}-${i}`} title={c.name}
                               className="w-3.5 h-3.5 rounded-full border border-gray-200 flex-shrink-0"

@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { logAudit } from "@/lib/audit-server";
+import { PROMOTION_SETTINGS_PREFIX } from "@/app/admin/promotions/entries/events";
 
 // 공개 GET이 막혀선 안 되는 섹션(팝업·기획전·카테고리 등은 클라이언트에서 조회)과 달리,
 // 민감 정보가 담긴 섹션은 관리자만 읽을 수 있게 한다.
@@ -23,7 +24,7 @@ export async function GET(
   { params }: { params: Promise<{ section: string }> }
 ) {
   const { section } = await params;
-  if (WJUMUN_PRIVATE_SECTIONS.has(section)) {
+  if (WJUMUN_PRIVATE_SECTIONS.has(section) || section.startsWith(PROMOTION_SETTINGS_PREFIX)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   if ((SENSITIVE_SECTIONS.has(section) || section.startsWith("giveaway_")) && !(await isAdmin())) {
@@ -45,7 +46,7 @@ export async function PUT(
 ) {
   if (!(await isAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { section } = await params;
-  if (WJUMUN_PRIVATE_SECTIONS.has(section)) {
+  if (WJUMUN_PRIVATE_SECTIONS.has(section) || section.startsWith(PROMOTION_SETTINGS_PREFIX)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   let config = await req.json();

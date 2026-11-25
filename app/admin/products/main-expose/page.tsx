@@ -142,7 +142,7 @@ export default function MainExposePage() {
                 ) : filtered.map(product => (
                   <tr key={product.id} className="hover:bg-gray-50 transition-colors">
                     {/* 상품명 */}
-                    <td className="px-5 py-4">
+                    <td data-align-start className="px-5 py-4">
                       <div className="flex items-center gap-3">
                         <div className="relative w-[44px] h-[44px] flex-shrink-0 rounded-lg overflow-hidden border border-gray-100">
                           {product.imageUrl ? (

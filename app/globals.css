@@ -345,11 +345,8 @@ html {
   margin-top: 0.125rem;
   color: #9ca3af;
 }
-.admin-content > div > div:first-child,
-.admin-content > .space-y-6 > div:first-child,
-.admin-content > .max-w-xl > div:first-child,
-.admin-content > .max-w-4xl > div:first-child {
-  margin-bottom: 0.875rem;
+.admin-content > :where(div) > :where(div:first-child):has(h1) {
+  margin-bottom: 0.625rem;
 }
 
 /* 얇고 눈에 덜 띄는 스크롤바 — Influencer Hub 일정/목록처럼 내부 스크롤이 있는 좁은 영역용. */

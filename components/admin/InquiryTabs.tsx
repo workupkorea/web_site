@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import AdminSectionNav, { ADMIN_SECTION_NAV_IN_CONTENT } from "./AdminSectionNav";
 
 // "고객 문의" 아래 페이지(문의 관리·B2B·페이지 편집 3종)를 하나의 탭 UI로 묶는다.
 // 사이드바에는 "문의 관리" 하나만 남기고, 나머지는 이 탭바로 이동한다(실제 페이지/라우트는 그대로 유지).
@@ -23,22 +24,13 @@ export default function InquiryTabs() {
 
   return (
     <div className="mb-6">
-      <div className="flex gap-1 border-b border-gray-200">
-        {TOP_TABS.map((tab) => {
-          const active = tab.isPageEdit ? isPageEditActive : pathname === tab.href;
-          return (
-            <Link
-              key={tab.label}
-              href={tab.href}
-              className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${
-                active ? "border-[#1d4ed8] text-[#1d4ed8]" : "border-transparent text-gray-500 hover:text-gray-800"
-              }`}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
-      </div>
+      <AdminSectionNav
+        label="고객 문의"
+        className={ADMIN_SECTION_NAV_IN_CONTENT}
+        links={TOP_TABS.map(({ label, href, isPageEdit }) => ({
+          label, href, active: isPageEdit ? isPageEditActive : pathname === href,
+        }))}
+      />
       {isPageEditActive && (
         <div className="flex flex-wrap gap-2 mt-3">
           {PAGE_EDIT_ROUTES.map((r) => (

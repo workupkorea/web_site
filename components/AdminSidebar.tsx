@@ -8,7 +8,7 @@ import { TOPBAR_ENABLED_EVENT } from "@/lib/topbar";
 
 const TOPBAR_HREF = "/admin/main/topbar";
 
-export type NavLeaf = { label: string; href: string; exact?: boolean; newTab?: boolean; icon: ReactNode; superAdminOnly?: boolean };
+export type NavLeaf = { label: string; href: string; exact?: boolean; relatedPath?: string; newTab?: boolean; icon: ReactNode; superAdminOnly?: boolean };
 export type NavDropdown = { label: string; icon: ReactNode; children: NavLeaf[]; superAdminOnly?: boolean };
 export type NavItem = NavLeaf | NavDropdown;
 export type NavGroup = { label: string; items: NavItem[]; superAdminOnly?: boolean };
@@ -149,7 +149,7 @@ export const navGroups: NavGroup[] = [
     label: "프로모션",
     items: [
       {
-        label: "프로모션 접수",
+        label: "프로모션",
         href: "/admin/promotions/entries",
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
@@ -158,7 +158,7 @@ export const navGroups: NavGroup[] = [
         ),
       },
       {
-        label: "프로모션 안내",
+        label: "안내 관리",
         href: "/admin/promotions/guide",
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
@@ -171,12 +171,12 @@ export const navGroups: NavGroup[] = [
   // ── 6. 마케팅/분석 ────────────────────────────────────────────────────────
   {
     label: "마케팅/분석",
-    superAdminOnly: true,
     items: [
       {
         label: "마케팅/분석",
-        href: "/admin/analytics"
-        ,exact: true,
+        href: "/admin/analytics",
+        exact: true,
+        relatedPath: "/admin/mate",
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" />
@@ -189,16 +189,6 @@ export const navGroups: NavGroup[] = [
   {
     label: "회원 관리",
     items: [
-      {
-        label: "워크업 메이트",
-        href: "/admin/mate",
-        exact: true,
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2zm2 6h6m-6 4h6m-6 4h3" />
-          </svg>
-        ),
-      },
       {
         label: "회원 관리",
         href: "/admin/members",
@@ -540,9 +530,9 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
           const groupActive = activeGroup === group.label;
 
           // 항목이 하나뿐인 그룹(아코디언 불필요)은 그룹 라벨 자체를 바로가기 링크로 렌더링
-          if (group.items.length === 1 && !isDropdown(group.items[0])) {
+          if ((group.items.length === 1 || group.label === "프로모션") && !isDropdown(group.items[0])) {
             const only = group.items[0] as NavLeaf;
-            const active = isLeafActive(only, pathname, searchStr);
+            const active = groupActive || isLeafActive(only, pathname, searchStr);
             return (
               <div key={group.label} className="mb-0.5 px-3">
                 <div className="group/leaf relative flex items-center">
@@ -672,6 +662,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
 }
 
 export function isLeafActive(item: NavLeaf, pathname: string, searchParamsStr: string): boolean {
+  if (item.relatedPath && (pathname === item.relatedPath || pathname.startsWith(item.relatedPath + "/"))) return true;
   const [itemPath, itemQuery] = item.href.split("?");
   if (item.exact) {
     if (pathname !== itemPath) return false;

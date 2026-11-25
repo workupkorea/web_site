@@ -1,7 +1,8 @@
 "use client";
 
-import { Suspense, type ComponentType } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, type ComponentType, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
+import AdminSectionNav, { ADMIN_SECTION_NAV_IN_CONTENT } from "./AdminSectionNav";
 import { useAdminUI } from "@/components/admin-ui-context";
 
 export interface AdminTab {
@@ -14,44 +15,30 @@ export interface AdminTab {
   Actions?: ComponentType;
 }
 
-// 한 페이지 안에서 ?tab=키 로 전환하는 관리자 공용 탭 (알약형)
-function Inner({ basePath, tabs: allTabs }: { basePath: string; tabs: readonly AdminTab[] }) {
+// 한 페이지 안에서 ?tab=키 로 전환하는 관리자 공용 탭
+function Inner({ basePath, tabs: allTabs, children }: { basePath: string; tabs: readonly AdminTab[]; children?: ReactNode }) {
   const { superAdmin } = useAdminUI();
   const tabs = allTabs.filter((t) => !t.superOnly || superAdmin);
-  const router = useRouter();
   const params = useSearchParams();
   const active = tabs.find((t) => t.key === params.get("tab")) ?? tabs[0];
   const Active = active.Component;
   const Actions = active.Actions;
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-2">
-      <div className="flex gap-2 overflow-x-auto pb-1" role="tablist">
-        {tabs.map((t) => (
-          <button
-            key={t.key}
-            role="tab"
-            aria-selected={t.key === active.key}
-            onClick={() => router.replace(`${basePath}?tab=${t.key}`, { scroll: false })}
-            className={`min-h-[44px] px-5 rounded-full text-sm font-bold whitespace-nowrap transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a1a] focus-visible:ring-offset-2 ${
-              t.key === active.key
-                ? "bg-[#1a1a1a] text-white"
-                : "bg-white text-gray-500 hover:text-gray-900 border border-gray-200"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {Actions && <div className="ml-auto shrink-0"><Actions /></div>}
-      </div>
+    <>
+      <AdminSectionNav
+        className={ADMIN_SECTION_NAV_IN_CONTENT}
+        links={tabs.map(({ key, label }) => ({ label, href: `${basePath}?tab=${key}`, active: key === active.key }))}
+        actions={Actions && <Actions />}
+        replace
+      />
+      {children}
       <Active />
-    </div>
+    </>
   );
 }
 
-export default function AdminTabs(props: { basePath: string; tabs: readonly AdminTab[] }) {
+export default function AdminTabs(props: { basePath: string; tabs: readonly AdminTab[]; children?: ReactNode }) {
   return (
     <Suspense fallback={null}>
       <Inner {...props} />

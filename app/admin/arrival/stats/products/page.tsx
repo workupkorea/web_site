@@ -197,7 +197,7 @@ export default function ArrivalProductStatsPage() {
                             key={k} onClick={() => setSelected(k === selected ? null : k)}
                             className={`border-t border-gray-100 cursor-pointer ${k === selected ? "bg-slate-100" : "hover:bg-gray-50"}`}
                           >
-                            <td className="px-4 py-2.5">
+                            <td data-align-start className="px-4 py-2.5">
                               <div className="text-xs text-gray-400">{r.brand} · {r.category}</div>
                               <div className="font-semibold text-gray-900">{r.product_name || r.product_code}</div>
                             </td>

@@ -1289,7 +1289,7 @@ function UploadPanel({
                             {csvRows.map((r, i) => (
                               <tr key={i} className="hover:bg-gray-50">
                                 <td className="px-3 py-2 font-mono text-gray-500">{r.productCode}</td>
-                                <td className="px-3 py-2 text-[#1a1a1a] font-semibold max-w-[140px] truncate">{r.productName}</td>
+                                <td data-align-start className="px-3 py-2 text-[#1a1a1a] font-semibold max-w-[140px] truncate">{r.productName}</td>
                                 <td className="px-3 py-2 text-gray-500">{r.brand}</td>
                                 <td className="px-3 py-2 text-gray-500">{r.arrivalDate}</td>
                                 <td className="px-3 py-2">
@@ -1688,7 +1688,7 @@ export default function ArrivalTab() {
     <div className="space-y-3 max-w-[1400px]">
 
       {/* 헤더 (스크롤 시 상단 고정) */}
-      <div className="sticky top-0 z-30 -mx-4 sm:-mx-6 lg:-mx-10 px-4 sm:px-6 lg:px-10 py-2 bg-[#f1f5f9] border-b border-slate-200 flex items-start justify-between gap-4">
+      <div className="sticky top-0 z-30 -mx-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--admin-line)] bg-[var(--admin-canvas)] px-3 py-1.5 sm:-mx-5 sm:px-5 lg:-mx-6 lg:px-6">
         <div>
           <h1 className="text-xl font-black text-[#1a1a1a]">입고 스케쥴</h1>
         </div>
@@ -1745,7 +1745,7 @@ export default function ArrivalTab() {
 
           <button
             onClick={() => setShowAddProduct(true)}
-            className="px-4 py-2 bg-[#1a1a1a] text-white text-[13px] font-bold rounded-lg hover:bg-[#333] flex items-center gap-1.5"
+            className="flex items-center gap-1.5 bg-[var(--admin-accent)] px-3 py-2 text-[13px] font-bold text-white hover:bg-[var(--admin-accent-hover)]"
           >
             <span>＋</span> 개별 등록
           </button>
@@ -1901,7 +1901,7 @@ export default function ArrivalTab() {
                           className="w-4 h-4 accent-[#1a1a1a]" />
                       </td>
                       {visibleColumns.map(c => (
-                        <td key={c.key} className={`px-3 py-1.5 align-middle ${c.tdCls ?? ""}`}>{c.render(p)}</td>
+                        <td key={c.key} data-align-start={c.key === "name" || undefined} className={`px-3 py-1.5 align-middle ${c.tdCls ?? ""}`}>{c.render(p)}</td>
                       ))}
                     </tr>
                   );
@@ -2025,7 +2025,7 @@ export default function ArrivalTab() {
                                   <td className="px-3 py-2 text-gray-400">{di + 1}</td>
                                   <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap">{d.productCode}</td>
                                   <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{d.snapshot?.brand || "—"}</td>
-                                  <td className="px-3 py-2 text-gray-800 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
+                                  <td data-align-start className="px-3 py-2 text-gray-800 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
                                   <td className="px-3 py-2 text-gray-600 whitespace-nowrap font-mono text-[11px]">{d.snapshot?.arrivalDate || "—"}</td>
                                   <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px]">{d.snapshot?.status || "—"}</span></td>
                                 </tr>
@@ -2055,7 +2055,7 @@ export default function ArrivalTab() {
                                 <tr key={di} className="hover:bg-amber-50/40">
                                   <td className="px-3 py-2 text-gray-400 align-top">{di + 1}</td>
                                   <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap align-top">{d.productCode}</td>
-                                  <td className="px-3 py-2 text-gray-800 max-w-[160px] align-top"><span className="block truncate">{d.productName}</span></td>
+                                  <td data-align-start className="px-3 py-2 text-gray-800 max-w-[160px] align-top"><span className="block truncate">{d.productName}</span></td>
                                   <td className="px-3 py-2 align-top">
                                     <div className="flex flex-col gap-1">
                                       {d.changes?.map((c, ci) => (
@@ -2099,7 +2099,7 @@ export default function ArrivalTab() {
                                 <tr key={di} className="hover:bg-red-50/50 opacity-70">
                                   <td className="px-3 py-2 text-gray-400">{di + 1}</td>
                                   <td className="px-3 py-2 font-mono text-[11px] text-gray-500 whitespace-nowrap">{d.productCode}</td>
-                                  <td className="px-3 py-2 text-gray-700 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
+                                  <td data-align-start className="px-3 py-2 text-gray-700 max-w-[160px]"><span className="block truncate">{d.productName}</span></td>
                                   <td className="px-3 py-2 whitespace-nowrap"><span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded text-[10px]">{d.snapshot?.status || "—"}</span></td>
                                 </tr>
                               ))}

@@ -317,7 +317,7 @@ export default function ArrivalStatsPage() {
                                     const r = salesRateOf(p);
                                     return (
                                       <tr key={`${p.product_code}-${p.arrival_date}`} className="border-t border-gray-100">
-                                        <td className="px-3 py-2">
+                                        <td data-align-start className="px-3 py-2">
                                           {/* 브랜드가 이미 선택돼 있으면 브랜드명은 생략, 카테고리 탭에서는 카테고리 생략 */}
                                           <div className="text-xs text-gray-400">{[brand || tab === "brand" ? "" : p.brand, tab === "category" ? "" : p.category].filter(Boolean).join(" · ")}</div>
                                           <div className="font-semibold text-gray-900">{p.product_name || p.product_code}</div>
@@ -360,7 +360,7 @@ export default function ArrivalStatsPage() {
                   {products.map((p, i) => (
                     <tr key={`${p.product_code}-${p.arrival_date}`} className="border-t border-gray-100">
                       <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                      <td className="px-4 py-3">
+                      <td data-align-start className="px-4 py-3">
                         <div className="text-xs text-gray-400">{[brand ? "" : p.brand, p.category].filter(Boolean).join(" · ")}</div>
                         <div className="font-semibold text-gray-900">{p.product_name || p.product_code}</div>
                       </td>
