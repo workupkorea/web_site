@@ -94,7 +94,7 @@ function Delta({ cur, prev }: { cur: number; prev: number | null }) {
 }
 
 function BarList({
-  items, labels, total, descriptions, selection, showClickShare = false,
+  items, labels, total, descriptions, selection, showClickShare = false, twoColumns = false,
 }: {
   items: KeyCount[];
   labels?: Record<string, string>;
@@ -102,18 +102,19 @@ function BarList({
   descriptions?: Record<string, string>;
   selection?: { keys: string[]; active: string; onChange: (key: string) => void };
   showClickShare?: boolean;
+  twoColumns?: boolean;
 }) {
   if (!items.length) return <p className="text-[13px] text-gray-400">데이터가 없습니다.</p>;
   const max = Math.max(1, ...items.map((i) => i.count));
   return (
-    <ul className="space-y-2">
+    <ul className={twoColumns ? "grid grid-cols-2 gap-x-3 gap-y-2" : "space-y-2"}>
       {items.map((i) => {
         const selectable = selection?.keys.includes(i.key);
         const selected = selection?.active === i.key;
         const content = (
           <>
-            <span className="flex items-center justify-between gap-2 mb-1">
-              <span className="min-w-0 break-keep font-semibold text-gray-800">{labels?.[i.key] ?? (i.key || "미수집")}</span>
+            <span className={`mb-1 flex items-center justify-between ${twoColumns ? "flex-wrap gap-x-2 gap-y-0.5" : "gap-2"}`}>
+              <span className={`min-w-0 break-keep font-semibold text-gray-800 ${twoColumns ? "wrap-anywhere" : ""}`}>{labels?.[i.key] ?? (i.key || "미수집")}</span>
               <span className="flex shrink-0 items-center gap-1 tabular-nums text-gray-500">
                 {i.count.toLocaleString()}{showClickShare && "회"}
                 <span className={showClickShare ? "font-bold text-gray-800" : "text-gray-500"}>· {pctOf(i.count, total).toFixed(showClickShare ? 1 : 0)}%</span>
@@ -460,19 +461,34 @@ export default function NavTab() {
                 )}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 items-start gap-3">
-                <div className="bg-white rounded-2xl border border-gray-100 p-4">
-                  {!data?.home.total ? (
-                    <p className="text-[13px] text-gray-400">이 기간에 기록된 메인 페이지 클릭이 없습니다. (수집은 배포 후부터 시작됩니다)</p>
-                  ) : (
-                    <BarList
-                      items={data.home.sections}
-                      total={data.home.total}
-                      descriptions={{ 기타: otherDescription }}
-                      selection={{ keys: exhibitionSections, active: selectedExhibition, onChange: setExhibition }}
-                    />
-                  )}
-                </div>
                 <div className="min-w-0 space-y-3">
+                  <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                    {!data?.home.total ? (
+                      <p className="text-[13px] text-gray-400">이 기간에 기록된 메인 페이지 클릭이 없습니다. (수집은 배포 후부터 시작됩니다)</p>
+                    ) : (
+                      <BarList
+                        items={data.home.sections}
+                        total={data.home.total}
+                        descriptions={{ 기타: otherDescription }}
+                        selection={{ keys: exhibitionSections, active: selectedExhibition, onChange: setExhibition }}
+                      />
+                    )}
+                  </div>
+                  <Card title="매장 검색 키워드" collapsible>
+                    {storeSearch?.total ? (
+                      <>
+                        <p className="mb-3 text-[12px] text-gray-500">
+                          검색 {storeSearch.total.toLocaleString()}회 · 키워드 {storeSearch.unique.toLocaleString()}개
+                          {storeSearch.unique > storeSearch.keywords.length && ` · 상위 ${storeSearch.keywords.length}개 표시`}
+                        </p>
+                        <BarList items={storeSearch.keywords} total={storeSearch.total} />
+                      </>
+                    ) : (
+                      <p className="text-[13px] text-gray-400">이 기간에 기록된 매장 검색 키워드가 없습니다.</p>
+                    )}
+                  </Card>
+                </div>
+                <div className="min-w-0">
                   {displayExhibitions.length > 0 && (
                     <section aria-label="서브 기획전 상품 클릭 상세" className="space-y-3">
                       {displayExhibitions.map((section) => {
@@ -495,6 +511,7 @@ export default function NavTab() {
                                     labels={Object.fromEntries(exhibitionDetail.products.map(({ key, name }) => [key, name]))}
                                     total={exhibitionDetail.total}
                                     showClickShare
+                                    twoColumns
                                   />
                                 </>
                               ) : (
@@ -510,19 +527,6 @@ export default function NavTab() {
                       })}
                     </section>
                   )}
-                  <Card title="매장 검색 키워드">
-                    {storeSearch?.total ? (
-                      <>
-                        <p className="mb-3 text-[12px] text-gray-500">
-                          검색 {storeSearch.total.toLocaleString()}회 · 키워드 {storeSearch.unique.toLocaleString()}개
-                          {storeSearch.unique > storeSearch.keywords.length && ` · 상위 ${storeSearch.keywords.length}개 표시`}
-                        </p>
-                        <BarList items={storeSearch.keywords} total={storeSearch.total} />
-                      </>
-                    ) : (
-                      <p className="text-[13px] text-gray-400">이 기간에 기록된 매장 검색 키워드가 없습니다.</p>
-                    )}
-                  </Card>
                 </div>
               </div>
             </>

@@ -8,6 +8,7 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
 import { getPublicStores } from "@/lib/publicStores";
 import { ADMIN_HTML, INDEX_HTML, INTERNAL_PREVIEW_HTML, PREVIEW_ADMIN_HTML, PREVIEW_HTML } from "../pages";
+import { PROMO_HTML } from "../promo";
 import * as localPreviewDb from "../preview-draw";
 import * as internalPreviewDb from "../internal-preview-db";
 
@@ -410,6 +411,7 @@ async function route(request: Request) {
 
   // 고객 화면
   if (method === "GET" && path === "/") return send(INDEX_HTML, 200, "text/html; charset=utf-8");
+  if (method === "GET" && path === "/promo") return send(PROMO_HTML, 200, "text/html; charset=utf-8");
   if (method === "GET" && path === "/v2" && previewEnabled) {
     return send(internalPreview ? INTERNAL_PREVIEW_HTML : PREVIEW_HTML, 200, "text/html; charset=utf-8", {
       "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; form-action 'none'; base-uri 'none'",
