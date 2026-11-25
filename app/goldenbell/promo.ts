@@ -1,26 +1,56 @@
-const title = "워크업 연말연시 골든벨 이벤트";
-const description = "방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장 QR코드로 응모하세요.";
+export const GOLDENBELL_PROMO_SECTION = "goldenbell_promo";
+export const GOLDENBELL_PROMO_PATH = "/goldenbell/promo";
 
-export const PROMO_HTML = `<!doctype html>
+export const PROMO_FIELDS = [
+  { key: "lead", label: "상단 소개 문구", max: 45, defaultValue: "방문 고객 100만 달성 기념" },
+  { key: "headlineTop", label: "메인 제목 첫 줄", max: 20, defaultValue: "연말연시" },
+  { key: "headlineMain", label: "메인 제목 둘째 줄", max: 20, defaultValue: "골든벨" },
+  { key: "headlineAccent", label: "메인 제목 강조 문구", max: 20, defaultValue: "이벤트" },
+  { key: "participationGuide", label: "상단 응모 안내", max: 150, defaultValue: "워크업 매장에서 구매 후, 매장 QR코드를 스캔해 영수증 사진을 등록하세요.", multiline: true },
+  { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "워크업 매장에서 응모하고, 푸짐한 선물 받으세요!" },
+  { key: "title", label: "브라우저·공유 제목", max: 80, defaultValue: "워크업 연말연시 골든벨 이벤트" },
+  { key: "description", label: "공유 설명", max: 200, defaultValue: "방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", multiline: true },
+] as const;
+
+type PromoField = (typeof PROMO_FIELDS)[number]["key"];
+export type PromoConfig = Record<PromoField, string>;
+
+export function normalizePromoConfig(value: unknown): PromoConfig {
+  const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const config = {} as PromoConfig;
+  for (const field of PROMO_FIELDS) {
+    const raw = source[field.key];
+    config[field.key] = (typeof raw === "string" ? raw.trim().slice(0, field.max) : "") || field.defaultValue;
+  }
+  return config;
+}
+
+function escapeHtml(value: string) {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+}
+
+export function renderPromoHtml(value: unknown) {
+  const { title, description, lead, headlineTop, headlineMain, headlineAccent, participationGuide, prizeIntro } = normalizePromoConfig(value);
+  const guideHtml = escapeHtml(participationGuide).replace(/QR코드|영수증 사진/g, "<strong>$&</strong>");
+  return `<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#472329">
-  <title>${title}</title>
-  <meta name="description" content="${description}">
+  <title>${escapeHtml(title)}</title>
+  <meta name="description" content="${escapeHtml(description)}">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="${title}">
-  <meta property="og:description" content="${description}">
+  <meta property="og:title" content="${escapeHtml(title)}">
+  <meta property="og:description" content="${escapeHtml(description)}">
   <link rel="stylesheet" href="/goldenbell/promo.css">
 </head>
 <body>
   <main>
     <section class="hero" aria-labelledby="title">
       <div class="hero-copy">
-        <p class="hero-lead">방문 고객 100만 달성 기념</p>
-        <h1 id="title">연말연시<br> 골든벨</h1>
-        <p class="hero-total">경품 총 <strong>810개</strong></p>
+        <p class="hero-lead">${escapeHtml(lead)}</p>
+        <h1 id="title">${escapeHtml(headlineTop)}<br> ${escapeHtml(headlineMain)} <span>${escapeHtml(headlineAccent)}</span></h1>
         <dl class="hero-rewards" aria-label="골든벨 경품">
           <div>
             <dt><img src="/goldenbell/promo-prize-gold.webp" alt="" width="520" height="520">골드바 1돈</dt>
@@ -31,7 +61,7 @@ export const PROMO_HTML = `<!doctype html>
             <dd>800명</dd>
           </div>
         </dl>
-        <p class="qr-guide">워크업 매장에 비치된 <strong>QR코드</strong>로 응모하세요.</p>
+        <p class="qr-guide">${guideHtml}</p>
       </div>
       <figure class="hero-photo">
         <img src="/goldenbell/promo-portrait.webp" srcset="/goldenbell/promo-portrait-small.webp 760w, /goldenbell/promo-portrait.webp 1440w" sizes="(min-width: 1024px) min(51vw, 75svh), (max-width: 590px) 82vw, (max-width: 720px) 490px, 51vw" alt="데님 작업복과 노란 작업 장갑을 착용하고 웃는 워크업 모델" width="1440" height="2160" fetchpriority="high">
@@ -44,7 +74,7 @@ export const PROMO_HTML = `<!doctype html>
 
     <section class="frame section" id="prizes" aria-labelledby="prize-title">
       <h2 id="prize-title">골든벨 경품</h2>
-      <p class="prize-intro">워크업 매장에서 응모하고, 푸짐한 선물 받으세요!</p>
+      <p class="prize-intro">${escapeHtml(prizeIntro)}</p>
       <div class="prizes">
         <article class="prize prize-gold">
           <div class="prize-copy">
@@ -100,3 +130,4 @@ export const PROMO_HTML = `<!doctype html>
   </main>
 </body>
 </html>`;
+}

@@ -1,7 +1,8 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import AdminSidebar, { getNavLeafByHref } from "./AdminSidebar";
+import AdminSidebar, { getNavLeafByHref, isDropdown, navGroups, type NavLeaf } from "./AdminSidebar";
 import { AdminUIContext, type AdminTab, type AdminUIValue } from "./admin-ui-context";
 
 const MAX_TABS = 10;
@@ -15,6 +16,8 @@ const LS_TAB_TS = "admin.tabTimestamps.v1";
 const LS_VISITS = "admin.visits.v1";
 // 즐겨찾기·열린 탭은 로그인 계정(memberId) 기준으로 서버(site_settings)에 저장한다.
 const UI_STATE_API = "/api/admin/ui-state";
+const promotionLinks = navGroups.find((group) => group.label === "프로모션")
+  ?.items.filter((item): item is NavLeaf => !isDropdown(item));
 
 type TabTimestamps = Record<string, number>;
 
@@ -253,6 +256,15 @@ export default function AdminShell({ children, superAdmin }: { children: React.R
     <AdminUIContext.Provider value={value}>
       <AdminSidebar superAdmin={superAdmin} />
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {pathname.startsWith("/admin/promotions/") && (
+          <nav aria-label="프로모션" className="flex flex-wrap border-b border-slate-200 bg-white px-4 sm:hidden">
+            {promotionLinks?.map(({ href, label }) => (
+              <Link key={href} href={href} aria-current={pathname === href ? "page" : undefined} className="inline-flex min-h-11 items-center border-b-2 border-transparent px-3 text-sm font-semibold text-slate-600 aria-[current=page]:border-blue-700 aria-[current=page]:text-blue-700">
+                {label}
+              </Link>
+            ))}
+          </nav>
+        )}
         <main className="flex-1 min-w-0 overflow-y-auto bg-[#f1f5f9]">
           <div className="px-4 sm:px-6 lg:px-10 pt-5 pb-10 admin-content">{children}</div>
         </main>

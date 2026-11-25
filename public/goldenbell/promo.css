@@ -45,6 +45,7 @@ a:focus-visible, summary:focus-visible { outline: 3px solid #82523c; outline-off
   align-items: flex-start;
   justify-content: center;
   overflow: hidden;
+  overflow-wrap: anywhere;
   min-height: clamp(510px, 44vw, 650px);
   padding: 58px 24px 64px var(--hero-gutter);
   background: radial-gradient(ellipse at 100% 98%, #79433b 0%, transparent 66%), linear-gradient(140deg, #3c2025, #51282d);
@@ -63,10 +64,29 @@ a:focus-visible, summary:focus-visible { outline: 3px solid #82523c; outline-off
   pointer-events: none;
 }
 
-.hero-lead { margin-bottom: 20px; color: var(--gold); font-size: clamp(15px, 1.6vw, 21px); font-weight: 720; letter-spacing: -.03em; }
+.hero-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(9px, 1vw, 14px);
+  margin-bottom: 20px;
+  padding: 7px clamp(12px, 1.4vw, 20px);
+  border: 1px solid #f1ca866b;
+  border-radius: 999px;
+  background: linear-gradient(100deg, #f1ca860d, #f1ca8626 50%, #f1ca860d);
+  color: var(--gold);
+  font-size: clamp(14px, 1.45vw, 20px);
+  font-weight: 750;
+  letter-spacing: -.03em;
+}
+.hero-lead::before, .hero-lead::after {
+  content: "";
+  flex: 0 0 6px;
+  height: 6px;
+  background: currentColor;
+  transform: rotate(45deg);
+}
 .hero h1 { font-size: clamp(59px, 6.5vw, 106px); font-weight: 850; line-height: 1.03; letter-spacing: -.035em; }
-.hero-total { margin-top: 14px; color: var(--gold); font-size: clamp(16px, 1.7vw, 23px); font-weight: 700; }
-.hero-total strong { font-size: 1.3em; font-weight: 850; }
+.hero h1 span { display: inline-block; max-width: 100%; font-size: .54em; }
 .hero-rewards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(8px, 1vw, 14px); width: min(100%, 440px); margin: 26px 0 0; }
 .hero-rewards > div { padding: 9px 9px 14px; border: 1px solid #f1ca8659; border-radius: 9px; background: radial-gradient(ellipse at 50% 35%, #ca8c5b33, transparent 73%), #26151430; text-align: center; }
 .hero-rewards dt { color: var(--ivory); font-size: clamp(14px, 1.3vw, 18px); font-weight: 720; }
@@ -95,7 +115,7 @@ a:focus-visible, summary:focus-visible { outline: 3px solid #82523c; outline-off
 .section { padding-block: clamp(58px, 7vw, 96px); }
 .section h2 { margin-bottom: clamp(22px, 3.4vw, 39px); font-size: clamp(31px, 4.1vw, 54px); font-weight: 900; line-height: 1.13; letter-spacing: -.05em; }
 #prize-title { margin-bottom: 10px; }
-.prize-intro { margin-bottom: clamp(22px, 3.4vw, 39px); color: var(--muted); font-size: clamp(15px, 1.6vw, 20px); line-height: 1.55; }
+.prize-intro { margin-bottom: clamp(22px, 3.4vw, 39px); color: var(--muted); font-size: clamp(15px, 1.6vw, 20px); line-height: 1.55; overflow-wrap: anywhere; }
 .prizes { display: grid; grid-template-columns: 1.07fr 1fr; gap: 16px; }
 .prize { position: relative; isolation: isolate; display: flex; align-items: flex-end; overflow: hidden; min-height: 275px; padding: 34px; border-radius: 10px; }
 .prize-gold { background: radial-gradient(ellipse at 75% 27%, #fbebc0, transparent 58%), #f1d7a6; }
@@ -153,9 +173,8 @@ a:focus-visible, summary:focus-visible { outline: 3px solid #82523c; outline-off
   .hero-photo img { width: min(82%, 490px); mask-image: linear-gradient(to right, transparent, black 9%, black 91%, transparent); }
   .hero-copy { min-height: 0; padding: 29px 24px 30px; }
   .hero-copy::before { inset: auto auto -69% 51%; }
-  .hero-lead { margin-bottom: 10px; }
+  .hero-lead { margin-bottom: 14px; }
   .hero h1 { font-size: clamp(34px, 10.6vw, 62px); }
-  .hero h1 br { display: none; }
   .hero-rewards { margin-top: 17px; }
   .qr-guide { margin-top: 18px; }
   .period { padding: 13px 16px; gap: 13px; }

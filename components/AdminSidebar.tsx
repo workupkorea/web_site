@@ -145,6 +145,29 @@ export const navGroups: NavGroup[] = [
       },
     ],
   },
+  {
+    label: "프로모션",
+    items: [
+      {
+        label: "프로모션 접수",
+        href: "/admin/promotions/entries",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H5v15h14V5h-3M9 3h6v4H9zM8 13l3 3 5-5" />
+          </svg>
+        ),
+      },
+      {
+        label: "프로모션 안내",
+        href: "/admin/promotions/guide",
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24" aria-hidden="true">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 3h9l5 5v13H5zM14 3v6h5M8 13h8m-8 4h8" />
+          </svg>
+        ),
+      },
+    ],
+  },
   // ── 6. 마케팅/분석 ────────────────────────────────────────────────────────
   {
     label: "마케팅/분석",
@@ -469,7 +492,7 @@ export default function AdminSidebar({ superAdmin: superAdminProp }: { superAdmi
     .filter((l): l is NavLeaf => Boolean(l));
 
   return (
-    <aside className="w-52 flex-shrink-0 bg-[#0f172a] min-h-full flex flex-col">
+    <aside className={`w-52 flex-shrink-0 bg-[#0f172a] min-h-full flex flex-col ${pathname.startsWith("/admin/promotions/") ? "max-sm:hidden" : ""}`}>
       <nav className="flex-1 py-4 overflow-y-auto">
         {/* 대시보드 (홈) */}
         <div className="px-3 mb-2">

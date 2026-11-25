@@ -6,9 +6,10 @@ import { createHash, randomUUID } from "node:crypto";
 import * as XLSX from "xlsx";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
+import { getSiteSection } from "@/lib/site-settings";
 import { getPublicStores } from "@/lib/publicStores";
 import { ADMIN_HTML, INDEX_HTML, INTERNAL_PREVIEW_HTML, PREVIEW_ADMIN_HTML, PREVIEW_HTML } from "../pages";
-import { PROMO_HTML } from "../promo";
+import { GOLDENBELL_PROMO_SECTION, renderPromoHtml } from "../promo";
 import * as localPreviewDb from "../preview-draw";
 import * as internalPreviewDb from "../internal-preview-db";
 
@@ -411,7 +412,10 @@ async function route(request: Request) {
 
   // 고객 화면
   if (method === "GET" && path === "/") return send(INDEX_HTML, 200, "text/html; charset=utf-8");
-  if (method === "GET" && path === "/promo") return send(PROMO_HTML, 200, "text/html; charset=utf-8");
+  if (method === "GET" && path === "/promo") {
+    const config = await getSiteSection(GOLDENBELL_PROMO_SECTION);
+    return send(renderPromoHtml(config), 200, "text/html; charset=utf-8");
+  }
   if (method === "GET" && path === "/v2" && previewEnabled) {
     return send(internalPreview ? INTERNAL_PREVIEW_HTML : PREVIEW_HTML, 200, "text/html; charset=utf-8", {
       "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; frame-ancestors 'none'; form-action 'none'; base-uri 'none'",
@@ -441,6 +445,12 @@ async function route(request: Request) {
   const adminPath = previewAdmin ? path.replace("/v2/", "/") : path;
   if (adminPath === "/admin" || adminPath.startsWith("/api/admin/")) {
     if (previewAdmin && !previewEnabled) return fail(404, "페이지를 찾지 못했어요.");
+    if (method === "GET" && path === "/admin" && url.searchParams.get("embedded") === "1") {
+      if (!(await isAdmin())) return fail(401, "관리자 로그인이 필요해요.");
+      return send(ADMIN_HTML, 200, "text/html; charset=utf-8", {
+        "Content-Security-Policy": "default-src 'self'; img-src 'self' blob:; frame-ancestors 'self'; form-action 'self'; base-uri 'none'",
+      });
+    }
     if (!previewAdmin && !(await canOpenAdmin())) {
       return adminPath === "/admin"
         ? Response.redirect(new URL("/member/login?from=admin", request.url), 302)
