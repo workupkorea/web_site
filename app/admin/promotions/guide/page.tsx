@@ -53,7 +53,7 @@ function PromoPreview({ html, panelRef, refresh }: { html: string; panelRef: Ref
           ))}
         </div>
       </div>
-      <div ref={viewport} className="relative h-[min(65dvh,48rem)] min-h-80 overflow-hidden bg-slate-100">
+      <div ref={viewport} className="relative h-[min(82dvh,64rem)] min-h-80 overflow-hidden bg-slate-100">
         <iframe
           title="골든벨 안내 페이지 미리보기"
           sandbox=""

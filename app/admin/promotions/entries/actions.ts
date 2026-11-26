@@ -44,7 +44,7 @@ export async function savePromotionEvent(_previous: string, form: FormData): Pro
   const publicUrl = normalizePublicUrl(field("publicUrl"));
 
   if (id && id !== goldenbellEvent.id && !uuid.test(id)) return "이벤트를 다시 선택해 주세요.";
-  if (!name || name.length > 80) return "이벤트 이름을 1~80자로 입력해 주세요.";
+  if (!name || name.length > 80) return "이벤트명을 1~80자로 입력해 주세요.";
   if (!Object.hasOwn(eventStatuses, status)) return "이벤트 상태를 선택해 주세요.";
   if (!validDay(start) || !validDay(end) || (start && end && end < start)) return "이벤트 기간을 확인해 주세요.";
   if (publicUrl === null) return "안내·응모 링크를 확인해 주세요.";
