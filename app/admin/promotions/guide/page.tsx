@@ -18,9 +18,10 @@ import {
 const SETTINGS_URL = `/api/admin/site-settings/${GOLDENBELL_PROMO_SECTION}`;
 const INPUT_CLASS = "mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20";
 const PREVIEW_WIDTHS: Record<PromoDevice, number> = { pc: 1280, mobile: 390 };
+const VISIBILITY_OPTIONS = [{ key: "mobile", label: "공개" }] as const;
 
 function PromoPreview({ html, panelRef, refresh }: { html: string; panelRef: RefObject<HTMLElement | null>; refresh: () => void }) {
-  const [device, setDevice] = useState<PromoDevice>("pc");
+  const [device, setDevice] = useState<PromoDevice>("mobile");
   const [panelWidth, setPanelWidth] = useState(0);
   const viewport = useRef<HTMLDivElement>(null);
 
@@ -167,17 +168,17 @@ export default function PromotionGuidePage() {
                   <thead>
                     <tr>
                       <th scope="col">섹션</th>
-                      {PROMO_DEVICES.map(({ key, label }) => <th key={key} scope="col" className="w-14 text-center">{label}</th>)}
+                      {VISIBILITY_OPTIONS.map(({ key, label }) => <th key={key} scope="col" className="w-14 text-center">{label}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {PROMO_SECTIONS.map(({ key, label }) => (
                       <tr key={key} className="border-t border-slate-200">
                         <th scope="row" className="pr-2 font-medium">{label}</th>
-                        {PROMO_DEVICES.map(({ key: device, label: deviceLabel }) => (
+                        {VISIBILITY_OPTIONS.map(({ key: device, label: deviceLabel }) => (
                           <td key={device} className="text-center">
                             <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
-                              <input type="checkbox" aria-label={`${label} ${deviceLabel} 표시`} checked={config.sections[key][device]}
+                              <input type="checkbox" aria-label={`${label} ${deviceLabel}`} checked={config.sections[key][device]}
                                 onChange={(event) => updateVisibility(key, device, event.target.checked)}
                                 className="size-4 accent-blue-700" />
                             </label>
@@ -205,10 +206,10 @@ export default function PromotionGuidePage() {
                     <div className="flex flex-wrap items-center justify-between gap-x-3">
                       <label htmlFor={id} className="text-sm font-semibold text-slate-700">{field.label}</label>
                       {visibilityKey && (
-                        <div role="group" aria-label={`${field.label} 표시 기기`} className="flex gap-x-3">
-                          {PROMO_DEVICES.map(({ key, label }) => (
+                        <div role="group" aria-label={`${field.label} 공개 여부`} className="flex gap-x-3">
+                          {VISIBILITY_OPTIONS.map(({ key, label }) => (
                             <label key={key} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-medium text-slate-700">
-                              <input type="checkbox" aria-label={`${field.label} ${label} 표시`} checked={config.sections[visibilityKey][key]}
+                              <input type="checkbox" aria-label={`${field.label} ${label}`} checked={config.sections[visibilityKey][key]}
                                 onChange={(event) => updateVisibility(visibilityKey, key, event.target.checked)} className="size-4 accent-blue-700" />
                               {label}
                             </label>
@@ -249,8 +250,8 @@ export default function PromotionGuidePage() {
                         본문
                         <textarea value={section.body} onChange={(event) => edit("body", event.target.value)} maxLength={1200} required rows={4} className={INPUT_CLASS} />
                       </label>
-                      <div className="flex flex-wrap gap-x-4" role="group" aria-label={`추가 섹션 ${index + 1} 표시 기기`}>
-                        {PROMO_DEVICES.map(({ key, label }) => (
+                      <div className="flex flex-wrap gap-x-4" role="group" aria-label={`추가 섹션 ${index + 1} 공개 여부`}>
+                        {VISIBILITY_OPTIONS.map(({ key, label }) => (
                           <label key={key} className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-sm text-slate-700">
                             <input type="checkbox" checked={section.visibility[key]} className="size-4 accent-blue-700"
                               onChange={(event) => updateConfig({
@@ -259,7 +260,7 @@ export default function PromotionGuidePage() {
                                   ? { ...item, visibility: { ...item.visibility, [key]: event.target.checked } }
                                   : item),
                               })} />
-                            {label} 표시
+                            {label}
                           </label>
                         ))}
                       </div>

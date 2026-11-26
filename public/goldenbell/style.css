@@ -1,7 +1,7 @@
 *{box-sizing:border-box}
 :root{
   color-scheme:light;
-  --bg:#f5f2ea;--surface:#fff;--ink:#17140f;--muted:#6b6458;--line:#e5dfd1;
+  --bg:#f5f2ea;--surface:#fff;--ink:#17140f;--muted:#6b6458;--line:#e5dfd1;--input-bg:#faf8f3;
   --dark:#14120e;--gold:#f0b429;--gold-soft:#fdf3d8;--gold-ink:#2a1d04;--danger:#b3261e;
   font-family:Pretendard,"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
   background:var(--bg);color:var(--ink);line-height:1.5;
@@ -28,20 +28,37 @@ button{cursor:pointer}
 
 /* 응모 현황 롤링 */
 .activity{display:flex;align-items:center;gap:8px;min-height:44px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);border-radius:999px;padding:0 6px 0 12px;font-size:13px;font-weight:600;color:#fff}
-.activity-label{flex:none;font-size:11px;font-weight:700;color:var(--gold-ink);background:var(--gold);border-radius:999px;padding:2px 8px}
+.activity-emoji{flex:none;white-space:nowrap;letter-spacing:1px}
 #activity-text{flex:1;min-width:0;line-height:1.25}
 .activity button{flex:none;border:0;background:transparent;color:#fff;min-width:44px;min-height:44px;border-radius:50%}
-.roll{animation:slide-in .8s ease-in-out}
+.activity.roll :is(.activity-emoji,#activity-text){animation:slide-in .55s ease-out}
 @keyframes slide-in{from{transform:translateY(4px);opacity:0}to{transform:none;opacity:1}}
 
 /* 경품 카드 (히어로와 겹침, 중앙정렬) */
 .prizes{display:grid;grid-template-columns:1fr 1.5fr;gap:10px;padding:0 16px;margin-top:-48px;position:relative}
 .prize{position:relative;overflow:hidden;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 12px 16px;box-shadow:0 8px 24px rgba(20,18,14,.08)}
 .prize-art{display:block;width:72px;height:52px;margin:0 auto 6px;overflow:visible}
+.luckup img.prize-art{height:72px;object-fit:contain}
 .prize small,.prize strong{display:block}
 .prize small{font-size:12px;color:var(--muted)}
 .prize strong{margin-top:2px;font-size:clamp(17px,4.6vw,21px);letter-spacing:-.04em;line-height:1.25}
 .prize-main{border-color:#e0a417;color:var(--gold-ink);background:linear-gradient(135deg,#ffe9a0 0%,#f6c340 40%,#ffd966 65%,#e8a216 100%);box-shadow:0 8px 28px rgba(240,180,41,.45)}
+.luckup .prize-main{border-color:#ead092;background:linear-gradient(135deg,#fff8df,#ffedb3);box-shadow:0 8px 24px #aa780d24}
+.coffee-prize-art{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;justify-items:center;gap:2px;width:min(100%,150px);height:72px;margin:0 auto 6px}
+.coffee-prize-art .prize-art{grid-column:2;grid-row:1;margin:0}
+.coffee-prize-mini{display:block;grid-row:1;width:min(100%,37px);height:37px;object-fit:contain;opacity:0}
+.coffee-prize-mini:first-child{grid-column:1;--cup-tilt:-12deg}
+.coffee-prize-mini:last-child{grid-column:3;--cup-tilt:12deg}
+@media(prefers-reduced-motion:no-preference){
+  .coffee-prize-mini{animation:coffee-prize-hop 4.8s ease-in-out infinite both}
+  .coffee-prize-mini:last-child{animation-delay:2.4s}
+}
+@keyframes coffee-prize-hop{
+  0%{opacity:0;transform:translateY(3px) rotate(0) scale(.72)}
+  12%{opacity:1;transform:translateY(-14px) rotate(var(--cup-tilt)) scale(1)}
+  23%{opacity:1;transform:translateY(-6px) rotate(0) scale(.94)}
+  46%,100%{opacity:0;transform:translateY(-19px) rotate(var(--cup-tilt)) scale(.94)}
+}
 .prize-main small{color:#5a4210}
 .prize-main strong{font-size:clamp(22px,6.4vw,28px)}
 .prize-main:after{content:"";position:absolute;top:-20%;bottom:-20%;left:-60%;width:40%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);transform:skewX(-20deg);animation:shine 3.6s ease-in-out infinite;pointer-events:none}
@@ -56,8 +73,11 @@ button{cursor:pointer}
 .intro{margin:4px 0 8px;color:var(--muted);font-size:14px}
 .field{margin-top:18px}
 .field>label{display:block;margin-bottom:7px;font-size:14px;font-weight:800}
-input,select{width:100%;min-width:0;min-height:52px;padding:12px 14px;font-size:16px;color:var(--ink);background:#faf8f3;border:1.5px solid var(--line);border-radius:14px;transition:border-color .15s,background .15s}
+input,select{width:100%;min-width:0;min-height:52px;padding:12px 14px;font-size:16px;color:var(--ink);background:var(--input-bg);border:1.5px solid var(--line);border-radius:14px;transition:border-color .15s,background .15s}
 input:focus{outline:none;border-color:var(--ink);background:#fff;box-shadow:0 0 0 4px rgba(240,180,41,.35)}
+.phone-field{display:flex;align-items:stretch}
+.phone-prefix{display:grid;place-items:center;flex:none;min-width:70px;padding-inline:12px;background:var(--gold-soft);border:1.5px solid var(--line);border-inline-end:0;font-weight:800}
+.phone-field input{flex:1;border-start-start-radius:0;border-end-start-radius:0}
 input::placeholder{color:#7d766a;opacity:1}
 .hint{margin:7px 0 0;font-size:12px;color:var(--muted)}
 
@@ -76,8 +96,11 @@ input::placeholder{color:#7d766a;opacity:1}
 .store-option small{margin-top:1px;font-size:12px;color:var(--muted);line-height:1.35}
 
 /* 영수증 */
-.file-panel input{padding:9px}
-.file-panel input::file-selector-button{border:0;border-radius:10px;background:var(--ink);color:#fff;padding:9px 14px;margin-right:10px;cursor:pointer;font-weight:700}
+.receipt-picker-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px;background:var(--input-bg);border:1.5px solid var(--line);border-radius:14px}
+#receipt-filename{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+#receipt-picker{flex:none;min-height:44px;border:0;border-radius:10px;background:var(--ink);color:#fff;padding:9px 14px;font-weight:700}
+.receipt-entry-rule{margin:10px 0 0;padding:10px 12px;border-inline-start:3px solid var(--gold);background:var(--gold-soft);color:var(--ink);font-size:13px;line-height:1.55;word-break:keep-all}
+.receipt-entry-rule strong{display:block;margin-bottom:3px;color:#9e3200;font-size:14px}
 .file-panel img{display:block;max-width:100%;max-height:220px;object-fit:contain;margin:12px auto 0;border-radius:12px}
 
 /* 버튼·메시지 */
@@ -314,19 +337,29 @@ footer{text-align:center}
 .luckup{--orange:#ff550c;--bg:#fffaf5;--gold:var(--orange);--gold-soft:#fff0e8;--gold-ink:#281004;background:var(--bg)}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .luckup .hero{background:var(--orange);padding-top:0;color:var(--ink);text-align:center}
-.luckup .hero-visual{display:block;margin:0 -20px}
-.luckup .hero-visual img{display:block;width:80%;max-width:360px;height:auto;margin:auto}
-.luckup .hero .period{margin:8px 0 14px;font-size:15px;font-weight:800;color:var(--ink)}
-.luckup .activity{background:#fff;border-color:#fff;color:var(--ink);text-align:left}
+.luckup .hero-media{margin:0 -20px}
+.luckup .hero-visual{display:block}
+.luckup .hero-visual img{
+  display:block;width:80%;max-width:360px;height:auto;margin:auto;
+  /* Match the promo page fade below the receipt edge. */
+  mask-image:linear-gradient(to bottom,#000 97.8%,#0005 98.25%,transparent 98.85%);
+}
+.luckup .hero .period{display:flex;justify-content:space-between;gap:6px;width:min(66.3%,299px);margin:8px auto 14px;color:#fff;font-size:clamp(13px,4.3vw,18px);font-weight:800;letter-spacing:.035em;white-space:nowrap}
+.luckup .activity{background:var(--input-bg);border-color:var(--line);color:var(--ink);text-align:left}
 .luckup .activity button{color:var(--ink)}
 .luckup input:focus{box-shadow:0 0 0 4px rgba(255,85,12,.35)}
 .luckup .primary{background:var(--orange);color:var(--ink)}
+.luckup #submit{color:#fff;font-size:19px}
 .luckup .success-actions .success-back{background:var(--surface)}
 .luckup .consent-open,.luckup .badge{color:#b33a00}
-.luckup .result-box{background:var(--orange);color:var(--ink)}
+.luckup :is(.card-details,.result-box){background:var(--input-bg);border:1.5px solid var(--line);color:var(--ink)}
+.luckup .card-details summary{justify-content:space-between;gap:12px;list-style:none}
+.luckup .card-details summary::-webkit-details-marker{display:none}
+.luckup .card-details summary::after{content:"";width:0;height:0;flex:none;border-inline:5px solid transparent;border-top:6px solid currentColor}
+.luckup .card-details[open] summary::after{transform:rotate(180deg)}
 .luckup .result-label,.luckup .result-note{color:var(--ink)}
 .luckup .result-date{background:none;color:var(--ink)}
-.luckup .result-note{border-top-color:rgba(23,20,15,.25)}
-@media(max-width:370px){.luckup .hero-visual{margin:0 -15px}}
+.luckup .result-note{border-top-color:var(--line)}
+@media(max-width:370px){.luckup .hero-media{margin:0 -15px}}
 /* 모든 박스는 사각형 (선택 표시용 원은 유지) */
 .luckup *,.luckup input::file-selector-button{border-radius:0!important}

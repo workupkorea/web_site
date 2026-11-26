@@ -254,6 +254,35 @@ async function storeList() {
   return json(200, { stores: stores.map(({ name, address, phone, hours, lat, lng }) => ({ name, address, phone, hours, lat, lng })) });
 }
 
+async function entryActivity() {
+  const sb = createAdminClient();
+  const now = new Date();
+  const today = ENTRY_DAY_FORMAT.format(now);
+  const todayEntries = (countOnly = false) => sb.from(TABLE).select("store", countOnly ? { count: "exact", head: true } : undefined)
+    .gte("created_at", `${today}T00:00:00+09:00`).lte("created_at", now.toISOString())
+    .neq("status", "rejected");
+  // Entry store values are user input. Only publish names from the public store catalog.
+  const [entries, stores] = await Promise.all([
+    todayEntries().order("created_at", { ascending: false }).limit(100),
+    sb.from("stores").select("name").eq("is_active", true),
+  ]);
+  if (entries.error) throw entries.error;
+  if (stores.error) throw stores.error;
+  const publicNames = new Map((stores.data ?? []).filter(({ name }) => typeof name === "string" && tidy(name)).map(({ name }) => [tidy(name), name as string]));
+  const recentStores = [...new Set((entries.data ?? []).map(({ store }) => store as string))]
+    .filter((store) => publicNames.has(store)).slice(0, 5);
+  const counts = await Promise.all(recentStores.map(async (store) => {
+    const { count, error } = await todayEntries(true).eq("store", store);
+    if (error) throw error;
+    return { store: publicNames.get(store), count: count ?? 0 };
+  }));
+  const activity = counts.filter(({ count }) => count > 0);
+
+  return send(JSON.stringify({ activity }), 200, "application/json; charset=utf-8", {
+    "Cache-Control": "public, max-age=0, s-maxage=15",
+  });
+}
+
 /* ---------- 관리자: 목록 · 요약 · 엑셀 · 검수 ---------- */
 const ROW_COLS = "id,phone,name,store,status,reject_reason,created_at,photo_hash";
 function loadFilteredRows(filters: Filters, previewRows?: Row[]) {
@@ -436,6 +465,7 @@ async function route(request: Request) {
     }
   }
   if (method === "GET" && path === "/api/stores") return storeList();
+  if (method === "GET" && path === "/api/entries/activity") return entryActivity();
   if (method === "POST" && path === "/api/entries") return submit(request);
   if (method === "POST" && path === "/api/entries/check-phone") return checkPhone(request);
   if (method === "POST" && path === "/api/entries/lookup") return lookup(request);

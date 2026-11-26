@@ -11,6 +11,7 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); word-break: keep-all; overflow-wrap: anywhere; }
+main { width: min(100%, 520px); margin-inline: auto; container-type: inline-size; }
 h1, h2, h3, p { margin: 0; }
 a { color: inherit; }
 a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outline-offset: 3px; }
@@ -24,7 +25,7 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   white-space: nowrap;
 }
 
-.frame { width: min(100% - 3rem, 900px); margin-inline: auto; }
+.frame { width: calc(100% - 2.5rem); margin-inline: auto; }
 
 .hero {
   background: var(--orange);
@@ -33,19 +34,24 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 }
 
 .hero-copy {
-  width: min(100% - 3rem, 1120px);
-  padding-block: 0 clamp(34px, 4vw, 56px);
+  padding-block: 0 34px;
 }
 
-.hero-visual { display: block; width: min(100% + 3rem, 480px); margin-inline: 50%; transform: translateX(-50%); }
-.hero-visual img { display: block; width: 100%; height: auto; }
+.hero-visual { display: block; width: min(100% + 2.5rem, 480px); margin-inline: 50%; transform: translateX(-50%); }
+.hero-visual img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The paper ends around 97.8%; fade the baked-in shadow below it. */
+  mask-image: linear-gradient(to bottom, #000 97.8%, #0005 98.25%, transparent 98.85%);
+}
 
 .hero-rewards {
-  --reward-art-size: clamp(58px, 9vw, 105px);
+  --reward-art-size: clamp(52px, 16cqw, 86px);
+  --reward-text-gap: 4px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  width: min(100%, 680px);
-  margin: clamp(24px, 3vw, 36px) auto 0;
+  margin: 24px auto 0;
   border-block: 1px solid #ffffff80;
   /* 가운데 구분선: 각 항목은 내용 너비만 차지하므로 목록 배경으로 그린다. */
   background: linear-gradient(#ffffff80, #ffffff80) center / 1px 100% no-repeat;
@@ -58,20 +64,25 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   align-content: center;
   justify-self: center;
   min-height: calc(var(--reward-art-size) + 18px);
-  padding: 9px 0 9px calc(var(--reward-art-size) + 9px);
+  padding: 9px 0;
+  padding-inline-start: calc(var(--reward-art-size) + var(--reward-text-gap) + var(--reward-art-inset, 0px));
+}
+.hero-reward-gold {
+  /* The coffee image has about 19% more transparent space on its right edge. */
+  --reward-art-inset: calc(var(--reward-art-size) * .19);
 }
 .hero-rewards img {
   position: absolute;
-  inset-inline-start: 4px;
+  inset-inline-start: 0;
   top: 50%;
   width: var(--reward-art-size);
   height: auto;
   transform: translateY(-50%);
 }
-.hero-rewards dt { font-size: clamp(13px, 1.8vw, 19px); line-height: 1.3; font-weight: 750; }
+.hero-rewards dt { font-size: 13px; line-height: 1.3; font-weight: 750; }
 .hero-rewards dd {
   margin: 2px 0 0;
-  font-size: clamp(25px, 4.1vw, 50px);
+  font-size: clamp(25px, 6.4cqw, 32px);
   font-weight: 900;
   letter-spacing: -.07em;
   line-height: 1;
@@ -79,29 +90,29 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 }
 
 .qr-guide {
-  max-width: 42ch;
-  margin: clamp(15px, 2.6vw, 26px) auto 0;
-  font-size: clamp(14px, 1.6vw, 18px);
+  max-width: 42rem;
+  margin: 15px auto 0;
+  font-size: 14px;
   line-height: 1.55;
   color: var(--white);
 }
 .qr-guide strong { color: var(--white); font-weight: 850; }
 
-.section { padding-block: clamp(30px, 5vw, 60px); }
+.section { padding-block: 30px; }
 .section h2 {
   margin-bottom: 14px;
-  font-size: clamp(24px, 4vw, 40px);
+  font-size: 24px;
   font-weight: 900;
   line-height: 1.14;
   letter-spacing: -.055em;
 }
 .prize-intro, .section-note, .prize p, .prize small, .steps p, .questions p, .promo-custom-section p {
   color: var(--muted);
-  font-size: clamp(14px, 1.6vw, 16px);
+  font-size: 14px;
   line-height: 1.6;
 }
 .prize-intro { margin-bottom: 18px; }
-.prizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.prizes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .prize { padding: 16px 18px; border: 1px solid var(--rule); background: #fff; }
 .prize h3 {
   display: flex;
@@ -110,7 +121,7 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   gap: 2px 12px;
   align-items: baseline;
   margin-bottom: 8px;
-  font-size: clamp(16px, 2vw, 20px);
+  font-size: 16px;
   letter-spacing: -.035em;
 }
 .prize h3 strong { color: var(--orange); font-size: 1.15em; white-space: nowrap; }
@@ -120,10 +131,12 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 .section .section-note { font-size: 13px; }
 
 .how > .frame, .faq, .promo-custom-section { border-top: 1px solid var(--rule); }
+.how-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
+.how-heading h2 { margin-bottom: 0; }
 .steps {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 26px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -142,24 +155,49 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   top: 16px;
   inset-inline-start: 18px;
   color: var(--orange);
-  font-size: clamp(16px, 2vw, 20px);
+  font-size: 16px;
   font-weight: 900;
 }
-.steps h3 { margin-bottom: 4px; font-size: clamp(16px, 2vw, 20px); letter-spacing: -.04em; }
-.store-button {
-  display: inline-flex;
+.steps h3 { margin-bottom: 10px; font-size: 16px; letter-spacing: -.04em; }
+.steps p { letter-spacing: -.025em; }
+
+@property --how-store-line-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.how-store-link {
+  display: flex;
   align-items: center;
-  gap: 9px;
+  justify-content: center;
   min-height: 44px;
-  margin-top: 10px;
-  padding-inline: 14px;
-  background: var(--orange);
-  color: var(--white);
+  margin-inline-start: auto;
+  padding-inline: 12px;
+  border: 1px solid var(--rule);
+  background: var(--white);
+  color: var(--ink);
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 750;
   text-decoration: none;
 }
-.store-button:hover { background: #d94400; }
+.how-store-link:hover { border-color: var(--orange); color: #9e3200; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .how-store-link {
+    animation: how-store-line 2.4s linear infinite;
+  }
+}
+
+@keyframes how-store-line {
+  from, to {
+    border-color: transparent;
+    background:
+      linear-gradient(var(--white), var(--white)) padding-box,
+      conic-gradient(from var(--how-store-line-angle), var(--rule) 0 88%, var(--orange) 93% 96%, var(--rule) 100%) border-box;
+  }
+  to { --how-store-line-angle: 360deg; }
+}
 
 .questions { border-top: 1px solid var(--rule); }
 .questions details { border-bottom: 1px solid var(--rule); }
@@ -180,16 +218,15 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 .questions p { margin: 0 18px 14px 0; }
 .promo-custom-section p { white-space: pre-wrap; }
 
-@media (max-width: 720px) {
-  .promo-pc-only { display: none; }
-  .frame { width: min(100% - 2.5rem, 900px); }
-  .hero-visual { width: min(100% + 2.5rem, 480px); }
-  .hero-rewards { --reward-art-size: clamp(52px, 16vw, 86px); }
-  .hero-rewards > div { padding-inline: calc(var(--reward-art-size) + 4px) 0; }
-  .hero-rewards img { inset-inline-start: 0; }
-  .steps, .prizes { grid-template-columns: minmax(0, 1fr); }
-}
-
-@media (width > 720px) {
-  .promo-mobile-only { display: none; }
+.steps > li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: calc(100% + 7px);
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--orange);
+  border-bottom: 2px solid var(--orange);
+  transform: translateX(-50%) rotate(45deg);
+  pointer-events: none;
 }

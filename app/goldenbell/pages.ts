@@ -18,7 +18,11 @@ return `<!doctype html>
 </head>
 <body class="${preview ? "instant-preview" : "luckup"}">
 <main class="page">
-  ${preview ? '<header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>' : ""}
+  ${preview ? '<header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>' : `<div class="activity">
+    <span class="activity-emoji" id="activity-emoji" aria-hidden="true">🎉✨🍀</span>
+    <span id="activity-text">매장에서 구매하고 골든벨에 응모하세요</span>
+    <button id="activity-toggle" type="button" hidden aria-label="응모 현황 롤링 일시정지">Ⅱ</button>
+  </div>`}
 
   <section class="hero" aria-labelledby="title">
     ${preview ? `<p class="hook">구매 인증하고 아메리카노에 도전!</p>
@@ -27,21 +31,19 @@ return `<!doctype html>
       <p class="instant-draw-title">아메리카노 즉석 추첨</p>
       <p class="period">응모기간 2026.12.01 – 12.31</p>
     </div>` : `<h1 id="title" class="sr-only">워크업 연말연시 골든벨 응모</h1>
-    <picture class="hero-visual">
-      <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-still.webp">
-      <img src="/goldenbell/promo-hero.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="941" height="1672" fetchpriority="high">
-    </picture>
-    <p class="period">응모기간 2026.12.01 – 12.31</p>`}
-    ${preview ? '<p class="preview-notice">테스트용 화면입니다. 실제 경품은 지급되지 않아요.</p>' : `<div class="activity">
-      <span class="activity-label">테스트 예시</span>
-      <span id="activity-text">매장에서 구매하고 골든벨에 응모하세요</span>
-      <button id="activity-toggle" type="button" hidden aria-label="응모 현황 롤링 일시정지">Ⅱ</button>
+    <div class="hero-media">
+      <picture class="hero-visual">
+        <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-still.webp">
+        <img src="/goldenbell/promo-hero.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="941" height="1672" fetchpriority="high">
+      </picture>
+      <p class="period"><span>응모기간</span> <span>2026.12.01 – 12.31</span></p>
     </div>`}
+    ${preview ? '<p class="preview-notice">테스트용 화면입니다. 실제 경품은 지급되지 않아요.</p>' : ""}
   </section>
 
   <section class="prizes" aria-label="추첨 경품">
     <div class="prize prize-main">
-      <svg class="prize-art" viewBox="0 0 72 52" aria-hidden="true" focusable="false">
+      ${preview ? `<svg class="prize-art" viewBox="0 0 72 52" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id="gold-front" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset=".45" stop-color="#f6c340"/><stop offset="1" stop-color="#b9780c"/></linearGradient>
           <linearGradient id="gold-top" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fffbe6"/><stop offset="1" stop-color="#ffe07a"/></linearGradient>
@@ -52,11 +54,11 @@ return `<!doctype html>
         <path class="sparkle s1" d="M8 8 L10 13 L15 15 L10 17 L8 22 L6 17 L1 15 L6 13 Z" fill="#fff"/>
         <path class="sparkle s2" d="M62 2 L63.6 6 L67.6 7.6 L63.6 9.2 L62 13.2 L60.4 9.2 L56.4 7.6 L60.4 6 Z" fill="#fff"/>
         <path class="sparkle s3" d="M66 26 L67 28.6 L69.6 29.6 L67 30.6 L66 33.2 L65 30.6 L62.4 29.6 L65 28.6 Z" fill="#fff"/>
-      </svg>
+      </svg>` : '<img class="prize-art" src="/goldenbell/promo-prize-gold.webp" alt="" width="520" height="520">'}
       <strong>금 1돈</strong>
     </div>
     <div class="prize">
-      <svg ${preview ? 'class="coffee-fill-source" width="0" height="0"' : 'class="prize-art" viewBox="0 0 72 52"'} aria-hidden="true" focusable="false">
+      ${preview ? `<svg class="coffee-fill-source" width="0" height="0" aria-hidden="true" focusable="false">
         <g id="goldenbell-coffee-cup">
         <rect x="46" y="3" width="3.5" height="20" rx="1.7" fill="#e0a93b" transform="rotate(14 47 13)"/>
         <rect x="19" y="11" width="34" height="6" rx="3" fill="#6b3f1d"/>
@@ -66,7 +68,11 @@ return `<!doctype html>
         <rect x="37" y="34" width="8" height="8" rx="2" fill="#fff" opacity=".3" transform="rotate(12 41 38)"/>
         <path d="M27 20 V27" stroke="#fff" stroke-width="2" stroke-linecap="round" opacity=".7"/>
         </g>
-      </svg>
+      </svg>` : `<div class="coffee-prize-art" aria-hidden="true">
+        <img class="coffee-prize-mini" src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">
+        <img class="prize-art" src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">
+        <img class="coffee-prize-mini" src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">
+      </div>`}
       ${preview ? "" : "<small>매주 200명 · 총 800명</small>"}<strong>메가커피 아메리카노</strong>
       ${preview ? `<div class="coffee-fill">
         <div class="coffee-fill-cups" aria-hidden="true"><div class="coffee-fill-track">${Array.from({ length: 200 }, () => '<svg class="coffee-fill-cup" viewBox="16 0 40 52" focusable="false"><use href="#goldenbell-coffee-cup"/></svg>').join("")}</div></div>
@@ -91,7 +97,10 @@ return `<!doctype html>
       </div>
       <div class="field">
         <label for="phone">휴대폰 번호</label>
-        <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="00000000000" maxlength="24" required aria-describedby="phone-error phone-limit">
+        <div class="phone-field">
+          <span class="phone-prefix" aria-hidden="true">010</span>
+          <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-local" placeholder="00000000" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" required aria-label="휴대폰 번호 뒤 8자리" aria-describedby="phone-error phone-limit">
+        </div>
         <p class="hint" id="phone-limit">${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "같은 번호로 하루에 한 번만 응모할 수 있어요. 밤 12시부터 다시 응모할 수 있어요."}</p>
         <p class="field-error" id="phone-error" role="alert" hidden></p>
       </div>
@@ -108,10 +117,18 @@ return `<!doctype html>
       <div class="field">
         <label for="receipt">영수증 사진</label>
         <div class="file-panel">
-          <input id="receipt" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" aria-describedby="file-help receipt-error" required>
+          <div class="receipt-picker-row">
+            <span id="receipt-filename" role="status">선택된 파일 없음</span>
+            <button id="receipt-picker" type="button" aria-describedby="file-help${preview ? "" : " receipt-entry-rule"} receipt-error">영수증 선택</button>
+            <input id="receipt" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required hidden>
+          </div>
           <img id="preview" alt="첨부한 영수증 미리보기" hidden>
         </div>
-        <p class="hint" id="file-help">매장명·구매일·결제금액이 보이게 찍어주세요.${preview ? '<br>영수증 사진이 흐리거나 구매 내역을 확인할 수 없는 경우, <strong>응모가 취소됩니다.</strong>' : ""}</p>
+        <p class="hint" id="file-help">매장명과 구매일이 보이게 찍어주세요.<br>${preview ? '영수증 사진이 흐리거나 구매 내역을 확인할 수 없는 경우, <strong>응모가 취소됩니다.</strong>' : '초점이 맞지 않거나 흐린 사진은 응모에서 제외될 수 있습니다.'}</p>
+        ${preview ? "" : `<p class="receipt-entry-rule" id="receipt-entry-rule">
+          <strong>구매 당일 · 1인 하루 1회 응모</strong>
+          구매한 날이 지나면 해당 영수증으로 응모할 수 없어요. 같은 날 영수증을 여러 장 받아도 한 번만 응모할 수 있어요.
+        </p>`}
         <p class="field-error" id="receipt-error" role="alert" hidden></p>
       </div>
 
@@ -165,13 +182,13 @@ return `<!doctype html>
       <button id="again" class="primary" type="button">다시 테스트하기</button>
     </div>` : `<section id="success" class="success success-complete" aria-labelledby="success-title" hidden tabindex="-1">
       <h3 id="success-title">응모가 완료되었습니다!</h3>
-      <p class="success-thanks">골든벨 이벤트에 참여해 주셔서 감사합니다.</p>
+      <p class="success-thanks">행운이 돌아오는 워크업 연말 이벤트에 참여해 주셔서 감사합니다.</p>
       <dl class="success-receipt">
         <dt>접수번호</dt>
         <dd id="result"></dd>
       </dl>
-      <p class="success-tomorrow"><strong>내일도 골든벨에 도전하세요!</strong></p>
-      <p class="success-rule">골든벨 이벤트는 하루 한 번 참여 가능하며,<br>매일 자정 이후 다시 응모하실 수 있습니다.</p>
+      <p class="success-tomorrow"><strong>내일도 행운에 도전해 보세요!</strong></p>
+      <p class="success-rule">1인 하루 한 번 응모할 수 있으며,<br>매일 자정 이후 다시 응모하실 수 있습니다.</p>
       <hr>
       <div class="success-actions">
         <button id="again" class="primary success-back" type="button">응모화면으로 돌아가기</button>
@@ -181,26 +198,27 @@ return `<!doctype html>
   </section>
 
 
-  <section class="result-box" aria-labelledby="result-title">
-    <p class="result-label" id="result-title">금 1돈 당첨자 발표</p>
-    <strong class="result-date">2027.01.04 예정</strong>
-    <p class="result-note">커피 경품에 당첨된 응모 건도 금 1돈 추첨 대상에 포함돼요.</p>
-  </section>
-
   <section class="extra" aria-label="안내">
     <details class="card-details">
       <summary>이벤트 유의사항</summary>
       <ul>
         <li>응모 기간: 2026.12.01 – 12.31</li>
         ${preview ? "<li>아메리카노는 매주 200명에게 배정되며, 응모 후 복권을 긁어 당첨 여부를 확인할 수 있어요. 다음 주 응모는 월요일 0시(한국시간)부터 가능해요.</li>" : ""}
-        <li>워크업 매장에서 기간 내 구매한 영수증으로 응모할 수 있어요. 영수증 1장당 1회 응모입니다.</li>
-        ${preview ? "" : "<li>같은 번호로 하루에 한 번만 응모할 수 있어요.</li>"}
+        ${preview ? `<li>워크업 매장에서 기간 내 구매한 영수증으로 응모할 수 있어요. 영수증 1장당 1회 응모입니다.</li>` : `
+        <li><strong>구매 당일, 하루 1회 응모</strong> · 이벤트 기간에 워크업 매장에서 받은 영수증은 구매 당일에만 사용할 수 있어요. 영수증을 여러 장 받아도 한 사람이 하루에 한 번만 응모할 수 있어요.</li>
+        <li><strong>영수증 분할 발급 금지</strong> · 응모 횟수를 늘리기 위해 한 건의 구매를 여러 건으로 나눠 결제하거나 영수증을 나눠 발급받을 수 없어요.</li>
+        <li><strong>부정 응모 사례</strong> · 이미 등록한 영수증을 다시 제출하거나, 다른 휴대폰 번호로 하루에 여러 번 응모하는 경우, 타인의 영수증이나 위조·변조된 영수증을 사용하는 경우, 결제를 취소하거나 전액 환불받은 구매 건으로 응모하는 경우가 해당돼요. 부정 응모가 확인되면 응모에서 제외되거나 당첨이 취소될 수 있어요.</li>`}
         <li>매장명·구매일·결제금액이 확인되지 않는 사진은 반려될 수 있어요.</li>
-        <li>같은 영수증을 다른 번호로 중복 응모하거나 허위 영수증을 올리면 당첨이 취소될 수 있어요.</li>
-        <li>금 1돈 당첨자는 2027.01.04 발표 예정이며, 입력한 휴대폰 번호로 안내해 드려요.</li>
-        ${preview ? "" : "<li>금 1돈은 방문 수령만 가능하며, 수령 시 수령증을 작성해야 해요.</li>"}
+        ${preview ? `<li>같은 영수증을 다른 번호로 중복 응모하거나 허위 영수증을 올리면 당첨이 취소될 수 있어요.</li>` : ""}
+        <li>금 1돈 당첨자는 2027.01.04 발표 예정이며, 응모 시 입력한 휴대폰 번호로 안내해 드려요.${preview ? "" : " 당첨 경품은 방문 수령만 가능하며, 수령 시 수령증을 작성해야 해요."}</li>
       </ul>
     </details>
+  </section>
+
+  <section class="result-box" aria-labelledby="result-title">
+    <p class="result-label" id="result-title">금 1돈 당첨자 발표</p>
+    <strong class="result-date">2027.01.04 예정</strong>
+    <p class="result-note">커피 경품에 당첨된 응모 건도 금 1돈 추첨 대상에 포함돼요.</p>
   </section>
 
   <footer>${preview ? '<a href="/goldenbell/v2/admin">2차 버전 관리자 테스트 화면</a>' : '<a href="/goldenbell/admin">관리자 테스트 화면</a>'}</footer>

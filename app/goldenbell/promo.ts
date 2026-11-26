@@ -2,18 +2,24 @@ export const GOLDENBELL_PROMO_SECTION = "goldenbell_promo";
 export const GOLDENBELL_PROMO_PATH = "/goldenbell/promo";
 
 export const PROMO_FIELDS = [
-  { key: "participationGuide", label: "상단 응모 안내", max: 150, defaultValue: "워크업에서의 하루를 남겨주세요. 구매 후 매장 QR코드를 스캔해 영수증 사진을 등록하면 응모가 완료돼요.", multiline: true, visibilityKey: "heroGuide" },
-  { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "애쓴 당신의 한 해 끝에, 작지만 반짝이는 마음을 준비했어요." },
-  { key: "title", label: "브라우저·공유 제목", max: 80, defaultValue: "워크업, 굿워크 | 연말연시 골든벨 이벤트" },
+  { key: "participationGuide", label: "상단 응모 안내", max: 150, defaultValue: "워크업에서의 하루를 남겨주세요.\n구매 후 매장 QR코드를 스캔해 영수증 사진을 등록하면 응모가 완료돼요.", multiline: true, visibilityKey: "heroGuide" },
+  { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "영수증을 등록하면 경품 추첨에 참여할 수 있습니다." },
+  { key: "title", label: "브라우저·공유 제목", max: 80, defaultValue: "행운이 돌아오는 워크업 연말 이벤트!" },
   { key: "description", label: "공유 설명", max: 200, defaultValue: "한 해 동안 수고한 당신께 워크업이 마음을 전해요. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", multiline: true },
 ] as const;
 
 // 예전 기본 문구가 그대로 저장돼 있으면 새 기본 문구를 보여준다. 관리자가 직접 고친 문구는 유지된다.
-const RETIRED_DEFAULTS: Partial<Record<(typeof PROMO_FIELDS)[number]["key"], string>> = {
-  participationGuide: "워크업 매장에서 구매 후, 매장 QR코드를 스캔해 영수증 사진을 등록하세요.",
-  prizeIntro: "워크업 매장에서 응모하고, 푸짐한 선물 받으세요!",
-  title: "워크업 연말연시 골든벨 이벤트",
-  description: "방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.",
+const RETIRED_DEFAULTS: Partial<Record<(typeof PROMO_FIELDS)[number]["key"], readonly string[]>> = {
+  participationGuide: [
+    "워크업 매장에서 구매 후, 매장 QR코드를 스캔해 영수증 사진을 등록하세요.",
+    "워크업에서의 하루를 남겨주세요. 구매 후 매장 QR코드를 스캔해 영수증 사진을 등록하면 응모가 완료돼요.",
+  ],
+  prizeIntro: [
+    "워크업 매장에서 응모하고, 푸짐한 선물 받으세요!",
+    "애쓴 당신의 한 해 끝에, 작지만 반짝이는 마음을 준비했어요.",
+  ],
+  title: ["워크업 연말연시 골든벨 이벤트", "워크업, 굿워크 | 연말연시 골든벨 이벤트"],
+  description: ["방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요."],
 };
 
 type PromoField = (typeof PROMO_FIELDS)[number]["key"];
@@ -52,7 +58,7 @@ export function normalizePromoConfig(value: unknown): PromoConfig {
   for (const field of PROMO_FIELDS) {
     const raw = source[field.key];
     const text = typeof raw === "string" ? raw.trim().slice(0, field.max) : "";
-    config[field.key] = text && text !== RETIRED_DEFAULTS[field.key] ? text : field.defaultValue;
+    config[field.key] = text && !RETIRED_DEFAULTS[field.key]?.includes(text) ? text : field.defaultValue;
   }
   const visibility = source.sections && typeof source.sections === "object" ? source.sections as Record<string, unknown> : {};
   config.sections = Object.fromEntries(PROMO_VISIBILITY_KEYS.map((key) => [key, normalizeVisibility(visibility[key])])) as PromoConfig["sections"];
@@ -73,14 +79,15 @@ function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-function renderVisible({ pc, mobile }: PromoVisibility, render: (deviceClass: string) => string) {
-  if (!pc && !mobile) return "";
-  return render(pc && mobile ? "" : pc ? " promo-pc-only" : " promo-mobile-only");
+function renderVisible({ mobile }: PromoVisibility, render: () => string) {
+  return mobile ? render() : "";
 }
 
 export function renderPromoHtml(value: unknown) {
   const { title, description, participationGuide, prizeIntro, sections, customSections } = normalizePromoConfig(value);
-  const guideHtml = escapeHtml(participationGuide).replace(/QR코드|영수증 사진/g, "<strong>$&</strong>");
+  const guideHtml = escapeHtml(participationGuide)
+    .replace(/\r\n?|\n/g, "<br>")
+    .replace(/QR코드|영수증 사진/g, "<strong>$&</strong>");
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -103,49 +110,57 @@ export function renderPromoHtml(value: unknown) {
           <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-still.webp">
           <img src="/goldenbell/promo-hero.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="941" height="1672" fetchpriority="high">
         </picture>
-        ${renderVisible(sections.heroRewards, (deviceClass) => `<dl class="hero-rewards${deviceClass}" aria-label="골든벨 경품">
-          <div>
+        ${renderVisible(sections.heroRewards, () => `<dl class="hero-rewards" aria-label="골든벨 경품">
+          <div class="hero-reward-gold">
             <dt><img src="/goldenbell/promo-prize-gold.webp" alt="" width="520" height="520">골드바 1돈</dt>
             <dd>10명</dd>
           </div>
           <div>
-            <dt><img src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">메가커피 쿠폰</dt>
+            <dt><img src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">커피 쿠폰</dt>
             <dd>800명</dd>
           </div>
         </dl>`)}
-        ${renderVisible(sections.heroGuide, (deviceClass) => `<p class="qr-guide${deviceClass}">${guideHtml}</p>`)}
+        ${renderVisible(sections.heroGuide, () => `<p class="qr-guide">${guideHtml}</p>`)}
       </div>
     </section>
 
-    ${renderVisible(sections.prizes, (deviceClass) => `<section class="frame section${deviceClass}" id="prizes" aria-labelledby="prize-title">
-      <h2 id="prize-title">수고한 당신께 드리는 선물</h2>
+    ${renderVisible(sections.prizes, () => `<section class="frame section" id="prizes" aria-labelledby="prize-title">
+      <h2 id="prize-title">이벤트 경품</h2>
       <p class="prize-intro">${escapeHtml(prizeIntro)}</p>
       <div class="prizes">
         <article class="prize">
           <h3>골드바 1돈 <strong>10명</strong></h3>
-          <p>반짝이는 한 해의 마무리, 추첨을 통해 한 분께 1돈씩 드려요.</p>
-          <small>2027.01.04 당첨자 발표 예정</small>
+          <p>응모자 중 10명을 추첨해 골드바 1돈씩 드립니다.</p>
         </article>
         <article class="prize">
           <h3>메가커피 아메리카노 쿠폰 <strong>800명</strong></h3>
-          <p>따뜻한 한 잔의 쉼, 매주 200분께 전해드려요.</p>
+          <p>매주 200명에게 아메리카노 쿠폰을 드립니다.</p>
         </article>
       </div>
-      <p class="section-note">커피의 행운을 만난 응모 건도 금 1돈 추첨에 함께해요.</p>
+      <p class="section-note">커피 쿠폰에 당첨된 응모 건도 골드바 추첨 대상에 포함됩니다.</p>
     </section>`)}
 
-    ${renderVisible(sections.how, (deviceClass) => `<section class="how${deviceClass}" id="how" aria-labelledby="how-title">
+    ${renderVisible(sections.how, () => `<section class="how" id="how" aria-labelledby="how-title">
       <div class="frame section">
-        <h2 id="how-title">마음을 받는 세 걸음</h2>
+        <div class="how-heading">
+          <h2 id="how-title">이벤트 참여 방법</h2>
+          <a class="how-store-link" href="/store" target="_blank" rel="noopener noreferrer" aria-label="가까운 매장 찾기 (새 탭)">가까운 매장 찾기</a>
+        </div>
         <ol class="steps" role="list">
-          <li><h3>워크업에 들러주세요</h3><p>12월 한 달 동안 워크업 매장에서 구매하고, 오늘의 영수증을 간직해 주세요.</p><a class="store-button" href="/store">가까운 매장 찾기 <span aria-hidden="true">↗</span></a></li>
-          <li><h3>QR코드로 인사해요</h3><p>매장에 놓인 QR코드를 휴대폰 카메라로 비추면 응모 화면이 열려요.</p></li>
-          <li><h3>하루를 남겨주세요</h3><p>이름과 휴대폰 번호를 입력하고 방문 매장을 선택한 뒤, 매장명·구매일·결제금액이 보이는 영수증 사진을 올려주세요.</p></li>
+          <li>
+            <h3>워크업 매장에서 구매하기</h3>
+            <p>12월 중 워크업 매장에서 구매하고 영수증을 챙겨 주세요.</p>
+          </li>
+          <li><h3>매장 QR코드 스캔하기</h3><p>매장에 비치된 QR코드를 스캔해 응모 화면을 열어 주세요.</p></li>
+          <li>
+            <h3>영수증 사진 올리고 응모하기</h3>
+            <p>워크업 영수증임을 확인할 수 있도록 촬영해 주세요.</p>
+          </li>
         </ol>
       </div>
     </section>`)}
 
-    ${renderVisible(sections.faq, (deviceClass) => `<section class="frame section faq${deviceClass}" aria-labelledby="faq-title">
+    ${renderVisible(sections.faq, () => `<section class="frame section faq" aria-labelledby="faq-title">
       <h2 id="faq-title">궁금한 마음에 답해드려요</h2>
       <div class="questions">
         <details>
@@ -157,8 +172,8 @@ export function renderPromoHtml(value: unknown) {
           <p>2026년 12월 1일부터 31일까지 워크업 매장에서 구매한 영수증으로 응모할 수 있어요. 영수증 1장당 1회 응모할 수 있고, 매장명·구매일·결제금액이 확인되지 않으면 반려될 수 있어요.</p>
         </details>
         <details>
-          <summary>금 1돈 당첨자는 언제 발표하나요?</summary>
-          <p>당첨자 10명은 2027년 1월 4일 발표 예정이에요. 당첨자에게는 응모할 때 입력한 휴대폰 번호로 안내해 드려요.</p>
+          <summary>골드바에 당첨되면 어떻게 알 수 있나요?</summary>
+          <p>당첨자에게는 응모할 때 입력한 휴대폰 번호로 안내해 드려요.</p>
         </details>
         <details>
           <summary>응모 내역은 어디에서 확인하나요?</summary>
@@ -166,7 +181,7 @@ export function renderPromoHtml(value: unknown) {
         </details>
       </div>
     </section>`)}
-    ${customSections.map((section) => renderVisible(section.visibility, (deviceClass) => `<section class="frame section promo-custom-section${deviceClass}" aria-labelledby="custom-${section.id}">
+    ${customSections.map((section) => renderVisible(section.visibility, () => `<section class="frame section promo-custom-section" aria-labelledby="custom-${section.id}">
       <h2 id="custom-${section.id}">${escapeHtml(section.title)}</h2>
       <p>${escapeHtml(section.body)}</p>
     </section>`)).join("")}

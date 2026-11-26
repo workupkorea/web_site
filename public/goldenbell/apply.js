@@ -1,6 +1,7 @@
 const form = document.querySelector('#apply');
 const entryIntro = document.querySelector('#entry-intro');
 const activity = document.querySelector('#activity-text');
+const activityEmoji = document.querySelector('#activity-emoji');
 const activityToggle = document.querySelector('#activity-toggle');
 const phoneInput = document.querySelector('#phone');
 const region = document.querySelector('#region');
@@ -8,6 +9,8 @@ const store = document.querySelector('#store');
 const storeList = document.querySelector('#store-list');
 const storeStatus = document.querySelector('#store-status');
 const receipt = document.querySelector('#receipt');
+const receiptPicker = document.querySelector('#receipt-picker');
+const receiptFilename = document.querySelector('#receipt-filename');
 const preview = document.querySelector('#preview');
 const message = document.querySelector('#message');
 const submit = document.querySelector('#submit');
@@ -46,7 +49,7 @@ if (coffeeFill && 'IntersectionObserver' in window) {
   const track = coffeeFill.querySelector('.coffee-fill-track');
   const cupsPerRow = 10;
   const rows = track.childElementCount / cupsPerRow;
-  const rowTime = 16000 / rows;
+  const rowTime = 800;
   const nextRowStart = 30;
   let visible = false;
   let frame;
@@ -101,39 +104,74 @@ if (coffeeFill && 'IntersectionObserver' in window) {
   reducedMotion.addEventListener?.('change', updateMotion);
 }
 
-/* ---------- 응모 현황 롤링 (테스트 예시 데이터) ---------- */
-const exampleStores = ['성수점','롯데몰 청량리점','송파 문정점','인천 송도점','파주문산점'];
-const randomIndex = length => Math.floor(Math.random() * length);
-let storeIndex = randomIndex(exampleStores.length);
-let people = 2 + randomIndex(2);
-let paused = false; // 폰의 '동작 줄이기' 설정과 무관하게 롤링 시작 (일시정지 버튼 제공)
-function renderActivity() {
-  activity.textContent = exampleStores[storeIndex] + '에서 ' + people + '명이 응모했습니다.';
-  activity.classList.remove('roll');
-  void activity.offsetWidth;
-  activity.classList.add('roll');
+/* ---------- 매장별 오늘 응모 현황 ---------- */
+const activityEmojis = ['🎉✨🍀', '🐻☕💛', '⭐🎁🐰', '🐣🌟🧡', '🦊🍀🎈'];
+let activityRows = [];
+let activityIndex = 0;
+let emojiIndex = 0;
+let activityPaused = reducedMotion.matches;
+let activityLoading = false;
+
+function renderActivity(rolling = false) {
+  const item = activityRows[activityIndex];
+  activity.textContent = item ? `오늘 ${item.store} 응모 ${item.count.toLocaleString('ko-KR')}건` : '오늘은 아직 접수된 응모가 없어요.';
+  if (!rolling) return;
+  emojiIndex = (emojiIndex + 1) % activityEmojis.length;
+  activityEmoji.textContent = activityEmojis[emojiIndex];
+  const bar = activity.parentElement;
+  bar.classList.remove('roll');
+  if (!reducedMotion.matches) {
+    void bar.offsetWidth;
+    bar.classList.add('roll');
+  }
 }
 function updateActivityControl() {
-  activityToggle.hidden = false;
-  activityToggle.textContent = paused ? '▶' : 'Ⅱ';
-  activityToggle.setAttribute('aria-label', paused ? '응모 현황 롤링 재생' : '응모 현황 롤링 일시정지');
+  activityToggle.hidden = !activityRows.length;
+  activityToggle.textContent = activityPaused ? '▶' : 'Ⅱ';
+  activityToggle.setAttribute('aria-label', activityPaused ? '응모 현황 롤링 재생' : '응모 현황 롤링 일시정지');
+}
+async function refreshActivity() {
+  if (!activityToggle || activityLoading || document.hidden) return;
+  activityLoading = true;
+  try {
+    const response = await fetch('/goldenbell/api/entries/activity');
+    if (!response.ok) return;
+    const {activity: rows} = await response.json();
+    const currentStore = activityRows[activityIndex]?.store;
+    activityRows = rows;
+    activityIndex = Math.max(0, rows.findIndex(item => item.store === currentStore));
+    renderActivity();
+    updateActivityControl();
+  } catch { /* 다음 갱신 때 다시 시도한다. */ }
+  finally { activityLoading = false; }
 }
 if (activityToggle) {
-  activityToggle.addEventListener('click', () => { paused = !paused; updateActivityControl(); });
-  renderActivity();
-  updateActivityControl();
+  activityToggle.addEventListener('click', () => { activityPaused = !activityPaused; updateActivityControl(); });
+  document.addEventListener('visibilitychange', refreshActivity);
+  void refreshActivity();
+  setInterval(refreshActivity, 30000);
   setInterval(() => {
-    if (paused || document.hidden) return;
-    storeIndex = (storeIndex + 1 + randomIndex(exampleStores.length - 1)) % exampleStores.length;
-    people = 2 + randomIndex(2);
-    renderActivity();
+    if (activityPaused || document.hidden || !activityRows.length) return;
+    activityIndex = (activityIndex + 1) % activityRows.length;
+    renderActivity(true);
   }, 6500);
 }
 
-/* ---------- 휴대폰 번호 자동 하이픈 ---------- */
+/* ---------- 휴대폰 번호 뒤 8자리 ---------- */
+const fullPhone = () => `010${phoneInput.value.replace(/\D/g, '')}`;
+function phoneSuffix(value) {
+  const digits = value.replace(/\D/g, '').replace(/^010(?=\d{8}$)/, '').slice(0, 8);
+  return digits.replace(/^(\d{4})(\d+)/, '$1-$2');
+}
 phoneInput.addEventListener('input', () => {
-  const digits = phoneInput.value.replace(/\D/g, '').slice(0, 11);
-  phoneInput.value = digits.replace(/^(\d{3})(\d{1,4})?(\d{1,4})?$/, (_, a, b, c) => [a, b, c].filter(Boolean).join('-'));
+  phoneInput.value = phoneSuffix(phoneInput.value);
+});
+phoneInput.addEventListener('paste', (event) => {
+  const pasted = event.clipboardData?.getData('text');
+  if (!pasted || !/^010\d{8}$/.test(pasted.replace(/\D/g, ''))) return;
+  event.preventDefault();
+  phoneInput.value = phoneSuffix(pasted);
+  phoneInput.dispatchEvent(new Event('input', {bubbles: true}));
 });
 
 /* ---------- 방문 매장: 지역명 입력 → 지점 선택 ---------- */
@@ -289,12 +327,12 @@ function setError(id, text) {
 }
 const checks = {
   name: () => nameInput.value.trim() ? '' : '이름을 입력해 주세요.',
-  phone: () => /^010\d{8}$/.test(phoneInput.value.replace(/\D/g, '')) ? '' : '010으로 시작하는 휴대폰 번호를 확인해 주세요.',
+  phone: () => /^\d{4}-\d{4}$/.test(phoneInput.value) ? '' : '휴대폰 번호 뒤 8자리를 입력해 주세요.',
   store: () => store.value ? '' : '방문 매장을 선택해 주세요. 지역명을 입력하면 지점이 나타나요.',
   receipt: () => receipt.files[0] ? '' : '영수증 사진을 첨부해 주세요.',
   consent: () => consent.checked ? '' : (isInstantPreview ? '테스트 응모 안내를 확인해 주세요.' : '개인정보 수집·이용에 동의해 주세요.')
 };
-const fieldFocus = {name: nameInput, phone: phoneInput, store: region, receipt, consent};
+const fieldFocus = {name: nameInput, phone: phoneInput, store: region, receipt: receiptPicker, consent};
 for (const key of ['name', 'phone']) {
   fieldFocus[key].addEventListener('blur', () => {
     const error = checks[key]();
@@ -311,7 +349,7 @@ if (!isInstantPreview) {
     clearTimeout(phoneCheckTimer);
     phoneCheckRequest?.abort();
     if (!phoneInput.value || checks.phone()) return;
-    const phone = phoneInput.value;
+    const phone = fullPhone();
     phoneCheckTimer = setTimeout(async () => {
       const request = new AbortController();
       phoneCheckRequest = request;
@@ -322,7 +360,7 @@ if (!isInstantPreview) {
         });
         if (response.status !== 409) return;
         const result = await response.json();
-        if (!request.signal.aborted && phoneInput.value === phone && !form.hidden) setError('phone', result.error);
+        if (!request.signal.aborted && fullPhone() === phone && !form.hidden) setError('phone', result.error);
       } catch { /* 응모 접수 시 다시 확인한다. */ }
     }, 250);
   });
@@ -340,6 +378,7 @@ function clearPhoto() {
   photoUrl = undefined;
   preview.removeAttribute('src');
   preview.hidden = true;
+  receiptFilename.textContent = '선택된 파일 없음';
 }
 async function shrink(file, maxEdge = MAX_EDGE, quality = 0.85, force = false) {
   if (!force && file.size <= RESIZE_ABOVE) return file;
@@ -355,6 +394,7 @@ async function shrink(file, maxEdge = MAX_EDGE, quality = 0.85, force = false) {
     return blob && blob.size < file.size ? new File([blob], 'receipt.jpg', {type: 'image/jpeg'}) : file;
   } catch { return file; }
 }
+receiptPicker.addEventListener('click', () => receipt.click());
 receipt.addEventListener('change', () => {
   clearPhoto();
   showMessage('');
@@ -367,6 +407,7 @@ receipt.addEventListener('change', () => {
     return;
   }
   photoUrl = URL.createObjectURL(file);
+  receiptFilename.textContent = file.name;
   preview.src = photoUrl;
   preview.hidden = false;
 });
@@ -590,6 +631,7 @@ form.addEventListener('submit', async event => {
     if (upload.size > MAX_UPLOAD) upload = await shrink(upload, 1600, 0.7, true); // 그래도 크면 한 번 더 줄인다
     if (upload.size > MAX_UPLOAD) { setError('receipt', '사진이 너무 커요. 다른 사진을 선택해 주세요.'); return; }
     const data = new FormData(form);
+    data.set('phone', fullPhone());
     data.set('receipt', upload, upload.name);
     if (isInstantPreview) {
       drawId ??= crypto.randomUUID();
@@ -614,6 +656,7 @@ form.addEventListener('submit', async event => {
     }
     if (!response.ok) { showMessage(result.error || '응모를 완료하지 못했어요.'); return; }
     lookupPhone.value = String(data.get('phone'));
+    void refreshActivity();
     showSuccess(formatReceiptCode(result.code));
   } catch {
     showMessage('연결을 확인한 뒤 다시 눌러주세요.');
