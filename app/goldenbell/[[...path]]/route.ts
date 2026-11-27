@@ -6,6 +6,7 @@ import { createHash, randomUUID } from "node:crypto";
 import * as XLSX from "xlsx";
 import { createAdminClient } from "@/lib/supabase-server";
 import { isAdmin } from "@/lib/admin-auth";
+import { logAudit } from "@/lib/audit-server";
 import { getSiteSection } from "@/lib/site-settings";
 import { getPublicStores } from "@/lib/publicStores";
 import { ADMIN_HTML, INDEX_HTML, INTERNAL_PREVIEW_HTML, PREVIEW_ADMIN_HTML, PREVIEW_HTML } from "../pages";
@@ -23,10 +24,16 @@ export const dynamic = "force-dynamic";
 
 const TABLE = "goldenbell_entries";
 const BUCKET = "goldenbell-receipts";
+const WINNERS_TABLE = "goldenbell_winners";
+const DEVICE_COOKIE = "wu_luckup_device";
+const DEVICE_COOKIE_MAX_AGE = 180 * 24 * 60 * 60; // 초. 개인정보 보유 기간과 같다.
+const DEVICE_KEY = "goldenbell_entries_event_device_key";
 const ENTRY_DAY_FORMAT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
 const PHONE_KEY = "goldenbell_entries_event_phone_key";
 const PHOTO_KEY = "goldenbell_entries_event_photo_key";
 const PHONE_MESSAGE = "이미 응모한 번호예요. 이벤트 기간 중 1인 1회만 응모할 수 있어요.";
+const DEVICE_MESSAGE = "이 기기에서는 이미 응모했어요. 한 기기에서 1회만 응모할 수 있어요.";
+const NO_DEVICE_MESSAGE = "화면을 새로고침한 뒤 다시 응모해 주세요. (쿠키 허용 필요)";
 const PHOTO_MESSAGE = "이미 응모에 사용한 영수증이에요. 다른 영수증 사진을 올려주세요.";
 const PAGE_SIZE = 30; // 검수 목록: 한 페이지 응모자 수
 const MAX_PHOTO = 4 * 1024 * 1024; // Vercel 함수 요청 본문 한도(4.5MB) 안쪽
@@ -194,8 +201,20 @@ async function readEntry(request: Request) {
   return { name, phone, store, photo, mime };
 }
 
-// 이벤트당 번호 1회. 최종 차단은 DB 고유 인덱스(PHONE_KEY·PHOTO_KEY)가 한다.
-async function hasEntry(sb: ReturnType<typeof createAdminClient>, eventId: string, column: "entry_phone" | "photo_hash", value: string) {
+// 같은 기기 제한용 식별값. 브라우저 쿠키라 삭제·시크릿 모드·다른 브라우저까지는 막지 못한다. DB 에는 해시만 남긴다.
+function deviceId(request: Request) {
+  const value = request.headers.get("cookie")?.split(";").map((part) => part.trim())
+    .find((part) => part.startsWith(`${DEVICE_COOKIE}=`))?.slice(DEVICE_COOKIE.length + 1);
+  return value && UUID_RE.test(value) ? value : null;
+}
+const deviceHash = (id: string) => createHash("sha256").update(id).digest("hex");
+function deviceCookie(request: Request) {
+  const secure = new URL(request.url).protocol === "https:" ? "; Secure" : "";
+  return `${DEVICE_COOKIE}=${randomUUID()}; Path=/; Max-Age=${DEVICE_COOKIE_MAX_AGE}; HttpOnly; SameSite=Lax${secure}`;
+}
+
+// 이벤트당 번호·사진·기기 각 1회. 최종 차단은 DB 고유 인덱스(PHONE_KEY·PHOTO_KEY·DEVICE_KEY)가 한다.
+async function hasEntry(sb: ReturnType<typeof createAdminClient>, eventId: string, column: "entry_phone" | "photo_hash" | "device_hash", value: string) {
   const { data, error } = await sb.from(TABLE).select("id").eq("event_id", eventId).eq(column, value).limit(1);
   if (error) throw error;
   return Boolean(data?.length);
@@ -203,6 +222,8 @@ async function hasEntry(sb: ReturnType<typeof createAdminClient>, eventId: strin
 
 const duplicatePhone = () => json(409, { error: PHONE_MESSAGE, field: "phone" });
 const duplicatePhoto = () => json(409, { error: PHOTO_MESSAGE, field: "receipt" });
+// 화면은 번호 칸 아래에 안내를 띄우고 이후 단계를 잠근다.
+const duplicateDevice = () => json(409, { error: DEVICE_MESSAGE, field: "phone" });
 
 const closed = () => fail(403, "지금은 응모 기간이 아니에요.");
 const testExpired = () => fail(403, "테스트 링크가 만료됐어요. 관리자에게 새 링크를 받아 주세요.");
@@ -221,6 +242,8 @@ async function openEvent(request: Request) {
 async function submit(request: Request) {
   const event = await openEvent(request);
   if (event instanceof Response) return event;
+  const device = deviceId(request);
+  if (!device) return fail(400, NO_DEVICE_MESSAGE);
   const entry = await readEntry(request);
   if (entry instanceof Response) return entry;
   const { name, phone, store, photo, mime } = entry;
@@ -229,6 +252,8 @@ async function submit(request: Request) {
   const day = ENTRY_DAY_FORMAT.format(receivedAt);
   const sb = createAdminClient();
   if (await hasEntry(sb, event.id, "entry_phone", phone)) return duplicatePhone();
+  const device_hash = deviceHash(device);
+  if (await hasEntry(sb, event.id, "device_hash", device_hash)) return duplicateDevice();
   const hash = createHash("sha256").update(photo).digest("hex");
   if (await hasEntry(sb, event.id, "photo_hash", hash)) return duplicatePhoto();
 
@@ -236,12 +261,15 @@ async function submit(request: Request) {
   const path = `${day.slice(0, 4)}/${id}.${MIME_EXT[mime]}`;
   const upload = await sb.storage.from(BUCKET).upload(path, photo, { contentType: mime });
   if (upload.error) throw upload.error;
-  const insert = await sb.from(TABLE).insert({ id, event_id: event.id, phone, name, store, photo_path: path, photo_hash: hash, created_at: now, consent_at: now });
+  const insert = await sb.from(TABLE).insert({ id, event_id: event.id, phone, name, store, photo_path: path, photo_hash: hash, device_hash, created_at: now, consent_at: now });
   if (insert.error) {
     const { error: cleanupError } = await sb.storage.from(BUCKET).remove([path]);
     if (cleanupError) console.error("[goldenbell] failed to remove unregistered receipt", cleanupError);
     if (insert.error.code === "23505") {
       if (insert.error.message.includes(PHONE_KEY)) return duplicatePhone();
+      if (insert.error.message.includes(DEVICE_KEY)) {
+        return await hasEntry(sb, event.id, "entry_phone", phone) ? duplicatePhone() : duplicateDevice();
+      }
       if (insert.error.message.includes(PHOTO_KEY)) {
         // 같은 번호가 같은 사진을 동시에 올리면 영수증 제약이 먼저 충돌할 수 있다.
         return await hasEntry(sb, event.id, "entry_phone", phone) ? duplicatePhone() : duplicatePhoto();
@@ -263,7 +291,11 @@ async function checkPhone(request: Request) {
   if (event instanceof Response) return event;
   const phone = await readPhone(request);
   if (!phone) return fail(400, "010으로 시작하는 휴대폰 번호를 확인해 주세요.");
-  return await hasEntry(createAdminClient(), event.id, "entry_phone", phone) ? duplicatePhone() : json(200, { available: true });
+  const sb = createAdminClient();
+  if (await hasEntry(sb, event.id, "entry_phone", phone)) return duplicatePhone();
+  const device = deviceId(request);
+  if (device && await hasEntry(sb, event.id, "device_hash", deviceHash(device))) return duplicateDevice();
+  return json(200, { available: true });
 }
 
 // 휴대폰 번호로 접수번호·매장·응모일만 조회 (번호는 URL 이 아닌 본문으로 받는다).
@@ -453,6 +485,26 @@ async function review(ids: string[], body: any) {
   if (error) throw error;
   return data?.length ?? 0;
 }
+// 응모 취소: 내역과 영수증을 지워 같은 번호·영수증·기기로 다시 응모할 수 있게 한다. 되돌릴 수 없다.
+async function removeEntry(id: string) {
+  const sb = createAdminClient();
+  const winner = await sb.from(WINNERS_TABLE).select("id").eq("entry_id", id).is("canceled_at", null).limit(1);
+  if (winner.error) throw winner.error;
+  if (winner.data.length) return fail(409, "당첨된 응모예요. 당첨기에서 당첨을 먼저 취소해 주세요.");
+  const removed = await sb.from(TABLE).delete().eq("id", id).select("photo_path");
+  if (removed.error) throw removed.error;
+  if (!removed.data.length) return fail(404, "응모 건을 찾지 못했어요.");
+  const path = removed.data[0].photo_path as string;
+  // 테스트 가짜 응모는 사진 파일을 함께 쓰므로, 마지막으로 쓰던 건일 때만 파일을 지운다.
+  const shared = await sb.from(TABLE).select("id").eq("photo_path", path).limit(1);
+  if (!shared.error && !shared.data.length) {
+    const { error } = await sb.storage.from(BUCKET).remove([path]);
+    if (error) console.error("[goldenbell] failed to remove the receipt of a canceled entry", path, error);
+  }
+  // 로그에는 개인정보 없이 접수번호만 남긴다.
+  await logAudit({ action: "delete", resource: TABLE, resourceLabel: "연말 이벤트 응모", target: `접수번호 ${code(id)}`, targetId: id });
+  return json(200, { ok: true });
+}
 
 /* ---------- 관리자: 당첨기 · 제외번호 ---------- */
 async function drawRoute(request: Request, url: URL, action: string, event: PromotionEvent) {
@@ -544,7 +596,7 @@ async function route(request: Request) {
       const phase = eventPhase(event);
       html = phase === "active" ? INDEX_HTML : renderClosedPage(INDEX_HTML, event, phase);
     }
-    return send(html, 200, "text/html; charset=utf-8");
+    return send(html, 200, "text/html; charset=utf-8", deviceId(request) ? {} : { "Set-Cookie": deviceCookie(request) });
   }
   if (method === "GET" && path === "/promo") {
     const config = await getSiteSection(GOLDENBELL_PROMO_SECTION);
@@ -630,6 +682,11 @@ async function route(request: Request) {
       return json(200, { ok: true, changed: await saveReview(ids, body) });
     }
     const entryMatch = adminPath.match(/^\/api\/admin\/entries\/([a-f0-9-]{36})$/);
+    if (method === "DELETE" && entryMatch && !previewAdmin) {
+      // 지우면 되돌릴 수 없어, 검수 화면 공개 설정과 별개로 관리자 로그인을 요구한다.
+      if (process.env.NODE_ENV !== "development" && !(await isAdmin())) return fail(401, "관리자 로그인이 필요해요.");
+      return removeEntry(entryMatch[1]);
+    }
     if (method === "PATCH" && entryMatch) {
       const body = await readJson(request, 2048);
       if (!validReview(body)) return fail(400, "검수 값이 올바르지 않아요. 반려는 사유를 선택해야 해요.");
@@ -651,3 +708,4 @@ async function handle(request: Request) {
 export const GET = handle;
 export const POST = handle;
 export const PATCH = handle;
+export const DELETE = handle;

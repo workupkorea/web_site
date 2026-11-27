@@ -158,6 +158,17 @@ function mountReview(root) {
     updateBulkBar();
   });
 
+  async function removeEntry(record, phone) {
+    if (!confirm(`${record.name} ${phoneLabel(phone)} 응모를 취소(삭제)할까요?\n응모 내역과 영수증 사진이 지워지며 되돌릴 수 없어요. 취소하면 다시 응모할 수 있어요.`)) return;
+    try {
+      await request(adminApi + '/entries/' + record.id, {method: 'DELETE'});
+      selected.delete(record.id);
+      updateBulkBar();
+      await Promise.all([loadGroups(), loadSummary()]);
+      say('응모를 취소했어요.');
+    } catch (error) { say(error.message === 'failed' ? '응모를 취소하지 못했어요. 다시 시도해 주세요.' : error.message); }
+  }
+
   /* ---------- 목록 ---------- */
   function renderRecord(record, phone) {
     const article = element('article', null, 'record');
@@ -229,6 +240,12 @@ function mountReview(root) {
     }
     // 이미 반려한 건은 사유를 고르면 바로 바꾼다.
     if (record.status === 'rejected') reason.addEventListener('change', () => { if (reason.value) review([record.id], 'rejected', reason.value); });
+    if (!adminApi.includes('/v2/')) { // 2차 테스트 화면에는 삭제 기능이 없다
+      const cancel = element('button', '응모 취소', 'cancel-entry');
+      cancel.type = 'button';
+      cancel.addEventListener('click', () => removeEntry(record, phone));
+      actions.append(cancel);
+    }
     foot.append(actions); // 검수 버튼은 지점·접수번호 옆에 둔다
     article.append(pick, thumb, info, status);
     return article;

@@ -41,6 +41,7 @@
   & .record{display:grid;grid-template-columns:auto 76px 1fr;gap:4px 12px;align-items:start}
   & .record .record-info{min-width:0}& .record .record-actions{grid-column:1/-1;align-items:center}
   & .record-actions select{width:auto;min-height:44px;padding:6px 8px;font-size:14px}
+  & .record-actions .cancel-entry{color:var(--admin-danger);border-color:var(--admin-danger)}
   & .thumb{padding:0;width:76px;height:76px;min-height:0!important;border:1px solid var(--admin-line);overflow:hidden;background:var(--admin-subtle)}
   & .thumb img{width:100%;height:100%;object-fit:cover;display:block}
   & .reason-tag{display:inline-block;margin-left:6px;padding:1px 8px;background:var(--admin-danger-bg);color:var(--danger);font-size:12px;font-weight:700}

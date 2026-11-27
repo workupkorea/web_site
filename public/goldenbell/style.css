@@ -198,6 +198,15 @@ footer a{display:inline-block;margin-top:10px;padding:10px 0;color:var(--muted)}
 .card-details .notice-group strong{display:block;margin-bottom:3px}
 .card-details .notice-group p{margin:4px 0 0}
 .card-details .notice-steps{margin:0;padding-left:20px;list-style:decimal}
+/* 유의사항 모양은 안내 페이지(promo.css)와 같게: 점선 구분, 주황 번호, 옅은 본문색 */
+.card-details .notice-group{margin:0;padding:14px 0;border-top:1.5px dashed #cbbdb2;color:var(--muted);line-height:1.6}
+.card-details .notice-group:last-child{padding-bottom:0}
+.card-details .notice-group strong{margin-bottom:4px;color:var(--ink);font-size:15px;font-weight:800}
+.card-details .notice-group p{margin:0}
+.card-details .notice-group ol+p{margin-top:6px}
+.card-details .notice-steps li{margin:0}
+.card-details .notice-steps li+li{margin-top:3px}
+.card-details .notice-steps li::marker{color:var(--orange);font-weight:800}
 .extra{margin:16px 16px 0;display:grid;gap:10px}
 .card-details{background:var(--surface);border-radius:18px;padding:2px 18px;font-size:14px}
 .card-details summary{font-weight:800}

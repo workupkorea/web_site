@@ -374,7 +374,7 @@ function updateSubmit() {
   const taken = takenPhone === fullPhone();
   for (const step of lockedSteps) step.inert = taken; // 매장·영수증·동의는 터치와 키보드 입력이 모두 막힌다
   submit.disabled = submitting || incomplete || taken;
-  submitHint.textContent = taken ? '이미 응모한 번호라 응모할 수 없어요.' : incompleteHint;
+  submitHint.textContent = taken ? '이미 응모해서 더는 응모할 수 없어요.' : incompleteHint;
   submitHint.hidden = submitting || !(incomplete || taken);
 }
 function markTakenPhone(phone, text) {

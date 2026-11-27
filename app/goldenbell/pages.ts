@@ -245,8 +245,8 @@ ${preview ? "" : `<dialog id="lookup-dialog" class="popup" aria-labelledby="look
 <dialog id="consent-dialog" class="popup" aria-labelledby="consent-dialog-title">
   <h2 id="consent-dialog-title">${preview ? "테스트 응모 안내" : "개인정보 수집·이용 동의"}</h2>
   ${preview ? `<p>예시 이름과 휴대폰 번호, 테스트용 영수증 사진으로 응모해 주세요. 입력 정보와 사진은 ${internal ? "내부 확인용 환경" : "이 PC의 로컬 테스트 환경"}에 저장되며, 2차 버전 관리자 화면에서 볼 수 있습니다.</p>` : `<ul>
-    <li><strong>수집 항목</strong> 이름, 휴대폰 번호, 방문 매장, 영수증 사진</li>
-    <li><strong>이용 목적</strong> 응모 확인, 당첨자 선정·안내, 경품 제공</li>
+    <li><strong>수집 항목</strong> 이름, 휴대폰 번호, 방문 매장, 영수증 사진, 기기 식별값(쿠키)</li>
+    <li><strong>이용 목적</strong> 응모 확인, 중복 응모 방지, 당첨자 선정·안내, 경품 제공</li>
     <li><strong>보유 기간</strong> 이벤트 종료일로부터 180일</li>
     <li><strong>파기</strong> 보유 기간이 지나면 개인정보와 영수증 사진을 지체 없이 파기합니다.</li>
     <li><strong>동의 거부</strong> 동의를 거부할 수 있으나, 거부 시 이벤트 응모가 제한됩니다.</li>

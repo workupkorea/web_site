@@ -121,7 +121,7 @@ export function renderPromoHtml(value: unknown) {
         <article class="prize">
           <img src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520" loading="lazy">
           <h3>커피쿠폰 <strong>800명</strong></h3>
-          <p><span>매주 200명 ·</span> <span>1인 1회 당첨</span></p>
+          <p>매주 200명 추첨</p>
         </article>
       </div>
       <p class="section-note">커피 쿠폰에 당첨된 응모 건도 골드바 추첨 대상에 포함됩니다.</p>
