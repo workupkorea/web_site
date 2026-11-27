@@ -52,6 +52,21 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // 연말 이벤트의 공개 주소는 /workup_luckup. 파일·API 는 /goldenbell 에 그대로 두고 화면 주소만 바꾼다.
+  async redirects() {
+    // 이미 안내한 링크·QR 의 예전 화면 주소는 새 주소로 보낸다 (?test= 같은 값은 유지된다).
+    return ["", "/promo", "/admin", "/v2", "/v2/admin"].map((page) => ({
+      source: `/goldenbell${page}`, destination: `/workup_luckup${page}`, permanent: false,
+    }));
+  },
+
+  async rewrites() {
+    return [
+      { source: "/workup_luckup", destination: "/goldenbell" },
+      { source: "/workup_luckup/:path*", destination: "/goldenbell/:path*" },
+    ];
+  },
+
   async headers() {
     return [
       {

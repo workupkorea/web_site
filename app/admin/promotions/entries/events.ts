@@ -41,7 +41,7 @@ export const goldenbellEvent: PromotionEvent = {
   status: "planned",
   start: "2026-12-01",
   end: "2026-12-31",
-  publicUrl: "/goldenbell/promo",
+  publicUrl: "/workup_luckup/promo",
   entry: true,
 };
 

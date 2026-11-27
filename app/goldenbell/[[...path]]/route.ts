@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// 워크업 연말 이벤트 — 고객 응모 페이지(/goldenbell)와 검수 페이지(/goldenbell/admin).
+// 워크업 연말 이벤트 — 고객 응모 페이지(/workup_luckup)와 검수 페이지(/workup_luckup/admin).
 // 응모 데이터: Supabase 테이블 goldenbell_entries, 영수증 사진: Storage 비공개 버킷 goldenbell-receipts.
 // 검수 페이지·API는 통합 회원 인증(grade=관리자)으로 보호한다.
 import { createHash, randomUUID } from "node:crypto";
@@ -521,7 +521,8 @@ async function canOpenAdmin() {
 
 async function route(request: Request) {
   const url = new URL(request.url);
-  const path = url.pathname.slice("/goldenbell".length) || "/";
+  // 공개 주소(/workup_luckup)와 내부 주소(/goldenbell) 어느 쪽으로 들어와도 같은 화면을 고른다.
+  const path = url.pathname.replace(/^\/(?:goldenbell|workup_luckup)/, "") || "/";
   const method = request.method;
   const localPreview = process.env.NODE_ENV === "development" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   // Enable hosted testing only on a protected Preview deployment opted in explicitly.

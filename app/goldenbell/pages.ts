@@ -227,7 +227,7 @@ return `<!doctype html>
     <p class="result-note">커피 경품에 당첨된 응모 건도 금 1돈 추첨 대상에 포함돼요.</p>
   </section>
 
-  ${preview ? '<footer><a href="/goldenbell/v2/admin">2차 버전 관리자 테스트 화면</a></footer>' : ""}
+  ${preview ? '<footer><a href="/workup_luckup/v2/admin">2차 버전 관리자 테스트 화면</a></footer>' : ""}
 </main>
 ${preview ? "" : `<dialog id="lookup-dialog" class="popup" aria-labelledby="lookup-title">
   <h2 id="lookup-title">내 응모 확인</h2>
@@ -334,7 +334,7 @@ return `<!doctype html>
 <goldenbell-review class="goldenbell-review" data-admin-api="${preview ? "/goldenbell/api/v2/admin" : "/goldenbell/api/admin"}">
 <main>
 <header class="review-brand"><img src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>
-<div class="admin-title"><h1>${title}</h1><a href="${preview ? "/goldenbell/v2" : "/goldenbell/"}">고객 응모 화면 열기</a></div>
+<div class="admin-title"><h1>${title}</h1><a href="${preview ? "/workup_luckup/v2" : "/workup_luckup"}">고객 응모 화면 열기</a></div>
 ${renderReviewPanels(preview)}
 </main>
 </goldenbell-review>

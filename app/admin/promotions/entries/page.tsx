@@ -57,12 +57,12 @@ export default async function PromotionEntriesPage({ searchParams }: { searchPar
           )}
           {isEntry && (
             <div role="group" aria-label="직원 테스트" className={group}>
-              <TestControls key={selected.id} id={selected.id} link={testKey(selected) ? "/goldenbell/?test=" + testKey(selected) : ""} className={button} />
+              <TestControls key={selected.id} id={selected.id} link={testKey(selected) ? "/workup_luckup?test=" + testKey(selected) : ""} className={button} />
             </div>
           )}
           {(isEntry || selected.publicUrl) && (
             <div role="group" aria-label="고객 화면 보기" className={group}>
-              {isEntry && selected.id === current.id && <a href="/goldenbell/" target="_blank" rel="noopener noreferrer" className={button}>고객 응모 ↗</a>}
+              {isEntry && selected.id === current.id && <a href="/workup_luckup" target="_blank" rel="noopener noreferrer" className={button}>고객 응모 ↗</a>}
               {selected.publicUrl && <a href={selected.publicUrl} target="_blank" rel="noopener noreferrer" className={button}>{isEntry ? "공개 안내" : "공개 링크"} ↗</a>}
             </div>
           )}

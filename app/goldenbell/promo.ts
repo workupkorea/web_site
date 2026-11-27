@@ -1,7 +1,7 @@
 import { renderEventNotices } from "./notices";
 
 export const GOLDENBELL_PROMO_SECTION = "goldenbell_promo";
-export const GOLDENBELL_PROMO_PATH = "/goldenbell/promo";
+export const GOLDENBELL_PROMO_PATH = "/workup_luckup/promo";
 
 export const PROMO_FIELDS = [
   { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "워크업 구매 영수증을 등록하면 경품 추첨에 참여할 수 있습니다." },
