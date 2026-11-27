@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import MateResultComment from "@/components/MateResultComment";
+import MateStarRating from "@/components/MateStarRating";
 import { isAdmin } from "@/lib/admin-auth";
 import { listMateActivities, listMateSubmittedResults } from "@/lib/mate-activity-server";
 import { mateInstagramResultUrl } from "@/lib/mate-activities";
+import { listMateComments, listMateRatings } from "@/lib/mate-rating-server";
+import { mateRatingKey } from "@/lib/mate-ratings";
 import { formatMateDateTime, formatMateShortDate, parseRound } from "@/lib/mate";
 import { listMateRounds, localMatePreview } from "@/lib/mate-server";
 
@@ -43,10 +47,14 @@ export default async function MateResultsPage({ searchParams }: {
   const selected = rounds.data?.find((round) => round.round === requested) ?? rounds.data?.[0];
   const activity = parseRound(search.activity);
   const page = typeof search.page === "string" && /^[1-9][0-9]{0,5}$/.test(search.page) ? Number(search.page) : 1;
-  const [activities, results] = selected ? await Promise.all([
+  const [activities, results, ratings, comments] = selected ? await Promise.all([
     listMateActivities(selected.round),
     listMateSubmittedResults(selected.round, activity, (page - 1) * pageSize, pageSize),
-  ]) : [null, null];
+    listMateRatings(selected.round),
+    listMateComments(selected.round),
+  ]) : [null, null, null, null];
+  const scores = new Map((ratings?.data ?? []).map((rating) => [mateRatingKey(rating.activity_no, rating.application_id), rating.score]));
+  const commentTexts = new Map((comments?.data ?? []).map((item) => [mateRatingKey(item.activity_no, item.application_id), item.comment]));
   const total = results?.count ?? 0;
   const loadFailed = Boolean(rounds.error || activities?.error || results?.error);
   const activityNames = new Map(activities?.data?.map((item) => [item.activity_no, item.product_name]));
@@ -91,6 +99,8 @@ export default async function MateResultsPage({ searchParams }: {
               <button className={control + " hover:bg-stone-100"}>보기</button>
             </form>
           </div>
+          {Boolean(ratings?.error) && <p role="alert" className="rounded-lg bg-white p-4 text-sm text-red-800">평가결과를 불러오지 못했습니다. 평가결과 SQL 적용 상태를 확인해 주세요.</p>}
+          {Boolean(comments?.error) && <p role="alert" className="rounded-lg bg-white p-4 text-sm text-red-800">코멘트를 불러오지 못했습니다. 코멘트 SQL 적용 상태를 확인해 주세요.</p>}
           {!results?.data?.length ? (
             <p className="rounded-lg border border-stone-200 bg-white p-5">{page > 1 ? "이 페이지에는 제출물이 없습니다." : "제출된 인스타그램 링크가 없습니다."}</p>
           ) : [...submissionsByActivity].map(([activityNo, posts]) => (
@@ -110,6 +120,12 @@ export default async function MateResultsPage({ searchParams }: {
                       응답 <time dateTime={row.response_updated_at} title={formatMateDateTime(row.response_updated_at)}>{formatMateShortDate(row.response_updated_at)}</time>
                       {" · 제출 "}<time dateTime={row.result_submitted_at} title={formatMateDateTime(row.result_submitted_at)}>{formatMateShortDate(row.result_submitted_at)}</time>
                     </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {!ratings?.error && <MateStarRating round={selected.round} activity={row.activity_no} applicationId={row.application_id}
+                        name={row.creator.name} score={scores.get(mateRatingKey(row.activity_no, row.application_id)) ?? null} />}
+                      {!comments?.error && <MateResultComment round={selected.round} activity={row.activity_no} applicationId={row.application_id}
+                        name={row.creator.name} comment={commentTexts.get(mateRatingKey(row.activity_no, row.application_id)) ?? ""} />}
+                    </div>
                   </div>
                   <InstagramPost url={row.result_instagram_url} title={`${row.creator.name} ${row.activity_no}회차 제출 게시물`} />
                 </li>;

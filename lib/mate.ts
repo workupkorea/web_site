@@ -47,6 +47,7 @@ export type MateApplication = {
   status: keyof typeof MATE_STATUSES;
   submitted_at: string;
   retain_through: string;
+  result_consent_at?: string | null;
   link_version?: number;
   link_first_issued_at?: string | null;
   link_issued_at?: string | null;
@@ -136,4 +137,16 @@ export type MateApplicationFilters = {
 export function mateAddressRegion(address: string) {
   const normalized = address.trim().replace(/^\(?\d{5}\)?\s+/, "");
   return Object.entries(MATE_REGION_PREFIXES).find(([, prefixes]) => prefixes.some((prefix) => normalized === prefix || normalized.startsWith(prefix + " ")))?.[0] ?? "—";
+}
+
+/** 평가결과 1년 보관 안내가 포함된 지원서 동의 문구의 버전 */
+export const MATE_CONSENT_VERSION = "result-1y";
+
+/** 활동 종료일로부터 1년 뒤 날짜. 말일은 DB의 interval '1 year'와 같게 맞춘다. */
+export function mateResultExpiry(endedOn: string) {
+  const date = new Date(`${endedOn}T00:00:00Z`);
+  const month = date.getUTCMonth();
+  date.setUTCFullYear(date.getUTCFullYear() + 1);
+  if (date.getUTCMonth() !== month) date.setUTCDate(0);
+  return date.toISOString().slice(0, 10);
 }

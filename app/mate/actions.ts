@@ -1,6 +1,6 @@
 "use server";
 
-import { MATE_APPLICATION_GENDERS, MATE_STYLES, normalizeMatePhone, parseRound, readMateField, type MateActionState } from "@/lib/mate";
+import { MATE_APPLICATION_GENDERS, MATE_CONSENT_VERSION, MATE_STYLES, normalizeMatePhone, parseRound, readMateField, type MateActionState } from "@/lib/mate";
 import { storeMateApplication } from "@/lib/mate-server";
 
 export async function submitMateApplication(_: MateActionState, form: FormData): Promise<MateActionState> {
@@ -50,7 +50,7 @@ export async function submitMateApplication(_: MateActionState, form: FormData):
     address,
     height_cm: Number(height),
     message,
-  });
+  }, form.get("consent_version") === MATE_CONSENT_VERSION);
   if (data === "closed") return { error: "현재 이 회차는 지원서를 접수하지 않습니다." };
   if (data === "changed") return { error: "개인정보 보유 기간이 변경되었습니다. 페이지를 새로고침해 확인해 주세요." };
   if (data === "accepted" || data === "duplicate") {

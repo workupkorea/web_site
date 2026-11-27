@@ -309,6 +309,9 @@ interface UserFlag {
   user: string;
   cherry: boolean;
   noFollow: boolean;
+  /** 관리자가 직접 확인한 팔로우 기록. 자동 조회 결과가 아님. */
+  following?: boolean;
+  followCheckedAt?: string;
   /** 악플·비정상 행동 계정 (옛 데이터에는 없음 → false 취급) */
   bad?: boolean;
   /** 비활성 계정 — 제외하지 않고 '비활성' 표기만 함 (옛 데이터에는 없음 → false 취급) */
@@ -856,17 +859,56 @@ export default function GiveawayTab() {
     },
     [persist],
   );
-  /** 표시 켜기/끄기. 둘 다 꺼지면 목록에서 제거 */
+  /** 표시 켜기/끄기. 팔로우 확인을 포함한 모든 표시가 꺼지면 목록에서 제거 */
   const toggleFlag = (user: string, kind: "cherry" | "noFollow" | "bad" | "inactive", event?: string, reason?: string) => {
     const key = user.toLowerCase();
     const cur: UserFlag = stateRef.current.flags[key] ?? { user, cherry: false, noFollow: false, bad: false, events: [], at: new Date().toLocaleString("ko-KR") };
     const next: UserFlag = { ...cur, [kind]: !cur[kind] };
-    if (kind === "noFollow") next.events = next.noFollow ? (event ? [...new Set([...cur.events, event])] : cur.events) : [];
+    if (kind === "noFollow") {
+      next.events = next.noFollow ? (event ? [...new Set([...cur.events, event])] : cur.events) : [];
+      next.following = false;
+      next.followCheckedAt = next.noFollow ? new Date().toISOString() : undefined;
+    }
     if (kind === "bad") next.reason = next.bad ? reason?.trim() || cur.reason : undefined;
     const all = { ...stateRef.current.flags };
-    if (!next.cherry && !next.noFollow && !next.bad && !next.inactive) delete all[key];
+    if (!next.cherry && !next.noFollow && !next.bad && !next.inactive && !next.following) delete all[key];
     else all[key] = next;
     saveFlags(all);
+  };
+  const setFollowStatus = (user: string, status: "unknown" | "following" | "not_following") => {
+    const key = user.toLowerCase();
+    const cur = stateRef.current.flags[key] ?? { user, cherry: false, noFollow: false, events: [], at: new Date().toLocaleString("ko-KR") };
+    const next: UserFlag = {
+      ...cur,
+      following: status === "following",
+      noFollow: status === "not_following",
+      followCheckedAt: status === "unknown" ? undefined : new Date().toISOString(),
+      events: status === "not_following" ? [...new Set([...cur.events, eventTitle()])] : [],
+    };
+    const all = { ...stateRef.current.flags, [key]: next };
+    if (!next.cherry && !next.noFollow && !next.bad && !next.inactive && !next.following) delete all[key];
+    saveFlags(all);
+  };
+  const followControl = (user: string, onNoFollow?: () => void) => {
+    const f = flags[user.toLowerCase()];
+    const status = f?.noFollow ? "not_following" : f?.following ? "following" : "unknown";
+    const checked = f?.followCheckedAt ? new Date(f.followCheckedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }) : "확인 시점 기록 없음";
+    return (
+      <select
+        aria-label={`@${user} 팔로우 확인 상태`}
+        title={status === "unknown" ? "팔로우 여부를 아직 확인하지 않았습니다. 미확인은 추첨에서 자동 제외하지 않습니다." : `수동 확인 기록 · ${checked} · 현재 상태는 재확인이 필요할 수 있습니다.`}
+        className={`min-h-11 max-w-full rounded border px-1 text-[12px] ${status === "following" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : status === "not_following" ? "border-red-200 bg-red-50 text-red-700" : "border-gray-200 bg-gray-50 text-gray-600"}`}
+        value={status}
+        onChange={(e) => {
+          if (e.target.value === "not_following" && onNoFollow) onNoFollow();
+          else setFollowStatus(user, e.target.value as "unknown" | "following" | "not_following");
+        }}
+      >
+        <option value="unknown">미확인</option>
+        <option value="following">팔로우 확인</option>
+        <option value="not_following">비팔로우</option>
+      </select>
+    );
   };
   /** 이력에서 이벤트 상세(추첨 당시 참여자 명단) 열기 */
   const openDetail = async (h: DrawRecord) => {
@@ -1035,7 +1077,7 @@ export default function GiveawayTab() {
       prize: i.prize,
       user: i.comment.user,
       status: i.status === "void" ? "취소" : "확정",
-      followOk: i.followOk,
+      followOk: !!stateRef.current.flags[i.comment.user.toLowerCase()]?.following && !stateRef.current.flags[i.comment.user.toLowerCase()]?.noFollow,
       note: i.note,
       commentId: i.comment.id, // DM 자동 발송(댓글 비공개 답장)용
     }));
@@ -1084,9 +1126,8 @@ export default function GiveawayTab() {
     if (!snap || record || confirming) return;
     setConfirming(true);
     try {
-      // 확정하면 남은 당첨자는 모두 팔로우 확인 처리한다(미팔로우는 확정 전에 "미팔로우→예비"로 빼 둔 상태).
-      // 취소·교체·미팔로우로 빠진 내역은 지우고 최종 당첨자만 남긴다.
-      const finalItems = finalizeItems(results.map((r) => (r.status === "ok" && r.role === "winner" ? { ...r, followOk: true } : r)));
+      // 당첨 확정 자체는 팔로우 확인이 아니다. 명시적으로 확인한 기록만 반영한다.
+      const finalItems = finalizeItems(results.map((r) => ({ ...r, followOk: !!stateRef.current.flags[r.comment.user.toLowerCase()]?.following && !stateRef.current.flags[r.comment.user.toLowerCase()]?.noFollow })));
       const rec = await makeRecord(finalItems, null);
       setResults(finalItems);
       try {
@@ -1409,7 +1450,10 @@ export default function GiveawayTab() {
       `giveaway-winners-${stamp()}.csv`,
       toCsv(
         ["구분", "상품", "아이디", "상태", "팔로우확인", "댓글", "비고"],
-        results.map((r) => [r.label, r.prize, r.comment.user, r.status === "void" ? "취소" : "확정", r.followOk ? "완료" : "", r.comment.text, r.note]),
+        results.map((r) => {
+          const f = flags[r.comment.user.toLowerCase()];
+          return [r.label, r.prize, r.comment.user, r.status === "void" ? "취소" : "확정", f?.noFollow ? "비팔로우" : f?.following ? "팔로우 확인" : "미확인", r.comment.text, r.note];
+        }),
       ),
     );
   // ── 저장된 이벤트 기록용 내보내기 (추첨 직후 화면이 아니어도 기록에서 바로 쓴다) ──
@@ -1837,6 +1881,7 @@ export default function GiveawayTab() {
                         <span key={f.user} className="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-full bg-gray-100 text-[12px]" title={[f.events.length ? `비팔로우: ${f.events.join(", ")}` : "", f.bad && f.reason ? `악성 사유: ${f.reason}` : ""].filter(Boolean).join(" / ") || undefined}>
                           <a className="hover:underline" href={igUrl(f.user)} target="_blank" rel="noopener noreferrer">@{f.user}</a>
                           {f.noFollow && <button className="px-1 rounded bg-red-100 text-red-700 font-bold" onClick={() => toggleFlag(f.user, "noFollow", eventTitle())} title="비팔로우 해제">비</button>}
+                          {f.following && !f.noFollow && <button className="px-1 rounded bg-emerald-100 text-emerald-700 font-bold" onClick={() => setFollowStatus(f.user, "unknown")} title="팔로우 확인 기록 해제">팔로우 확인</button>}
                           {f.cherry && <button className="px-1 rounded bg-purple-100 text-purple-700 font-bold" onClick={() => toggleFlag(f.user, "cherry")} title="체리피커 해제">체</button>}
                           {f.bad && <button className="px-1 rounded bg-gray-800 text-white font-bold" onClick={() => toggleFlag(f.user, "bad")} title={`악성 해제${f.reason ? ` (사유: ${f.reason})` : ""}`}>악</button>}
                           {f.inactive && <button className="px-1 rounded bg-amber-100 text-amber-800 font-bold" onClick={() => toggleFlag(f.user, "inactive")} title="비활성 해제">휴</button>}
@@ -1924,6 +1969,7 @@ export default function GiveawayTab() {
                       @{r.comment.user} ↗
                     </a>
                     {winBadge(r.comment.user)}
+                    {followControl(r.comment.user, live ? () => { void voidWinner(i, "nofollow"); } : undefined)}
                     {f?.cherry && <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 text-[11px] font-bold shrink-0">체리피커</span>}
                     {f?.noFollow && <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-bold shrink-0">비팔로우 이력</span>}
                     {f?.bad && <span className="px-1.5 py-0.5 rounded bg-gray-800 text-white text-[11px] font-bold shrink-0" title={f.reason || "악성 계정으로 등록됨"}>악성 계정</span>}
@@ -2052,6 +2098,7 @@ export default function GiveawayTab() {
         {!folded.flags && (
         <>
         {stateMsg && <p className="mb-2 text-[14px] text-red-600">{stateMsg}</p>}
+        <p className="mb-2 text-[13px] text-gray-500">팔로우 상태는 수동 확인 기록입니다. 확인 전에는 ‘미확인’이며 자동 제외하지 않습니다. 확인 기록은 다음 로딩에도 유지되며, 현재 팔로우 여부를 자동 조회한 결과는 아닙니다.</p>
 
         {/* 직접 추가 + 이번 게시물 검색 (한 줄) */}
         <div className="flex flex-wrap gap-2 items-center">
@@ -2083,15 +2130,16 @@ export default function GiveawayTab() {
               .map((u) => {
                 const f = flags[u.toLowerCase()];
                 return (
-                  <li key={u} className="py-1 flex items-center gap-2 text-[13px] border-b border-gray-100">
+                  <li key={u} className="py-1 flex flex-wrap items-center gap-2 text-[13px] border-b border-gray-100">
                     <a className="truncate hover:underline min-w-0" href={igUrl(u)} target="_blank" rel="noopener noreferrer">@{u}</a>
                     {winBadge(u)}
-                    <span className="ml-auto flex gap-2 shrink-0">
-                      <button className={`hover:underline ${f?.noFollow ? "text-red-600 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "noFollow", eventTitle())}>{f?.noFollow ? "비팔로우✓" : "비팔로우"}</button>
+                    <span className="ml-auto flex items-center gap-2 shrink-0">
+                      {followControl(u)}
                       <button className={`hover:underline ${f?.cherry ? "text-purple-700 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "cherry")}>{f?.cherry ? "체리✓" : "체리"}</button>
                       <button className={`hover:underline ${f?.bad ? "text-gray-900 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "bad")}>{f?.bad ? "악성✓" : "악성"}</button>
                       <button className={`hover:underline ${f?.inactive ? "text-amber-800 font-bold" : "text-gray-400"}`} onClick={() => toggleFlag(u, "inactive")}>{f?.inactive ? "비활성✓" : "비활성"}</button>
                     </span>
+                    {f?.followCheckedAt && <span className="basis-full text-[11px] text-gray-500">수동 확인: {new Date(f.followCheckedAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</span>}
                   </li>
                 );
               })}

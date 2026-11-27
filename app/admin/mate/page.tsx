@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import MateActionForm from "@/components/MateActionForm";
 import MateParticipantLink from "@/components/MateParticipantLink";
 import MateCohortSelect from "@/components/MateCohortSelect";
+import MateFilterForm from "@/components/MateFilterForm";
 import MateFeedStyleIcon from "@/components/MateFeedStyleIcon";
 import { getAdminMember, SUPER_ADMIN_GRADE } from "@/lib/admin-auth";
 import MarketingTabs from "../analytics/_tabs/MarketingTabs";
@@ -12,18 +13,22 @@ import { MATE_APPLICATION_GENDERS, MATE_COHORT_STAGES, MATE_GENDERS, MATE_REGION
 import { listMateApplications, listMateRounds } from "@/lib/mate-server";
 import { saveMateRound, updateMateApplication } from "./actions";
 import { listMateActivities, listMateActivityCohorts, listMateActivityProgress } from "@/lib/mate-activity-server";
-import { mateActivityStatus, type MateActivity, type MateActivityProgress } from "@/lib/mate-activities";
+import { type MateActivity, type MateActivityProgress } from "@/lib/mate-activities";
 import ActivityManagement from "./activities/activity-management";
 import ActivityStatistics from "./activities/activity-statistics";
+import MateScoreSummary from "./activities/mate-score-summary";
+import { listMateRatings, listMateResultRecords } from "@/lib/mate-rating-server";
+import { mateResultRatings } from "@/lib/mate-ratings";
 
 export const metadata: Metadata = { title: "워크업 메이트 관리", robots: { index: false, follow: false } };
 
 const inputClass = "min-h-11 min-w-0 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-normal";
 const buttonClass = "inline-flex min-h-11 items-center justify-center rounded-md bg-slate-900 px-4 py-2 font-semibold text-white hover:bg-slate-700 disabled:opacity-60";
 const outlineClass = "inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2 font-semibold hover:bg-slate-50";
-const panel = "rounded-xl border border-slate-200 bg-white p-4 sm:p-6";
+const panel = "min-w-0 py-3";
 const filterClass = "min-h-11 max-w-48 rounded-md border border-slate-300 bg-white px-2 text-sm md:min-h-9";
 const pageSize = 25;
+const scoreRosterLimit = 1000;
 const submittedTime = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", dateStyle: "medium", timeStyle: "short" });
 
 function NewTabIcon() {
@@ -164,6 +169,9 @@ export default async function AdminMatePage({ searchParams }: {
   let applications: MateApplication[] = [];
   let count = 0;
   let listFailed = false;
+  let ratings: Awaited<ReturnType<typeof listMateRatings>> | null = null;
+  let mates: MateApplication[] | null = null;
+  let resultRecords: Awaited<ReturnType<typeof listMateResultRecords>> | null = null;
   if (!creating && selected && stage === "recruitment") {
     const result = await listMateApplications(selected.round, status, (page - 1) * pageSize, pageSize, { feed, gender, region });
     applications = result.data ?? [];
@@ -176,6 +184,16 @@ export default async function AdminMatePage({ searchParams }: {
     ]);
     activityList = activities;
     activityProgress = { data: progress.data, error: Boolean(progress.error) };
+    if (stage === "operations") {
+      const [scores, roster] = await Promise.all([
+        listMateRatings(selected.round),
+        listMateApplications(selected.round, "selected", 0, scoreRosterLimit),
+      ]);
+      ratings = scores;
+      mates = roster.error ? null : roster.data;
+    } else if (stage === "ended") {
+      resultRecords = await listMateResultRecords(selected.round);
+    }
   }
 
   const activities = activityList.data ?? [];
@@ -184,7 +202,6 @@ export default async function AdminMatePage({ searchParams }: {
   const currentActivity = activities.find((activity) => activity.activity_no === requestedActivity) ?? latestActivity;
   const openedActivity = stage !== "operations" || creating ? null
     : search.activity === "new" ? "new" : currentActivity?.activity_no ?? null;
-  const currentProgress = activityProgress.data?.find((entry) => entry.activity_no === currentActivity?.activity_no);
 
   function overviewHref(pageNumber: number, activity: number | "new" | null = null, activityPage?: string) {
     const query = new URLSearchParams({ round: String(selected.round), stage });
@@ -216,7 +233,7 @@ export default async function AdminMatePage({ searchParams }: {
     <ActivityManagement
       search={{ round: String(selected.round), activity: typeof openedActivity === "number" ? String(openedActivity) : undefined,
         create: openedActivity === "new" ? "1" : undefined, page: search.activityPage }}
-      embedded={{ activities: activityList, progress: activityProgress.data ?? [],
+      embedded={{ activities: activityList, progress: activityProgress.data ?? [], ratings,
         href: (activity, pageNumber) => overviewHref(page, activity, pageNumber ? String(pageNumber) : "") }}
     />
   ) : null;
@@ -238,7 +255,7 @@ export default async function AdminMatePage({ searchParams }: {
       title={applicantsTitle}
       quotas={{ outdoor: selected.outdoor_quota, work: selected.work_quota, lifestyle: selected.lifestyle_quota }}
       paginated={page > 1 || count > pageSize}
-      filter={<form className="flex flex-wrap items-center gap-1.5" action="/admin/mate">
+      filter={<MateFilterForm>
         <input type="hidden" name="round" value={selected.round} />
         <input type="hidden" name="stage" value={stage} />
         <select aria-label="심사 상태" className={filterClass} name="status" defaultValue={status}>
@@ -257,8 +274,7 @@ export default async function AdminMatePage({ searchParams }: {
           <option value="">지역 전체</option>
           {Object.keys(MATE_REGION_PREFIXES).map((value) => <option key={value}>{value}</option>)}
         </select>
-        <button className="min-h-11 rounded-md border border-slate-300 px-3 text-sm font-semibold md:min-h-9">필터 적용</button>
-      </form>}
+      </MateFilterForm>}
       rows={applications.map((application) => ({
         id: application.id,
         name: application.name,
@@ -287,32 +303,47 @@ export default async function AdminMatePage({ searchParams }: {
   return (
     <>
     <MarketingTabs active="mate" superAdmin={admin.grade === SUPER_ADMIN_GRADE} />
-    <div className="w-full min-w-0 space-y-3 p-4 text-slate-900 sm:px-6 sm:py-4">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-black">워크업 메이트 관리</h1>
+    <div className="w-full min-w-0 space-y-3 bg-white p-4 text-slate-900">
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-200 pb-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+          <h1 className="text-2xl font-black">워크업 메이트 관리</h1>
+          {!creating && <nav aria-label="기수 진행 상태" className="flex max-w-full overflow-x-auto rounded-md border border-slate-200 bg-slate-100 p-0.5">
+            {Object.entries(MATE_COHORT_STAGES).map(([key, label]) => <Link key={key} href={`/admin/mate?stage=${key}`}
+              aria-current={stage === key ? "page" : undefined}
+              className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded px-4 text-sm font-bold focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-800 md:min-h-9 ${stage === key
+                ? "bg-white text-blue-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>{label}</Link>)}
+          </nav>}
+        </div>
         {!creating && stage === "recruitment" && <div className="flex flex-wrap items-center gap-2">
           {selected && <Link target="_blank" rel="noreferrer"
             href={`/mate/${selected.round}${selected.published ? "" : "?preview=1"}`}
             className={secondaryButton} aria-label="접수 페이지 열기 (새 탭)">접수 페이지 열기<NewTabIcon /></Link>}
           {newCohort}
         </div>}
-        {selected && !creating && stage === "operations" && <Link target="_blank" rel="noreferrer"
-          href={`/admin/mate/results?round=${selected.round}`}
-          className={contentButton} aria-label="콘텐츠 취합 (새 탭)">콘텐츠 취합<NewTabIcon /></Link>}
+        {selected && !creating && stage === "operations" && <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/admin/mate/overview?round=${selected.round}`} className={secondaryButton}>회차 통합 통계</Link>
+          <Link target="_blank" rel="noreferrer" href={`/admin/mate/results?round=${selected.round}`}
+            className={contentButton} aria-label="콘텐츠 취합 (새 탭)">콘텐츠 취합<NewTabIcon /></Link>
+        </div>}
       </header>
-      {!creating && <nav aria-label="기수 진행 상태" className="flex flex-wrap gap-2 border-b border-slate-200 pb-2">
-        {Object.entries(MATE_COHORT_STAGES).map(([key, label]) => <Link key={key} href={`/admin/mate?stage=${key}`}
-          aria-current={stage === key ? "page" : undefined} className={stage === key ? primaryButton : secondaryButton}>{label}</Link>)}
-      </nav>}
       {error || activityCohorts.error ? <p role="alert" className={panel}>모집 설정을 불러올 수 없습니다. 데이터베이스 연결 및 마이그레이션 적용 상태를 확인해 주세요.</p> : (
         <>
           {!creating && selected && stage === "recruitment" && <>
             <section className={panel} aria-labelledby="mate-recruitment-settings">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="mate-recruitment-settings" className="text-lg font-bold">{selected.round}기 모집 설정</h2>
+                <h2 id="mate-recruitment-settings" className="text-lg font-bold">{selected.round}기 모집 관리</h2>
                 {cohortSelector}
               </div>
-              <RoundForm key={selected.round} round={selected} />
+              <details key={selected.round} className="group mt-3 min-w-0 overflow-hidden rounded-lg border border-slate-200">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 bg-slate-50 px-4 py-2 font-bold hover:bg-slate-100 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-blue-800 [&::-webkit-details-marker]:hidden">
+                  모집 설정
+                  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
+                    className="size-4 text-slate-600 group-open:rotate-180">
+                    <path d="m5 8 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </summary>
+                <div className="border-t border-slate-200 px-4 pb-4"><RoundForm round={selected} /></div>
+              </details>
             </section>
             {applicantsSection}
           </>}
@@ -321,49 +352,47 @@ export default async function AdminMatePage({ searchParams }: {
             <p className="text-sm text-slate-600">{stage === "recruitment" ? "모집을 준비 중이거나 진행 중인 기수가 없습니다."
               : stage === "operations" ? "운영 중인 기수가 없습니다." : "종료된 기수가 없습니다."}</p>
           </section>}
-          {!creating && selected && stage === "operations" && <section className={panel} aria-labelledby="mate-published-activities">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 id="mate-published-activities" className="text-lg font-bold">{selected.round}기 활동 회차</h2>
-                {cohortSelector}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Link href={overviewHref(page, "new")} scroll={false} prefetch={false}
-                  aria-current={openedActivity === "new" ? "page" : undefined} className={primaryButton}>활동 회차 추가</Link>
-                <Link href={`/admin/mate/overview?round=${selected.round}`} className={secondaryButton}>회차 통합 통계</Link>
-              </div>
+          {!creating && selected && stage === "operations" && <section className="min-w-0" aria-labelledby="mate-published-activities">
+            <h2 id="mate-published-activities" className="sr-only">{selected.round}기 활동 회차</h2>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <MateCohortSelect key={selected.round} value={selected.round} stage={stage} hideLabel
+                options={visibleRounds.map((round) => ({ value: round.round, label: `${round.round}기` }))} />
+              {activities.length > 0 && <nav aria-label="활동 회차 선택" className="flex min-w-0 max-w-full gap-1 overflow-x-auto">
+                {[...activities].reverse().map((activity) => {
+                  const active = openedActivity === activity.activity_no;
+                  return <Link key={activity.activity_no} href={overviewHref(page, activity.activity_no)} scroll={false} prefetch={false}
+                    aria-current={active ? "page" : undefined} title={activity.product_name}
+                    className={`inline-flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-md px-3 text-sm font-bold md:min-h-9 ${active
+                      ? "bg-blue-50 text-blue-900 ring-1 ring-inset ring-blue-800" : "text-slate-600 hover:bg-slate-100"}`}>
+                    {activity.activity_no}회차
+                  </Link>;
+                })}
+              </nav>}
+              <Link href={overviewHref(page, "new")} scroll={false} prefetch={false}
+                aria-current={openedActivity === "new" ? "page" : undefined} className={primaryButton}>활동 회차 추가</Link>
             </div>
             {(activityList.error || activityProgress.error) && <p role="alert" className="mt-2 text-sm text-red-700">활동 회차를 불러오지 못했습니다.</p>}
-            {activities.length > 0 && <nav aria-label="활동 회차 선택" className="mt-3 flex gap-1 overflow-x-auto border-b border-slate-200">
-              {[...activities].reverse().map((activity) => {
-                const active = openedActivity === activity.activity_no;
-                return <Link key={activity.activity_no} href={overviewHref(page, activity.activity_no)} scroll={false} prefetch={false}
-                  aria-current={active ? "page" : undefined} title={activity.product_name}
-                  className={`inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-t-md border-b-2 px-3 text-sm font-bold ${active
-                    ? "border-blue-800 bg-blue-50 text-blue-900" : "border-transparent text-slate-600 hover:bg-slate-100"}`}>
-                  {activity.activity_no}회차
-                </Link>;
-              })}
-            </nav>}
-            {typeof openedActivity === "number" && currentActivity && <div className="flex flex-wrap items-center justify-between gap-2 px-1 py-3 text-sm">
-              <p className="flex flex-wrap items-center gap-2 font-bold">
-                {currentActivity.product_name}
-                <span className={`rounded px-2 py-0.5 text-xs ${currentActivity.published && !currentActivity.closed_at
-                  ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{mateActivityStatus(currentActivity)}</span>
-              </p>
-              {currentProgress && <p className="ml-auto text-xs text-slate-700 tabular-nums">
-                참여 <strong>{currentProgress.joined}명</strong> · 미응답 <strong>{currentProgress.eligible - currentProgress.joined - currentProgress.declined}명</strong> · 결과물 제출 <strong>{currentProgress.submitted}건</strong>
-              </p>}
-            </div>}
             {inlinePanel ?? (!activityList.error && <p className="mt-3 text-sm text-slate-600">등록된 활동 회차가 없습니다.</p>)}
+            {activities.length > 0 && mates && ratings && !ratings.error && <div className="mt-3">
+              <MateScoreSummary activities={activities} mates={mates} ratings={ratings.data}
+                note={`${selected.retain_through ? formatMateDate(selected.retain_through) : "활동 종료일"} 종료 후, 보관 동의 메이트만 1년 보관`}
+                emptyText="선정 메이트가 없습니다." />
+            </div>}
           </section>}
           {!creating && selected && stage === "ended" && <>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 py-2">
               {cohortSelector}
               <p className="text-sm text-slate-600">활동 종료일 {formatMateDate(selected.retain_through)}</p>
             </div>
             <ActivityStatistics round={selected.round} activities={activityList.data ?? []} progress={activityProgress.data ?? []}
               failed={Boolean(activityList.error || activityProgress.error)} archived />
+            {resultRecords?.error
+              ? <p role="alert" className="text-sm text-red-700">평가결과를 불러오지 못했습니다. 평가결과 SQL 적용 상태를 확인해 주세요.</p>
+              : resultRecords && <MateScoreSummary open activities={activityList.data ?? []}
+                mates={resultRecords.data} ratings={mateResultRatings(resultRecords.data)}
+                note={resultRecords.data.length
+                  ? `${formatMateDate(resultRecords.data[0].expires_on)}까지 보관 (이후 자동 삭제)` : "활동 종료 후 1년 보관"}
+                emptyText="보관된 평가결과가 없습니다." />}
           </>}
         </>
       )}

@@ -74,9 +74,9 @@ export async function storeMateRound(round: MateRound, create: boolean) {
   return error || !data ? "failed" : "saved";
 }
 
-type NewApplication = Omit<MateApplication, "id" | "status" | "submitted_at">;
+type NewApplication = Omit<MateApplication, "id" | "status" | "submitted_at" | "result_consent_at">;
 
-export async function storeMateApplication(application: NewApplication) {
+export async function storeMateApplication(application: NewApplication, resultConsent: boolean) {
   if (localMatePreview) {
     const preview = readMatePreview();
     const round = preview.rounds.find((item) => item.round === application.round);
@@ -85,11 +85,13 @@ export async function storeMateApplication(application: NewApplication) {
     if (preview.applications.some((item) => item.round === application.round && item.sns_id === application.sns_id)) return "duplicate";
     preview.applications.push({
       ...application, id: randomUUID(), submitted_at: new Date().toISOString(), status: "received",
+      result_consent_at: resultConsent ? new Date().toISOString() : null,
     });
     writeMatePreview(preview);
     return "accepted";
   }
-  const { data, error } = await createAdminClient().rpc("submit_mate_application", {
+  const db = createAdminClient();
+  const { data, error } = await db.rpc("submit_mate_application", {
     p_round: application.round,
     p_retain_through: application.retain_through,
     p_sns_id: application.sns_id,
@@ -101,7 +103,14 @@ export async function storeMateApplication(application: NewApplication) {
     p_height_cm: application.height_cm,
     p_message: application.message,
   });
-  return error ? "failed" : data;
+  if (error) return "failed";
+  if (data === "accepted" && resultConsent) {
+    // 기록에 실패해도 접수는 유지한다. 동의 기록이 없는 지원자의 평가결과는 보관되지 않는다.
+    const consent = await db.from(APPLICATION_TABLE).update({ result_consent_at: new Date().toISOString() })
+      .eq("round", application.round).eq("sns_id", application.sns_id);
+    if (consent.error) console.error("mate result consent not recorded", consent.error);
+  }
+  return data;
 }
 
 export async function changeMateApplication(round: number, id: string, status: MateApplication["status"]) {
@@ -150,6 +159,8 @@ export async function deleteMateApplications(round: number, ids: string[]) {
     const count = countBefore - preview.applications.length;
     if (count) {
       preview.responses = preview.responses.filter((item) => item.round !== round || !selected.has(item.application_id));
+      preview.ratings = preview.ratings?.filter((item) => item.round !== round || !selected.has(item.application_id));
+      preview.comments = preview.comments?.filter((item) => item.round !== round || !selected.has(item.application_id));
       writeMatePreview(preview);
     }
     return { count, error: null };

@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node
 import { dirname, join } from "node:path";
 import { seoulDate, type MateApplication, type MateRound } from "./mate";
 import type { MateActivity, MateActivityProgress, MateResponse } from "./mate-activities";
+import type { MateComment, MateRating } from "./mate-ratings";
 
 const file = join(process.cwd(), "generated", "mate-preview.json");
 
@@ -11,6 +12,8 @@ type Preview = {
   applications: MateApplication[];
   activities: (MateActivity & { product_image_webp?: string | null })[];
   responses: MateResponse[];
+  ratings?: (MateRating & { round: number })[];
+  comments?: (MateComment & { round: number })[];
   activityAnalyses?: (MateActivityProgress & { round: number })[];
   activityDemoVersion: 2;
 };

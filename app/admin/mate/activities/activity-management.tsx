@@ -1,20 +1,24 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import MateFeedStyleIcon from "@/components/MateFeedStyleIcon";
+import MateResultComment from "@/components/MateResultComment";
+import MateStarRating from "@/components/MateStarRating";
 import MateActionForm from "@/components/MateActionForm";
 import MateActivityImageField from "@/components/MateActivityImageField";
 import MateActivityProductsField from "@/components/MateActivityProductsField";
-import MateParticipantLink, { issuedMateParticipantPath } from "@/components/MateParticipantLink";
+import { issuedMateParticipantPath } from "@/components/MateParticipantLink";
 import { isAdmin } from "@/lib/admin-auth";
 import { MATE_GENDERS, MATE_STYLES, formatMateDateTime, formatMatePhone, formatMateShortDate, parseRound } from "@/lib/mate";
 import { listMateActivities, listMateActivityProgress, listMateActivityResponses } from "@/lib/mate-activity-server";
 import { formatMateWon, MATE_SHIPPING_COST, mateActivityCosts, mateActivityStatus,
   mateInstagramResultUrl, mateResponseProducts, type MateActivity, type MateActivityProgress } from "@/lib/mate-activities";
 import { listMateApplications, listMateRounds } from "@/lib/mate-server";
+import { listMateComments, listMateRatings } from "@/lib/mate-rating-server";
+import { mateRatingKey } from "@/lib/mate-ratings";
 import ActivitySummary from "./activity-summary";
 import { changeMateActivityClosure } from "./actions";
 
-const panel = "rounded-xl border border-slate-200 bg-white p-4 sm:p-6";
+const panel = "min-w-0 py-3";
 const button = "inline-flex min-h-11 items-center justify-center rounded-md bg-slate-900 px-4 py-2 font-bold text-white disabled:opacity-60";
 const outline = "inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 px-4 py-2 font-bold hover:bg-slate-50";
 const pageSize = 25;
@@ -24,6 +28,7 @@ export type ActivitySearch = { round?: string; activity?: string; create?: strin
 type EmbeddedActivity = {
   activities: { data: MateActivity[] | null; error: unknown };
   progress: MateActivityProgress[];
+  ratings: Awaited<ReturnType<typeof listMateRatings>> | null;
   href: (activity: number, page?: number) => string;
 };
 
@@ -66,7 +71,11 @@ export default async function ActivityManagement({ search, direct = false, embed
     { label: "불참자", choice: "no", color: "bg-slate-100 text-slate-800" },
     { label: "미응답자", choice: undefined, color: "bg-amber-50 text-amber-900" },
   ].map((group) => ({ ...group, members: applicants.filter((app) => byApplicant.get(app.id)?.choice === group.choice) }));
-  const responseColumns = ["이름", "SNS", "연락처", "성별", "제품명 / 사이즈", "응답일", "결과물", "제출일", "개인 링크"];
+  const responseColumns = ["이름", "SNS", "연락처", "성별", "제품명 / 사이즈", "응답일", "결과물", "평가결과", "제출일"];
+  const ratings = embedded ? embedded.ratings : selected ? await listMateRatings(round) : null;
+  const scores = new Map((ratings?.data ?? []).map((rating) => [mateRatingKey(rating.activity_no, rating.application_id), rating.score]));
+  const comments = selected ? await listMateComments(round) : null;
+  const commentTexts = new Map((comments?.data ?? []).map((item) => [mateRatingKey(item.activity_no, item.application_id), item.comment]));
   const base = `/admin/mate/activities?round=${round}`;
   function detailPath(activity: number, pageNumber?: number) {
     if (embedded) return embedded.href(activity, pageNumber);
@@ -82,7 +91,7 @@ export default async function ActivityManagement({ search, direct = false, embed
   );
 
   return (
-    <Container className={embedded ? "min-w-0 space-y-3 bg-slate-50 p-3 text-slate-900" : "w-full min-w-0 space-y-5 p-4 text-slate-900 sm:p-8"}>
+    <Container className={embedded ? "min-w-0 space-y-3 text-slate-900" : "w-full min-w-0 space-y-5 p-4 text-slate-900"}>
       {!embedded && <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <Link href={`/admin/mate?round=${round}`} className="inline-flex min-h-11 items-center text-sm font-bold text-blue-800 underline">{round}기 지원자 목록</Link>
@@ -99,24 +108,43 @@ export default async function ActivityManagement({ search, direct = false, embed
           </Link>)}
         </nav>}
         {selected ? (
-          <details key={selected.activity_no} className="group rounded-xl border border-slate-200 bg-white">
-            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-2 font-bold hover:bg-slate-50 sm:px-6 [&::-webkit-details-marker]:hidden">
-              {selected.activity_no}회차 설정
-              <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
-                className="size-4 text-slate-600 group-open:rotate-180">
-                <path d="m5 8 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+          <details key={selected.activity_no} className="group min-w-0 border-y border-slate-200">
+            <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 font-bold hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+              {embedded ? <span className="flex flex-wrap items-center gap-2 text-sm">
+                {selected.product_name}
+                <span className={`rounded px-2 py-0.5 text-xs ${selected.published && !selected.closed_at
+                  ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-700"}`}>{mateActivityStatus(selected)}</span>
+              </span> : <span>{selected.activity_no}회차 설정</span>}
+              <span className="ml-auto flex flex-wrap items-center justify-end gap-x-4 gap-y-1">
+                {embedded && progress && <span className="text-xs font-normal text-slate-700 tabular-nums">
+                  참여 <strong>{progress.joined}명</strong> · 미응답 <strong>{progress.eligible - progress.joined - progress.declined}명</strong> · 결과물 제출 <strong>{progress.submitted}건</strong>
+                </span>}
+                <span className="flex items-center gap-1 text-sm text-slate-600">
+                  {embedded && "설정"}
+                  <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6"
+                    className="size-4 group-open:rotate-180">
+                    <path d="m5 8 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </span>
             </summary>
-            <div className="border-t border-slate-200 px-4 pb-4 pt-3 sm:px-6">{settingsForm}</div>
+            <div className="border-t border-slate-200 pb-4 pt-3">{settingsForm}</div>
           </details>
         ) : <section className={panel}>{settingsForm}</section>}
         {selected && <section className={panel}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-black">{selected.activity_no}회차 응답 · 선정 메이트 {(roster?.count ?? 0).toLocaleString("ko-KR")}명</h2>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <h2 className="text-lg font-black">응답 · 선정 메이트 {(roster?.count ?? 0).toLocaleString("ko-KR")}명</h2>
               {selected.closed_at && <span className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
                 종료 <time dateTime={selected.closed_at} title={formatMateDateTime(selected.closed_at)}>{formatMateShortDate(selected.closed_at)}</time>
               </span>}
+              <ul aria-label="피드 스타일 아이콘" className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+                {(Object.keys(MATE_STYLES) as (keyof typeof MATE_STYLES)[]).map((style) => (
+                  <li key={style} className="inline-flex items-center gap-1">
+                    <span aria-hidden="true"><MateFeedStyleIcon style={style} /></span>{MATE_STYLES[style]}
+                  </li>
+                ))}
+              </ul>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {!!(progress?.joined ?? responseGroups[0].members.length) && <a
@@ -133,18 +161,13 @@ export default async function ActivityManagement({ search, direct = false, embed
               </MateActionForm>
             </div>
           </div>
-          <ul aria-label="피드 스타일 아이콘" className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
-            {(Object.keys(MATE_STYLES) as (keyof typeof MATE_STYLES)[]).map((style) => (
-              <li key={style} className="inline-flex items-center gap-1">
-                <span aria-hidden="true"><MateFeedStyleIcon style={style} /></span>{MATE_STYLES[style]}
-              </li>
-            ))}
-          </ul>
+          {Boolean(ratings?.error) && <p role="alert" className="mt-2 text-sm text-red-700">평가결과를 불러오지 못했습니다. 평가결과 SQL 적용 상태를 확인해 주세요.</p>}
+          {Boolean(comments?.error) && <p role="alert" className="mt-2 text-sm text-red-700">코멘트를 불러오지 못했습니다. 코멘트 SQL 적용 상태를 확인해 주세요.</p>}
           {roster?.error || answers?.error ? <p role="alert" className="mt-4 text-sm text-red-700">응답을 불러오지 못했습니다.</p> : applicants.length ? (
-            <div className="mt-4 overflow-x-auto rounded-md border border-slate-200">
+            <div role="region" aria-label="메이트 응답표 스크롤 영역" tabIndex={0} className="mt-4 overflow-x-auto border border-slate-200 bg-white focus-visible:outline-2 focus-visible:outline-blue-800">
               <table className="w-full min-w-[960px] border-collapse text-center text-sm [&_th]:border-r [&_th]:border-slate-200 [&_th]:px-2 [&_th]:align-middle [&_th]:last:border-r-0 [&_td]:border-r [&_td]:border-slate-200 [&_td]:px-2 [&_td]:align-middle [&_td]:last:border-r-0">
                 <thead className="bg-slate-100">
-                  <tr>{responseColumns.map((label) => <th key={label} scope="col" className="whitespace-nowrap px-2 py-1">{label}</th>)}</tr>
+                  <tr>{responseColumns.map((label) => <th key={label} scope="col" className={`whitespace-nowrap px-2 py-1${label === "평가결과" ? " w-px" : ""}`}>{label}</th>)}</tr>
                 </thead>
                 {responseGroups.filter((group) => group.members.length > 0).map((group) => <tbody key={group.label} className="divide-y divide-slate-200">
                   <tr className={group.color}>
@@ -178,10 +201,15 @@ export default async function ActivityManagement({ search, direct = false, embed
                         ? <time dateTime={answer.updated_at} title={formatMateDateTime(answer.updated_at)}>{formatMateShortDate(answer.updated_at)}</time> : "—"}</td>
                       <td className="whitespace-nowrap px-3 py-1">{result
                         ? <a href={result} target="_blank" rel="noreferrer" className="text-blue-800 underline">인스타그램</a> : "—"}</td>
+                      <td className="whitespace-nowrap py-1">{result && (!ratings?.error || !comments?.error)
+                        ? <span className="inline-flex items-center gap-2">
+                          {!ratings?.error && <MateStarRating round={round} activity={selected.activity_no} applicationId={app.id} name={app.name}
+                            score={scores.get(mateRatingKey(selected.activity_no, app.id)) ?? null} />}
+                          {!comments?.error && <MateResultComment round={round} activity={selected.activity_no} applicationId={app.id} name={app.name}
+                            comment={commentTexts.get(mateRatingKey(selected.activity_no, app.id)) ?? ""} />}
+                        </span> : "—"}</td>
                       <td className="whitespace-nowrap py-1 tabular-nums">{answer?.result_submitted_at
-                        ? <time dateTime={answer.result_submitted_at} title={formatMateDateTime(answer.result_submitted_at)}>{formatMateShortDate(answer.result_submitted_at)}</time> : "—"}</td>
-                      <td className="px-3 py-1 [&>div]:justify-center [&_button]:md:min-h-7 [&_button]:md:px-2"><MateParticipantLink application={app} showOpenLink={false} /></td>
-                    </tr>;
+                        ? <time dateTime={answer.result_submitted_at} title={formatMateDateTime(answer.result_submitted_at)}>{formatMateShortDate(answer.result_submitted_at)}</time> : "—"}</td>                    </tr>;
                   })}
                 </tbody>)}
               </table>

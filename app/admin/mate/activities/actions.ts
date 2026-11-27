@@ -8,6 +8,8 @@ import { parseRound, readMateField, type MateActionState } from "@/lib/mate";
 import { mateSizeLabels, validMateProductUrl, type MateAdminActivityProduct, type MateInventoryProduct } from "@/lib/mate-activities";
 import { createAdminClient } from "@/lib/supabase-server";
 import { setMateActivityClosed, storeMateActivity, type MateActivityImageChange } from "@/lib/mate-activity-server";
+import { saveMateComment, saveMateRating } from "@/lib/mate-rating-server";
+import { MATE_COMMENT_MAX, validMateRating } from "@/lib/mate-ratings";
 
 export async function searchMateInventory(value: string): Promise<{ items: MateInventoryProduct[]; error?: string }> {
   if (!(await isAdmin())) return { items: [], error: "관리자 로그인이 필요합니다." };
@@ -135,4 +137,35 @@ export async function changeMateActivityClosure(_: MateActionState, form: FormDa
   revalidatePath("/admin/mate/overview");
   revalidatePath(`/admin/mate/activities/${round}/${activity}`);
   return { success: mode === "close" ? "회차를 종료했습니다." : "접수 마감을 해제했습니다." };
+}
+
+function validResultTarget(round: number, activity: number, applicationId: string) {
+  return Boolean(parseRound(String(round)) && parseRound(String(activity))) && typeof applicationId === "string"
+    && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(applicationId);
+}
+
+function revalidateMateResults() {
+  revalidatePath("/admin/mate");
+  revalidatePath("/admin/mate/results");
+  revalidatePath("/admin/mate/activities/[round]/[activity]", "page");
+}
+
+export async function commentMateResult(round: number, activity: number, applicationId: string, comment: string): Promise<MateActionState> {
+  if (!(await isAdmin())) return { error: "관리자 로그인이 필요합니다." };
+  if (!validResultTarget(round, activity, applicationId) || typeof comment !== "string") return { error: "코멘트 정보를 확인해 주세요." };
+  const text = comment.replace(/\r\n/g, "\n").trim();
+  if (text.length > MATE_COMMENT_MAX) return { error: `코멘트는 ${MATE_COMMENT_MAX}자까지 입력할 수 있습니다.` };
+  if (!(await saveMateComment(round, activity, applicationId, text))) return { error: "코멘트를 저장하지 못했습니다." };
+  revalidateMateResults();
+  return { success: "코멘트를 저장했습니다." };
+}
+
+export async function rateMateResult(round: number, activity: number, applicationId: string, score: number | null): Promise<MateActionState> {
+  if (!(await isAdmin())) return { error: "관리자 로그인이 필요합니다." };
+  if (!validResultTarget(round, activity, applicationId) || !validMateRating(score)) {
+    return { error: "평가결과 정보를 확인해 주세요." };
+  }
+  if (!(await saveMateRating(round, activity, applicationId, score))) return { error: "평가결과를 저장하지 못했습니다." };
+  revalidateMateResults();
+  return { success: "평가결과를 저장했습니다." };
 }

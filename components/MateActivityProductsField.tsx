@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState, useTransition, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type ReactNode } from "react";
 import { saveInlineMateActivity, saveMateActivity, searchMateInventory } from "@/app/admin/mate/activities/actions";
 import MateActionForm from "./MateActionForm";
 import { mateSizeLabels, validMateProductUrl, type MateActivity, type MateAdminActivityProduct, type MateInventoryProduct } from "@/lib/mate-activities";
@@ -23,6 +23,23 @@ function InventoryPicker({ select, options }: { select: (item: MateInventoryProd
   const [results, setResults] = useState<MateInventoryProduct[]>([]);
   const [message, setMessage] = useState("");
   const [pending, startTransition] = useTransition();
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const open = results.length > 0 || message !== "";
+
+  function close() {
+    setResults([]);
+    setMessage("");
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    // pointerdown이 아닌 click: 누르는 순간 목록이 접히면 아래 버튼이 밀려 클릭이 빗나간다.
+    function closeOutside(event: MouseEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) close();
+    }
+    document.addEventListener("click", closeOutside);
+    return () => document.removeEventListener("click", closeOutside);
+  }, [open]);
 
   function search() {
     startTransition(async () => {
@@ -37,21 +54,25 @@ function InventoryPicker({ select, options }: { select: (item: MateInventoryProd
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+    <div ref={pickerRef} className="rounded-md border border-slate-200 bg-white px-3 py-2"
+      onKeyDown={(event) => { if (event.key === "Escape" && open) { event.preventDefault(); close(); } }}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
         <div className="grid min-w-0 grow basis-[34rem] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,1fr)_auto]">
           <label htmlFor={searchId} className="col-span-full whitespace-nowrap text-sm font-bold sm:col-span-1">입출고 리스트에서 검색</label>
           <input id={searchId} type="search" aria-label="입출고 제품 검색어" className={input} value={query}
-            onChange={(event) => setQuery(event.target.value)} placeholder="제품명 또는 품번" maxLength={60}
+            onChange={(event) => { setQuery(event.target.value); if (!event.target.value) close(); }} placeholder="제품명 또는 품번" maxLength={60}
             onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); search(); } }} />
           <button type="button" onClick={search} disabled={pending} className={button + " whitespace-nowrap"}>{pending ? "검색 중…" : "제품 검색"}</button>
         </div>
         <div className="ml-auto flex flex-wrap items-center justify-end gap-x-4">{options}</div>
       </div>
       {message && <p role="status" className="mt-2 text-sm">{message}</p>}
+      {results.length > 0 && <div className="mt-2 flex justify-end">
+        <button type="button" onClick={close} className={button}>검색 결과 닫기</button>
+      </div>}
       {results.length > 0 && <ul className="mt-2 divide-y divide-slate-200">
         {results.map((item) => <li key={item.id}>
-          <button type="button" onClick={() => { select(item); setResults([]); setMessage(""); }} className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 py-2 text-left text-sm hover:bg-slate-50">
+          <button type="button" onClick={() => { select(item); close(); }} className="flex min-h-11 w-full flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 py-2 text-left text-sm hover:bg-slate-50">
             <span>{item.brand && item.brand + " "}<strong>{item.product_name}</strong> · {item.product_code}</span>
             <span>{item.cost_price ? item.cost_price.toLocaleString("ko-KR") + "원" : "원가 미등록"}</span>
           </button>
@@ -85,9 +106,6 @@ export default function MateActivityProductsField({ current, nextNumber, round, 
       buttonClassName="inline-flex min-h-10 items-center rounded-md bg-slate-900 px-3 text-sm font-bold text-white disabled:opacity-50"
       submitLabel={current ? "회차 설정 저장" : "활동 회차 등록"}
       successContent={inline && !current ? <p>회차 목록에서 등록한 회차를 열 수 있습니다.</p> : undefined}
-      submitTitle={current
-        ? <h2 className="grow"><span className="sr-only">{current.activity_no}회차 설정 편집</span></h2>
-        : <h2 className="text-lg font-black">새 활동 회차</h2>}
       submitLeading={<>
         <label className="inline-flex min-h-10 items-center gap-2 whitespace-nowrap text-sm font-bold">
           <input type="checkbox" name="published" value="yes" defaultChecked={current?.published} />선정 메이트 전체에게 공개
@@ -96,81 +114,85 @@ export default function MateActivityProductsField({ current, nextNumber, round, 
           setProducts([...products, { id: crypto.randomUUID(), name: "", sizes: "", colors: "", url: "", showUrl: false, cost: "", code: "" }]);
         }}>제품 추가</button>
       </>}>
-      <input type="hidden" name="round" value={round} />
-      <input type="hidden" name="mode" value={current ? "edit" : "create"} />
-      {current && <input type="hidden" name="activity_no" value={current.activity_no} />}
-      {!current && <label className="grid max-w-40 gap-1 text-sm font-bold">회차 번호
-        <input type="number" name="activity_no" min={1} max={999} defaultValue={nextNumber} className={input} required />
-      </label>}
-      <input name="additional_products" type="hidden" value={JSON.stringify(products.slice(1).map(({ id, name, sizes, colors, url, showUrl, cost, code }) => ({
-        id, name, sizes, colors, url: showUrl ? url : "", cost, code,
-      })))} />
-      {products.map((product, index) => {
-        const main = index === 0;
-        return (
-          <div key={product.id} className="space-y-2.5 rounded-md border border-slate-200 bg-slate-50 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-x-4">
-              <p className="text-sm font-bold">{main ? "기본 제품" : `추가 제품 ${index}`}{product.code && <span className="ml-2 font-normal text-slate-600">{product.code}</span>}</p>
-              {!main && <button type="button" className="min-h-9 text-sm font-semibold text-red-700 underline"
-                onClick={() => setProducts(products.filter((item) => item.id !== product.id))}>제품 제거</button>}
+      {(controls) => <>
+        <input type="hidden" name="round" value={round} />
+        <input type="hidden" name="mode" value={current ? "edit" : "create"} />
+        {current && <input type="hidden" name="activity_no" value={current.activity_no} />}
+        {!current && <h2 className="text-lg font-black">새 활동 회차</h2>}
+        {!current && <label className="grid max-w-40 gap-1 text-sm font-bold">회차 번호
+          <input type="number" name="activity_no" min={1} max={999} defaultValue={nextNumber} className={input} required />
+        </label>}
+        <input name="additional_products" type="hidden" value={JSON.stringify(products.slice(1).map(({ id, name, sizes, colors, url, showUrl, cost, code }) => ({
+          id, name, sizes, colors, url: showUrl ? url : "", cost, code,
+        })))} />
+        {products.map((product, index) => {
+          const main = index === 0;
+          return (
+            <div key={product.id} className="space-y-2.5 rounded-md border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-x-4">
+                {main && current && <h2 className="sr-only">{current.activity_no}회차 설정 편집</h2>}
+                <p className="text-sm font-bold">{main ? "기본 제품" : `추가 제품 ${index}`}{product.code && <span className="ml-2 font-normal text-slate-600">{product.code}</span>}</p>
+                {main ? controls : <button type="button" className="min-h-9 text-sm font-semibold text-red-700 underline"
+                  onClick={() => setProducts(products.filter((item) => item.id !== product.id))}>제품 제거</button>}
+              </div>
+              <InventoryPicker options={<>
+                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-bold">
+                    <input type="checkbox" checked={product.showUrl} onChange={(event) => {
+                      if (main) setLinkTouched(true);
+                      change(product.id, { showUrl: event.target.checked });
+                    }} />제품 링크 추가
+                  </label>
+                  {main && <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-bold">
+                    <input type="checkbox" checked={showInfo} onChange={(event) => {
+                      setInfoTouched(true);
+                      setShowInfo(event.target.checked);
+                    }} />제품 정보 및 활동 안내 등록
+                  </label>}
+              </>} select={(item) => {
+                const url = item.detail_url && validMateProductUrl(item.detail_url) ? item.detail_url : "";
+                if (main) setLinkTouched(true);
+                change(product.id, { name: item.product_name, code: item.product_code, sizes: item.size ? mateSizeLabels(item.size).join(", ") : product.sizes,
+                  colors: item.color || product.colors, cost: item.cost_price?.toString() || product.cost,
+                  url, showUrl: main ? product.showUrl : Boolean(url || product.showUrl) });
+              }} />
+              {main && <>
+                <input type="hidden" name="source_code" value={product.code} />
+                <input type="hidden" name="product_link_edit" value={linkTouched ? "yes" : "no"} />
+                <input type="hidden" name="product_info_edit" value={infoTouched ? "yes" : "no"} />
+              </>}
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr]">
+                <ProductField>{main ? "제품명" : "추가 제품명"}
+                  <input className={input} name={main ? "product_name" : undefined} value={product.name} maxLength={120} required
+                    onChange={(event) => change(product.id, { name: event.target.value })} />
+                </ProductField>
+                <ProductField>선택 가능한 사이즈
+                  <input className={input} name={main ? "size_options" : undefined} value={product.sizes} placeholder="예: S, M, L" maxLength={1200}
+                    onChange={(event) => change(product.id, { sizes: event.target.value })} />
+                </ProductField>
+                <ProductField>선택 가능한 컬러
+                  <input className={input} name={main ? "color_options" : undefined} value={product.colors} placeholder="예: 블랙, 카키" maxLength={1200}
+                    onChange={(event) => change(product.id, { colors: event.target.value })} />
+                </ProductField>
+                <ProductField>원가 (원)
+                  {main && <input type="hidden" name="unit_cost" value={product.cost} />}
+                  <input className={input} value={product.cost ? Number(product.cost).toLocaleString("ko-KR") : ""} type="text" inputMode="numeric"
+                    onChange={(event) => change(product.id, { cost: event.target.value.replace(/\D/g, "").slice(0, 9) })} />
+                </ProductField>
+              </div>
+              {main && <p className="text-xs text-slate-600">옵션은 쉼표로 나눠 주세요. 사이즈가 비어 있으면 직접 입력받습니다.</p>}
+              {product.showUrl && <label className="grid gap-1 text-sm font-bold">제품 링크
+                <input className={input} name={main ? "product_url" : undefined} type="url" maxLength={500} value={product.url}
+                  onChange={(event) => change(product.id, { url: event.target.value })} />
+              </label>}
+              {main && <label hidden={!showInfo} className={showInfo ? "grid gap-1 text-sm font-bold" : undefined}>
+                제품 정보 및 활동 안내
+                <textarea className={input} name="product_info" disabled={!showInfo} maxLength={2000} rows={3} defaultValue={current?.product_info} />
+              </label>}
             </div>
-            <InventoryPicker options={<>
-                <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-bold">
-                  <input type="checkbox" checked={product.showUrl} onChange={(event) => {
-                    if (main) setLinkTouched(true);
-                    change(product.id, { showUrl: event.target.checked });
-                  }} />제품 링크 추가
-                </label>
-                {main && <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 whitespace-nowrap text-sm font-bold">
-                  <input type="checkbox" checked={showInfo} onChange={(event) => {
-                    setInfoTouched(true);
-                    setShowInfo(event.target.checked);
-                  }} />제품 정보 및 활동 안내 등록
-                </label>}
-            </>} select={(item) => {
-              const url = item.detail_url && validMateProductUrl(item.detail_url) ? item.detail_url : "";
-              if (main) setLinkTouched(true);
-              change(product.id, { name: item.product_name, code: item.product_code, sizes: item.size ? mateSizeLabels(item.size).join(", ") : product.sizes,
-                colors: item.color || product.colors, cost: item.cost_price?.toString() || product.cost,
-                url, showUrl: main ? product.showUrl : Boolean(url || product.showUrl) });
-            }} />
-            {main && <>
-              <input type="hidden" name="source_code" value={product.code} />
-              <input type="hidden" name="product_link_edit" value={linkTouched ? "yes" : "no"} />
-              <input type="hidden" name="product_info_edit" value={infoTouched ? "yes" : "no"} />
-            </>}
-            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr]">
-              <ProductField>{main ? "제품명" : "추가 제품명"}
-                <input className={input} name={main ? "product_name" : undefined} value={product.name} maxLength={120} required
-                  onChange={(event) => change(product.id, { name: event.target.value })} />
-              </ProductField>
-              <ProductField>선택 가능한 사이즈
-                <input className={input} name={main ? "size_options" : undefined} value={product.sizes} placeholder="예: S, M, L" maxLength={1200}
-                  onChange={(event) => change(product.id, { sizes: event.target.value })} />
-              </ProductField>
-              <ProductField>선택 가능한 컬러
-                <input className={input} name={main ? "color_options" : undefined} value={product.colors} placeholder="예: 블랙, 카키" maxLength={1200}
-                  onChange={(event) => change(product.id, { colors: event.target.value })} />
-              </ProductField>
-              <ProductField>원가 (원)
-                {main && <input type="hidden" name="unit_cost" value={product.cost} />}
-                <input className={input} value={product.cost ? Number(product.cost).toLocaleString("ko-KR") : ""} type="text" inputMode="numeric"
-                  onChange={(event) => change(product.id, { cost: event.target.value.replace(/\D/g, "").slice(0, 9) })} />
-              </ProductField>
-            </div>
-            {main && <p className="text-xs text-slate-600">옵션은 쉼표로 나눠 주세요. 사이즈가 비어 있으면 직접 입력받습니다.</p>}
-            {product.showUrl && <label className="grid gap-1 text-sm font-bold">제품 링크
-              <input className={input} name={main ? "product_url" : undefined} type="url" maxLength={500} value={product.url}
-                onChange={(event) => change(product.id, { url: event.target.value })} />
-            </label>}
-            {main && <label hidden={!showInfo} className={showInfo ? "grid gap-1 text-sm font-bold" : undefined}>
-              제품 정보 및 활동 안내
-              <textarea className={input} name="product_info" disabled={!showInfo} maxLength={2000} rows={3} defaultValue={current?.product_info} />
-            </label>}
-          </div>
-        );
-      })}
-      {children}
+          );
+        })}
+        {children}
+      </>}
     </MateActionForm>
   );
 }

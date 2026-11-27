@@ -9,11 +9,11 @@ export function issuedMateParticipantPath(application: LinkApplication) {
     ? mateParticipantPath(application.id, application.link_version ?? 0) : null;
 }
 
-export default function MateParticipantLink({ application, showOpenLink = true }: { application: LinkApplication; showOpenLink?: boolean }) {
+export default function MateParticipantLink({ application }: { application: LinkApplication }) {
   const version = application.link_version ?? 0;
   const expired = application.retain_through < seoulDate();
   const issued = application.link_issued_at ?? null;
   return <MateParticipantLinkControls round={application.round} id={application.id} version={version}
     firstIssuedAt={application.link_first_issued_at ?? null} issuedAt={issued} expired={expired}
-    path={showOpenLink ? issuedMateParticipantPath(application) : null} />;
+    path={issuedMateParticipantPath(application)} />;
 }

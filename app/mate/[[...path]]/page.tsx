@@ -10,7 +10,7 @@ import MatePhoneInput from "@/components/MatePhoneInput";
 import { isAdmin } from "@/lib/admin-auth";
 import { mateActivityImageHref } from "@/lib/mate-activities";
 import { listMateActivities } from "@/lib/mate-activity-server";
-import { MATE_APPLICATION_GENDERS, MATE_APPLICATION_REQUIREMENTS, MATE_STYLES, formatMateDate, mateRoundStatus, parseRound } from "@/lib/mate";
+import { MATE_APPLICATION_GENDERS, MATE_APPLICATION_REQUIREMENTS, MATE_STYLES, formatMateDate, mateRoundStatus, parseRound, MATE_CONSENT_VERSION } from "@/lib/mate";
 import { listMateRounds } from "@/lib/mate-server";
 import { submitMateApplication } from "../actions";
 
@@ -164,6 +164,7 @@ export default async function MatePage({ params, searchParams }: {
               submitLabel="지원서 제출하기" preview={preview} successContent={<p>선정 결과는 발표일에 선정자에게 개별 안내합니다.</p>}>
               <input type="hidden" name="round" value={round.round} />
               <input type="hidden" name="retain_through" value={round.retain_through ?? ""} />
+              <input type="hidden" name="consent_version" value={MATE_CONSENT_VERSION} />
               <div hidden aria-hidden="true"><input name="website" tabIndex={-1} autoComplete="off" /></div>
 
               <div className="grid min-w-0 gap-6">
@@ -223,10 +224,10 @@ export default async function MatePage({ params, searchParams }: {
                         <section>
                           <h3 className="font-bold">1. 개인정보 수집 및 이용 안내</h3>
                           <ul className="mt-2 list-disc space-y-2 pl-5">
-                            <li><strong>수집 항목:</strong> 이름, 연락처, SNS 계정 및 채널 정보 등 지원서에 기재한 개인정보</li>
-                            <li><strong>수집 및 이용 목적:</strong> WORKUP MATE {round.round}기 지원자 확인, 선정 및 활동 운영, 공지사항 전달</li>
-                            <li><strong>개인정보 보유 및 이용 기간:</strong> WORKUP MATE {round.round}기 활동 종료 시까지</li>
-                            <li><strong>개인정보 파기:</strong> 활동 종료 후 수집된 개인정보는 지체 없이 파기합니다. 단, 관련 법령에 따라 보존이 필요한 경우 해당 법령에서 정한 기간 동안 보관합니다.</li>
+                            <li><strong>수집 항목:</strong> 이름, 연락처, SNS 계정 및 채널 정보 등 지원서에 기재한 개인정보, 선정 후 활동 평가결과</li>
+                            <li><strong>수집 및 이용 목적:</strong> WORKUP MATE {round.round}기 지원자 확인, 선정 및 활동 운영, 공지사항 전달, 선정자의 활동 이력 확인 및 향후 활동 선정 참고</li>
+                            <li><strong>개인정보 보유 및 이용 기간:</strong> WORKUP MATE {round.round}기 활동 종료 시까지. 단, 선정자의 이름, SNS 계정, 활동 평가결과는 활동 종료 후 1년간 보관</li>
+                            <li><strong>개인정보 파기:</strong> 활동 종료 후 수집된 개인정보는 지체 없이 파기하며, 1년 보관 항목은 보관 기간이 지나면 파기합니다. 단, 관련 법령에 따라 보존이 필요한 경우 해당 법령에서 정한 기간 동안 보관합니다.</li>
                           </ul>
                           <Link href="/privacy" className="mt-2 inline-flex min-h-11 items-center underline">개인정보처리방침</Link>
                         </section>

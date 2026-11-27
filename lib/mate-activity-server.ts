@@ -347,6 +347,10 @@ export async function submitMateActivityResult(participant: Participant, activit
     const answer = preview.responses.find((item) => item.round === participant.round && item.activity_no === activity
       && item.application_id === participant.id && item.choice === "yes");
     if (!answer) return null;
+    if (answer.result_instagram_url !== instagramUrl) {
+      preview.ratings = preview.ratings?.filter((item) => item.round !== participant.round
+        || item.activity_no !== activity || item.application_id !== participant.id);
+    }
     answer.result_instagram_url = instagramUrl;
     answer.result_submitted_at = new Date().toISOString();
     writeMatePreview(preview);
