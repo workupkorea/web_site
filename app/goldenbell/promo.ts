@@ -5,7 +5,7 @@ export const GOLDENBELL_PROMO_PATH = "/goldenbell/promo";
 
 export const PROMO_FIELDS = [
   { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "워크업 구매 영수증을 등록하면 경품 추첨에 참여할 수 있습니다." },
-  { key: "title", label: "브라우저·공유 제목", max: 80, defaultValue: "행운이 돌아오는 워크업 연말 이벤트!" },
+  { key: "title", label: "브라우저·공유 제목", max: 80, defaultValue: "행운이 돌아오는 워크업 연말 이벤트" },
   { key: "description", label: "공유 설명", max: 200, defaultValue: "한 해 동안 수고한 당신께 워크업이 마음을 전해요. 골드바 1돈 10명, 커피쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", multiline: true },
 ] as const;
 
@@ -16,7 +16,7 @@ const RETIRED_DEFAULTS: Partial<Record<(typeof PROMO_FIELDS)[number]["key"], rea
     "워크업 매장에서 응모하고, 푸짐한 선물 받으세요!",
     "애쓴 당신의 한 해 끝에, 작지만 반짝이는 마음을 준비했어요.",
   ],
-  title: ["워크업 연말연시 골든벨 이벤트", "워크업, 굿워크 | 연말연시 골든벨 이벤트"],
+  title: ["행운이 돌아오는 워크업 연말 이벤트!", "워크업 연말연시 골든벨 이벤트", "워크업, 굿워크 | 연말연시 골든벨 이벤트"],
   description: ["방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", "한 해 동안 수고한 당신께 워크업이 마음을 전해요. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요."],
 };
 
@@ -179,7 +179,7 @@ export function renderPromoHtml(value: unknown) {
         </details>
         <details>
           <summary>응모 내역은 어디에서 확인하나요?</summary>
-          <p>매장 QR코드로 연 골든벨 응모 화면에서 <strong>응모 확인</strong>을 눌러 확인할 수 있어요.</p>
+          <p>매장 QR코드로 연 이벤트 응모 화면에서 <strong>응모 확인</strong>을 눌러 확인할 수 있어요.</p>
         </details>
       </div>
     </section>`)}

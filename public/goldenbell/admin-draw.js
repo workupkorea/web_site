@@ -1,4 +1,4 @@
-// 골든벨 당첨기 · 제외번호 (프로모션 관리자 화면)
+// 연말 이벤트 당첨기 · 제외번호 (프로모션 관리자 화면)
 const MAX_UPLOAD = 1024 * 1024;
 
 function mountDraw(root) {

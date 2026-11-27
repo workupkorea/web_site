@@ -1,4 +1,4 @@
-// 골든벨 당첨기의 DB 처리. 접근 권한은 호출하는 라우트에서 확인한다.
+// 연말 이벤트 당첨기의 DB 처리. 접근 권한은 호출하는 라우트에서 확인한다.
 import { createAdminClient } from "@/lib/supabase-server";
 import type { PromotionEvent } from "@/app/admin/promotions/entries/events";
 import { saveQuota } from "./events-server";

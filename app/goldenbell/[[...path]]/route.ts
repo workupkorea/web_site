@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// 연말연시 골든벨 이벤트 — 고객 응모 페이지(/goldenbell)와 검수 페이지(/goldenbell/admin).
+// 워크업 연말 이벤트 — 고객 응모 페이지(/goldenbell)와 검수 페이지(/goldenbell/admin).
 // 응모 데이터: Supabase 테이블 goldenbell_entries, 영수증 사진: Storage 비공개 버킷 goldenbell-receipts.
 // 검수 페이지·API는 통합 회원 인증(grade=관리자)으로 보호한다.
 import { createHash, randomUUID } from "node:crypto";
@@ -641,7 +641,7 @@ async function handle(request: Request) {
   catch (error) {
     console.error("[goldenbell]", error);
     // 이벤트 SQL 실행 전에 배포하면 새 컬럼이 없다.
-    if ((error as { code?: string })?.code === "42703") return fail(503, "DB 설정이 필요해요. 골든벨 이벤트 SQL을 실행해 주세요.");
+    if ((error as { code?: string })?.code === "42703") return fail(503, "DB 설정이 필요해요. 연말 이벤트 SQL을 실행해 주세요.");
     return fail(500, "처리 중 문제가 생겼어요.");
   }
 }

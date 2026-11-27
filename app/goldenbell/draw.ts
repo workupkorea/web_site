@@ -1,4 +1,4 @@
-// 골든벨 당첨 추첨 규칙 (DB 와 분리한 순수 로직).
+// 연말 이벤트 당첨 추첨 규칙 (DB 와 분리한 순수 로직).
 import { randomInt } from "node:crypto";
 
 export type Prize = "coffee" | "gold";

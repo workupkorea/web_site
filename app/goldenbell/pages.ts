@@ -1,4 +1,4 @@
-// 골든벨 화면 HTML — 서버 함수 번들에 그대로 포함되도록 TS 문자열로 보관한다.
+// 연말 이벤트 화면 HTML — 서버 함수 번들에 그대로 포함되도록 TS 문자열로 보관한다.
 // (파일 읽기 방식은 Vercel 번들 설정이 필요해 쓰지 않는다. 스타일·스크립트는 public/goldenbell/ 에 있다.)
 
 import { renderEventNotices } from "./notices";
@@ -14,7 +14,7 @@ return `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="${preview ? "#14120e" : "#ff550c"}">
-<title>${preview ? "워크업 골든벨 | 아메리카노 즉석 추첨" : "워크업 연말연시 골든벨"}</title>
+<title>${preview ? "워크업 연말 이벤트 | 아메리카노 즉석 추첨" : "행운이 돌아오는 워크업 연말 이벤트"}</title>
 <link rel="stylesheet" href="/goldenbell/style.css">
 <script src="/goldenbell/apply.js" defer></script>
 </head>
@@ -22,17 +22,17 @@ return `<!doctype html>
 <main class="page">
   ${preview ? '<header class="brand"><img class="brand-logo" src="/images/logo_black.png" alt="WORKUP" width="148" height="20"></header>' : `<div class="activity">
     <span class="activity-emoji" id="activity-emoji" aria-hidden="true">🎉✨🍀</span>
-    <span id="activity-text">매장에서 구매하고 골든벨에 응모하세요</span>
+    <span id="activity-text">매장에서 구매하고 연말 이벤트에 응모하세요</span>
     <button id="activity-toggle" type="button" hidden aria-label="응모 현황 롤링 일시정지">Ⅱ</button>
   </div>`}
 
   <section class="hero" aria-labelledby="title">
     ${preview ? `<p class="hook">구매 인증하고 아메리카노에 도전!</p>
     <div class="hero-title">
-      <h1 id="title">연말연시 <em>골든벨</em></h1>
+      <h1 id="title">연말 <em>이벤트</em></h1>
       <p class="instant-draw-title">아메리카노 즉석 추첨</p>
       <p class="period">응모기간 2026.12.01 – 12.31</p>
-    </div>` : `<h1 id="title" class="sr-only">워크업 연말연시 골든벨 응모</h1>
+    </div>` : `<h1 id="title" class="sr-only">행운이 돌아오는 워크업 연말 이벤트 응모</h1>
     <div class="hero-media">
       <picture class="hero-visual">
         <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-cut-still.webp">
@@ -323,7 +323,7 @@ export const ADMIN_HTML = renderAdminPage();
 export const PREVIEW_ADMIN_HTML = renderAdminPage(true);
 
 function renderAdminPage(preview = false) {
-const title = preview ? "골든벨 2차 응모 검수" : "골든벨 응모 검수";
+const title = preview ? "연말 이벤트 2차 응모 검수" : "연말 이벤트 응모 검수";
 return `<!doctype html>
 <html lang="ko">
 <head>

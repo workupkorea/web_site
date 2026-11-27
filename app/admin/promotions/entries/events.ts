@@ -37,7 +37,7 @@ export const baseEventId = (id: string) => isTestId(id) ? id.slice(0, -TEST_SUFF
 
 export const goldenbellEvent: PromotionEvent = {
   id: "goldenbell",
-  name: "연말연시 골든벨",
+  name: "워크업 연말 이벤트",
   status: "planned",
   start: "2026-12-01",
   end: "2026-12-31",

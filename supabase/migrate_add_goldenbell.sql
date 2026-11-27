@@ -1,4 +1,4 @@
--- 연말연시 골든벨 이벤트: 응모 내역 테이블 + 영수증 사진 비공개 버킷
+-- 워크업 연말 이벤트: 응모 내역 테이블 + 영수증 사진 비공개 버킷
 -- 고객은 /goldenbell, 관리자는 /goldenbell/admin 에서 사용한다. (service role 로만 접근)
 
 create table if not exists goldenbell_entries (

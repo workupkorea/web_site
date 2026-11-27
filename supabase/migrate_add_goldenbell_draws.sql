@@ -1,4 +1,4 @@
--- 골든벨 당첨기: 당첨자와 추첨 제외번호. 서버(service role)만 읽고 쓴다.
+-- 연말 이벤트 당첨기: 당첨자와 추첨 제외번호. 서버(service role)만 읽고 쓴다.
 -- 당첨자 테이블도 개인정보를 담으므로 이벤트 종료 후 180일 파기 대상이다.
 
 create table if not exists public.goldenbell_winners (
