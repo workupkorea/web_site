@@ -12,6 +12,11 @@ import { ADMIN_HTML, INDEX_HTML, INTERNAL_PREVIEW_HTML, PREVIEW_ADMIN_HTML, PREV
 import { GOLDENBELL_PROMO_SECTION, renderPromoHtml } from "../promo";
 import * as localPreviewDb from "../preview-draw";
 import * as internalPreviewDb from "../internal-preview-db";
+import { findRound, normalizePhone } from "../draw";
+import * as draws from "../draw-server";
+import { adminEvent, currentEntryEvent, testEventFor } from "../events-server";
+import { eventPhase, isTestId, type PromotionEvent } from "@/app/admin/promotions/entries/events";
+import { renderClosedPage, renderTestPage } from "../closed";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,10 +26,11 @@ const BUCKET = "goldenbell-receipts";
 const ENTRY_DAY_FORMAT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
 const DAILY_PHONE_KEY = "goldenbell_entries_phone_day_key";
 const PHONE_RECEIPT_KEY = "goldenbell_entries_phone_photo_hash_key";
-const DAILY_PHONE_MESSAGE = "이 번호로 오늘 이미 응모했어요. 밤 12시부터 다시 응모할 수 있어요.";
+const DAILY_PHONE_MESSAGE = "이 번호로 오늘 이미 응모했어요.";
 const PAGE_SIZE = 30; // 검수 목록: 한 페이지 응모자 수
 const MAX_PHOTO = 4 * 1024 * 1024; // Vercel 함수 요청 본문 한도(4.5MB) 안쪽
 const MAX_ENTRY_BODY = MAX_PHOTO + 32 * 1024; // 영수증과 multipart 필드·헤더 포함
+const MAX_SHEET = 1024 * 1024; // 제외번호 엑셀
 const FETCH_CHUNK = 1000; // Supabase 한 번에 가져오는 행 수 한도
 const STATES = ["pending", "approved", "rejected"] as const;
 const REJECT_REASONS = ["영수증 불명확", "기간 외 구매", "중복 응모", "매장 정보 불일치", "기타"];
@@ -58,11 +64,6 @@ const json = (status: number, value: unknown) => send(JSON.stringify(value), sta
 const fail = (status: number, error: string) => json(status, { error });
 
 /* ---------- 입력 정리 ---------- */
-function normalizePhone(input: unknown): string | null {
-  let value = String(input ?? "").trim().replace(/[\s()-]/g, "");
-  if (value.startsWith("+82")) value = "0" + value.slice(3);
-  return /^010\d{8}$/.test(value) ? value : null;
-}
 function sniffPhoto(photo: Buffer): string | null {
   if (photo.length >= 3 && photo[0] === 255 && photo[1] === 216 && photo[2] === 255) return "image/jpeg";
   if (photo.length >= 8 && photo.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return "image/png";
@@ -83,18 +84,19 @@ async function fetchAll<T>(build: (from: number, to: number) => PromiseLike<{ da
     if (!data || data.length < FETCH_CHUNK) return all;
   }
 }
-type Filters = { q: string; digits: string; status: string; store: string; from: string; to: string };
-function readFilters(url: URL): Filters {
+type Filters = { event: string; q: string; digits: string; status: string; store: string; from: string; to: string };
+function readFilters(url: URL, event = ""): Filters {
   const param = (name: string) => (url.searchParams.get(name) || "").trim();
   const date = (value: string) => (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "");
   const q = param("q").slice(0, 40);
   const status = param("status");
   return {
-    q, digits: q.replace(/\D/g, "").slice(0, 11), status: (STATES as readonly string[]).includes(status) ? status : "",
+    event, q, digits: q.replace(/\D/g, "").slice(0, 11), status: (STATES as readonly string[]).includes(status) ? status : "",
     store: param("store").slice(0, 60), from: date(param("from")), to: date(param("to")),
   };
 }
 function applyFilters(query: any, f: Filters) {
+  if (f.event) query = query.eq("event_id", f.event);
   if (f.status) query = query.eq("status", f.status);
   if (f.store) query = query.eq("store", f.store);
   if (f.from) query = query.gte("created_at", `${f.from}T00:00:00+09:00`);
@@ -118,7 +120,7 @@ function filterPreviewRows(rows: Row[], filters: Filters) {
   });
 }
 // 같은 사진(photo_hash)이 서로 다른 번호로 접수된 해시 → 번호 집합
-async function duplicateMap(hashes?: string[], previewRows?: Row[]) {
+async function duplicateMap(hashes?: string[], previewRows?: Row[], eventId = "") {
   const map = new Map<string, Map<string, string>>(); // hash → (phone → name)
   const add = (rows: { phone: string; name: string; photo_hash: string }[]) => {
     for (const r of rows) {
@@ -132,12 +134,17 @@ async function duplicateMap(hashes?: string[], previewRows?: Row[]) {
     return map;
   }
   const sb = createAdminClient();
+  // 실제 응모끼리는 이벤트가 달라도 비교하고, 테스트 응모는 같은 테스트 안에서만 비교한다.
+  const rows = () => {
+    const query = sb.from(TABLE).select("phone,name,photo_hash");
+    return isTestId(eventId) ? query.eq("event_id", eventId) : query.not("event_id", "like", "%:test");
+  };
   if (!hashes) {
-    add(await fetchAll<any>((a, b) => sb.from(TABLE).select("phone,name,photo_hash").range(a, b)));
+    add(await fetchAll<any>((a, b) => rows().range(a, b)));
     return map;
   }
   for (let i = 0; i < hashes.length; i += 40) {
-    const { data, error } = await sb.from(TABLE).select("phone,name,photo_hash").in("photo_hash", hashes.slice(i, i + 40));
+    const { data, error } = await rows().in("photo_hash", hashes.slice(i, i + 40));
     if (error) throw error;
     add(data ?? []);
   }
@@ -186,15 +193,31 @@ async function readEntry(request: Request) {
   return { name, phone, store, photo, mime };
 }
 
-async function hasEntryOnDay(sb: ReturnType<typeof createAdminClient>, phone: string, day: string) {
-  const { data, error } = await sb.from(TABLE).select("id").eq("entry_phone", phone).eq("entry_day", day).maybeSingle();
+async function hasEntryOnDay(sb: ReturnType<typeof createAdminClient>, eventId: string, phone: string, day: string) {
+  const { data, error } = await sb.from(TABLE).select("id").eq("event_id", eventId).eq("entry_phone", phone).eq("entry_day", day).maybeSingle();
   if (error) throw error;
   return Boolean(data);
 }
 
 const duplicatePhone = () => json(409, { error: DAILY_PHONE_MESSAGE, field: "phone" });
 
+const closed = () => fail(403, "지금은 응모 기간이 아니에요.");
+const testExpired = () => fail(403, "테스트 링크가 만료됐어요. 관리자에게 새 링크를 받아 주세요.");
+/** 이 요청이 다루는 이벤트. 테스트 키가 있으면 테스트 영역이고, 키가 틀리면 null (실제 응모로 넘기지 않는다). */
+async function requestEvent(request: Request) {
+  const key = new URL(request.url).searchParams.get("test");
+  return key === null ? currentEntryEvent() : testEventFor(key);
+}
+/** 응모를 받는 중인 이벤트. 아니면 거절 응답. 테스트 영역은 기간과 관계없이 열린다. */
+async function openEvent(request: Request) {
+  const event = await requestEvent(request);
+  if (!event) return testExpired();
+  return event.test || eventPhase(event) === "active" ? event : closed();
+}
+
 async function submit(request: Request) {
+  const event = await openEvent(request);
+  if (event instanceof Response) return event;
   const entry = await readEntry(request);
   if (entry instanceof Response) return entry;
   const { name, phone, store, photo, mime } = entry;
@@ -202,14 +225,14 @@ async function submit(request: Request) {
   const now = receivedAt.toISOString();
   const day = ENTRY_DAY_FORMAT.format(receivedAt);
   const sb = createAdminClient();
-  if (await hasEntryOnDay(sb, phone, day)) return duplicatePhone();
+  if (await hasEntryOnDay(sb, event.id, phone, day)) return duplicatePhone();
 
   const hash = createHash("sha256").update(photo).digest("hex");
   const id = randomUUID();
   const path = `${day.slice(0, 4)}/${id}.${MIME_EXT[mime]}`;
   const upload = await sb.storage.from(BUCKET).upload(path, photo, { contentType: mime });
   if (upload.error) throw upload.error;
-  const insert = await sb.from(TABLE).insert({ id, phone, name, store, photo_path: path, photo_hash: hash, created_at: now, consent_at: now });
+  const insert = await sb.from(TABLE).insert({ id, event_id: event.id, phone, name, store, photo_path: path, photo_hash: hash, created_at: now, consent_at: now });
   if (insert.error) {
     const { error: cleanupError } = await sb.storage.from(BUCKET).remove([path]);
     if (cleanupError) console.error("[goldenbell] failed to remove unregistered receipt", cleanupError);
@@ -217,7 +240,7 @@ async function submit(request: Request) {
       if (insert.error.message.includes(DAILY_PHONE_KEY)) return duplicatePhone();
       if (insert.error.message.includes(PHONE_RECEIPT_KEY)) {
         // 같은 날 같은 사진을 동시에 올리면 영수증 제약이 먼저 충돌할 수 있다.
-        if (await hasEntryOnDay(sb, phone, day)) return duplicatePhone();
+        if (await hasEntryOnDay(sb, event.id, phone, day)) return duplicatePhone();
         return json(409, { error: "이미 응모에 사용한 영수증이에요. 다른 영수증 사진을 올려주세요.", field: "receipt" });
       }
     }
@@ -233,20 +256,25 @@ async function readPhone(request: Request) {
 }
 
 async function checkPhone(request: Request) {
+  const event = await openEvent(request);
+  if (event instanceof Response) return event;
   const phone = await readPhone(request);
   if (!phone) return fail(400, "010으로 시작하는 휴대폰 번호를 확인해 주세요.");
   const day = ENTRY_DAY_FORMAT.format(new Date());
-  return await hasEntryOnDay(createAdminClient(), phone, day) ? duplicatePhone() : json(200, { available: true });
+  return await hasEntryOnDay(createAdminClient(), event.id, phone, day) ? duplicatePhone() : json(200, { available: true });
 }
 
-// 휴대폰 번호로 접수번호·매장·상태·반려 사유만 조회 (번호는 URL 이 아닌 본문으로 받는다)
+// 휴대폰 번호로 접수번호·매장·응모일만 조회 (번호는 URL 이 아닌 본문으로 받는다).
+// 검수 결과(승인·반려·사유)는 고객에게 보내지 않는다. 반려 건도 '응모 완료'로 보이고, 추첨에서만 제외한다.
 async function lookup(request: Request) {
   const phone = await readPhone(request);
   if (!phone) return fail(400, "010으로 시작하는 휴대폰 번호를 확인해 주세요.");
+  const event = await requestEvent(request);
+  if (!event) return testExpired();
   const { data, error } = await createAdminClient().from(TABLE)
-    .select("id,store,created_at,status,reject_reason").eq("phone", phone).order("created_at", { ascending: false }).limit(50);
+    .select("id,store,created_at").eq("event_id", event.id).eq("phone", phone).order("created_at", { ascending: false }).limit(50);
   if (error) throw error;
-  return json(200, { entries: (data ?? []).map((r: any) => ({ code: code(r.id), store: r.store, created_at: r.created_at, status: r.status, reason: r.reject_reason || "" })) });
+  return json(200, { entries: (data ?? []).map((r: any) => ({ code: code(r.id), store: r.store, created_at: r.created_at })) });
 }
 // 지역명 → 지점 선택, 응모 완료 화면의 길찾기·전화용 매장 정보 (공개 매장 단일 소스: DB)
 async function storeList() {
@@ -254,11 +282,14 @@ async function storeList() {
   return json(200, { stores: stores.map(({ name, address, phone, hours, lat, lng }) => ({ name, address, phone, hours, lat, lng })) });
 }
 
-async function entryActivity() {
+async function entryActivity(request: Request) {
+  const event = await requestEvent(request);
+  if (!event) return testExpired();
   const sb = createAdminClient();
   const now = new Date();
   const today = ENTRY_DAY_FORMAT.format(now);
   const todayEntries = (countOnly = false) => sb.from(TABLE).select("store", countOnly ? { count: "exact", head: true } : undefined)
+    .eq("event_id", event.id)
     .gte("created_at", `${today}T00:00:00+09:00`).lte("created_at", now.toISOString())
     .neq("status", "rejected");
   // Entry store values are user input. Only publish names from the public store catalog.
@@ -290,8 +321,8 @@ function loadFilteredRows(filters: Filters, previewRows?: Row[]) {
   const sb = createAdminClient();
   return fetchAll<Row>((a, b) => applyFilters(sb.from(TABLE).select(ROW_COLS), filters).order("created_at", { ascending: false }).order("id").range(a, b));
 }
-async function listGroups(url: URL, previewRows?: Row[]) {
-  const f = readFilters(url);
+async function listGroups(url: URL, previewRows?: Row[], eventId = "") {
+  const f = readFilters(url, eventId);
   const page = Math.min(10000, Math.max(0, Math.floor(Number(url.searchParams.get("page")) || 0)));
   const rows = await loadFilteredRows(f, previewRows);
   const phones: string[] = [];
@@ -302,7 +333,7 @@ async function listGroups(url: URL, previewRows?: Row[]) {
   const counts = new Map<string, { total: number; pending: number; approved: number; rejected: number }>();
   if (pagePhones.length) {
     const sb = previewRows ? null : createAdminClient();
-    const all = sb ? await fetchAll<{ phone: string; status: string }>((a, b) => sb.from(TABLE).select("phone,status").in("phone", pagePhones).range(a, b))
+    const all = sb ? await fetchAll<{ phone: string; status: string }>((a, b) => sb.from(TABLE).select("phone,status").eq("event_id", eventId).in("phone", pagePhones).range(a, b))
       : previewRows!.filter((row) => pagePhones.includes(row.phone));
     for (const r of all) {
       const c = counts.get(r.phone) ?? { total: 0, pending: 0, approved: 0, rejected: 0 };
@@ -311,7 +342,7 @@ async function listGroups(url: URL, previewRows?: Row[]) {
     }
   }
   const shown = rows.filter((r) => pagePhones.includes(r.phone));
-  const dupes = await duplicateMap([...new Set(shown.map((r) => r.photo_hash))], previewRows);
+  const dupes = await duplicateMap([...new Set(shown.map((r) => r.photo_hash))], previewRows, eventId);
   const groups = pagePhones.map((phone) => ({
     phone, name: names.get(phone) ?? "", ...(counts.get(phone) ?? { total: 0, pending: 0, approved: 0, rejected: 0 }),
     records: shown.filter((r) => r.phone === phone).map((r) => {
@@ -321,10 +352,10 @@ async function listGroups(url: URL, previewRows?: Row[]) {
   }));
   return json(200, { groups, more });
 }
-async function summary(previewRows?: Row[]) {
+async function summary(previewRows?: Row[], eventId = "") {
   const sb = previewRows ? null : createAdminClient();
   const all = previewRows ?? await fetchAll<Pick<Row, "phone" | "store" | "status" | "photo_hash">>(
-    (a, b) => sb!.from(TABLE).select("phone,store,status,photo_hash").range(a, b),
+    (a, b) => sb!.from(TABLE).select("phone,store,status,photo_hash").eq("event_id", eventId).range(a, b),
   );
   const phonesByHash = new Map<string, Set<string>>();
   for (const r of all) phonesByHash.set(r.photo_hash, (phonesByHash.get(r.photo_hash) ?? new Set()).add(r.phone));
@@ -340,10 +371,10 @@ async function summary(previewRows?: Row[]) {
   const stores = [...byStore.entries()].map(([store, c]) => ({ store, ...c })).sort((x, y) => y.total - x.total || x.store.localeCompare(y.store, "ko"));
   return json(200, { ...total, stores, reasons: REJECT_REASONS });
 }
-async function exportExcel(url: URL, previewRows?: Row[]) {
-  const f = readFilters(url);
+async function exportExcel(url: URL, previewRows?: Row[], eventId = "") {
+  const f = readFilters(url, eventId);
   const rows = await loadFilteredRows(f, previewRows);
-  const dupes = await duplicateMap(undefined, previewRows);
+  const dupes = await duplicateMap(undefined, previewRows, eventId);
   const sheet = XLSX.utils.json_to_sheet(rows.map((r) => ({
     접수번호: code(r.id),
     응모일시: new Date(r.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour12: false }),
@@ -361,6 +392,10 @@ async function exportExcel(url: URL, previewRows?: Row[]) {
 function couponWinners(url: URL, rows: Row[]) {
   return filterPreviewRows(rows, readFilters(url)).filter((row) => row.outcome === "won");
 }
+// 쿠폰 발송 대상: 승인된 당첨 건을 번호당 1건만 남긴다.
+function couponRecipients(winners: Row[]) {
+  return [...new Map(winners.filter((row) => row.status === "approved").map((row) => [row.phone, row])).values()];
+}
 function listCouponWinners(url: URL, rows: Row[]) {
   const winners = couponWinners(url, rows);
   const pageSize = 20;
@@ -368,10 +403,10 @@ function listCouponWinners(url: URL, rows: Row[]) {
   const page = Math.min(pages, Math.max(1, Math.floor(Number(url.searchParams.get("page")) || 1)));
   const entries = winners.slice((page - 1) * pageSize, page * pageSize)
     .map(({ name, phone, store, created_at, status }) => ({ name, phone, store, created_at, status }));
-  return json(200, { entries, page, pages, total: winners.length, eligible: winners.filter((row) => row.status === "approved").length });
+  return json(200, { entries, page, pages, total: winners.length, eligible: couponRecipients(winners).length });
 }
 function exportCouponRecipients(url: URL, rows: Row[]) {
-  const recipients = couponWinners(url, rows).filter((row) => row.status === "approved");
+  const recipients = couponRecipients(couponWinners(url, rows));
   const sheet = XLSX.utils.aoa_to_sheet([["이름", "휴대폰번호"], ...recipients.map((row) => [row.name, row.phone])]);
   sheet["!cols"] = [{ wch: 18 }, { wch: 16 }];
   return downloadWorkbook(sheet, "쿠폰 발송 대상", "goldenbell-v2-coupon");
@@ -417,6 +452,63 @@ async function review(ids: string[], body: any) {
   return data?.length ?? 0;
 }
 
+/* ---------- 관리자: 당첨기 · 제외번호 ---------- */
+async function drawRoute(request: Request, url: URL, action: string, event: PromotionEvent) {
+  const method = request.method;
+  try {
+    if (method === "GET" && action === "") return json(200, await draws.drawOverview(event));
+    if (method === "GET" && action === "/results") return json(200, await draws.eventResults(event));
+    if (method === "GET" && action === "/export") {
+      const round = findRound(draws.eventRounds(event), url.searchParams.get("prize"), url.searchParams.get("round"));
+      if (!round) return fail(400, "추첨 회차를 확인해 주세요.");
+      const sheet = XLSX.utils.aoa_to_sheet(await draws.winnerSheetRows(event, round));
+      sheet["!cols"] = [14, 16, 22, 22, 18].map((wch) => ({ wch }));
+      return downloadWorkbook(sheet, "당첨자", `goldenbell-${round.prize}-${round.round}`);
+    }
+    if (method !== "POST") return fail(404, "페이지를 찾지 못했어요.");
+    if (action === "/excluded/upload") {
+      const length = Number(request.headers.get("content-length"));
+      if (!(length > 0 && length <= MAX_SHEET)) return fail(413, "1MB 이하 엑셀 파일을 올려주세요.");
+      let rows: unknown[][];
+      try {
+        const book = XLSX.read(Buffer.from(await request.arrayBuffer()), { type: "buffer", sheetRows: 6000 });
+        rows = XLSX.utils.sheet_to_json<unknown[]>(book.Sheets[book.SheetNames[0]], { header: 1, raw: true });
+      } catch {
+        return fail(400, "엑셀 파일을 읽지 못했어요.");
+      }
+      return json(200, await draws.addExcludedRows(event.id, rows, url.searchParams.get("memo") ?? ""));
+    }
+    const body = await readJson(request, 256 * 1024);
+    if (action === "") {
+      const round = findRound(draws.eventRounds(event), body?.prize, body?.round);
+      return round ? json(200, await draws.runDraw(event, round)) : fail(400, "추첨 회차를 확인해 주세요.");
+    }
+    if (action === "/quota") {
+      if (body?.prize !== "coffee" && body?.prize !== "gold") return fail(400, "당첨기를 확인해 주세요.");
+      await draws.setQuota(event, body.prize, Number(body.quota));
+      return json(200, { ok: true });
+    }
+    if (action === "/cancel") {
+      if (typeof body?.id !== "string" || !UUID_RE.test(body.id)) return fail(400, "당첨 내역을 확인해 주세요.");
+      return json(200, await draws.cancelWinner(event, body.id));
+    }
+    if (action === "/excluded") {
+      if (typeof body?.phones !== "string") return fail(400, "등록할 번호를 입력해 주세요.");
+      return json(200, await draws.addExcluded(event.id, body.phones, typeof body.memo === "string" ? body.memo : ""));
+    }
+    if (action === "/excluded/remove") {
+      const phone = normalizePhone(body?.phone);
+      if (!phone) return fail(400, "삭제할 번호를 확인해 주세요.");
+      await draws.removeExcluded(event.id, phone);
+      return json(200, { ok: true });
+    }
+    return fail(404, "페이지를 찾지 못했어요.");
+  } catch (error) {
+    if (error instanceof draws.DrawError) return fail(error.status, error.message);
+    throw error;
+  }
+}
+
 /* ---------- 라우팅 ---------- */
 // 검수 화면 접근 권한: 관리자 로그인 회원.
 // 테스트 편의상 로컬 개발 서버(npm run dev)에서는 로그인 없이 열린다.
@@ -440,7 +532,17 @@ async function route(request: Request) {
   if (method !== "GET" && origin && new URL(origin).host !== request.headers.get("host")) return fail(403, "허용되지 않은 요청이에요.");
 
   // 고객 화면
-  if (method === "GET" && path === "/") return send(INDEX_HTML, 200, "text/html; charset=utf-8");
+  if (method === "GET" && path === "/") {
+    const event = await requestEvent(request);
+    let html: string;
+    if (!event) html = renderClosedPage(INDEX_HTML, null, "ended");
+    else if (event.test) html = renderTestPage(INDEX_HTML);
+    else {
+      const phase = eventPhase(event);
+      html = phase === "active" ? INDEX_HTML : renderClosedPage(INDEX_HTML, event, phase);
+    }
+    return send(html, 200, "text/html; charset=utf-8");
+  }
   if (method === "GET" && path === "/promo") {
     const config = await getSiteSection(GOLDENBELL_PROMO_SECTION);
     return send(renderPromoHtml(config), 200, "text/html; charset=utf-8");
@@ -465,7 +567,7 @@ async function route(request: Request) {
     }
   }
   if (method === "GET" && path === "/api/stores") return storeList();
-  if (method === "GET" && path === "/api/entries/activity") return entryActivity();
+  if (method === "GET" && path === "/api/entries/activity") return entryActivity(request);
   if (method === "POST" && path === "/api/entries") return submit(request);
   if (method === "POST" && path === "/api/entries/check-phone") return checkPhone(request);
   if (method === "POST" && path === "/api/entries/lookup") return lookup(request);
@@ -487,10 +589,24 @@ async function route(request: Request) {
         : fail(401, "관리자 로그인이 필요해요.");
     }
     if (method === "GET" && adminPath === "/admin") return send(previewAdmin ? PREVIEW_ADMIN_HTML : ADMIN_HTML, 200, "text/html; charset=utf-8");
+    const drawMatch = !previewAdmin && adminPath.match(/^\/api\/admin\/draw(\/.*)?$/);
+    if (drawMatch) {
+      // 당첨 결과를 바꾸는 기능이라 검수 화면 공개 설정과 별개로 관리자 로그인을 요구한다.
+      if (process.env.NODE_ENV !== "development" && !(await isAdmin())) return fail(401, "관리자 로그인이 필요해요.");
+      const event = await adminEvent(url.searchParams.get("event"));
+      return event ? drawRoute(request, url, drawMatch[1] ?? "", event) : fail(404, "이벤트를 찾지 못했어요.");
+    }
     const previewRows = () => previewAdmin ? previewDb.listPreviewEntries() : undefined;
-    if (method === "GET" && adminPath === "/api/admin/groups") return listGroups(url, await previewRows());
-    if (method === "GET" && adminPath === "/api/admin/summary") return summary(await previewRows());
-    if (method === "GET" && adminPath === "/api/admin/export") return exportExcel(url, await previewRows());
+    // 목록·요약·엑셀은 선택한 이벤트의 응모만 다룬다 (2차 테스트 화면은 제외).
+    let eventId = "";
+    if (!previewAdmin && method === "GET" && /^\/api\/admin\/(groups|summary|export)$/.test(adminPath)) {
+      const event = await adminEvent(url.searchParams.get("event"));
+      if (!event) return fail(404, "이벤트를 찾지 못했어요.");
+      eventId = event.id;
+    }
+    if (method === "GET" && adminPath === "/api/admin/groups") return listGroups(url, await previewRows(), eventId);
+    if (method === "GET" && adminPath === "/api/admin/summary") return summary(await previewRows(), eventId);
+    if (method === "GET" && adminPath === "/api/admin/export") return exportExcel(url, await previewRows(), eventId);
     if (method === "GET" && previewAdmin && adminPath === "/api/admin/coupon-winners") return listCouponWinners(url, await previewDb.listPreviewEntries());
     if (method === "GET" && previewAdmin && adminPath === "/api/admin/coupon-export") return exportCouponRecipients(url, await previewDb.listPreviewEntries());
     const receiptMatch = adminPath.match(/^\/api\/admin\/receipts\/([a-f0-9-]{36})$/);
@@ -524,6 +640,8 @@ async function handle(request: Request) {
   try { return await route(request); }
   catch (error) {
     console.error("[goldenbell]", error);
+    // 이벤트 SQL 실행 전에 배포하면 새 컬럼이 없다.
+    if ((error as { code?: string })?.code === "42703") return fail(503, "DB 설정이 필요해요. 골든벨 이벤트 SQL을 실행해 주세요.");
     return fail(500, "처리 중 문제가 생겼어요.");
   }
 }

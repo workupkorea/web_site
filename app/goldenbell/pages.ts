@@ -1,6 +1,8 @@
 // 골든벨 화면 HTML — 서버 함수 번들에 그대로 포함되도록 TS 문자열로 보관한다.
 // (파일 읽기 방식은 Vercel 번들 설정이 필요해 쓰지 않는다. 스타일·스크립트는 public/goldenbell/ 에 있다.)
 
+import { renderEventNotices } from "./notices";
+
 export const INDEX_HTML = renderEntryPage();
 export const PREVIEW_HTML = renderEntryPage(true);
 export const INTERNAL_PREVIEW_HTML = renderEntryPage(true, true);
@@ -33,8 +35,8 @@ return `<!doctype html>
     </div>` : `<h1 id="title" class="sr-only">워크업 연말연시 골든벨 응모</h1>
     <div class="hero-media">
       <picture class="hero-visual">
-        <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-still.webp">
-        <img src="/goldenbell/promo-hero.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="941" height="1672" fetchpriority="high">
+        <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-cut-still.webp">
+        <img src="/goldenbell/promo-hero-cut.webp" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="778" height="1547" fetchpriority="high">
       </picture>
       <p class="period"><span>응모기간</span> <span>2026.12.01 – 12.31</span></p>
     </div>`}
@@ -55,7 +57,7 @@ return `<!doctype html>
         <path class="sparkle s2" d="M62 2 L63.6 6 L67.6 7.6 L63.6 9.2 L62 13.2 L60.4 9.2 L56.4 7.6 L60.4 6 Z" fill="#fff"/>
         <path class="sparkle s3" d="M66 26 L67 28.6 L69.6 29.6 L67 30.6 L66 33.2 L65 30.6 L62.4 29.6 L65 28.6 Z" fill="#fff"/>
       </svg>` : '<img class="prize-art" src="/goldenbell/promo-prize-gold.webp" alt="" width="520" height="520">'}
-      <strong>금 1돈</strong>
+      ${preview ? "" : "<small>총 10명 · 10돈</small>"}<strong>금 1돈</strong>
     </div>
     <div class="prize">
       ${preview ? `<svg class="coffee-fill-source" width="0" height="0" aria-hidden="true" focusable="false">
@@ -73,7 +75,7 @@ return `<!doctype html>
         <img class="prize-art" src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">
         <img class="coffee-prize-mini" src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">
       </div>`}
-      ${preview ? "" : "<small>매주 200명 · 총 800명</small>"}<strong>메가커피 아메리카노</strong>
+      ${preview ? "" : "<small>매주 200명 · 총 800명</small>"}<strong>커피쿠폰</strong>
       ${preview ? `<div class="coffee-fill">
         <div class="coffee-fill-cups" aria-hidden="true"><div class="coffee-fill-track">${Array.from({ length: 200 }, () => '<svg class="coffee-fill-cup" viewBox="16 0 40 52" focusable="false"><use href="#goldenbell-coffee-cup"/></svg>').join("")}</div></div>
         <p class="coffee-fill-total">주간 제공량 <b>200</b>잔 <span> / 총 800잔</span></p>
@@ -101,21 +103,22 @@ return `<!doctype html>
           <span class="phone-prefix" aria-hidden="true">010</span>
           <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-local" placeholder="00000000" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" required aria-label="휴대폰 번호 뒤 8자리" aria-describedby="phone-error phone-limit">
         </div>
-        <p class="hint" id="phone-limit">${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "같은 번호로 하루에 한 번만 응모할 수 있어요. 밤 12시부터 다시 응모할 수 있어요."}</p>
+        <ul class="hint hint-list" id="phone-limit"><li>${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "같은 번호로 하루에 한 번만 응모할 수 있어요."}</li></ul>
         <p class="field-error" id="phone-error" role="alert" hidden></p>
       </div>
 
       <div class="field">
         <label for="region">방문 매장</label>
-        <input id="region" type="search" autocomplete="off" enterkeyhint="search" placeholder="지역명을 입력하세요 (예: 성수, 포천, 청량리)" maxlength="30" aria-controls="store-list" aria-describedby="store-status store-error">
+        <input id="region" type="search" autocomplete="off" enterkeyhint="search" placeholder="지역명 입력 후 지점 선택 (예: 성수)" maxlength="30" aria-required="true" aria-controls="store-list" aria-describedby="store-status store-error">
         <input id="store" name="store" type="hidden">
-        <p class="store-status" id="store-status" role="status" aria-live="polite">지역명을 입력하면 근처 지점을 고를 수 있어요.</p>
+        <p class="store-status" id="store-status" role="status" aria-live="polite"></p>
         <div class="store-list" id="store-list" role="radiogroup" aria-label="방문 매장 선택" hidden></div>
         <p class="field-error" id="store-error" role="alert" hidden></p>
       </div>
 
       <div class="field">
-        <label for="receipt">영수증 사진</label>
+        <div class="receipt-group">
+          <label for="receipt">영수증 사진</label>
         <div class="file-panel">
           <div class="receipt-picker-row">
             <span id="receipt-filename" role="status">선택된 파일 없음</span>
@@ -124,11 +127,15 @@ return `<!doctype html>
           </div>
           <img id="preview" alt="첨부한 영수증 미리보기" hidden>
         </div>
-        <p class="hint" id="file-help">매장명과 구매일이 보이게 찍어주세요.<br>${preview ? '영수증 사진이 흐리거나 구매 내역을 확인할 수 없는 경우, <strong>응모가 취소됩니다.</strong>' : '초점이 맞지 않거나 흐린 사진은 응모에서 제외될 수 있습니다.'}</p>
+        <ul class="hint hint-list" id="file-help">
+          <li>매장명과 구매일이 보이게 찍어주세요.</li>
+          <li>${preview ? '영수증 사진이 흐리거나 구매 내역을 확인할 수 없는 경우, <strong>응모가 취소됩니다.</strong>' : '초점이 맞지 않거나 흐린 사진은 응모에서 제외될 수 있습니다.'}</li>
+        </ul>
         ${preview ? "" : `<p class="receipt-entry-rule" id="receipt-entry-rule">
-          <strong>구매 당일 · 1인 하루 1회 응모</strong>
+          <strong><span aria-hidden="true">📌</span> <b class="rule-title">구매 당일 · 1인 하루 1회 응모</b></strong>
           구매한 날이 지나면 해당 영수증으로 응모할 수 없어요. 같은 날 영수증을 여러 장 받아도 한 번만 응모할 수 있어요.
         </p>`}
+        </div>
         <p class="field-error" id="receipt-error" role="alert" hidden></p>
       </div>
 
@@ -141,8 +148,9 @@ return `<!doctype html>
       </div>
 
       <p class="message" id="message" role="status" hidden></p>
-      ${preview ? '<p class="preview-draw-hint">응모를 완료하고 복권을 긁어 메가커피 아메리카노 쿠폰에 도전하세요.</p>' : ""}
-      <button id="submit" class="primary" type="submit">${preview ? "응모하고 복권 받기" : "응모하기"}</button>
+      ${preview ? '<p class="preview-draw-hint">응모를 완료하고 복권을 긁어 커피쿠폰에 도전하세요.</p>' : ""}
+      <button id="submit" class="primary" type="submit" aria-describedby="submit-hint" disabled>${preview ? "응모하고 복권 받기" : "응모하기"}</button>
+      <p class="submit-hint" id="submit-hint">필수 항목을 모두 입력하면 응모할 수 있어요.</p>
     </form>
 
     ${preview ? '<p id="preview-sold-out" class="preview-sold-out" role="status" tabindex="-1" hidden>커피쿠폰이 소진되었습니다. 다음주에 응모해주세요.</p>' : ""}
@@ -200,35 +208,36 @@ return `<!doctype html>
 
   <section class="extra" aria-label="안내">
     <details class="card-details">
-      <summary>이벤트 유의사항</summary>
+      <summary>${preview ? "이벤트 유의사항" : '<span>이벤트 유의사항 <small class="summary-hint">펼쳐서 확인</small></span>'}</summary>
       <ul>
-        <li>응모 기간: 2026.12.01 – 12.31</li>
-        ${preview ? "<li>아메리카노는 매주 200명에게 배정되며, 응모 후 복권을 긁어 당첨 여부를 확인할 수 있어요. 다음 주 응모는 월요일 0시(한국시간)부터 가능해요.</li>" : ""}
-        ${preview ? `<li>워크업 매장에서 기간 내 구매한 영수증으로 응모할 수 있어요. 영수증 1장당 1회 응모입니다.</li>` : `
-        <li><strong>구매 당일, 하루 1회 응모</strong> · 이벤트 기간에 워크업 매장에서 받은 영수증은 구매 당일에만 사용할 수 있어요. 영수증을 여러 장 받아도 한 사람이 하루에 한 번만 응모할 수 있어요.</li>
-        <li><strong>영수증 분할 발급 금지</strong> · 응모 횟수를 늘리기 위해 한 건의 구매를 여러 건으로 나눠 결제하거나 영수증을 나눠 발급받을 수 없어요.</li>
-        <li><strong>부정 응모 사례</strong> · 이미 등록한 영수증을 다시 제출하거나, 다른 휴대폰 번호로 하루에 여러 번 응모하는 경우, 타인의 영수증이나 위조·변조된 영수증을 사용하는 경우, 결제를 취소하거나 전액 환불받은 구매 건으로 응모하는 경우가 해당돼요. 부정 응모가 확인되면 응모에서 제외되거나 당첨이 취소될 수 있어요.</li>`}
+        ${preview ? `<li>응모 기간: 2026.12.01 – 12.31</li>
+        <li>아메리카노는 매주 200명에게 배정되며, 응모 후 복권을 긁어 당첨 여부를 확인할 수 있어요. 다음 주 응모는 월요일 0시(한국시간)부터 가능해요.</li>
+        <li>워크업 매장에서 기간 내 구매한 영수증으로 응모할 수 있어요. 영수증 1장당 1회 응모입니다.</li>
         <li>매장명·구매일·결제금액이 확인되지 않는 사진은 반려될 수 있어요.</li>
-        ${preview ? `<li>같은 영수증을 다른 번호로 중복 응모하거나 허위 영수증을 올리면 당첨이 취소될 수 있어요.</li>` : ""}
-        <li>금 1돈 당첨자는 2027.01.04 발표 예정이며, 응모 시 입력한 휴대폰 번호로 안내해 드려요.${preview ? "" : " 당첨 경품은 방문 수령만 가능하며, 수령 시 수령증을 작성해야 해요."}</li>
+        <li>같은 영수증을 다른 번호로 중복 응모하거나 허위 영수증을 올리면 당첨이 취소될 수 있어요.</li>
+        <li><strong>커피쿠폰 중복 당첨 없음</strong> · 커피쿠폰은 이벤트 기간 중 1인(휴대폰 번호 기준) 1회만 당첨돼요.</li>
+        <li>금 1돈 당첨자는 2027년 1월 5일 발표 예정이며, 응모 시 입력한 휴대폰 번호로 안내해 드려요.</li>` : renderEventNotices((title, body) => `<li class="notice-group"><strong>${title}</strong>${body}</li>`)}
       </ul>
     </details>
   </section>
 
   <section class="result-box" aria-labelledby="result-title">
     <p class="result-label" id="result-title">금 1돈 당첨자 발표</p>
-    <strong class="result-date">2027.01.04 예정</strong>
+    <strong class="result-date">2027년 1월 5일 예정</strong>
     <p class="result-note">커피 경품에 당첨된 응모 건도 금 1돈 추첨 대상에 포함돼요.</p>
   </section>
 
-  <footer>${preview ? '<a href="/goldenbell/v2/admin">2차 버전 관리자 테스트 화면</a>' : '<a href="/goldenbell/admin">관리자 테스트 화면</a>'}</footer>
+  ${preview ? '<footer><a href="/goldenbell/v2/admin">2차 버전 관리자 테스트 화면</a></footer>' : ""}
 </main>
 ${preview ? "" : `<dialog id="lookup-dialog" class="popup" aria-labelledby="lookup-title">
   <h2 id="lookup-title">내 응모 확인</h2>
   <form id="lookup" novalidate>
     <label for="lookup-phone">응모할 때 입력한 휴대폰 번호</label>
     <div class="lookup-row">
-      <input id="lookup-phone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="00000000000" maxlength="24">
+      <div class="phone-field">
+        <span class="phone-prefix" aria-hidden="true">010</span>
+        <input id="lookup-phone" type="tel" inputmode="numeric" autocomplete="tel-local" placeholder="00000000" maxlength="9" aria-label="휴대폰 번호 뒤 8자리">
+      </div>
       <button type="submit" class="lookup-btn">조회</button>
     </div>
     <p class="field-error" id="lookup-error" role="alert" hidden></p>
@@ -241,7 +250,8 @@ ${preview ? "" : `<dialog id="lookup-dialog" class="popup" aria-labelledby="look
   ${preview ? `<p>예시 이름과 휴대폰 번호, 테스트용 영수증 사진으로 응모해 주세요. 입력 정보와 사진은 ${internal ? "내부 확인용 환경" : "이 PC의 로컬 테스트 환경"}에 저장되며, 2차 버전 관리자 화면에서 볼 수 있습니다.</p>` : `<ul>
     <li><strong>수집 항목</strong> 이름, 휴대폰 번호, 방문 매장, 영수증 사진</li>
     <li><strong>이용 목적</strong> 응모 확인, 당첨자 선정·안내, 경품 제공</li>
-    <li><strong>보유 기간</strong> 경품 제공 및 이벤트 종료 후 처리가 끝날 때까지</li>
+    <li><strong>보유 기간</strong> 이벤트 종료일로부터 180일</li>
+    <li><strong>파기</strong> 보유 기간이 지나면 개인정보와 영수증 사진을 지체 없이 파기합니다.</li>
     <li><strong>동의 거부</strong> 동의를 거부할 수 있으나, 거부 시 이벤트 응모가 제한됩니다.</li>
   </ul>`}
   <div class="popup-actions">
@@ -254,6 +264,60 @@ ${preview ? "" : `<dialog id="lookup-dialog" class="popup" aria-labelledby="look
 </html>
 `;
 }
+
+// 프로모션 관리자 화면의 당첨기·제외번호 (동작은 public/goldenbell/admin-draw.js)
+const drawCard = (prize: string, title: string, rule: string) => `
+      <div class="draw-card" data-prize="${prize}">
+        <div class="draw-card-head"><h3>${title}</h3><p>${rule}</p></div>
+        <label class="draw-round">추첨 회차 <select data-role="round"></select></label>
+        <form class="draw-quota" data-role="quota-form">
+          <label>${prize === "coffee" ? "주당 추첨 인원" : "추첨 인원"} <input data-role="quota" type="number" inputmode="numeric" min="1" max="10000" step="1" required></label>
+          <span aria-hidden="true">명</span><button type="submit">인원 저장</button>
+        </form>
+        <dl class="draw-stats" data-role="info"></dl>
+        <p class="draw-notice" data-role="notice" hidden></p>
+        <div class="draw-actions">
+          <button type="button" class="draw-run" data-role="run" disabled>추첨하기</button>
+          <button type="button" data-role="export" disabled>당첨자 엑셀</button>
+        </div>
+        <div class="draw-winners" data-role="winners" tabindex="0" role="region" aria-label="${title} 당첨자 목록"></div>
+      </div>`;
+const drawDialog = (name: string, title: string, body: string) => `
+    <dialog class="draw-dialog" data-dialog="${name}" aria-labelledby="p-${name}">
+      <div class="draw-dialog-head"><h2 id="p-${name}">${title}</h2><button type="button" data-close>닫기</button></div>
+      <div class="draw-dialog-body">
+        <p class="draw-message" data-role="message" role="status"></p>${body}
+      </div>
+    </dialog>`;
+const renderDrawPanels = (event: string) => `
+  <goldenbell-draw data-draw-api="/goldenbell/api/admin/draw" data-event="${event}">
+    <section class="panel draw-view" data-view="draw" aria-labelledby="p-draw" tabindex="-1" hidden>
+      <div class="draw-view-head"><h2 id="p-draw">이벤트 추첨</h2><div>
+        <button type="button" data-draw-open="excluded" aria-haspopup="dialog">추첨 제외번호</button>
+        <button type="button" data-role="refresh">새로고침</button>
+        <button type="button" data-view-close>응모 목록 보기</button>
+      </div></div>
+      <div class="draw-tabs" role="group" aria-label="당첨기 선택">
+        <button type="button" data-tab="coffee" aria-pressed="true">중복제외 주간 당첨기</button>
+        <button type="button" data-tab="gold" aria-pressed="false">전체 대상 당첨기</button>
+      </div>
+      <p class="draw-message" data-role="message" role="status"></p>
+      <div class="draw-machines">${drawCard("coffee", "중복제외 주간 당첨기", "주차별 승인 응모 · 번호당 1표 · 이전 주 당첨 번호 제외")}${drawCard("gold", "전체 대상 당첨기", "전체 승인 응모 · 응모 건수만큼 확률 · 번호당 1회 당첨")}
+      </div>
+    </section>${drawDialog("excluded", "추첨 제외번호", `
+      <form class="draw-exclude" data-role="exclude-form">
+        <textarea data-role="exclude-phones" rows="2" aria-label="제외할 휴대폰 번호" placeholder="01012345678 (여러 개는 줄바꿈이나 쉼표로 구분)" required></textarea>
+        <input data-role="exclude-memo" aria-label="제외 사유 메모" placeholder="메모 (예: 임직원)" maxlength="100">
+        <button type="submit" class="draw-run">제외번호 등록</button>
+      </form>
+      <div class="draw-upload">
+        <button type="button" data-role="upload">엑셀 업로드</button>
+        <input type="file" data-role="upload-file" accept=".xlsx,.xls" aria-label="제외번호 엑셀 파일" hidden>
+        <p class="hint">첫 번째 시트에서 010 번호를 찾아 등록해요. '메모' 열이 있으면 함께 저장하고, 없으면 위 메모를 씁니다.</p>
+      </div>
+      <div class="draw-winners" data-role="excluded" tabindex="0" role="region" aria-label="제외번호 목록"></div>`)}${drawDialog("results", "이벤트 결과", `
+      <div class="draw-results" data-role="results"></div>`)}
+  </goldenbell-draw>`;
 
 export const ADMIN_HTML = renderAdminPage();
 export const PREVIEW_ADMIN_HTML = renderAdminPage(true);
@@ -278,7 +342,7 @@ ${renderReviewPanels(preview)}
 `;
 }
 
-export function renderReviewPanels(preview = false, { compact = false } = {}) {
+export function renderReviewPanels(preview = false, { compact = false, event = "" } = {}) {
 const filterFields = `
       <input id="search" type="search" aria-label="이름 또는 휴대폰 번호 검색" placeholder="이름 · 휴대폰 번호 검색">
       <select id="filter" aria-label="검수 상태"><option value="">전체 상태</option><option value="pending">검수 대기</option><option value="approved">승인</option><option value="rejected">반려</option></select>
@@ -288,6 +352,7 @@ const exportButton = '<button type="button" id="export">엑셀 다운로드</but
 const stats = '<div class="stat-row" id="stats" aria-label="검수 현황"></div>';
 const groupColumns = '<div><span>응모자</span><span>응모 지점</span><span>검수 현황</span></div>';
 return `
+  ${compact ? renderDrawPanels(event) : ""}
   ${compact ? `<section class="panel filter-bar" aria-labelledby="p-filter">
     <h2 id="p-filter">검색·필터</h2>
     <div class="filters">${filterFields}</div>
@@ -313,7 +378,7 @@ return `
 
   ${preview ? `<section class="panel" aria-labelledby="p-coupon">
     <div class="panel-head"><h2 id="p-coupon">아메리카노 쿠폰 발송</h2><button type="button" id="coupon-export">쿠폰 발송용 엑셀</button></div>
-    <p class="hint">현재 검색·필터 조건에 맞는 당첨자 중 구매 인증이 승인된 건을 발송용 엑셀에 담습니다.</p>
+    <p class="hint">현재 검색·필터 조건에 맞는 당첨자 중 구매 인증이 승인된 건을 발송용 엑셀에 담습니다. 커피쿠폰은 휴대폰 번호당 1회만 당첨되며, 발송 대상에도 한 번만 담깁니다.</p>
     <div class="coupon-winners" aria-labelledby="coupon-winners-title">
       <h3 id="coupon-winners-title">아메리카노 당첨자 목록</h3>
       <p id="coupon-winners-message" class="hint" role="status">당첨자 목록을 불러오는 중이에요.</p>
@@ -337,14 +402,14 @@ return `
     <div class="bulk-bar" id="bulk-bar" hidden>
       <strong id="bulk-count">0건 선택</strong>
       <button type="button" id="bulk-approve">승인</button>
-      <select id="bulk-reason" aria-label="일괄 반려 사유"><option value="">반려 사유 선택</option></select>
+      <select id="bulk-reason" aria-label="일괄 반려 사유"><option value="">반려 사유</option></select>
       <button type="button" id="bulk-reject">반려</button>
       <button type="button" id="bulk-clear">선택 해제</button>
     </div>
     <p id="admin-message" role="status"></p>
     ${compact ? `<div id="group-list-head" class="group-list-head" aria-hidden="true" hidden>${groupColumns}${groupColumns}</div>` : ""}
     <div id="groups"></div>
-    <div class="pager"><button type="button" id="prev">이전</button><span id="page-label"></span><button type="button" id="next">다음</button></div>
+    <div class="pager list-more"><span id="page-label" role="status"></span><button type="button" id="load-more" hidden>더 보기</button></div>
   </section>
 <dialog id="lightbox" aria-label="영수증 크게 보기"><button type="button" id="lightbox-close">닫기</button><img id="lightbox-img" alt="영수증 사진"></dialog>
 `;

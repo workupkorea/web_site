@@ -53,7 +53,12 @@ begin
     return 'already-entered';
   end if;
 
-  result := case when random() < 0.5 then 'won' else 'lost' end;
+  -- 커피쿠폰은 번호당 1회만 당첨. 반려된 당첨 건은 쿠폰이 나가지 않으므로 제외한다.
+  if exists (select 1 from public.goldenbell_v2_preview_entries where phone = p_phone and outcome = 'won' and status <> 'rejected') then
+    result := 'lost';
+  else
+    result := case when random() < 0.5 then 'won' else 'lost' end;
+  end if;
   insert into public.goldenbell_v2_preview_entries
     (id, name, phone, store, mime, photo, photo_hash, created_at, entry_day, week_start, outcome)
   values

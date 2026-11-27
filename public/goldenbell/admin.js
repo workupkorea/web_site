@@ -1,6 +1,7 @@
 function mountReview(root) {
   const $ = selector => root.querySelector(selector);
   const adminApi = root.dataset.adminApi || '/goldenbell/api/admin';
+  const eventParams = root.dataset.event ? {event: root.dataset.event} : {};
   const search = $('#search');
   const filter = $('#filter');
   const storeFilter = $('#store-filter');
@@ -9,8 +10,7 @@ function mountReview(root) {
   const groups = $('#groups');
   const toggleGroups = $('#toggle-groups');
   const adminMessage = $('#admin-message');
-  const previous = $('#prev');
-  const next = $('#next');
+  const loadMore = $('#load-more');
   const bulkBar = $('#bulk-bar');
   const bulkReason = $('#bulk-reason');
   const selectAll = $('#select-all');
@@ -43,7 +43,7 @@ function mountReview(root) {
     return result;
   }
   function filterParams() {
-    return new URLSearchParams({q:search.value.trim(),status:filter.value,store:storeFilter.value,from:fromDate.value,to:toDate.value});
+    return new URLSearchParams({...eventParams,q:search.value.trim(),status:filter.value,store:storeFilter.value,from:fromDate.value,to:toDate.value});
   }
   function say(text) { adminMessage.textContent = text; }
   async function request(url, options) {
@@ -55,7 +55,7 @@ function mountReview(root) {
   function reasonSelect(label) {
     const select = element('select');
     select.setAttribute('aria-label', label);
-    select.append(new Option('반려 사유 선택', ''));
+    select.append(new Option('반려 사유', ''));
     for (const reason of reasons) select.append(new Option(reason, reason));
     return select;
   }
@@ -105,7 +105,7 @@ function mountReview(root) {
   }
   async function loadSummary() {
     try {
-      const data = await request(adminApi + '/summary');
+      const data = await request(adminApi + '/summary?' + new URLSearchParams(eventParams));
       reasons = data.reasons;
       if (bulkReason.options.length === 1) for (const reason of reasons) bulkReason.append(new Option(reason, reason));
       $('#stats').replaceChildren(statBox('전체', data.total), statBox('검수 대기', data.pending, 'pending'), statBox('승인', data.approved, 'approved'),
@@ -159,7 +159,7 @@ function mountReview(root) {
   });
 
   /* ---------- 목록 ---------- */
-  function renderRecord(record) {
+  function renderRecord(record, phone) {
     const article = element('article', null, 'record');
     const pick = element('input', null, 'pick');
     pick.type = 'checkbox';
@@ -179,10 +179,16 @@ function mountReview(root) {
     thumb.addEventListener('click', () => { $('#lightbox-img').src = image.src; lightbox.showModal(); });
 
     const info = element('div', null, 'record-info');
-    info.append(element('p', record.store + ' · ' + dateFormat.format(new Date(record.created_at))));
-    const statusLine = element('p', record.name + ' · ' + labels[record.status] + ' · ' + record.id.slice(0, 8).toUpperCase());
-    if (record.reject_reason) statusLine.append(element('span', record.reject_reason, 'reason-tag'));
-    info.append(statusLine);
+    const who = element('p', null, 'record-who');
+    who.append(element('strong', record.name), element('span', phoneLabel(phone)));
+    const foot = element('div', null, 'record-foot');
+    const text = element('div', null, 'record-text');
+    text.append(element('p', record.store), element('p', dateFormat.format(new Date(record.created_at)) + ' · 접수번호 ' + record.id.slice(0, 8).toUpperCase(), 'record-meta'));
+    foot.append(text);
+    info.append(who, foot);
+    const status = element('div', null, 'record-status');
+    status.append(chip(labels[record.status], record.status));
+    if (record.reject_reason) status.append(element('span', record.reject_reason, 'reason-tag'));
     if (record.outcome) {
       const result = record.outcome === 'won' ? '아메리카노 당첨' : '아메리카노 미당첨';
       const eligible = record.outcome === 'won' && record.status === 'approved';
@@ -209,19 +215,36 @@ function mountReview(root) {
     const reason = reasonSelect('반려 사유');
     reason.value = record.reject_reason || '';
     for (const status of Object.keys(labels)) {
-      const button = element('button', labels[status], status === record.status ? 'status-current' : '');
-      button.type = 'button';
-      button.disabled = status === record.status;
-      button.addEventListener('click', () => {
-        if (status === 'rejected' && !reason.value) { say('반려 사유를 먼저 선택해 주세요.'); reason.focus(); return; }
-        review([record.id], status, status === 'rejected' ? reason.value : undefined);
-      });
-      actions.append(button);
+      // 현재 상태는 우측 상단 뱃지로 보여주고, 바꿀 수 있는 상태만 버튼으로 둔다.
+      if (status !== record.status) {
+        const button = element('button', labels[status]);
+        button.type = 'button';
+        button.addEventListener('click', () => {
+          if (status === 'rejected' && !reason.value) { say('반려 사유를 먼저 선택해 주세요.'); reason.focus(); return; }
+          review([record.id], status, status === 'rejected' ? reason.value : undefined);
+        });
+        actions.append(button);
+      }
       if (status === 'rejected') actions.append(reason);
     }
-    article.append(pick, thumb, info, actions);
+    // 이미 반려한 건은 사유를 고르면 바로 바꾼다.
+    if (record.status === 'rejected') reason.addEventListener('change', () => { if (reason.value) review([record.id], 'rejected', reason.value); });
+    foot.append(actions); // 검수 버튼은 지점·접수번호 옆에 둔다
+    article.append(pick, thumb, info, status);
     return article;
   }
+  // 펼친 카드가 있으면 카드마다 실제 높이만큼 줄을 차지하게 해서, 옆 카드가 길어도 빈칸 없이 위로 채운다.
+  const CARD_GAP = 6;
+  function layoutGroups() {
+    const masonry = Boolean(groups.querySelector('.group[open]'));
+    groups.classList.toggle('masonry', masonry);
+    for (const group of groups.children) {
+      group.style.gridRowEnd = masonry ? `span ${Math.ceil(group.getBoundingClientRect().height) + CARD_GAP}` : '';
+    }
+  }
+  // 펼침·접힘, 화면 폭 변경, 목록 다시 그리기로 카드 크기가 바뀌면 다시 배치한다.
+  const cardSizes = new ResizeObserver(() => requestAnimationFrame(layoutGroups));
+  groups.addEventListener('toggle', layoutGroups, true);
   function chip(text, kind) { return element('span', text, 'chip ' + kind); }
   function renderGroup(group, openPhones) {
     const details = element('details', null, 'group');
@@ -242,29 +265,51 @@ function mountReview(root) {
       title.append(stores);
     }
     title.append(chips);
-    details.append(title, ...group.records.map(renderRecord));
+    details.append(title, ...group.records.map(record => renderRecord(record, group.phone)));
     return details;
   }
-  async function loadGroups() {
+  // page 는 지금까지 펼친 마지막 쪽. append 는 다음 쪽만 이어 붙이고, 아니면 펼친 만큼 다시 읽는다.
+  async function loadGroups(append = false) {
     const version = ++loadVersion;
     const query = filterParams();
-    query.set('page', page);
+    const indexes = append ? [page + 1] : Array.from({length: page + 1}, (_, index) => index);
+    loadMore.disabled = true;
     try {
-      const data = await request(adminApi + '/groups?' + query);
-      if (version !== loadVersion) return;
-      if (!data.groups.length && page > 0) { page--; return loadGroups(); }
+      const loaded = [];
+      let data;
+      let last = page;
+      for (const index of indexes) {
+        query.set('page', index);
+        data = await request(adminApi + '/groups?' + query);
+        if (version !== loadVersion) return;
+        loaded.push(...data.groups);
+        last = index;
+        if (!data.more) break;
+      }
+      page = last;
       const openPhones = new Set(Array.from(groups.querySelectorAll('details.group[open]'), item => item.dataset.phone));
-      groups.replaceChildren(...data.groups.map(group => renderGroup(group, openPhones)));
+      // 그사이 새 응모가 들어와 순서가 밀려도 같은 번호를 두 번 보여주지 않는다.
+      const shown = new Set(append ? Array.from(groups.children, item => item.dataset.phone) : []);
+      const items = loaded.filter(group => !shown.has(group.phone) && shown.add(group.phone)).map(group => renderGroup(group, openPhones));
+      if (append) groups.append(...items);
+      else {
+        cardSizes.disconnect();
+        groups.replaceChildren(...items);
+      }
+      items.forEach(item => cardSizes.observe(item));
+      layoutGroups();
+      const total = groups.childElementCount;
       const listHead = $('#group-list-head');
-      if (listHead) listHead.hidden = data.groups.length === 0;
+      if (listHead) listHead.hidden = total === 0;
       updateGroupDisclosure();
-      say(data.groups.length ? '' : '조건에 맞는 응모가 없어요.');
-      previous.disabled = page === 0;
-      next.disabled = !data.more;
-      $('#page-label').textContent = String(page + 1);
+      say(total ? '' : '조건에 맞는 응모가 없어요.');
+      loadMore.hidden = !data.more;
+      $('#page-label').textContent = total ? `${total.toLocaleString('ko-KR')}명 표시` : '';
       updateBulkBar();
     } catch {
       if (version === loadVersion) say('응모 내역을 불러오지 못했어요.');
+    } finally {
+      if (version === loadVersion) loadMore.disabled = false;
     }
   }
   async function loadCouponWinners() {
@@ -309,8 +354,7 @@ function mountReview(root) {
   }
   search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(reload, 200); });
   for (const control of [filter, storeFilter, fromDate, toDate]) control.addEventListener('change', reload);
-  previous.addEventListener('click', () => { if (page > 0) { page--; loadGroups(); } });
-  next.addEventListener('click', () => { page++; loadGroups(); });
+  loadMore.addEventListener('click', () => loadGroups(true));
   winnerPrevious?.addEventListener('click', () => { if (winnerPage > 1) { winnerPage--; loadCouponWinners(); } });
   winnerNext?.addEventListener('click', () => { winnerPage++; loadCouponWinners(); });
   // 엑셀 다운로드 — 현재 검색·필터 조건 그대로

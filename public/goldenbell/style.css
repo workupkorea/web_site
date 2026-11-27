@@ -80,9 +80,11 @@ input:focus{outline:none;border-color:var(--ink);background:#fff;box-shadow:0 0 
 .phone-field input{flex:1;border-start-start-radius:0;border-end-start-radius:0}
 input::placeholder{color:#7d766a;opacity:1}
 .hint{margin:7px 0 0;font-size:12px;color:var(--muted)}
+.hint-list{padding-left:16px;list-style:disc;word-break:keep-all}
 
 /* 지역 입력 → 지점 선택 */
 .store-status{margin:8px 2px 0;font-size:13px;color:var(--muted)}
+.store-status:empty{margin:0}
 .store-list{display:grid;gap:8px;margin-top:10px;max-height:340px;overflow-y:auto;overscroll-behavior:contain;padding:2px}
 .store-option{position:relative;display:block;cursor:pointer}
 .store-option input{position:absolute;opacity:0;inset:0;width:100%;height:100%;min-height:0;margin:0;cursor:pointer}
@@ -99,9 +101,39 @@ input::placeholder{color:#7d766a;opacity:1}
 .receipt-picker-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px;background:var(--input-bg);border:1.5px solid var(--line);border-radius:14px}
 #receipt-filename{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
 #receipt-picker{flex:none;min-height:44px;border:0;border-radius:10px;background:var(--ink);color:#fff;padding:9px 14px;font-weight:700}
-.receipt-entry-rule{margin:10px 0 0;padding:10px 12px;border-inline-start:3px solid var(--gold);background:var(--gold-soft);color:var(--ink);font-size:13px;line-height:1.55;word-break:keep-all}
-.receipt-entry-rule strong{display:block;margin-bottom:3px;color:#9e3200;font-size:14px}
+.receipt-entry-rule{margin:10px 0 0;padding:12px 14px;border:1.5px solid var(--gold);background:var(--gold-soft);color:var(--ink);font-size:13px;line-height:1.55;word-break:keep-all}
+.receipt-entry-rule strong{display:block;margin-bottom:5px;color:#9e3200;font-size:15px}
+/* 중요 안내: 제목 글자 위로 금빛이 지나가며 반짝인다. 압정도 함께 흔들린다 */
+@media(prefers-reduced-motion:no-preference){
+  .receipt-entry-rule .rule-title{background:linear-gradient(105deg,#9e3200 38%,#ff8a00 45%,#ffd04a 50%,#ff8a00 55%,#9e3200 62%) 100% 0/300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  /* 화면에 보일 때(.shine) 두 번만 반짝인다 */
+  .receipt-entry-rule.shine .rule-title{animation:rule-text 2s linear 2}
+  .receipt-entry-rule strong span{display:inline-block;animation:rule-pin 2.4s ease-in-out infinite}
+}
+@keyframes rule-text{0%{background-position:100% 0}70%,100%{background-position:0 0}}
+@keyframes rule-pin{0%,40%,100%{transform:none}10%,30%{transform:rotate(-18deg) scale(1.2)}20%{transform:rotate(14deg) scale(1.2)}}
 .file-panel img{display:block;max-width:100%;max-height:220px;object-fit:contain;margin:12px auto 0;border-radius:12px}
+/* 영수증 첨부 묶음: 연한 바탕 한 판 위에 제목 → 첨부 영역 → 촬영 안내 → 절취선 → 응모 규칙 */
+.receipt-group{position:relative;overflow:hidden;margin-top:8px;padding:16px 14px 0;background:var(--gold-soft)}
+.receipt-group>label{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-size:16px;font-weight:800}
+/* 필수 표시: 일반 항목은 주황 별표, 영수증 사진만 배지. 뒤의 / "필수" 는 화면낭독기용 대체 글자 */
+#apply .field>label::after{content:"*";content:"*" / "필수";margin-left:3px;color:#d94400;font-size:15px;font-weight:800}
+#apply .receipt-group>label::after{content:"필수";display:inline-block;padding:2px 7px;background:var(--ink);color:#fff;font-size:11px;font-weight:700;line-height:1.4;vertical-align:1px}
+#apply #submit:disabled{background:#e4ded3;color:#6b6458;opacity:1;cursor:not-allowed}
+.submit-hint{margin:8px 0 0;text-align:center;font-size:12px;color:var(--muted)}
+.receipt-group .file-panel{margin:0}
+.receipt-group .receipt-picker-row{flex-direction:column;gap:12px;padding:18px 14px 14px;background:#fff;border:1.5px dashed var(--gold)}
+.receipt-group .receipt-picker-row::before{content:"";width:48px;height:48px;background:url(/goldenbell/icon-receipt.svg) center/contain no-repeat}
+.receipt-group #receipt-filename{max-width:100%;color:var(--muted)}
+.receipt-group #receipt-picker{width:100%;min-height:48px;font-size:15px}
+.receipt-group .hint-list{margin:12px 2px 16px;padding:0;list-style:none}
+.receipt-group .hint-list li{position:relative;padding-left:18px}
+.receipt-group .hint-list li+li{margin-top:3px}
+.receipt-group .hint-list li::before{content:"✓";position:absolute;left:0;color:#b33a00;font-weight:800}
+.receipt-group .receipt-entry-rule{position:relative;margin:0 -14px;padding:16px 18px;border:0;background:none}
+.receipt-group .receipt-entry-rule::before{content:"";position:absolute;top:0;left:18px;right:18px;border-top:2px dashed var(--gold);opacity:.55}
+/* 절취선 양끝의 반원 홈: .luckup 의 직각 처리와 무관하게 배경 그라데이션으로 그린다 */
+.receipt-group:has(.receipt-entry-rule) .receipt-entry-rule::after{content:"";position:absolute;top:-9px;left:0;right:0;height:18px;background:radial-gradient(circle 9px at 0 50%,var(--surface) 98%,transparent),radial-gradient(circle 9px at 100% 50%,var(--surface) 98%,transparent);pointer-events:none}
 
 /* 버튼·메시지 */
 .primary{display:block;width:100%;min-height:56px;margin-top:22px;padding:12px;border:0;border-radius:16px;background:var(--ink);color:#fff;font-size:17px;font-weight:800;letter-spacing:-.02em;transition:transform .1s}
@@ -137,20 +169,20 @@ footer a{display:inline-block;margin-top:10px;padding:10px 0;color:var(--muted)}
 /* 내 응모 확인 팝업 */
 #lookup label{display:block;font-size:13px;font-weight:700;color:var(--muted)}
 .lookup-row{display:flex;gap:8px;margin-top:8px}
+.lookup-row .phone-field{flex:1;min-width:0}
+.lookup-row .phone-field input{min-width:0}
 .lookup-btn{flex:none;min-width:76px;min-height:52px;border:0;border-radius:14px;background:var(--ink);color:#fff;font-weight:800;padding:0 18px}
 .popup .lookup-list{list-style:none;margin:20px 0 0;padding:2px;display:grid;gap:10px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain}
 .lookup-item{padding:14px 14px;border-radius:14px;background:#fff;border:1px solid var(--line);box-shadow:0 2px 8px rgba(20,18,14,.05)}
 .lookup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
 .lookup-meta{display:flex;flex-wrap:wrap;gap:2px 5px;margin:0;font-size:12.5px;font-weight:600;letter-spacing:-.04em;white-space:nowrap}
 .lookup-meta span:first-child:after{content:" /";color:#b9b2a3;font-weight:400}
-.lookup-reason{display:block;margin-top:6px;color:var(--danger)!important;font-weight:600}
 .lookup-item small{color:var(--muted);font-size:12px}
 .badge{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:800;background:var(--gold-soft);color:#7a5200}
-.lookup-item.approved .badge{background:#e3f4e8;color:#1b6b3a}
-.lookup-item.rejected .badge{background:#fdecea;color:var(--danger)}
 #lookup-dialog .popup-actions{margin-top:16px}
 .field-error{margin:7px 2px 0;font-size:13px;font-weight:600;color:var(--danger)}
-.consent{margin-top:20px}
+.consent{margin-top:6px}
+.consent~#submit{margin-top:8px}
 .consent-row{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .consent-open{flex:none;min-height:44px;padding:0 4px;border:0;background:none;color:#7a5200;font-size:14px;font-weight:700;text-decoration:underline;white-space:nowrap}
 .popup{width:min(94vw,420px);padding:22px 16px 16px;border:0;border-radius:20px;color:var(--ink)}
@@ -163,14 +195,27 @@ footer a{display:inline-block;margin-top:10px;padding:10px 0;color:var(--muted)}
 .popup-actions .popup-agree{background:var(--ink);border-color:var(--ink);color:#fff}
 .consent-check{display:flex;align-items:center;gap:10px;min-height:44px;font-size:14px;font-weight:700;cursor:pointer}
 .consent-check input{width:22px;height:22px;min-height:0;flex:none;padding:0;accent-color:var(--ink)}
+.event-closed :is(#apply,#entry-intro .intro,.activity){display:none}
+.test-banner{position:sticky;top:0;z-index:20;margin:0;padding:10px 12px;text-align:center;background:#16130f;color:#ffd873;font-size:13px;font-weight:800;word-break:keep-all}
+.closed-notice{margin-bottom:20px;padding:20px 16px;text-align:center;background:var(--gold-soft);border:1.5px solid var(--gold);word-break:keep-all}
+.closed-notice strong{display:block;font-size:19px}
+.closed-notice p{margin:6px 0 0;font-size:14px}
+.closed-notice a{display:inline-flex;align-items:center;min-height:44px;margin-top:6px;color:#b33a00;font-weight:800;text-underline-offset:3px}
 .card-details summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
 .card-details ul{margin:0 0 8px;padding-left:18px}
 .card-details li{margin:3px 0}
+.card-details .notice-group{margin:12px 0 0;list-style:none;word-break:keep-all}
+.card-details ul:has(.notice-group){padding-left:0}
+.card-details .notice-group strong{display:block;margin-bottom:3px}
+.card-details .notice-group p{margin:4px 0 0}
+.card-details .notice-steps{margin:0;padding-left:20px;list-style:decimal}
 .extra{margin:16px 16px 0;display:grid;gap:10px}
 .card-details{background:var(--surface);border-radius:18px;padding:2px 18px;font-size:14px}
 .card-details summary{font-weight:800}
+.card-details .summary-hint{margin-left:6px;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap}
+.card-details[open] .summary-hint{display:none}
 .card-details[open]{padding-bottom:14px}
-.lookup-item.approved{background:#eaf6ee;border-color:#b9dcc4}.visit{margin-top:16px;padding:16px;background:#fff;border-radius:14px;text-align:center}
+.visit{margin-top:16px;padding:16px;background:#fff;border-radius:14px;text-align:center}
 .visit-title{margin:0 0 6px;font-size:13px;font-weight:700;color:var(--muted)}
 .visit strong,.visit small{display:block}
 .visit strong{font-size:18px;letter-spacing:-.03em}
@@ -339,12 +384,22 @@ footer{text-align:center}
 .luckup .hero{background:var(--orange);padding-top:0;color:var(--ink);text-align:center}
 .luckup .hero-media{margin:0 -20px}
 .luckup .hero-visual{display:block}
-.luckup .hero-visual img{
-  display:block;width:80%;max-width:360px;height:auto;margin:auto;
-  /* Match the promo page fade below the receipt edge. */
-  mask-image:linear-gradient(to bottom,#000 97.8%,#0005 98.25%,transparent 98.85%);
-}
-.luckup .hero .period{display:flex;justify-content:space-between;gap:6px;width:min(66.3%,299px);margin:8px auto 14px;color:#fff;font-size:clamp(13px,4.3vw,18px);font-weight:800;letter-spacing:.035em;white-space:nowrap}
+.luckup .hero-visual img{display:block;width:66.2%;max-width:298px;height:auto;margin:auto}
+/* 응모기간은 영수증 하단 빈자리(바코드를 지운 곳)에 HTML 글자로 올린다. top 은 이미지 높이 대비 위치 */
+/* 100만 방문 축하 배경: 영수증 뒤에서 고르게 퍼지는 햇살(::before)과 천천히 깜빡이는 반짝임(::after) */
+.luckup .hero{position:relative;isolation:isolate;overflow:hidden;background:radial-gradient(ellipse 68% 50% at 50% 42%,rgba(255,172,76,.6),transparent 74%),var(--orange)}
+.luckup .hero::before,.luckup .hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:center top/100% 100% no-repeat}
+.luckup .hero::before{background-image:url(/goldenbell/hero-burst.svg)}
+.luckup .hero::after{background-image:url(/goldenbell/hero-stars.svg)}
+@media(prefers-reduced-motion:no-preference){.luckup .hero::after{animation:hero-twinkle 3.2s ease-in-out infinite alternate}}
+@keyframes hero-twinkle{from{opacity:.35}to{opacity:1}}
+/* 영수증만 남긴 투명 배경 이미지라 그림자는 종이 모양(톱니)을 따라간다 */
+.luckup .hero-visual{filter:drop-shadow(0 2px 3px rgba(90,20,0,.2)) drop-shadow(0 14px 22px rgba(90,20,0,.34))}
+.luckup .hero-media{position:relative}
+.luckup .hero .period{position:absolute;top:94.5%;left:0;right:0;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;gap:10px;margin:0;color:var(--ink);font-size:clamp(14px,4.4vw,19px);font-weight:800;letter-spacing:0;white-space:nowrap}
+.luckup .hero .period span:first-child{color:#b33a00;font-size:.86em}
+/* 경품 카드가 48px 겹쳐 올라오므로, 영수증 아래에 보이는 여백은 10px */
+.luckup .hero:has(.period span){padding-top:16px;padding-bottom:74px}
 .luckup .activity{background:var(--input-bg);border-color:var(--line);color:var(--ink);text-align:left}
 .luckup .activity button{color:var(--ink)}
 .luckup input:focus{box-shadow:0 0 0 4px rgba(255,85,12,.35)}
@@ -363,3 +418,6 @@ footer{text-align:center}
 @media(max-width:370px){.luckup .hero-media{margin:0 -15px}}
 /* 모든 박스는 사각형 (선택 표시용 원은 유지) */
 .luckup *,.luckup input::file-selector-button{border-radius:0!important}
+
+/* 부정 응모 경고 강조 */
+.notice-group .notice-warn { margin-top: 10px; padding-left: .8em; text-indent: -.8em; color: #c23400; font-weight: 800; word-break: keep-all; }

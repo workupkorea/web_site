@@ -1,39 +1,34 @@
+import { renderEventNotices } from "./notices";
+
 export const GOLDENBELL_PROMO_SECTION = "goldenbell_promo";
 export const GOLDENBELL_PROMO_PATH = "/goldenbell/promo";
 
 export const PROMO_FIELDS = [
-  { key: "participationGuide", label: "상단 응모 안내", max: 150, defaultValue: "워크업에서의 하루를 남겨주세요.\n구매 후 매장 QR코드를 스캔해 영수증 사진을 등록하면 응모가 완료돼요.", multiline: true, visibilityKey: "heroGuide" },
-  { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "영수증을 등록하면 경품 추첨에 참여할 수 있습니다." },
+  { key: "prizeIntro", label: "경품 소개 문구", max: 100, defaultValue: "워크업 구매 영수증을 등록하면 경품 추첨에 참여할 수 있습니다." },
   { key: "title", label: "브라우저·공유 제목", max: 80, defaultValue: "행운이 돌아오는 워크업 연말 이벤트!" },
-  { key: "description", label: "공유 설명", max: 200, defaultValue: "한 해 동안 수고한 당신께 워크업이 마음을 전해요. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", multiline: true },
+  { key: "description", label: "공유 설명", max: 200, defaultValue: "한 해 동안 수고한 당신께 워크업이 마음을 전해요. 골드바 1돈 10명, 커피쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", multiline: true },
 ] as const;
 
 // 예전 기본 문구가 그대로 저장돼 있으면 새 기본 문구를 보여준다. 관리자가 직접 고친 문구는 유지된다.
 const RETIRED_DEFAULTS: Partial<Record<(typeof PROMO_FIELDS)[number]["key"], readonly string[]>> = {
-  participationGuide: [
-    "워크업 매장에서 구매 후, 매장 QR코드를 스캔해 영수증 사진을 등록하세요.",
-    "워크업에서의 하루를 남겨주세요. 구매 후 매장 QR코드를 스캔해 영수증 사진을 등록하면 응모가 완료돼요.",
-  ],
   prizeIntro: [
+    "영수증을 등록하면 경품 추첨에 참여할 수 있습니다.",
     "워크업 매장에서 응모하고, 푸짐한 선물 받으세요!",
     "애쓴 당신의 한 해 끝에, 작지만 반짝이는 마음을 준비했어요.",
   ],
   title: ["워크업 연말연시 골든벨 이벤트", "워크업, 굿워크 | 연말연시 골든벨 이벤트"],
-  description: ["방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요."],
+  description: ["방문 고객 100만 달성 기념. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요.", "한 해 동안 수고한 당신께 워크업이 마음을 전해요. 골드바 1돈 10명, 메가커피 아메리카노 쿠폰 800명. 워크업 매장에서 구매 후 영수증을 등록해 응모하세요."],
 };
 
 type PromoField = (typeof PROMO_FIELDS)[number]["key"];
 export const PROMO_SECTIONS = [
-  { key: "heroRewards", label: "상단 경품 요약" },
+  { key: "heroBanner", label: "상단 골드 배너" },
   { key: "prizes", label: "경품 상세" },
   { key: "how", label: "참여 방법" },
+  { key: "notice", label: "이벤트 유의사항" },
   { key: "faq", label: "자주 묻는 질문" },
 ] as const;
-const PROMO_VISIBILITY_KEYS = [
-  ...PROMO_SECTIONS.map(({ key }) => key),
-  ...PROMO_FIELDS.flatMap((field) => "visibilityKey" in field ? [field.visibilityKey] : []),
-];
-export type PromoSection = (typeof PROMO_VISIBILITY_KEYS)[number];
+export type PromoSection = (typeof PROMO_SECTIONS)[number]["key"];
 export const PROMO_DEVICES = [{ key: "pc", label: "PC" }, { key: "mobile", label: "모바일" }] as const;
 export type PromoDevice = (typeof PROMO_DEVICES)[number]["key"];
 export type PromoVisibility = Record<PromoDevice, boolean>;
@@ -61,7 +56,7 @@ export function normalizePromoConfig(value: unknown): PromoConfig {
     config[field.key] = text && !RETIRED_DEFAULTS[field.key]?.includes(text) ? text : field.defaultValue;
   }
   const visibility = source.sections && typeof source.sections === "object" ? source.sections as Record<string, unknown> : {};
-  config.sections = Object.fromEntries(PROMO_VISIBILITY_KEYS.map((key) => [key, normalizeVisibility(visibility[key])])) as PromoConfig["sections"];
+  config.sections = Object.fromEntries(PROMO_SECTIONS.map(({ key }) => [key, normalizeVisibility(visibility[key])])) as PromoConfig["sections"];
   const custom = Array.isArray(source.customSections) ? source.customSections : [];
   const seen = new Set<string>();
   config.customSections = custom.slice(0, MAX_CUSTOM_SECTIONS).flatMap((item: unknown) => {
@@ -84,10 +79,7 @@ function renderVisible({ mobile }: PromoVisibility, render: () => string) {
 }
 
 export function renderPromoHtml(value: unknown) {
-  const { title, description, participationGuide, prizeIntro, sections, customSections } = normalizePromoConfig(value);
-  const guideHtml = escapeHtml(participationGuide)
-    .replace(/\r\n?|\n/g, "<br>")
-    .replace(/QR코드|영수증 사진/g, "<strong>$&</strong>");
+  const { title, description, prizeIntro, sections, customSections } = normalizePromoConfig(value);
   return `<!doctype html>
 <html lang="ko">
 <head>
@@ -106,21 +98,14 @@ export function renderPromoHtml(value: unknown) {
     <section class="hero" aria-labelledby="title">
       <div class="hero-copy frame">
         <h1 id="title" class="sr-only">${escapeHtml(title)}</h1>
+        ${renderVisible(sections.heroBanner, () => `<picture class="hero-banner">
+          <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-gold-banner.webp">
+          <img src="/goldenbell/promo-gold-banner-v3.gif" alt="GOLDEN MONTH, 금 캐러 가자, 워크업으로!" width="780" height="260" fetchpriority="high">
+        </picture>`)}
         <picture class="hero-visual">
-          <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-still.webp">
-          <img src="/goldenbell/promo-hero.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="941" height="1672" fetchpriority="high">
+          <source media="(prefers-reduced-motion: reduce)" srcset="/goldenbell/promo-hero-typo-still.webp">
+          <img src="/goldenbell/promo-hero-typo.gif" alt="100만 번의 방문, 고마운 마음을 담아. WORKUP, LUCKUP! 구매하고 인증하면 행운이 UP 되는 특별한 이벤트" width="935" height="1416" fetchpriority="high">
         </picture>
-        ${renderVisible(sections.heroRewards, () => `<dl class="hero-rewards" aria-label="골든벨 경품">
-          <div class="hero-reward-gold">
-            <dt><img src="/goldenbell/promo-prize-gold.webp" alt="" width="520" height="520">골드바 1돈</dt>
-            <dd>10명</dd>
-          </div>
-          <div>
-            <dt><img src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520">커피 쿠폰</dt>
-            <dd>800명</dd>
-          </div>
-        </dl>`)}
-        ${renderVisible(sections.heroGuide, () => `<p class="qr-guide">${guideHtml}</p>`)}
       </div>
     </section>
 
@@ -129,12 +114,14 @@ export function renderPromoHtml(value: unknown) {
       <p class="prize-intro">${escapeHtml(prizeIntro)}</p>
       <div class="prizes">
         <article class="prize">
+          <img src="/goldenbell/promo-prize-gold.webp" alt="" width="520" height="520" loading="lazy">
           <h3>골드바 1돈 <strong>10명</strong></h3>
-          <p>응모자 중 10명을 추첨해 골드바 1돈씩 드립니다.</p>
+          <p>응모자 중 10명을 추첨해<br>골드바 1돈씩 드립니다.</p>
         </article>
         <article class="prize">
-          <h3>메가커피 아메리카노 쿠폰 <strong>800명</strong></h3>
-          <p>매주 200명에게 아메리카노 쿠폰을 드립니다.</p>
+          <img src="/goldenbell/promo-prize-coffee.webp" alt="" width="520" height="520" loading="lazy">
+          <h3>커피쿠폰 <strong>800명</strong></h3>
+          <p><span>매주 200명 ·</span> <span>1인 1회 당첨</span></p>
         </article>
       </div>
       <p class="section-note">커피 쿠폰에 당첨된 응모 건도 골드바 추첨 대상에 포함됩니다.</p>
@@ -160,6 +147,13 @@ export function renderPromoHtml(value: unknown) {
       </div>
     </section>`)}
 
+    ${renderVisible(sections.notice, () => `<section class="frame section notice" id="notice" aria-labelledby="notice-title">
+      <h2 id="notice-title">이벤트 유의사항</h2>
+      <dl class="notice-list">
+        ${renderEventNotices((title, body) => `<div><dt>${title}</dt><dd>${body}</dd></div>`)}
+      </dl>
+    </section>`)}
+
     ${renderVisible(sections.faq, () => `<section class="frame section faq" aria-labelledby="faq-title">
       <h2 id="faq-title">궁금한 마음에 답해드려요</h2>
       <div class="questions">
@@ -174,6 +168,14 @@ export function renderPromoHtml(value: unknown) {
         <details>
           <summary>골드바에 당첨되면 어떻게 알 수 있나요?</summary>
           <p>당첨자에게는 응모할 때 입력한 휴대폰 번호로 안내해 드려요.</p>
+        </details>
+        <details>
+          <summary>커피 쿠폰은 여러 번 당첨될 수 있나요?</summary>
+          <p>아니요. 커피 쿠폰은 이벤트 기간 중 1인(휴대폰 번호 기준) 1회만 당첨되며, 중복 당첨은 없습니다.</p>
+        </details>
+        <details>
+          <summary>제출한 개인정보는 언제 파기되나요?</summary>
+          <p>수집한 개인정보와 영수증 사진은 이벤트 종료일로부터 180일간 보관한 뒤 지체 없이 파기합니다.</p>
         </details>
         <details>
           <summary>응모 내역은 어디에서 확인하나요?</summary>

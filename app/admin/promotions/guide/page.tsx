@@ -6,7 +6,6 @@ import {
   GOLDENBELL_PROMO_SECTION,
   normalizePromoConfig,
   MAX_CUSTOM_SECTIONS,
-  PROMO_DEVICES,
   PROMO_FIELDS,
   PROMO_SECTIONS,
   renderPromoHtml,
@@ -17,11 +16,11 @@ import {
 
 const SETTINGS_URL = `/api/admin/site-settings/${GOLDENBELL_PROMO_SECTION}`;
 const INPUT_CLASS = "mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-normal focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600/20";
-const PREVIEW_WIDTHS: Record<PromoDevice, number> = { pc: 1280, mobile: 390 };
+// PC 에서도 모바일 화면 그대로 보여주므로 미리보기는 모바일 폭 하나다.
+const PREVIEW_WIDTH = 390;
 const VISIBILITY_OPTIONS = [{ key: "mobile", label: "공개" }] as const;
 
-function PromoPreview({ html, panelRef, refresh }: { html: string; panelRef: RefObject<HTMLElement | null>; refresh: () => void }) {
-  const [device, setDevice] = useState<PromoDevice>("mobile");
+function PromoPreview({ html, panelRef }: { html: string; panelRef: RefObject<HTMLElement | null> }) {
   const [panelWidth, setPanelWidth] = useState(0);
   const viewport = useRef<HTMLDivElement>(null);
 
@@ -33,26 +32,12 @@ function PromoPreview({ html, panelRef, refresh }: { html: string; panelRef: Ref
     return () => observer.disconnect();
   }, []);
 
-  const width = PREVIEW_WIDTHS[device];
-  const scale = panelWidth ? Math.min(1, panelWidth / width) : 1;
+  const scale = panelWidth ? Math.min(1, panelWidth / PREVIEW_WIDTH) : 1;
 
   return (
     <section ref={panelRef} tabIndex={-1} aria-labelledby="promo-preview" className="min-w-0 scroll-mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white xl:sticky xl:top-3">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-2">
+      <div className="flex min-h-11 items-center border-b border-slate-200 px-4 py-2">
         <h2 id="promo-preview" className="text-sm font-semibold text-slate-700">안내 페이지 미리보기</h2>
-        <div className="flex gap-1" role="group" aria-label="미리보기 기기">
-          {PROMO_DEVICES.map(({ key, label }) => (
-            <button
-              key={key}
-              type="button"
-              aria-pressed={device === key}
-              onClick={() => { setDevice(key); refresh(); }}
-              className="min-h-11 rounded-md px-3 text-sm font-semibold text-slate-600 hover:bg-slate-50 aria-pressed:bg-blue-50 aria-pressed:text-blue-700"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
       </div>
       <div ref={viewport} className="relative h-[min(82dvh,64rem)] min-h-80 overflow-hidden bg-slate-100">
         <iframe
@@ -60,7 +45,7 @@ function PromoPreview({ html, panelRef, refresh }: { html: string; panelRef: Ref
           sandbox=""
           srcDoc={html}
           className="absolute top-0 block max-w-none origin-top-left"
-          style={{ width, height: `${100 / scale}%`, left: Math.max(0, (panelWidth - width * scale) / 2), transform: `scale(${scale})` }}
+          style={{ width: PREVIEW_WIDTH, height: `${100 / scale}%`, left: Math.max(0, (panelWidth - PREVIEW_WIDTH * scale) / 2), transform: `scale(${scale})` }}
         />
       </div>
     </section>
@@ -161,7 +146,7 @@ export default function PromotionGuidePage() {
         <div className="grid items-start gap-4 xl:grid-cols-[minmax(21rem,2fr)_minmax(0,3fr)]">
           <form onSubmit={publish} className="min-w-0 rounded-xl border border-slate-200 bg-white p-4 sm:p-5">
             <fieldset disabled={saving} className="min-w-0 space-y-3">
-              <legend className="mb-3 text-base font-bold text-slate-900">골든벨 안내 문구</legend>
+              <legend className="sr-only">안내 문구 설정</legend>
               <section className="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3" aria-labelledby="promo-sections">
                 <h2 id="promo-sections" className="text-sm font-bold text-slate-800">기본 섹션 표시</h2>
                 <table className="w-full table-fixed text-left text-sm text-slate-700">
@@ -191,7 +176,6 @@ export default function PromotionGuidePage() {
               </section>
               {PROMO_FIELDS.map((field) => {
                 const id = `promo-field-${field.key}`;
-                const visibilityKey = "visibilityKey" in field ? field.visibilityKey : undefined;
                 const props = {
                   id,
                   name: field.key,
@@ -203,20 +187,7 @@ export default function PromotionGuidePage() {
                 const update = (value: string) => updateConfig({ ...config, [field.key]: value });
                 return (
                   <div key={field.key}>
-                    <div className="flex flex-wrap items-center justify-between gap-x-3">
-                      <label htmlFor={id} className="text-sm font-semibold text-slate-700">{field.label}</label>
-                      {visibilityKey && (
-                        <div role="group" aria-label={`${field.label} 공개 여부`} className="flex gap-x-3">
-                          {VISIBILITY_OPTIONS.map(({ key, label }) => (
-                            <label key={key} className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-xs font-medium text-slate-700">
-                              <input type="checkbox" aria-label={`${field.label} ${label}`} checked={config.sections[visibilityKey][key]}
-                                onChange={(event) => updateVisibility(visibilityKey, key, event.target.checked)} className="size-4 accent-blue-700" />
-                              {label}
-                            </label>
-                          ))}
-                        </div>
-                      )}
-                    </div>
+                    <label htmlFor={id} className="text-sm font-semibold text-slate-700">{field.label}</label>
                     {"multiline" in field
                       ? <textarea {...props} rows={3} onChange={(event) => update(event.target.value)} />
                       : <input {...props} onChange={(event) => update(event.target.value)} />}
@@ -291,7 +262,7 @@ export default function PromotionGuidePage() {
             {notice && <p role={notice.error ? "alert" : "status"} className={`mt-3 text-sm ${notice.error ? "text-rose-700" : "text-emerald-700"}`}>{notice.text}</p>}
           </form>
 
-          <PromoPreview html={previewHtml} panelRef={previewRef} refresh={() => setPreviewHtml(renderPromoHtml(config))} />
+          <PromoPreview html={previewHtml} panelRef={previewRef} />
         </div>
       )}
     </section>

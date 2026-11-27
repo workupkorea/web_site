@@ -1,3 +1,6 @@
+// 직원 테스트 링크(?test=키)로 들어오면 모든 응모 요청에 같은 키를 붙인다.
+const testKey = new URLSearchParams(location.search).get('test');
+const apiUrl = path => testKey === null ? path : `${path}?test=${encodeURIComponent(testKey)}`;
 const form = document.querySelector('#apply');
 const entryIntro = document.querySelector('#entry-intro');
 const activity = document.querySelector('#activity-text');
@@ -39,7 +42,7 @@ let scratchPass = 0;
 let scratchChecking = false;
 let drawId;
 const MAX_VISIBLE_STORES = 30;
-const DEFAULT_STORE_HINT = '지역명을 입력하면 근처 지점을 고를 수 있어요.';
+const DEFAULT_STORE_HINT = ''; // 기본 안내는 입력칸 플레이스홀더가 대신한다
 
 /* ---------- 경품 카드 애니메이션 ---------- */
 const coffeeFill = document.querySelector('.coffee-fill');
@@ -111,10 +114,15 @@ let activityIndex = 0;
 let emojiIndex = 0;
 let activityPaused = reducedMotion.matches;
 let activityLoading = false;
+let activityLoaded = false;
+let idleStores = []; // 오늘 응모가 없을 때 돌려 보여줄 매장 (섞은 순서)
+const rollingItems = () => activityRows.length ? activityRows : activityLoaded ? idleStores : [];
 
 function renderActivity(rolling = false) {
-  const item = activityRows[activityIndex];
-  activity.textContent = item ? `오늘 ${item.store} 응모 ${item.count.toLocaleString('ko-KR')}건` : '오늘은 아직 접수된 응모가 없어요.';
+  const item = rollingItems()[activityIndex];
+  activity.textContent = !item ? '오늘은 아직 접수된 응모가 없어요.'
+    : activityRows.length ? `${item.store}에서 응모되었어요 · 오늘 ${item.count.toLocaleString('ko-KR')}건`
+    : `${item.store}에서도 응모할 수 있어요`;
   if (!rolling) return;
   emojiIndex = (emojiIndex + 1) % activityEmojis.length;
   activityEmoji.textContent = activityEmojis[emojiIndex];
@@ -126,7 +134,7 @@ function renderActivity(rolling = false) {
   }
 }
 function updateActivityControl() {
-  activityToggle.hidden = !activityRows.length;
+  activityToggle.hidden = !rollingItems().length;
   activityToggle.textContent = activityPaused ? '▶' : 'Ⅱ';
   activityToggle.setAttribute('aria-label', activityPaused ? '응모 현황 롤링 재생' : '응모 현황 롤링 일시정지');
 }
@@ -134,12 +142,13 @@ async function refreshActivity() {
   if (!activityToggle || activityLoading || document.hidden) return;
   activityLoading = true;
   try {
-    const response = await fetch('/goldenbell/api/entries/activity');
+    const response = await fetch(apiUrl('/goldenbell/api/entries/activity'));
     if (!response.ok) return;
     const {activity: rows} = await response.json();
-    const currentStore = activityRows[activityIndex]?.store;
+    const currentStore = rollingItems()[activityIndex]?.store;
     activityRows = rows;
-    activityIndex = Math.max(0, rows.findIndex(item => item.store === currentStore));
+    activityLoaded = true;
+    activityIndex = Math.max(0, rollingItems().findIndex(item => item.store === currentStore));
     renderActivity();
     updateActivityControl();
   } catch { /* 다음 갱신 때 다시 시도한다. */ }
@@ -151,28 +160,33 @@ if (activityToggle) {
   void refreshActivity();
   setInterval(refreshActivity, 30000);
   setInterval(() => {
-    if (activityPaused || document.hidden || !activityRows.length) return;
-    activityIndex = (activityIndex + 1) % activityRows.length;
+    const {length} = rollingItems();
+    if (activityPaused || document.hidden || !length) return;
+    activityIndex = (activityIndex + 1) % length;
     renderActivity(true);
   }, 6500);
 }
 
 /* ---------- 휴대폰 번호 뒤 8자리 ---------- */
-const fullPhone = () => `010${phoneInput.value.replace(/\D/g, '')}`;
+const fullPhone = (input = phoneInput) => `010${input.value.replace(/\D/g, '')}`;
 function phoneSuffix(value) {
   const digits = value.replace(/\D/g, '').replace(/^010(?=\d{8}$)/, '').slice(0, 8);
   return digits.replace(/^(\d{4})(\d+)/, '$1-$2');
 }
-phoneInput.addEventListener('input', () => {
-  phoneInput.value = phoneSuffix(phoneInput.value);
-});
-phoneInput.addEventListener('paste', (event) => {
-  const pasted = event.clipboardData?.getData('text');
-  if (!pasted || !/^010\d{8}$/.test(pasted.replace(/\D/g, ''))) return;
-  event.preventDefault();
-  phoneInput.value = phoneSuffix(pasted);
-  phoneInput.dispatchEvent(new Event('input', {bubbles: true}));
-});
+// 응모 폼과 응모 확인 팝업이 함께 쓴다. 010 을 포함한 번호를 붙여 넣어도 뒤 8자리만 남긴다.
+function bindPhoneSuffix(input) {
+  input.addEventListener('input', () => {
+    input.value = phoneSuffix(input.value);
+  });
+  input.addEventListener('paste', (event) => {
+    const pasted = event.clipboardData?.getData('text');
+    if (!pasted || !/^010\d{8}$/.test(pasted.replace(/\D/g, ''))) return;
+    event.preventDefault();
+    input.value = phoneSuffix(pasted);
+    input.dispatchEvent(new Event('input', {bubbles: true}));
+  });
+}
+bindPhoneSuffix(phoneInput);
 
 /* ---------- 방문 매장: 지역명 입력 → 지점 선택 ---------- */
 let allStores = [];
@@ -302,6 +316,11 @@ async function loadStores() {
     if (!response.ok) throw Error('Load failed');
     allStores = (await response.json()).stores || [];
     storesLoaded = true;
+    idleStores = allStores.map(({name}) => ({store: name, order: Math.random()})).sort((a, b) => a.order - b.order);
+    if (activityToggle && activityLoaded && !activityRows.length) {
+      renderActivity();
+      updateActivityControl();
+    }
     // ?store=성수점 링크로 들어오면 해당 지점을 미리 선택
     const preferred = new URLSearchParams(location.search).get('store')?.trim().slice(0, 60);
     if (preferred) {
@@ -311,6 +330,7 @@ async function loadStores() {
     }
     renderStores();
     if (store.value) { region.value = store.value; selectStore(store.value); storeList.hidden = true; }
+    updateSubmit();
   } catch {
     setStoreStatus('매장 목록을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.');
   }
@@ -342,6 +362,19 @@ for (const key of ['name', 'phone']) {
 }
 consent.addEventListener('change', () => setError('consent', ''));
 
+/* 필수 항목을 모두 채워야 응모 버튼이 켜진다. 접수 중에는 계속 꺼 둔다. */
+const submitHint = document.querySelector('#submit-hint');
+let submitting = false;
+function updateSubmit() {
+  const incomplete = Object.values(checks).some(check => check());
+  submit.disabled = submitting || incomplete;
+  submitHint.hidden = submitting || !incomplete;
+}
+form.addEventListener('input', updateSubmit);
+form.addEventListener('change', updateSubmit);
+window.addEventListener('pageshow', updateSubmit); // 뒤로 가기로 입력값이 복원된 경우
+updateSubmit();
+
 if (!isInstantPreview) {
   let phoneCheckTimer;
   let phoneCheckRequest;
@@ -354,7 +387,7 @@ if (!isInstantPreview) {
       const request = new AbortController();
       phoneCheckRequest = request;
       try {
-        const response = await fetch('/goldenbell/api/entries/check-phone', {
+        const response = await fetch(apiUrl('/goldenbell/api/entries/check-phone'), {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({phone}), signal: request.signal
         });
@@ -364,6 +397,17 @@ if (!isInstantPreview) {
       } catch { /* 응모 접수 시 다시 확인한다. */ }
     }, 250);
   });
+}
+
+/* 응모 규칙 제목은 화면에 처음 보일 때 반짝이기 시작한다 (횟수는 CSS) */
+const entryRule = document.querySelector('.receipt-entry-rule');
+if (entryRule && 'IntersectionObserver' in window) {
+  const ruleObserver = new IntersectionObserver(([entry]) => {
+    if (!entry.isIntersecting) return;
+    entryRule.classList.add('shine');
+    ruleObserver.disconnect();
+  }, {threshold: .6});
+  ruleObserver.observe(entryRule);
 }
 
 /* ---------- 영수증 (큰 사진은 올리기 전에 줄인다) ---------- */
@@ -605,7 +649,7 @@ function showSoldOut(moveFocus) {
 async function checkPreviewAvailability() {
   try {
     const response = await fetch(drawUrl);
-    if (response.ok && (await response.json()).soldOut && !submit.disabled && scratchTicket.hidden && success.hidden) {
+    if (response.ok && (await response.json()).soldOut && !submitting && scratchTicket.hidden && success.hidden) {
       showSoldOut(form.contains(document.activeElement));
     }
   } catch { /* Submit checks availability again. */ }
@@ -615,7 +659,7 @@ if (isInstantPreview) checkPreviewAvailability();
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
-  if (submit.disabled || form.hidden) return;
+  if (submitting || form.hidden) return;
   showMessage('');
   let firstInvalid;
   for (const key of Object.keys(checks)) {
@@ -624,7 +668,8 @@ form.addEventListener('submit', async event => {
     if (text && !firstInvalid) firstInvalid = fieldFocus[key];
   }
   if (firstInvalid) { firstInvalid.focus(); return; }
-  submit.disabled = true;
+  submitting = true;
+  updateSubmit();
   submit.textContent = isInstantPreview ? '복권 준비 중…' : '접수 중…';
   try {
     let upload = await shrink(receipt.files[0]);
@@ -647,7 +692,7 @@ form.addEventListener('submit', async event => {
       openScratchTicket(result.outcome, store.value);
       return;
     }
-    const response = await fetch('/goldenbell/api/entries', {method: 'POST', body: data});
+    const response = await fetch(apiUrl('/goldenbell/api/entries'), {method: 'POST', body: data});
     const result = await response.json();
     if (response.status === 409 && (result.field === 'phone' || result.field === 'receipt')) {
       setError(result.field, result.error);
@@ -655,13 +700,14 @@ form.addEventListener('submit', async event => {
       return;
     }
     if (!response.ok) { showMessage(result.error || '응모를 완료하지 못했어요.'); return; }
-    lookupPhone.value = String(data.get('phone'));
+    lookupPhone.value = phoneSuffix(String(data.get('phone')));
     void refreshActivity();
     showSuccess(formatReceiptCode(result.code));
   } catch {
     showMessage('연결을 확인한 뒤 다시 눌러주세요.');
   } finally {
-    submit.disabled = false;
+    submitting = false;
+    updateSubmit();
     submit.textContent = submitLabel;
   }
 });
@@ -669,6 +715,7 @@ document.querySelector('#again').addEventListener('click', () => {
   drawId = undefined;
   clearPhoto();
   receipt.value = '';
+  updateSubmit();
   success.hidden = true;
   entryIntro.hidden = false;
   form.hidden = false;
@@ -680,31 +727,29 @@ document.querySelector('#again').addEventListener('click', () => {
 const lookupForm = document.querySelector('#lookup');
 const lookupPhone = document.querySelector('#lookup-phone');
 const lookupList = document.querySelector('#lookup-list');
-const statusText = {pending: '검수 중', approved: '승인', rejected: '반려'};
 const lookupDate = new Intl.DateTimeFormat('ko-KR', {dateStyle: 'medium', timeZone: 'Asia/Seoul'});
-lookupPhone?.addEventListener('input', () => {
-  const digits = lookupPhone.value.replace(/\D/g, '').slice(0, 11);
-  lookupPhone.value = digits.replace(/^(\d{3})(\d{1,4})?(\d{1,4})?$/, (_, a, b, c) => [a, b, c].filter(Boolean).join('-'));
-  setError('lookup', '');
-});
+if (lookupPhone) {
+  bindPhoneSuffix(lookupPhone);
+  lookupPhone.addEventListener('input', () => setError('lookup', ''));
+}
 lookupForm?.addEventListener('submit', async event => {
   event.preventDefault();
   lookupList.replaceChildren();
-  if (!/^010\d{8}$/.test(lookupPhone.value.replace(/\D/g, ''))) { setError('lookup', '010으로 시작하는 휴대폰 번호를 확인해 주세요.'); return; }
+  if (!/^\d{4}-\d{4}$/.test(lookupPhone.value)) { setError('lookup', '휴대폰 번호 뒤 8자리를 입력해 주세요.'); return; }
   setError('lookup', '');
   try {
-    const response = await fetch('/goldenbell/api/entries/lookup', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({phone: lookupPhone.value})});
+    const response = await fetch(apiUrl('/goldenbell/api/entries/lookup'), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({phone: fullPhone(lookupPhone)})});
     const data = await response.json();
     if (!response.ok) { setError('lookup', data.error || '조회하지 못했어요.'); return; }
     if (!data.entries.length) { setError('lookup', '이 번호로 접수된 응모가 없어요.'); return; }
     lookupList.append(...data.entries.map(entry => {
       const li = document.createElement('li');
-      li.className = 'lookup-item ' + entry.status;
+      li.className = 'lookup-item';
       const head = document.createElement('div');
       head.className = 'lookup-head';
       const badge = document.createElement('span');
       badge.className = 'badge';
-      badge.textContent = statusText[entry.status];
+      badge.textContent = '응모 완료';
       const code = document.createElement('small');
       code.textContent = '접수번호 ' + formatReceiptCode(entry.code);
       head.append(badge, code);
@@ -717,12 +762,6 @@ lookupForm?.addEventListener('submit', async event => {
       };
       meta.append(part('응모일자', lookupDate.format(new Date(entry.created_at))), part('응모지점', entry.store));
       li.append(head, meta);
-      if (entry.reason) {
-        const reason = document.createElement('small');
-        reason.className = 'lookup-reason';
-        reason.textContent = '반려 사유: ' + entry.reason;
-        li.append(reason);
-      }
       return li;
     }));
   } catch { setError('lookup', '연결을 확인한 뒤 다시 눌러주세요.'); }
@@ -732,7 +771,7 @@ lookupForm?.addEventListener('submit', async event => {
 const consentDialog = document.querySelector('#consent-dialog');
 document.querySelector('#consent-open').addEventListener('click', () => consentDialog.showModal());
 document.querySelector('#consent-close').addEventListener('click', () => consentDialog.close());
-document.querySelector('#consent-agree').addEventListener('click', () => { consent.checked = true; setError('consent', ''); consentDialog.close(); });
+document.querySelector('#consent-agree').addEventListener('click', () => { consent.checked = true; setError('consent', ''); updateSubmit(); consentDialog.close(); });
 consentDialog.addEventListener('click', event => { if (event.target === consentDialog) consentDialog.close(); });
 
 /* ---------- 내 응모 확인 팝업 ---------- */

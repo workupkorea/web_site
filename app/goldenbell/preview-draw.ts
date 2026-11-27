@@ -103,7 +103,10 @@ export function drawPreview(id: string, entry: PreviewEntry): Outcome {
       return "already-entered";
     }
 
-    const outcome = randomInt(2) === 0 ? "won" : "lost";
+    // 커피쿠폰은 번호당 1회만 당첨. 반려된 당첨 건은 쿠폰이 나가지 않으므로 제외한다.
+    const hasWon = db.prepare("SELECT 1 FROM preview_entries e JOIN preview_draws d ON d.id = e.id WHERE e.phone = ? AND d.outcome = 'won' AND e.status <> 'rejected' LIMIT 1")
+      .get(entry.phone);
+    const outcome = !hasWon && randomInt(2) === 0 ? "won" : "lost";
     db.prepare("INSERT INTO preview_draws (id, week, outcome) VALUES (?, ?, ?)").run(id, week, outcome);
     db.prepare("INSERT INTO preview_entries (id, name, phone, store, mime, photo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
       .run(id, entry.name, entry.phone, entry.store, entry.mime, entry.photo, new Date(now).toISOString());

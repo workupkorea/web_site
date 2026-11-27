@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { savePromotionEvent } from "./actions";
-import { eventStatuses, type PromotionEvent } from "./events";
+import type { PromotionEvent } from "./events";
 
 const fieldRow = "flex min-w-0 items-center gap-3";
 const fieldLabel = "shrink-0 whitespace-nowrap";
@@ -13,11 +13,20 @@ export default function EventForm({ event, cancelHref }: { event?: PromotionEven
   const [error, save, pending] = useActionState(savePromotionEvent, "");
   const [fields, setFields] = useState({
     name: event?.name ?? "",
-    status: event?.status ?? "planned",
     start: event?.start ?? "",
     end: event?.end ?? "",
     publicUrl: event?.publicUrl ?? "",
   });
+  const [flags, setFlags] = useState({ entry: event?.entry ?? false, archived: event?.status === "archived" });
+  function flag(name: keyof typeof flags) {
+    return {
+      name,
+      type: "checkbox" as const,
+      checked: flags[name],
+      onChange: (change: React.ChangeEvent<HTMLInputElement>) => setFlags((current) => ({ ...current, [name]: change.target.checked })),
+      className: "size-4 accent-blue-700",
+    };
+  }
   function field(name: keyof typeof fields) {
     return {
       name,
@@ -44,12 +53,10 @@ export default function EventForm({ event, cancelHref }: { event?: PromotionEven
             <span className={fieldLabel}>이벤트명</span>
             <input {...field("name")} required maxLength={80} className={input} />
           </label>
-          <label className={fieldRow}>
-            <span className={fieldLabel}>상태</span>
-            <select {...field("status")} className={input}>
-              {Object.entries(eventStatuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </label>
+          <div className={`${fieldRow} flex-wrap gap-x-5`}>
+            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2"><input {...flag("entry")} />영수증 응모</label>
+            <label className="inline-flex min-h-11 cursor-pointer items-center gap-2"><input {...flag("archived")} />보관 (지난 이벤트 · 고객 응모 중단)</label>
+          </div>
           <label className={fieldRow}>
             <span className={fieldLabel}>시작일</span>
             <input {...field("start")} type="date" className={input} />

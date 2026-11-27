@@ -34,7 +34,7 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 }
 
 .hero-copy {
-  padding-block: 0 34px;
+  padding-block: 0;
 }
 
 .hero-visual { display: block; width: min(100% + 2.5rem, 480px); margin-inline: 50%; transform: translateX(-50%); }
@@ -46,57 +46,9 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   mask-image: linear-gradient(to bottom, #000 97.8%, #0005 98.25%, transparent 98.85%);
 }
 
-.hero-rewards {
-  --reward-art-size: clamp(52px, 16cqw, 86px);
-  --reward-text-gap: 4px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 24px auto 0;
-  border-block: 1px solid #ffffff80;
-  /* 가운데 구분선: 각 항목은 내용 너비만 차지하므로 목록 배경으로 그린다. */
-  background: linear-gradient(#ffffff80, #ffffff80) center / 1px 100% no-repeat;
-  text-align: center;
-}
-
-.hero-rewards > div {
-  position: relative;
-  display: grid;
-  align-content: center;
-  justify-self: center;
-  min-height: calc(var(--reward-art-size) + 18px);
-  padding: 9px 0;
-  padding-inline-start: calc(var(--reward-art-size) + var(--reward-text-gap) + var(--reward-art-inset, 0px));
-}
-.hero-reward-gold {
-  /* The coffee image has about 19% more transparent space on its right edge. */
-  --reward-art-inset: calc(var(--reward-art-size) * .19);
-}
-.hero-rewards img {
-  position: absolute;
-  inset-inline-start: 0;
-  top: 50%;
-  width: var(--reward-art-size);
-  height: auto;
-  transform: translateY(-50%);
-}
-.hero-rewards dt { font-size: 13px; line-height: 1.3; font-weight: 750; }
-.hero-rewards dd {
-  margin: 2px 0 0;
-  font-size: clamp(25px, 6.4cqw, 32px);
-  font-weight: 900;
-  letter-spacing: -.07em;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.qr-guide {
-  max-width: 42rem;
-  margin: 15px auto 0;
-  font-size: 14px;
-  line-height: 1.55;
-  color: var(--white);
-}
-.qr-guide strong { color: var(--white); font-weight: 850; }
+/* 최상단 배너: 주황색 영역의 좌우 끝까지 채운다. */
+.hero-banner { display: block; width: min(100% + 2.5rem, 520px); margin-left: 50%; transform: translateX(-50%); }
+.hero-banner img { display: block; width: 100%; height: auto; }
 
 .section { padding-block: 30px; }
 .section h2 {
@@ -111,26 +63,48 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   font-size: 14px;
   line-height: 1.6;
 }
-.prize-intro { margin-bottom: 18px; }
+.prize-intro { margin-bottom: 18px; text-wrap: balance; }
 .prizes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
-.prize { padding: 16px 18px; border: 1px solid var(--rule); background: #fff; }
-.prize h3 {
+/* 경품 카드: 여백·이미지·당첨 인원이 본문 폭(cqw)에 맞춰 함께 커진다. */
+.prize {
+  --pad: clamp(14px, calc(8cqw - 15px), 26px);
+  --art: clamp(64px, calc(20cqw - 7px), 96px);
+  --count: clamp(20px, calc(15cqw - 31px), 44px);
+  position: relative;
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 2px 12px;
-  align-items: baseline;
+  flex-direction: column;
+  justify-content: center;
+  min-height: calc(var(--art) + 40px);
+  padding: 20px calc(var(--pad) + var(--count) * 2.75 + 6px) 20px calc(var(--pad) * 2 + var(--art));
+  border: 1px solid var(--rule);
+  background: #fff;
+}
+.prize img { position: absolute; top: 50%; left: var(--pad); width: var(--art); height: auto; transform: translateY(-50%); }
+.prize p { word-break: keep-all; font-size: clamp(13px, 3.6cqw, 14px); letter-spacing: -.035em; }
+.prize p span { display: inline-block; }
+.prize h3 {
   margin-bottom: 8px;
   font-size: 16px;
   letter-spacing: -.035em;
 }
-.prize h3 strong { color: var(--orange); font-size: 1.15em; white-space: nowrap; }
+/* 당첨 인원: 카드 오른쪽, 제목+설명 전체 기준 세로 중앙 */
+.prize h3 strong {
+  position: absolute;
+  top: 50%;
+  right: var(--pad);
+  transform: translateY(-50%);
+  color: var(--orange);
+  font-size: var(--count);
+  letter-spacing: -.05em;
+  line-height: 1;
+  white-space: nowrap;
+}
 .prize small { display: block; margin-top: 8px; font-size: 13px; }
 .section-note { margin-top: 12px; padding-inline-start: 1em; text-indent: -1em; }
 .section-note::before { content: "※ "; }
 .section .section-note { font-size: 13px; }
 
-.how > .frame, .faq, .promo-custom-section { border-top: 1px solid var(--rule); }
+.how > .frame, .notice, .faq, .promo-custom-section { border-top: 1px solid var(--rule); }
 .how-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
 .how-heading h2 { margin-bottom: 0; }
 .steps {
@@ -199,6 +173,17 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   to { --how-store-line-angle: 360deg; }
 }
 
+.notice-list { margin: 0; border: 1px solid var(--rule); background: #fff; }
+.notice-list > div { padding: 14px 18px; }
+.notice-list > div + div { border-top: 1px solid var(--rule); }
+.notice-list dt { margin-bottom: 4px; font-size: 15px; font-weight: 850; letter-spacing: -.035em; }
+.notice-list dd { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; word-break: keep-all; }
+.notice-list dd p { margin: 0; }
+.notice-list dd ol + p { margin-top: 6px; }
+.notice-steps { margin: 0; padding-inline-start: 1.4em; list-style: decimal; }
+.notice-steps li + li { margin-top: 3px; }
+.notice-steps li::marker { color: var(--orange); font-weight: 800; }
+
 .questions { border-top: 1px solid var(--rule); }
 .questions details { border-bottom: 1px solid var(--rule); }
 .questions summary {
@@ -230,3 +215,6 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
   transform: translateX(-50%) rotate(45deg);
   pointer-events: none;
 }
+
+/* 부정 응모 경고 강조 */
+.notice-list dd .notice-warn { margin-top: 10px; padding-left: .8em; text-indent: -.8em; color: #c23400; font-weight: 800; word-break: keep-all; }

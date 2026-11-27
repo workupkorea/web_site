@@ -58,11 +58,24 @@
   & .record{padding:12px;border-top:1px solid var(--admin-line);overflow-wrap:anywhere}
   & .record p{margin:0 0 8px}
   & .record-actions{display:flex;gap:6px;flex-wrap:wrap}
+  & .record{position:relative}
+  & .record-status{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;align-items:flex-end;gap:4px;max-width:150px;text-align:right}
+  & .record-status .reason-tag{margin-left:0}
+  & .record-who{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;padding-right:160px}
+  & .record-who span{font-variant-numeric:tabular-nums}
+  & .record p.record-meta{margin:0;font-size:13px;color:var(--admin-muted)}
+  & .record-foot{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px}
+  & .record-text{min-width:0}
+  & .record .record-text p{margin:0}
+  & .record-foot + p{margin-top:8px}
+  & .record-foot .record-actions{margin-left:auto;justify-content:flex-end}
   & .record button, & .controls button, & .pager button, & .link-tool button{border:1px solid var(--admin-line);background:var(--admin-surface);padding:7px 10px;min-height:44px}
   & .record button.status-current{background:var(--admin-pending-bg)}
   & .duplicate{color:var(--admin-danger);font-weight:800}
   & .receipt-img{display:block;margin-top:8px;max-width:100%;max-height:420px;object-fit:contain}
   & .pager{display:flex;gap:8px;align-items:center;justify-content:center}
+  & .list-more{flex-direction:column;margin-top:12px;font-size:13px;color:var(--muted)}
+  & .list-more button{width:min(100%,360px);min-height:44px;border:1px solid var(--admin-line);background:var(--admin-surface);color:var(--ink);font-weight:700}
   & .link-tool{margin:20px 0}
   & .link-tool summary{cursor:pointer}
   & .link-tool input{margin:8px 0;min-height:48px}
@@ -120,6 +133,7 @@
   /* 응모자 카드를 한 줄에 여러 명 배치 */
   & #groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:12px;align-items:start}
   & #groups .group{margin:0}
+  & #groups.masonry{grid-auto-rows:1px;row-gap:0;align-items:start}
   & #groups .record{grid-template-columns:auto 80px 1fr}
   & #groups .record .record-actions{grid-column:1/-1}
   & #groups .thumb{width:80px;height:80px}
@@ -128,6 +142,61 @@
 }
 
 .promotion-review{
+  & goldenbell-draw{display:block}
+  & goldenbell-draw button{min-height:44px;padding:6px 12px;border:1px solid var(--line);background:var(--admin-surface);color:var(--ink);font-size:14px;font-weight:700}
+  & goldenbell-draw button.draw-run{border-color:var(--admin-accent);background:var(--admin-accent);color:var(--admin-surface)}
+  & .draw-dialog{width:min(96vw,1080px);max-height:90dvh;padding:0;overflow:auto;border:1px solid var(--line)}
+  & .draw-dialog::backdrop{background:rgba(0,0,0,.55)}
+  & .draw-dialog-head{position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--admin-surface)}
+  & .draw-dialog-head h2{margin:0;font-size:18px;font-weight:700}
+  & .draw-view-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+  & .draw-view-head h2{margin:0;font-size:18px;font-weight:700}
+  & .draw-view-head>div{display:flex;flex-wrap:wrap;gap:6px}
+  &.draw-open>:not(goldenbell-draw), & .draw-open>:not(goldenbell-draw){display:none!important}
+  & .draw-view:focus{outline:0}
+  & .draw-view .draw-winners{max-height:min(46dvh,380px)}
+  & .draw-winners .summary-table :is(th,td){padding:3px 10px;font-size:13px;line-height:1.35}
+  & goldenbell-draw .draw-winners button{min-height:30px;padding:2px 10px;font-size:12px}
+  @media (pointer:coarse){& goldenbell-draw .draw-winners button{min-height:44px}}
+  & .draw-winners thead th{position:sticky;top:0;z-index:1}
+  & .draw-winners :is(td,th){white-space:nowrap}
+  & .draw-winners button{white-space:nowrap}
+  & .draw-dialog-body{padding:16px}
+  & .draw-message{margin:0;font-size:14px;font-weight:700}
+  & .draw-message:not(:empty){margin-bottom:12px;padding:10px 12px;background:var(--admin-info-bg);color:var(--admin-info)}
+  & .draw-message.error:not(:empty){background:var(--admin-danger-bg);color:var(--danger)}
+  & .draw-upload{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-top:8px}
+  & .draw-upload .hint{margin:0}
+  & .draw-machines{display:grid;grid-template-columns:minmax(0,1fr)}
+  & .draw-view .draw-card-head h3{display:none}
+  & .draw-tabs{display:flex;flex-wrap:wrap;margin-bottom:12px;border-bottom:2px solid var(--admin-accent)}
+  & goldenbell-draw .draw-tabs button{flex:1 1 200px;border-bottom:0}
+  & goldenbell-draw .draw-tabs button[aria-pressed=true]{border-color:var(--admin-accent);background:var(--admin-accent);color:var(--admin-surface)}
+  & .draw-card{display:flex;flex-direction:column;gap:12px;min-width:0;padding:16px;border:1px solid var(--line)}
+  & .draw-card-head h3{margin:0;font-size:16px;font-weight:700}
+  & .draw-card-head p{margin:2px 0 0;font-size:12px;color:var(--muted)}
+  & .draw-round{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:10px;font-size:13px;font-weight:700;white-space:nowrap}
+  & .draw-round select{min-height:44px;font-size:14px}
+  & .draw-quota{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:13px;font-weight:700}
+  & .draw-quota label{display:flex;align-items:center;gap:10px;white-space:nowrap}
+  & .draw-quota input{width:110px;min-height:44px;font-size:15px;text-align:right}
+  & .draw-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin:0;border:1px solid var(--line);background:var(--line)}
+  & .draw-stats>div{padding:10px 6px;text-align:center;background:var(--admin-subtle)}
+  & .draw-stats dt{font-size:12px;color:var(--muted)}
+  & .draw-stats dd{margin:2px 0 0;font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  & .draw-notice{margin:0;font-size:13px;color:var(--admin-pending)}
+  & .draw-actions{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+  & .draw-winners{max-height:320px;overflow:auto}
+  & .draw-winners>.hint{margin:0;padding:20px 12px;text-align:center;border:1px dashed var(--line)}
+  & .draw-dialog-body>.draw-winners{margin-top:12px}
+  & .draw-results h3{margin:14px 0 6px;font-size:15px;font-weight:700}
+  & .draw-results table td:nth-child(n){color:var(--ink);font-weight:400}
+  & .draw-winners table td:nth-child(n){color:var(--ink);font-weight:400}
+  & .draw-winners .canceled td{color:var(--muted);text-decoration:line-through}
+  & .draw-winners .flagged td{background:var(--admin-danger-bg)}
+  & .draw-exclude{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) auto;gap:8px;align-items:start}
+  & .draw-exclude textarea{width:100%;min-height:48px;padding:10px 12px;font:inherit;border:1.5px solid var(--line);resize:vertical}
+  @container (max-width:850px){& .draw-machines, & .draw-exclude{grid-template-columns:minmax(0,1fr)}}
   & .panel{margin-top:8px;padding:8px 10px}
   & .panel:first-child{margin-top:0}
   & .filter-bar + .panel{margin-top:0;border-top:0}
@@ -156,12 +225,18 @@
   & .list-actions{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px}
   & #toggle-groups{min-height:44px;padding:4px 10px;border:1px solid var(--line);background:var(--admin-surface);font-size:13px;font-weight:700}
   & .group-list-head, & #groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:10px;row-gap:0}
+  & #groups{row-gap:6px}
+  & #groups.masonry{row-gap:0}
+  & .group-list-head:not([hidden]){margin-bottom:6px}
   & :is(.group-list-head>div,#groups .group>summary){display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr) minmax(0,1.15fr);align-items:stretch;gap:0;padding:0}
   & :is(.group-list-head>div,#groups .group>summary)>span{display:flex;align-items:center;align-content:center;min-width:0;padding:6px 8px}
   & :is(.group-list-head>div,#groups .group>summary)>span:not(:last-child){border-inline-end:1px solid var(--line)}
   & .group-list-head>div>span{justify-content:center;text-align:center}
   & .group-list-head>div{border:1px solid var(--line);background:var(--admin-subtle);font-size:13px;font-weight:700;color:var(--muted)}
-  & #groups .group{min-width:0;border:1px solid var(--line);border-top:0;}
+  & #groups .group{min-width:0;border:1px solid var(--line)}
+  /* 모두 접혀 있으면 같은 줄의 두 카드 높이를 맞춘다. */
+  & #groups:not(:has(.group[open])) .group{align-self:stretch}
+  & #groups:not(:has(.group[open])) .group>summary{height:100%}
   & #groups+.pager{margin-top:8px}
   & #groups .group>summary{list-style:none;min-height:44px}
   & #groups .group>summary::-webkit-details-marker{display:none}
@@ -172,6 +247,12 @@
   & .group-who>span{white-space:nowrap}
   & .group-stores{display:flex;flex-wrap:wrap;gap:4px;font-size:13px}
   & .chip.store-chip{background:var(--admin-info-bg);color:var(--admin-info);overflow-wrap:anywhere}
+  /* 응모 건은 낮게: 지점·접수번호를 붙이고 검수 버튼 높이를 줄인다. */
+  & .record{padding-block:8px}
+  & .record p.record-who{margin-bottom:2px}
+  & .record-foot{align-items:flex-end}
+  & .record .record-actions :is(button,select){min-height:30px;padding:2px 10px;font-size:13px}
+  @media (pointer:coarse){& .record .record-actions :is(button,select){min-height:44px}}
 
   @container (min-width:951px){
     & .filter-bar :is(input,select,#export), & .review-toggle, & #toggle-groups, & .panel .select-all, & .pager button{min-height:36px}
@@ -188,12 +269,14 @@
     & .status-bar .stat-row{grid-column:1/-1;grid-row:2;grid-template-columns:repeat(auto-fit,minmax(min(100%,94px),1fr))}
     & .store-stats-grid{grid-template-columns:1fr}
     & .group-list-head{display:none}
-    & #groups .group:first-child{border-top:1px solid var(--line)}
     & #groups .group>summary{grid-template-columns:minmax(0,1fr);padding-block:4px}
     & #groups .group>summary>span{padding-block:3px}
     & #groups .group>summary>span:not(:last-child){border-inline-end:0}
   }
   @container (max-width:460px){
+    /* 좁은 화면: 상태 뱃지를 윗줄로 올려 이름이 세로로 꺾이지 않게 한다. */
+    & .record .record-status{position:static;order:-1;grid-column:1/-1;flex-direction:row;justify-content:flex-end;max-width:none}
+    & .record p.record-who{padding-right:0}
     & .filter-bar .filters{grid-template-columns:minmax(0,1fr)}
     & .filter-bar input[type=date]{padding-inline:6px}
   }
