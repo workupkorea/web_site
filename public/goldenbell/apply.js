@@ -365,10 +365,22 @@ consent.addEventListener('change', () => setError('consent', ''));
 /* 필수 항목을 모두 채워야 응모 버튼이 켜진다. 접수 중에는 계속 꺼 둔다. */
 const submitHint = document.querySelector('#submit-hint');
 let submitting = false;
+const incompleteHint = submitHint.textContent;
+const TAKEN_PHONE_MESSAGE = '이미 응모한 번호예요. 이벤트 기간 중 1인 1회만 응모할 수 있어요.';
+let takenPhone = ''; // 서버가 이미 응모했다고 알려준 번호. 이 번호가 입력돼 있으면 이후 단계를 잠근다.
+const lockedSteps = [region.closest('.field'), receipt.closest('.field'), consent.closest('.consent')];
 function updateSubmit() {
   const incomplete = Object.values(checks).some(check => check());
-  submit.disabled = submitting || incomplete;
-  submitHint.hidden = submitting || !incomplete;
+  const taken = takenPhone === fullPhone();
+  for (const step of lockedSteps) step.inert = taken; // 매장·영수증·동의는 터치와 키보드 입력이 모두 막힌다
+  submit.disabled = submitting || incomplete || taken;
+  submitHint.textContent = taken ? '이미 응모한 번호라 응모할 수 없어요.' : incompleteHint;
+  submitHint.hidden = submitting || !(incomplete || taken);
+}
+function markTakenPhone(phone, text) {
+  takenPhone = phone;
+  if (fullPhone() === phone) setError('phone', text);
+  updateSubmit();
 }
 form.addEventListener('input', updateSubmit);
 form.addEventListener('change', updateSubmit);
@@ -378,7 +390,7 @@ updateSubmit();
 if (!isInstantPreview) {
   let phoneCheckTimer;
   let phoneCheckRequest;
-  phoneInput.addEventListener('input', () => {
+  const checkTakenPhone = () => {
     clearTimeout(phoneCheckTimer);
     phoneCheckRequest?.abort();
     if (!phoneInput.value || checks.phone()) return;
@@ -393,21 +405,12 @@ if (!isInstantPreview) {
         });
         if (response.status !== 409) return;
         const result = await response.json();
-        if (!request.signal.aborted && fullPhone() === phone && !form.hidden) setError('phone', result.error);
+        if (!request.signal.aborted && !form.hidden) markTakenPhone(phone, result.error);
       } catch { /* 응모 접수 시 다시 확인한다. */ }
     }, 250);
-  });
-}
-
-/* 응모 규칙 제목은 화면에 처음 보일 때 반짝이기 시작한다 (횟수는 CSS) */
-const entryRule = document.querySelector('.receipt-entry-rule');
-if (entryRule && 'IntersectionObserver' in window) {
-  const ruleObserver = new IntersectionObserver(([entry]) => {
-    if (!entry.isIntersecting) return;
-    entryRule.classList.add('shine');
-    ruleObserver.disconnect();
-  }, {threshold: .6});
-  ruleObserver.observe(entryRule);
+  };
+  phoneInput.addEventListener('input', checkTakenPhone);
+  window.addEventListener('pageshow', checkTakenPhone); // 새로고침·뒤로 가기로 번호가 복원된 경우
 }
 
 /* ---------- 영수증 (큰 사진은 올리기 전에 줄인다) ---------- */
@@ -695,11 +698,13 @@ form.addEventListener('submit', async event => {
     const response = await fetch(apiUrl('/goldenbell/api/entries'), {method: 'POST', body: data});
     const result = await response.json();
     if (response.status === 409 && (result.field === 'phone' || result.field === 'receipt')) {
-      setError(result.field, result.error);
+      if (result.field === 'phone') markTakenPhone(data.get('phone'), result.error);
+      else setError(result.field, result.error);
       fieldFocus[result.field].focus();
       return;
     }
     if (!response.ok) { showMessage(result.error || '응모를 완료하지 못했어요.'); return; }
+    markTakenPhone(data.get('phone'), TAKEN_PHONE_MESSAGE); // 완료 후 돌아와도 같은 번호로는 다시 누를 수 없다
     lookupPhone.value = phoneSuffix(String(data.get('phone')));
     void refreshActivity();
     showSuccess(formatReceiptCode(result.code));

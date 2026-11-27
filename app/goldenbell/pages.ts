@@ -103,7 +103,7 @@ return `<!doctype html>
           <span class="phone-prefix" aria-hidden="true">010</span>
           <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-local" placeholder="00000000" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" required aria-label="휴대폰 번호 뒤 8자리" aria-describedby="phone-error phone-limit">
         </div>
-        <ul class="hint hint-list" id="phone-limit"><li>${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "이벤트 기간 중 1인 1회만 응모할 수 있어요."}</li></ul>
+        <ul class="hint hint-list" id="phone-limit"><li>${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "동일한 번호로는 1회만 응모할 수 있어요."}</li></ul>
         <p class="field-error" id="phone-error" role="alert" hidden></p>
       </div>
 
@@ -122,7 +122,7 @@ return `<!doctype html>
         <div class="file-panel">
           <div class="receipt-picker-row">
             <span id="receipt-filename" role="status">선택된 파일 없음</span>
-            <button id="receipt-picker" type="button" aria-describedby="file-help${preview ? "" : " receipt-entry-rule"} receipt-error">영수증 선택</button>
+            <button id="receipt-picker" type="button" aria-describedby="file-help receipt-error">영수증 선택</button>
             <input id="receipt" name="receipt" type="file" accept="image/jpeg,image/png,image/webp" required hidden>
           </div>
           <img id="preview" alt="첨부한 영수증 미리보기" hidden>
@@ -130,11 +130,8 @@ return `<!doctype html>
         <ul class="hint hint-list" id="file-help">
           <li>매장명과 구매일이 보이게 찍어주세요.</li>
           <li>${preview ? '영수증 사진이 흐리거나 구매 내역을 확인할 수 없는 경우, <strong>응모가 취소됩니다.</strong>' : '초점이 맞지 않거나 흐린 사진은 응모에서 제외될 수 있습니다.'}</li>
+          ${preview ? "" : "<li>동일 번호는 1회만 응모 가능해요.</li>"}
         </ul>
-        ${preview ? "" : `<p class="receipt-entry-rule" id="receipt-entry-rule">
-          <strong><span aria-hidden="true">📌</span> <b class="rule-title">1인 1회 응모 · 중복 응모 불가</b></strong>
-          영수증이 여러 장이어도 이벤트 기간(12.01 – 12.31) 중 한 번만 응모할 수 있어요.
-        </p>`}
         </div>
         <p class="field-error" id="receipt-error" role="alert" hidden></p>
       </div>
