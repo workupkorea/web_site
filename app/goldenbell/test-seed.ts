@@ -4,7 +4,7 @@ import { crc32, deflateSync } from "node:zlib";
 import { isTestId } from "@/app/admin/promotions/entries/events";
 import { createAdminClient } from "@/lib/supabase-server";
 
-const PEOPLE = 300; // 커피 1주차 정원(200명)을 넘겨 추첨을 확인할 수 있는 인원
+const PEOPLE = 500; // 1인 1회라 한 주 분량이 커피 정원(200명)을 넘도록 넉넉히 넣는다
 const EXCLUDED = [1, 2, 150, 151, 152];
 const REASONS = ["영수증 불명확", "기간 외 구매", "중복 응모", "매장 정보 불일치", "기타"];
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -61,25 +61,17 @@ export async function seedTestData(testId: string, now = Date.now()) {
 
   const rows = [];
   for (let person = 1; person <= PEOPLE; person++) {
-    const count = person <= 20 ? 5 : person <= 100 ? 2 : 1;
-    for (let n = 0; n < count; n++) {
-      // 하루 1회 규칙: 같은 번호는 서로 다른 날짜에, 같은 시각 기준으로 넣는다.
-      const daysAgo = 1 + ((person + n * 2) % SPREAD_DAYS);
-      const created = new Date(now - daysAgo * DAY_MS).toISOString();
-      const roll = randomInt(100);
-      const status = roll < 82 ? "approved" : roll < 92 ? "pending" : "rejected";
-      const id = randomUUID();
-      rows.push({
-        id, event_id: testId, phone: phone(person), name: `테스트${String(person).padStart(3, "0")}`,
-        store: stores.data[randomInt(stores.data.length)].name as string, photo_path: photos[randomInt(photos.length)],
-        photo_hash: createHash("sha256").update(id).digest("hex"), status,
-        reject_reason: status === "rejected" ? REASONS[randomInt(REASONS.length)] : null, created_at: created, consent_at: created,
-      });
-    }
+    const created = new Date(now - (1 + (person % SPREAD_DAYS)) * DAY_MS).toISOString();
+    const roll = randomInt(100);
+    const status = roll < 82 ? "approved" : roll < 92 ? "pending" : "rejected";
+    const id = randomUUID();
+    rows.push({
+      id, event_id: testId, phone: phone(person), name: `테스트${String(person).padStart(3, "0")}`,
+      store: stores.data[randomInt(stores.data.length)].name as string, photo_path: photos[randomInt(photos.length)],
+      photo_hash: createHash("sha256").update(id).digest("hex"), status,
+      reject_reason: status === "rejected" ? REASONS[randomInt(REASONS.length)] : null, created_at: created, consent_at: created,
+    });
   }
-  // 중복 의심 확인용: 서로 다른 번호 5쌍이 같은 사진
-  for (let i = 0; i < 5; i++) rows[rows.length - 1 - i].photo_hash = rows[rows.length - 11 - i].photo_hash;
-
   for (let from = 0; from < rows.length; from += INSERT_CHUNK) {
     const { error } = await sb.from("goldenbell_entries").insert(rows.slice(from, from + INSERT_CHUNK));
     if (error) throw error;

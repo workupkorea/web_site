@@ -158,12 +158,12 @@ export function renderPromoHtml(value: unknown) {
       <h2 id="faq-title">궁금한 마음에 답해드려요</h2>
       <div class="questions">
         <details>
-          <summary>하루에 몇 번 응모할 수 있나요?</summary>
-          <p>같은 휴대폰 번호로 하루에 한 번 응모할 수 있어요. 매일 밤 12시부터 다시 응모할 수 있으며, 이미 사용한 영수증은 다시 등록할 수 없어요.</p>
+          <summary>몇 번 응모할 수 있나요?</summary>
+          <p>이벤트 기간 중 1인(휴대폰 번호 기준) 1회만 응모할 수 있어요. 응모를 마치면 다시 응모할 수 없고, 이미 사용한 영수증은 다른 번호로도 등록할 수 없어요.</p>
         </details>
         <details>
           <summary>어떤 영수증으로 응모할 수 있나요?</summary>
-          <p>2026년 12월 1일부터 31일까지 워크업 매장에서 구매한 영수증으로 응모할 수 있어요. 영수증 1장당 1회 응모할 수 있고, 매장명·구매일·결제금액이 확인되지 않으면 반려될 수 있어요.</p>
+          <p>2026년 12월 1일부터 31일까지 워크업 매장에서 구매한 영수증으로 12월 31일까지 응모할 수 있어요. 매장명·구매일·결제금액이 확인되지 않으면 반려될 수 있어요.</p>
         </details>
         <details>
           <summary>골드바에 당첨되면 어떻게 알 수 있나요?</summary>
@@ -171,7 +171,7 @@ export function renderPromoHtml(value: unknown) {
         </details>
         <details>
           <summary>커피 쿠폰은 여러 번 당첨될 수 있나요?</summary>
-          <p>아니요. 커피 쿠폰은 이벤트 기간 중 1인(휴대폰 번호 기준) 1회만 당첨되며, 중복 당첨은 없습니다.</p>
+          <p>아니요. 1인 1회 응모 이벤트라서 커피 쿠폰도 1인(휴대폰 번호 기준) 1회만 당첨됩니다.</p>
         </details>
         <details>
           <summary>제출한 개인정보는 언제 파기되나요?</summary>

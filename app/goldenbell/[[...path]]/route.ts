@@ -24,9 +24,10 @@ export const dynamic = "force-dynamic";
 const TABLE = "goldenbell_entries";
 const BUCKET = "goldenbell-receipts";
 const ENTRY_DAY_FORMAT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul" });
-const DAILY_PHONE_KEY = "goldenbell_entries_phone_day_key";
-const PHONE_RECEIPT_KEY = "goldenbell_entries_phone_photo_hash_key";
-const DAILY_PHONE_MESSAGE = "이 번호로 오늘 이미 응모했어요.";
+const PHONE_KEY = "goldenbell_entries_event_phone_key";
+const PHOTO_KEY = "goldenbell_entries_event_photo_key";
+const PHONE_MESSAGE = "이미 응모한 번호예요. 이벤트 기간 중 1인 1회만 응모할 수 있어요.";
+const PHOTO_MESSAGE = "이미 응모에 사용한 영수증이에요. 다른 영수증 사진을 올려주세요.";
 const PAGE_SIZE = 30; // 검수 목록: 한 페이지 응모자 수
 const MAX_PHOTO = 4 * 1024 * 1024; // Vercel 함수 요청 본문 한도(4.5MB) 안쪽
 const MAX_ENTRY_BODY = MAX_PHOTO + 32 * 1024; // 영수증과 multipart 필드·헤더 포함
@@ -193,13 +194,15 @@ async function readEntry(request: Request) {
   return { name, phone, store, photo, mime };
 }
 
-async function hasEntryOnDay(sb: ReturnType<typeof createAdminClient>, eventId: string, phone: string, day: string) {
-  const { data, error } = await sb.from(TABLE).select("id").eq("event_id", eventId).eq("entry_phone", phone).eq("entry_day", day).maybeSingle();
+// 이벤트당 번호 1회. 최종 차단은 DB 고유 인덱스(PHONE_KEY·PHOTO_KEY)가 한다.
+async function hasEntry(sb: ReturnType<typeof createAdminClient>, eventId: string, column: "entry_phone" | "photo_hash", value: string) {
+  const { data, error } = await sb.from(TABLE).select("id").eq("event_id", eventId).eq(column, value).limit(1);
   if (error) throw error;
-  return Boolean(data);
+  return Boolean(data?.length);
 }
 
-const duplicatePhone = () => json(409, { error: DAILY_PHONE_MESSAGE, field: "phone" });
+const duplicatePhone = () => json(409, { error: PHONE_MESSAGE, field: "phone" });
+const duplicatePhoto = () => json(409, { error: PHOTO_MESSAGE, field: "receipt" });
 
 const closed = () => fail(403, "지금은 응모 기간이 아니에요.");
 const testExpired = () => fail(403, "테스트 링크가 만료됐어요. 관리자에게 새 링크를 받아 주세요.");
@@ -225,9 +228,10 @@ async function submit(request: Request) {
   const now = receivedAt.toISOString();
   const day = ENTRY_DAY_FORMAT.format(receivedAt);
   const sb = createAdminClient();
-  if (await hasEntryOnDay(sb, event.id, phone, day)) return duplicatePhone();
-
+  if (await hasEntry(sb, event.id, "entry_phone", phone)) return duplicatePhone();
   const hash = createHash("sha256").update(photo).digest("hex");
+  if (await hasEntry(sb, event.id, "photo_hash", hash)) return duplicatePhoto();
+
   const id = randomUUID();
   const path = `${day.slice(0, 4)}/${id}.${MIME_EXT[mime]}`;
   const upload = await sb.storage.from(BUCKET).upload(path, photo, { contentType: mime });
@@ -237,11 +241,10 @@ async function submit(request: Request) {
     const { error: cleanupError } = await sb.storage.from(BUCKET).remove([path]);
     if (cleanupError) console.error("[goldenbell] failed to remove unregistered receipt", cleanupError);
     if (insert.error.code === "23505") {
-      if (insert.error.message.includes(DAILY_PHONE_KEY)) return duplicatePhone();
-      if (insert.error.message.includes(PHONE_RECEIPT_KEY)) {
-        // 같은 날 같은 사진을 동시에 올리면 영수증 제약이 먼저 충돌할 수 있다.
-        if (await hasEntryOnDay(sb, event.id, phone, day)) return duplicatePhone();
-        return json(409, { error: "이미 응모에 사용한 영수증이에요. 다른 영수증 사진을 올려주세요.", field: "receipt" });
+      if (insert.error.message.includes(PHONE_KEY)) return duplicatePhone();
+      if (insert.error.message.includes(PHOTO_KEY)) {
+        // 같은 번호가 같은 사진을 동시에 올리면 영수증 제약이 먼저 충돌할 수 있다.
+        return await hasEntry(sb, event.id, "entry_phone", phone) ? duplicatePhone() : duplicatePhoto();
       }
     }
     throw insert.error;
@@ -260,8 +263,7 @@ async function checkPhone(request: Request) {
   if (event instanceof Response) return event;
   const phone = await readPhone(request);
   if (!phone) return fail(400, "010으로 시작하는 휴대폰 번호를 확인해 주세요.");
-  const day = ENTRY_DAY_FORMAT.format(new Date());
-  return await hasEntryOnDay(createAdminClient(), event.id, phone, day) ? duplicatePhone() : json(200, { available: true });
+  return await hasEntry(createAdminClient(), event.id, "entry_phone", phone) ? duplicatePhone() : json(200, { available: true });
 }
 
 // 휴대폰 번호로 접수번호·매장·응모일만 조회 (번호는 URL 이 아닌 본문으로 받는다).

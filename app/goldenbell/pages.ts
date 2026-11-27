@@ -103,7 +103,7 @@ return `<!doctype html>
           <span class="phone-prefix" aria-hidden="true">010</span>
           <input id="phone" name="phone" type="tel" inputmode="numeric" autocomplete="tel-local" placeholder="00000000" maxlength="9" pattern="[0-9]{4}-[0-9]{4}" required aria-label="휴대폰 번호 뒤 8자리" aria-describedby="phone-error phone-limit">
         </div>
-        <ul class="hint hint-list" id="phone-limit"><li>${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "같은 번호로 하루에 한 번만 응모할 수 있어요."}</li></ul>
+        <ul class="hint hint-list" id="phone-limit"><li>${preview ? "동일한 휴대폰 번호로는 하루에 한 번만 응모할 수 있습니다." : "이벤트 기간 중 1인 1회만 응모할 수 있어요."}</li></ul>
         <p class="field-error" id="phone-error" role="alert" hidden></p>
       </div>
 
@@ -132,8 +132,8 @@ return `<!doctype html>
           <li>${preview ? '영수증 사진이 흐리거나 구매 내역을 확인할 수 없는 경우, <strong>응모가 취소됩니다.</strong>' : '초점이 맞지 않거나 흐린 사진은 응모에서 제외될 수 있습니다.'}</li>
         </ul>
         ${preview ? "" : `<p class="receipt-entry-rule" id="receipt-entry-rule">
-          <strong><span aria-hidden="true">📌</span> <b class="rule-title">구매 당일 · 1인 하루 1회 응모</b></strong>
-          구매한 날이 지나면 해당 영수증으로 응모할 수 없어요. 같은 날 영수증을 여러 장 받아도 한 번만 응모할 수 있어요.
+          <strong><span aria-hidden="true">📌</span> <b class="rule-title">1인 1회 응모 · 중복 응모 불가</b></strong>
+          영수증이 여러 장이어도 이벤트 기간(12.01 – 12.31) 중 한 번만 응모할 수 있어요.
         </p>`}
         </div>
         <p class="field-error" id="receipt-error" role="alert" hidden></p>
@@ -195,8 +195,8 @@ return `<!doctype html>
         <dt>접수번호</dt>
         <dd id="result"></dd>
       </dl>
-      <p class="success-tomorrow"><strong>내일도 행운에 도전해 보세요!</strong></p>
-      <p class="success-rule">1인 하루 한 번 응모할 수 있으며,<br>12월 중 재방문 구매 시 응모할 수 있습니다.</p>
+      <p class="success-tomorrow"><strong>당첨의 행운을 기다려 주세요!</strong></p>
+      <p class="success-rule">이벤트 기간 중 1인 1회만 응모할 수 있어<br>추가 응모는 할 수 없습니다.</p>
       <hr>
       <div class="success-actions">
         <button id="again" class="primary success-back" type="button">응모화면으로 돌아가기</button>
@@ -302,7 +302,7 @@ const renderDrawPanels = (event: string) => `
         <button type="button" data-tab="gold" aria-pressed="false">전체 대상 당첨기</button>
       </div>
       <p class="draw-message" data-role="message" role="status"></p>
-      <div class="draw-machines">${drawCard("coffee", "중복제외 주간 당첨기", "주차별 승인 응모 · 번호당 1표 · 이전 주 당첨 번호 제외")}${drawCard("gold", "전체 대상 당첨기", "전체 승인 응모 · 응모 건수만큼 확률 · 번호당 1회 당첨")}
+      <div class="draw-machines">${drawCard("coffee", "중복제외 주간 당첨기", "주차별 승인 응모 · 번호당 1표 · 이전 주 당첨 번호 제외")}${drawCard("gold", "전체 대상 당첨기", "전체 승인 응모 · 번호당 1표 · 번호당 1회 당첨")}
       </div>
     </section>${drawDialog("excluded", "추첨 제외번호", `
       <form class="draw-exclude" data-role="exclude-form">
