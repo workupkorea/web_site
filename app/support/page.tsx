@@ -5,12 +5,13 @@ import { getFooterConfig } from "@/lib/footer-server";
 import { DEFAULT_SUPPORT, normalizeSupport, type SupportConfig } from "@/lib/site-content";
 import SupportForm from "@/components/SupportForm";
 import { ikSrc } from "@/lib/imageSrc";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/support" },
+export const metadata: Metadata = pageMetadata({
   title: "고객센터 · 1:1 문의",
-  description: "제품·사이즈·매장 방문 등 1:1 문의.",
-};
+  description: "제품·사이즈·매장 방문 문의는 워크업 고객센터 전화와 1:1 문의로 남겨 주세요.",
+  path: "/support",
+});
 
 export default async function SupportPage() {
   const [supRaw, footer] = await Promise.all([

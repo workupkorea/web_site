@@ -544,7 +544,8 @@ export default function StoreLocator({
                 type="text"
                 value={search}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="매장명·지역 검색"
+                placeholder="매장·지역"
+                aria-label="매장명·지역 검색"
                 className="w-full pl-9 pr-8 py-2.5 border border-gray-300 bg-white text-sm text-[#303236] placeholder-gray-400 focus:outline-none focus:border-[#303236]"
               />
               {search && (

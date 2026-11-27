@@ -27,3 +27,13 @@ export async function getHeaderNavConfig(): Promise<HeaderNavConfig> {
     return DEFAULT_HEADER_NAV;
   }
 }
+
+/** PRODUCTS 메뉴 비공개(내부 정책) 여부 — 상품 계열 페이지의 noindex·sitemap 제외 기준 */
+export async function isProductsHidden(): Promise<boolean> {
+  try {
+    const nav = await getHeaderNavConfig();
+    return nav.items.find((it) => it.href === "/products")?.isVisible === false;
+  } catch {
+    return false;
+  }
+}

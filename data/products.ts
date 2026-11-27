@@ -111,7 +111,6 @@ export type Product = {
   fitNote?: string;
   materialSpecs?: { label: string; value: string }[];
   washCare?: { icon: "cold" | "no-dry" | "no-bleach" | "low-iron" | "hand-wash"; text: string }[];
-  productReviews?: { stars: number; text: string; job: string; period?: string }[];
   detailPoints?: string[];
   lifestyleScenes?: { tag: string; title: string; desc: string }[];
   sizePrices?: { size: string; weight?: string; price: string }[];
@@ -247,11 +246,6 @@ export const products: Product[] = [
       { icon: "no-dry",    text: "건조기 사용 금지" },
       { icon: "no-bleach", text: "표백제 금지" },
       { icon: "low-iron",  text: "저온 다림질" },
-    ],
-    productReviews: [
-      { stars: 5, text: "새벽 배달할 때 입는데 비 와도 속이 안 젖어요. 가볍기도 하고 재구매 의사 있습니다.", job: "배달기사", period: "2개월 착용" },
-      { stars: 5, text: "현장 감독 다니는데 바람이 센 날 유용해요. 생각보다 얇은데 방풍이 정말 잘 됩니다.", job: "건설 현장 감독", period: "1개월 착용" },
-      { stars: 4, text: "퇴근 후 바로 데이트 나갔는데 작업복 같지 않아서 좋았어요.", job: "전기 기술자" },
     ],
   },
   {

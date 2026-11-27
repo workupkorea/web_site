@@ -4,12 +4,13 @@ import { getSiteSection } from "@/lib/site-settings";
 import { DEFAULT_STORY, DEFAULT_STORY_STYLE, storyStyleVars, type StoryConfig } from "@/data/story";
 import StoryHeroView from "@/components/StoryHeroView";
 import StorySectionView from "@/components/StorySectionView";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/story" },
+export const metadata: Metadata = pageMetadata({
   title: "워크업 소개",
-  description: "현장에서 시작한 워크업의 철학과 이야기.",
-};
+  description: "현장에서 시작한 작업복·워크웨어 브랜드 워크업의 철학과 이야기.",
+  path: "/story",
+});
 
 // 관리자(/admin/main/story)에서 저장한 구성을 읽는다. 없으면 DEFAULT_STORY로 폴백 → 편집 전엔 기존과 동일.
 export default async function StoryPage() {

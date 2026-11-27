@@ -277,12 +277,12 @@ export default function Header({
                       target={it.newTab ? "_blank" : undefined}
                       rel={it.newTab ? "noopener noreferrer" : undefined}
                       onClick={() => trackNavClick(it.label, href, !!it.newTab)}
-                      className="hover:text-[#E5541B] transition-colors"
+                      className="inline-flex items-center min-h-[44px] hover:text-[#E5541B] transition-colors"
                     >
                       {it.label}
                     </a>
                   ) : (
-                    <Link href={href} onClick={() => trackNavClick(it.label, href)} className="hover:text-[#E5541B] transition-colors">
+                    <Link href={href} onClick={() => trackNavClick(it.label, href)} className="inline-flex items-center min-h-[44px] hover:text-[#E5541B] transition-colors">
                       {it.label}
                     </Link>
                   )}

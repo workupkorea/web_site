@@ -3,11 +3,12 @@ import { WholesaleForm } from "@/components/PartnershipForms";
 import PartnershipLayout from "@/components/PartnershipLayout";
 import { normalizePartnership, type PartnershipConfig } from "@/data/partnership";
 import { getSiteSection } from "@/lib/site-settings";
+import { pageMetadata } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteSection<PartnershipConfig>("partnership_page");
   const info = normalizePartnership(config).wholesale;
-  return { title: { absolute: info.seo_title }, description: info.seo_desc, alternates: { canonical: "/partnership/wholesale" } };
+  return pageMetadata({ title: info.seo_title, description: info.seo_desc, path: "/partnership/wholesale", absoluteTitle: true });
 }
 
 export default async function WholesalePage() {

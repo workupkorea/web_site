@@ -6,6 +6,8 @@ import { ikSrc } from "@/lib/imageSrc";
 import ProductFeatureGrid from "@/components/ProductFeatureGrid";
 import { isAdmin } from "@/lib/admin-auth";
 import { subExhibitionPath } from "@/lib/home-layout";
+import { pageMetadata } from "@/lib/seo";
+import { isProductsHidden } from "@/lib/header-nav-server";
 
 // banner가 "main"이면 메인 기획전 상세, 숫자면 서브 배너 상세
 const loadDetail = (slug: string, banner: string, preview: boolean) =>
@@ -24,15 +26,13 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { slug, banner } = await params;
   const detail = await loadDetail(slug, banner, await isCampaignPreview((await searchParams).campaign));
   if (!detail) return { title: "기획전" };
-  return {
-    title: `${detail.title}`,
+  return pageMetadata({
+    title: detail.title,
     description: detail.desc || `${detail.title} 기획전. 워크업 매장에서 직접 체험해보세요.`,
-    openGraph: {
-      title: `${detail.title} — 워크업`,
-      description: detail.desc,
-      images: detail.imageUrl ? [detail.imageUrl] : undefined,
-    },
-  };
+    path: `/products/feature/${slug}/${banner}`,
+    image: detail.imageUrl,
+    noindex: await isProductsHidden(),
+  });
 }
 
 export default async function BannerDetailPage({ params, searchParams }: Props) {

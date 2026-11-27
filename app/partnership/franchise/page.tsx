@@ -6,11 +6,12 @@ import { normalizePartnership, type PartnershipConfig } from "@/data/partnership
 import { normalizeFranchiseGuide, type FranchiseGuideConfig } from "@/data/franchise-guide";
 import { getSiteSection } from "@/lib/site-settings";
 import { getActiveStoreCount } from "@/lib/publicStores";
+import { pageMetadata } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteSection<PartnershipConfig>("partnership_page");
   const info = normalizePartnership(config).franchise;
-  return { title: { absolute: info.seo_title }, description: info.seo_desc, alternates: { canonical: "/partnership/franchise" } };
+  return pageMetadata({ title: info.seo_title, description: info.seo_desc, path: "/partnership/franchise", absoluteTitle: true });
 }
 
 export default async function FranchisePage() {

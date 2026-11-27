@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase-server";
+import { pageMetadata } from "@/lib/seo";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -62,17 +63,14 @@ type Props = { params: Promise<{ id: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const pages = await getPopupPages();
-  const page = pages.find(p => p.id === id);
-  if (!page) return { title: { absolute: "워크업" } };
-  return {
+  const page = pages.find(p => p.id === id && p.is_visible !== false);
+  if (!page) return { title: "페이지를 찾을 수 없습니다" };
+  return pageMetadata({
     title: page.title,
     description: page.description || `${page.title}. 워크업 매장에서 직접 체험해보세요.`,
-    openGraph: {
-      title: `${page.title} — 워크업`,
-      description: page.description,
-      images: page.hero_image_url ? [page.hero_image_url] : undefined,
-    },
-  };
+    path: `/p/${id}`,
+    image: page.hero_image_url,
+  });
 }
 
 // ── 페이지 컴포넌트 ───────────────────────────────────────────────────────────

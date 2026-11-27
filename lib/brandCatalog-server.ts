@@ -84,3 +84,30 @@ export async function loadBrandCatalog(
     return null;
   }
 }
+
+/**
+ * 카탈로그(조립형 또는 PDF)가 실제로 열리는 공개 브랜드의 URL 슬러그 목록.
+ * sitemap 과 브랜드 페이지 메타데이터가 같은 기준을 쓴다. 조회 실패 시 빈 목록.
+ */
+export async function listCatalogBrandSlugs(): Promise<string[]> {
+  try {
+    const sb = createAdminClient();
+    const [brands, pages, pdfs] = await Promise.all([
+      sb.from("brands").select("id, name, is_visible, catalog_enabled"),
+      sb.from("catalog_pages").select("brand_id").eq("is_visible", true),
+      sb.from("brand_catalogs").select("brand_name, pdf_url, page_count").eq("is_visible", true),
+    ]);
+    const assembled = new Set((pages.data ?? []).map((r) => String(r.brand_id)));
+    const pdfNames = new Set(
+      (pdfs.data ?? []).filter((c) => c.pdf_url && c.page_count > 0).map((c) => normName(c.brand_name)),
+    );
+    return (brands.data ?? [])
+      .filter((b) => b.is_visible !== false)
+      .filter((b) => (b.catalog_enabled === true && assembled.has(String(b.id))) || pdfNames.has(normName(b.name)))
+      .map((b) => BRANDS.find((s) => normName(s.name) === normName(b.name))?.id ?? brandSlug(b.name))
+      .filter(Boolean);
+  } catch (e) {
+    console.error("[brandCatalog] listCatalogBrandSlugs failed:", e);
+    return [];
+  }
+}

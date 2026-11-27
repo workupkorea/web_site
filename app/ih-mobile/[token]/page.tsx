@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { isValidIHMobileViewerToken } from "@/lib/ih/mobile-viewer";
 import { searchInfluencers } from "@/lib/ih/influencers";
 import { searchSponsors, searchBranchMarketing, searchBrandedPpl } from "@/lib/ih/collabs";
@@ -10,18 +11,8 @@ export default async function IHMobileStandalonePage({ params }: { params: Promi
   const { token } = await params;
   const ok = await isValidIHMobileViewerToken(token);
 
-  if (!ok) {
-    return (
-      <div className="w-full h-full flex items-center justify-center px-6">
-        <div className="text-center">
-          <p className="text-[16px] font-bold text-slate-900">접근 권한이 없습니다</p>
-          <p className="mt-1.5 text-[13.5px] text-slate-500">
-            링크가 잘못되었거나 만료되었습니다. 관리자에게 새 링크를 요청해주세요.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  // 잘못된·만료된 토큰은 404 (안내 문구는 같은 폴더의 not-found.tsx)
+  if (!ok) notFound();
 
   const [influencersRes, sponsorsRes, branchRes, pplRes, dashboardData, integratedDashboardData] = await Promise.all([
     searchInfluencers({ pageSize: 500 }),

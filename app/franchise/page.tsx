@@ -3,12 +3,13 @@ import FranchiseGuide from "@/components/FranchiseGuide";
 import { getSiteSection } from "@/lib/site-settings";
 import { getActiveStoreCount } from "@/lib/publicStores";
 import { normalizeFranchiseGuide, type FranchiseGuideConfig } from "@/data/franchise-guide";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMetadata({
   title: "창업안내 — 국내 최초 워크웨어 아울렛",
-  description:
-    "워크업 가맹·창업 안내. 국내 최초 워크웨어 아울렛, 연매출 15억+, 마진율 31.5~35%, 상권 보호 5km, 초기비용 부담 감소.",
-};
+  description: "워크업 가맹·창업 안내. 국내 최초 워크웨어 아울렛, 연매출 15억+, 마진율 31.5~35%, 상권 보호 5km, 초기비용 부담 감소.",
+  path: "/partnership/franchise",
+});
 
 export default async function FranchiseGuidePage() {
   const [raw, storeCount] = await Promise.all([

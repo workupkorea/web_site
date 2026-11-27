@@ -18,6 +18,8 @@ export default function PartnershipPanel({ info, compact = false }: { info: Part
   // 단계 포인트 색 — 네이비 배경이면 연한 블루, 그 외는 설정된 불릿 색
   const accent = bgBlue ? "#8fb8ff" : st.bullet_color;
   const glow = bgBlue ? "bg-[#3b82f6]/30" : "bg-[#E5541B]/25";
+  // 창업안내가 함께 있는 페이지(compact)는 안내 쪽이 H1, 그 외에는 패널 제목이 페이지의 H1
+  const Title = compact ? "h2" : "h1";
   return (
     <div className={`relative isolate overflow-hidden px-8 py-10 ${compact ? "lg:py-8" : ""}`} style={{ backgroundColor: info.panel_bg }}>
       {/* 장식: 우상단 컬러 글로우 + 좌하단 화이트 글로우 (텍스트 뒤, 클릭 무관) */}
@@ -28,9 +30,9 @@ export default function PartnershipPanel({ info, compact = false }: { info: Part
           {info.eyebrow}
         </p>
       )}
-      <h2 className="font-extrabold tracking-[-0.03em] leading-tight mb-4" style={{ fontSize: `max(${st.panel_title.size}px, clamp(26px, 2.1vw, 32px))`, color: st.panel_title.color }}>
+      <Title className="font-extrabold tracking-[-0.03em] leading-tight mb-4" style={{ fontSize: `max(${st.panel_title.size}px, clamp(26px, 2.1vw, 32px))`, color: st.panel_title.color }}>
         {info.panel_title}
-      </h2>
+      </Title>
       <p className="leading-relaxed" style={{ fontSize: fs(st.panel_desc.size, 15), color: st.panel_desc.color, wordBreak: "keep-all" }}>
         {info.panel_desc}
       </p>

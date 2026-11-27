@@ -3,17 +3,18 @@ import Link from "next/link";
 import { DEFAULT_TESTS, type Test } from "@/data/field-test";
 import { getSiteSection } from "@/lib/site-settings";
 import { ikSrc } from "@/lib/imageSrc";
+import { pageMetadata } from "@/lib/seo";
 
 const DEFAULT_HEADER = {
   title: "제품 검증 콘텐츠",
   description: "워크업은 제품을 팔기 전에 현장에서 먼저 씁니다.\n통과한 것만 올립니다. 수치는 현장 언어로 번역합니다.",
 };
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/field-test" },
+export const metadata: Metadata = pageMetadata({
   title: "제품 검증 콘텐츠",
-  description: "현장에서 직접 검증한 제품 테스트 결과.",
-};
+  description: "워크업이 현장에서 직접 검증한 작업복·워크웨어 테스트 결과.",
+  path: "/field-test",
+});
 
 export default async function FieldTestPage() {
   const config = await getSiteSection<{ header?: typeof DEFAULT_HEADER; items?: Test[] }>("field_test_page");

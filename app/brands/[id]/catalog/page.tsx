@@ -5,6 +5,7 @@ import { loadBrandCatalog, loadBrandPdfCatalog } from "@/lib/brandCatalog-server
 import UnifiedCatalogViewer from "@/components/UnifiedCatalogViewer";
 import CatalogBodyClass from "@/components/CatalogBodyClass";
 import { absoluteUrl } from "@/lib/site";
+import { pageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -13,10 +14,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const data = (await loadBrandCatalog(id)) ?? (await loadBrandPdfCatalog(id));
   if (!data) return {};
   const name = data.brand.name;
-  return {
+  return pageMetadata({
     title: `${name} 카탈로그`,
-    description: `${name} 제품 카탈로그. 워크업 K-WORKER STORE.`,
-  };
+    description: `${name} 작업복·워크웨어 카탈로그. 가까운 워크업 매장에서 직접 확인하세요.`,
+    path: `/brands/${id}/catalog`,
+  });
 }
 
 // 브랜드 카탈로그 진입점(메가메뉴·브랜드 카드가 모두 이 주소로 연결).
@@ -47,6 +49,7 @@ export default async function BrandCatalogPage({ params }: Props) {
   return (
     <main>
       <CatalogBodyClass />
+      <h1 className="sr-only">{brandName} 카탈로그</h1>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {pdf ? (
         <UnifiedCatalogViewer

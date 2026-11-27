@@ -188,30 +188,22 @@ export default function HeroCarousel({ slides }: { slides: HeroSlide[] }) {
                   />
                 </>
               ) : pcImage ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={ikSrc(pcImage, 1920)}
-                    alt={slideAlt}
-                    className="absolute inset-0 w-full h-full object-cover hidden md:block"
-                    style={{
-                      objectPosition: slide.pc_image_position || "50% 50%",
-                      transform: `scale(${slide.pc_image_scale || 1})`,
-                      transformOrigin: slide.pc_image_position || "50% 50%",
-                    }}
-                  />
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                // 화면 폭에 맞는 이미지 한 장만 내려받는다 (PC·모바일 이중 다운로드 방지)
+                <picture>
+                  <source media="(min-width: 768px)" srcSet={ikSrc(pcImage, 1920)} />
                   <img
                     src={ikSrc(mobileImage || pcImage, 800)}
                     alt={slideAlt}
-                    className="absolute inset-0 w-full h-full object-cover md:hidden"
+                    fetchPriority={idx === 0 ? "high" : "auto"}
+                    className="absolute inset-0 w-full h-full object-cover [object-position:var(--m-pos)] [transform-origin:var(--m-pos)] [transform:scale(var(--m-scale))] md:[object-position:var(--pc-pos)] md:[transform-origin:var(--pc-pos)] md:[transform:scale(var(--pc-scale))]"
                     style={{
-                      objectPosition: slide.mobile_image_position || "50% 50%",
-                      transform: `scale(${slide.mobile_image_scale || 1})`,
-                      transformOrigin: slide.mobile_image_position || "50% 50%",
-                    }}
+                      "--m-pos": slide.mobile_image_position || "50% 50%",
+                      "--m-scale": slide.mobile_image_scale || 1,
+                      "--pc-pos": slide.pc_image_position || "50% 50%",
+                      "--pc-scale": slide.pc_image_scale || 1,
+                    } as React.CSSProperties}
                   />
-                </>
+                </picture>
               ) : (
                 <div className="absolute right-0 top-0 h-full w-1/3 bg-[#152238] hidden lg:block" />
               )}

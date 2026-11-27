@@ -8,6 +8,7 @@ import TrackedLink from "@/components/TrackedLink";
 import JsonLd from "@/components/JsonLd";
 import { absoluteUrl } from "@/lib/site";
 import { ikSrc } from "@/lib/imageSrc";
+import { pageMetadata, breadcrumbLd, storeArea, openingHoursSpec } from "@/lib/seo";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -77,16 +78,23 @@ async function getStoreProducts(ids: string[]): Promise<StoreProduct[]> {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const store = await getStore(id);
-  if (!store) return { title: "매장 없음" };
-  return {
-    title: `${store.name}`,
-    description: store.description || `${store.name} | ${store.address} | ${store.hours}`,
-    openGraph: {
-      title: `${store.name} — 워크업`,
-      description: store.address,
-      images: store.image_urls[0] ? [store.image_urls[0]] : undefined,
-    },
-  };
+  if (!store) return { title: "매장을 찾을 수 없습니다" };
+  const name = store.name.replace(/\s+/g, " ").trim();
+  const area = storeArea(store.region, store.address);
+  const auto = [
+    `${area} ${name}`.trim(),
+    store.address ? `주소 ${store.address}` : "",
+    store.phone ? `전화 ${store.phone}` : "",
+    store.hours ? `영업시간 ${store.hours}` : "",
+    store.parking ? "주차 가능" : "",
+  ].filter(Boolean).join(" · ");
+  return pageMetadata({
+    title: `${name} - ${area} 작업복·워크웨어 매장`,
+    description: store.description?.trim() || auto,
+    path: `/store/${store.id}`,
+    image: store.image_urls?.[0],
+    absoluteTitle: true,
+  });
 }
 
 const ET_COLOR: Record<string, string> = {
@@ -129,11 +137,13 @@ export default async function StoreDetailPage({ params }: Props) {
 
   // 로컬 SEO 구조화 데이터(ClothingStore = LocalBusiness 하위) —
   // 구글이 매장 주소·전화·좌표를 지도/리치 결과에 표시하도록 돕는다. 오프라인 방문 유도 핵심.
+  const openingHours = openingHoursSpec(store.hours);
   const storeLd: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "ClothingStore",
     name: store.name,
-    image: (store.image_urls ?? []).map((u) => absoluteUrl(u)).filter(Boolean),
+    ...(store.image_urls?.length ? { image: store.image_urls.map((u) => absoluteUrl(u)).filter(Boolean) } : {}),
+    ...(openingHours ? { openingHoursSpecification: openingHours } : {}),
     address: {
       "@type": "PostalAddress",
       streetAddress: store.address,
@@ -151,6 +161,11 @@ export default async function StoreDetailPage({ params }: Props) {
   return (
     <main className="min-h-screen bg-white">
       <JsonLd data={storeLd} />
+      <JsonLd data={breadcrumbLd([
+        { name: "HOME", url: absoluteUrl("/") },
+        { name: "매장 안내", url: absoluteUrl("/store") },
+        { name: store.name, url: absoluteUrl(`/store/${store.id}`) },
+      ])} />
       {/* 상단 내비게이션 */}
       <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">

@@ -4,11 +4,13 @@ import { notFound } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { BRANDS } from "@/lib/brands-data";
 import { createAdminClient } from "@/lib/supabase-server";
-import { brandSlug } from "@/lib/brandCatalog-server";
+import { brandSlug, listCatalogBrandSlugs } from "@/lib/brandCatalog-server";
 import { type BrandCatalog } from "@/data/brandCatalogs";
 import UnifiedCatalogViewer from "@/components/UnifiedCatalogViewer";
 import CatalogBodyClass from "@/components/CatalogBodyClass";
 import type { Brand } from "@/data/brands";
+import { getFooterConfig } from "@/lib/footer-server";
+import { pageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -63,10 +65,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const name = dbBrand?.name ?? staticBrand?.name ?? "";
   const desc = dbBrand?.description ?? staticBrand?.description ?? "";
   if (!name) return {};
-  return {
+  // 카탈로그가 있으면 /catalog 를 정본으로, 없으면("준비 중" 안내) 검색 노출에서 제외
+  const hasCatalog = (await listCatalogBrandSlugs()).includes(id);
+  return pageMetadata({
     title: `${name} 카탈로그`,
-    description: `${name} — ${desc}. 워크업 K-WORKER STORE에서 브랜드 카탈로그를 확인하세요.`,
-  };
+    description: [desc, `${name} 작업복·워크웨어를 가까운 워크업 매장에서 직접 확인하세요.`].filter(Boolean).join(" "),
+    path: hasCatalog ? `/brands/${id}/catalog` : `/brands/${id}`,
+    noindex: !hasCatalog,
+  });
 }
 
 export default async function BrandPage({ params }: Props) {
@@ -83,6 +89,8 @@ export default async function BrandPage({ params }: Props) {
   const brandName = dbBrand?.name ?? staticBrand?.name ?? "";
   const brandAccentColor = dbBrand?.accent_color ?? staticBrand?.accentColor ?? "#333333";
   const latestCatalog = await getCatalog(brandName);
+  // 전화 문의 번호는 푸터 설정(고객센터)이 단일 소스
+  const { cs_phone: csPhone } = await getFooterConfig();
 
   // 조립형 카탈로그(이미지+정보 입력형)가 공개 상태이고 항목이 있으면 링크를 노출한다.
   let hasAssembledCatalog = false;
@@ -173,15 +181,17 @@ export default async function BrandPage({ params }: Props) {
             <p className="text-gray-500 text-sm mt-1">가까운 WORKUP 매장에서 {brandName} 제품을 착용해볼 수 있습니다.</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 flex-shrink-0">
-            <Link href="/stores"
+            <Link href="/store"
               className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-colors"
               style={{ backgroundColor: brandAccentColor }}>
               가까운 매장 찾기
             </Link>
-            <a href="tel:0000000000"
-              className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-400 transition-colors">
-              전화 문의
-            </a>
+            {csPhone && (
+              <a href={`tel:${csPhone.replace(/[^0-9+]/g, "")}`}
+                className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:border-gray-400 transition-colors">
+                전화 문의
+              </a>
+            )}
           </div>
         </div>
       </section>

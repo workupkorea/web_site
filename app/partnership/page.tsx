@@ -1,11 +1,12 @@
 ﻿import type { Metadata } from "next";
 import Link from "next/link";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/partnership" },
+export const metadata: Metadata = pageMetadata({
   title: "파트너십 문의",
-  description: "가맹·창업, 브랜드 입점·제휴 문의 안내.",
-};
+  description: "워크업 가맹·창업 문의와 브랜드 입점·제휴 문의를 안내합니다.",
+  path: "/partnership",
+});
 
 const CHOICES = [
   {

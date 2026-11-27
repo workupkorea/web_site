@@ -6,6 +6,7 @@ import { isHtmlBody, prCategoryLabel } from "@/lib/pr-room";
 import { getFooterConfig } from "@/lib/footer-server";
 import { ikSrc } from "@/lib/imageSrc";
 import NearestStoreCta from "@/components/NearestStoreCta";
+import { pageMetadata } from "@/lib/seo";
 
 // 본문(에디터 HTML) 렌더용 자식 요소 스타일 — prose 플러그인 없이 임의 변형자로 처리.
 const BODY_PROSE =
@@ -27,17 +28,13 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { id } = await params;
   const post = await findPost(id);
   if (!post) return { title: "공지사항" };
-  const desc = post.summary || post.body.slice(0, 120) || "워크업의 새로운 소식";
-  return {
-    title: `${post.title} — 공지사항`,
-    description: desc,
-    openGraph: {
-      title: post.title,
-      description: desc,
-      images: post.image_url ? [{ url: post.image_url }] : undefined,
-      type: "article",
-    },
-  };
+  return pageMetadata({
+    title: `${post.title} — ${prCategoryLabel(post.category)}`,
+    description: post.summary || post.body.replace(/<[^>]*>/g, " ").trim() || `워크업 ${post.title}`,
+    path: `/pr/${id}`,
+    image: post.image_url,
+    type: "article",
+  });
 }
 
 export default async function PrPostDetailPage({ params }: Params) {

@@ -80,6 +80,8 @@ export default function Footer({ config, logo }: { config?: FooterConfig | null;
   const lg = logo ?? DEFAULT_LOGO;
   const [bizOpen, setBizOpen] = useState(false);
 
+  const telHref = `tel:${c.cs_phone.replace(/[^0-9+]/g, "")}`;
+
   const socials = c.socialLinks.filter((s) => s.href && s.href.trim());
 
   const bizInfo = (
@@ -166,7 +168,9 @@ export default function Footer({ config, logo }: { config?: FooterConfig | null;
           {/* 열 3: 고객센터 */}
           <div>
             <p className="text-[12px] text-gray-500 mb-1">고객센터</p>
-            <p className="text-[22px] font-bold text-[#303236] mb-3">{c.cs_phone}</p>
+            <p className="text-[22px] font-bold text-[#303236] mb-3">
+              <a href={telHref} className="hover:text-[#E5541B] transition-colors">{c.cs_phone}</a>
+            </p>
             <div className="text-[12px] text-gray-500 leading-[1.9]">
               <p>{c.cs_hours_weekday}</p>
               <p>{c.cs_hours_weekend}</p>
@@ -186,11 +190,19 @@ export default function Footer({ config, logo }: { config?: FooterConfig | null;
         </Link>
 
         <nav className="flex flex-col gap-4 mb-6">
-          {c.navLinks.map((item) => (
-            <Link key={item.id} href={item.href} className="text-[14px] text-[#303236]">
-              {item.id === "nav-cs" ? `${item.label} ${c.cs_phone}` : item.label}
-            </Link>
-          ))}
+          {c.navLinks.map((item) =>
+            item.id === "nav-cs" ? (
+              // 항목명은 해당 페이지로, 번호는 바로 전화 연결
+              <div key={item.id} className="flex items-center gap-2 -my-3 text-[14px] text-[#303236]">
+                <Link href={item.href} className="inline-flex items-center min-h-[44px]">{item.label}</Link>
+                <a href={telHref} className="inline-flex items-center min-h-[44px] font-semibold underline underline-offset-4">{c.cs_phone}</a>
+              </div>
+            ) : (
+              <Link key={item.id} href={item.href} className="text-[14px] text-[#303236]">
+                {item.label}
+              </Link>
+            ),
+          )}
         </nav>
 
         <div className="border-t border-gray-200">
@@ -227,7 +239,7 @@ export default function Footer({ config, logo }: { config?: FooterConfig | null;
 
               <div className="text-[12px] text-gray-500 leading-[1.9]">
                 <p className="font-semibold text-[#303236] text-[13px] mb-1">
-                  고객센터 <span className="font-bold">{c.cs_phone}</span>
+                  고객센터 <a href={telHref} className="inline-flex items-center min-h-[44px] font-bold underline underline-offset-4">{c.cs_phone}</a>
                 </p>
                 <p>{c.cs_hours_weekday}</p>
                 <p>{c.cs_hours_weekend}</p>

@@ -14,6 +14,7 @@ import InstagramFeed from "@/components/InstagramFeed";
 import JsonLd from "@/components/JsonLd";
 import { absoluteUrl } from "@/lib/site";
 import { getHeaderNavConfig } from "@/lib/header-nav-server";
+import { pageMetadata, breadcrumbLd } from "@/lib/seo";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -26,7 +27,7 @@ export async function generateStaticParams() {
 // DB 스키마엔 없는 리치 상세 필드 — static(data/products.ts)에서 오버레이로 보강
 const RICH_FIELDS = [
   "coreValues", "recommendedFor", "keyFeatures", "sizeRecs", "fitNote",
-  "materialSpecs", "washCare", "productReviews", "detailPoints", "lifestyleScenes", "sizePrices",
+  "materialSpecs", "washCare", "detailPoints", "lifestyleScenes", "sizePrices",
 ] as const;
 
 function withRichOverlay(base: Product, id: string): Product {
@@ -42,6 +43,8 @@ function withRichOverlay(base: Product, id: string): Product {
   }
   return merged as unknown as Product;
 }
+
+const priceNumber = (price?: string) => Number((price || "").replace(/[^0-9]/g, ""));
 
 async function fetchProduct(id: string) {
   try {
@@ -70,24 +73,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const productsNav = nav.items.find((it) => it.href === "/products");
   const isHidden = productsNav ? productsNav.isVisible === false : false;
 
-  // 관리자가 지정한 metaTitle/metaDesc 우선, 없으면 제품명·태그라인으로 자동 생성
-  const title = product.metaTitle?.trim() || `${product.name} — 워크업 ${product.line}`;
-  const description = product.metaDesc?.trim() || product.tagline;
-  const ogImage = absoluteUrl(product.imageUrl);
-  return {
-    title: { absolute: title },
+  // 관리자가 지정한 metaTitle/metaDesc 우선, 없으면 상품명·브랜드·카테고리·판매가로 자동 생성
+  const name = productDisplayName(product);
+  const category = [product.category, product.subCategory].filter(Boolean).join(" ");
+  const title = product.metaTitle?.trim() || [name, [product.brand, category].filter(Boolean).join(" ")].filter(Boolean).join(" | ");
+  const description = product.metaDesc?.trim() || [
+    [product.brand, name].filter(Boolean).join(" "),
+    category,
+    priceNumber(product.price) > 0 ? `판매가 ${priceNumber(product.price).toLocaleString("ko-KR")}원` : "",
+    "가까운 워크업 매장에서 직접 확인해 보세요.",
+  ].filter(Boolean).join(" · ");
+
+  return pageMetadata({
+    title,
     description,
-    // 표준 URL 명시 — 같은 상품이 다른 쿼리스트링으로 접근돼도 구글이 이 URL을 정본으로 보게 함
-    alternates: { canonical: `/products/${id}` },
-    // 카톡·SNS 공유 시 제품 대표 이미지가 미리보기로 노출되도록 OG 이미지 지정
-    openGraph: {
-      title,
-      description,
-      images: ogImage ? [ogImage] : undefined,
-    },
-    // 관리자에서 제품 메뉴 비공개 처리 시 개별 상품 페이지도 인덱싱 차단
-    ...(isHidden && { robots: { index: false, follow: false } }),
-  };
+    // 색상·사이즈 파라미터로 접근해도 정본은 이 URL 하나
+    path: `/products/${id}`,
+    image: absoluteUrl(product.imageUrl),
+    absoluteTitle: true,
+    // 관리자에서 제품 메뉴 비공개 처리 시(또는 비공개 상태 상품 미리보기) 인덱싱 차단
+    noindex: isHidden || !isPubliclyVisible(product),
+  });
 }
 
 const SIZE_GUIDE = [
@@ -124,9 +130,8 @@ export default async function ProductDetailPage({ params }: Props) {
 
   // 검색엔진 구조화 데이터(Product). 제품명·이미지·브랜드·카테고리로
   // "지역명+제품명" 검색 이해도를 높인다.
-  // offers.availability는 InStoreOnly — 온라인 구매가 아닌 매장 방문 유도형
-  // 카탈로그라는 사실을 구글에 정확히 알리기 위한 값 (구매 버튼/결제는 추가하지 않음).
-  const numericPrice = Number((product.price || "").replace(/[^0-9]/g, ""));
+  // 확인할 수 없는 재고·배송·반품·리뷰·평점 정보는 넣지 않는다.
+  const numericPrice = priceNumber(product.price);
   const images = [product.imageUrl, ...(product.subImages ?? [])]
     .map((u) => absoluteUrl(u))
     .filter(Boolean);
@@ -135,12 +140,11 @@ export default async function ProductDetailPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "Product",
     name: productDisplayName(product),
-    description: product.metaDesc?.trim() || product.tagline,
+    ...(product.metaDesc?.trim() || product.tagline ? { description: product.metaDesc?.trim() || product.tagline } : {}),
     // Google Rich Results 필수 필드: 최소 1개 이미지 URL 필수
     ...(images.length > 0 ? { image: images } : {}),
     brand: { "@type": "Brand", name: product.brand || "WORKUP" },
-    // category 필드: 필수 (Google 권장). 없으면 기본값 지정
-    ...(product.category ? { category: product.category } : { category: "의류" }),
+    ...(product.category ? { category: product.category } : {}),
     sku: product.sku || product.id,
     url: absoluteUrl(`/products/${product.id}`),
     ...(product.manufacturer
@@ -152,36 +156,19 @@ export default async function ProductDetailPage({ params }: Props) {
             "@type": "Offer",
             price: numericPrice,
             priceCurrency: "KRW",
-            availability: "https://schema.org/InStoreOnly",
-            itemCondition: "https://schema.org/NewCondition",
             url: absoluteUrl(`/products/${product.id}`),
-            seller: { "@type": "Organization", name: product.brand || "WORKUP" },
-            // Google 권장: 반품 정책 (InStoreOnly 카탈로그용 기본 정책)
-            hasMerchantReturnPolicy: {
-              "@type": "MerchantReturnPolicy",
-              applicableCountry: "KR",
-              returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-              merchantReturnDays: 14,
-              returnMethod: "https://schema.org/ReturnInStore",
-            },
-            // Google 권장: 배송 정보 (InStoreOnly 카탈로그용)
-            shippingDetails: {
-              "@type": "ShippingDeliveryTime",
-              shippingDestination: {
-                "@type": "DeliveryAddress",
-                addressCountry: "KR",
-              },
-              shippingLabel: "매장 방문 체험",
-              transitTime: {
-                "@type": "QuantitativeValue",
-                unitCode: "DAY",
-                value: 0,
-              },
-            },
           },
         }
       : {}),
   };
+
+  const mainCategory = productCats[0]?.main;
+  const crumbLd = breadcrumbLd([
+    { name: "HOME", url: absoluteUrl("/") },
+    { name: "제품", url: absoluteUrl("/products") },
+    ...(mainCategory ? [{ name: mainCategory }] : []),
+    { name: productDisplayName(product), url: absoluteUrl(`/products/${product.id}`) },
+  ]);
 
   return (
     <main className={`bg-white min-h-screen${isNewLayout ? " pb-20 md:pb-0" : ""}`}>
@@ -191,6 +178,7 @@ export default async function ProductDetailPage({ params }: Props) {
         </div>
       )}
       <JsonLd data={productLd} />
+      <JsonLd data={crumbLd} />
 
       {/* 모바일 네비 */}
       <MobileProductNav />
@@ -224,7 +212,7 @@ export default async function ProductDetailPage({ params }: Props) {
         </div>
       )}
 
-      {/* === 신규 레이아웃 10섹션 === */}
+      {/* === 신규 레이아웃 섹션 === */}
       {isNewLayout && (
         <>
           {/* 인스타 피드 — 신규 레이아웃은 탭이 없으므로 상세 섹션 시작 전에 노출 */}
@@ -415,32 +403,6 @@ export default async function ProductDetailPage({ params }: Props) {
                         {WASH_ICON_MAP[care.icon] ?? "○"}
                       </div>
                       <p className="text-[10px] text-gray-500 leading-tight">{care.text}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </section>
-          )}
-
-          {/* S9: 실제 리뷰 */}
-          {product.productReviews && product.productReviews.length > 0 && (
-            <section className="border-t border-gray-100 py-16 md:py-20">
-              <div className="max-w-screen-xl mx-auto px-6 md:px-12">
-                <p className="text-[11px] tracking-[0.2em] text-[#E5541B] uppercase mb-3">REVIEWS</p>
-                <h2 className="text-xl md:text-2xl font-bold text-[#303236] mb-8">실제 사용 후기</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {product.productReviews.map((review, i) => (
-                    <div key={i} className="border border-gray-100 p-6 bg-white">
-                      <div className="flex gap-0.5 mb-3">
-                        {Array.from({ length: 5 }).map((_, si) => (
-                          <span key={si} className={`text-sm ${si < review.stars ? "text-[#E5541B]" : "text-gray-200"}`}>★</span>
-                        ))}
-                      </div>
-                      <p className="text-sm text-gray-700 leading-relaxed mb-4">&ldquo;{review.text}&rdquo;</p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-[#303236]">{review.job}</p>
-                        {review.period && <p className="text-[10px] text-gray-400">{review.period}</p>}
-                      </div>
                     </div>
                   ))}
                 </div>

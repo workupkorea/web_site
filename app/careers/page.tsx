@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase-server";
 import CareersClient from "./_components/CareersClient";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/careers" },
+export const metadata: Metadata = pageMetadata({
   title: "채용공고",
-  description: "워크업 전국 매장 채용공고.",
-};
+  description: "전국 워크업 매장의 채용공고를 지역별로 확인하세요.",
+  path: "/careers",
+});
 
 type Job = {
   id: number;

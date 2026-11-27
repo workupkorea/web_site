@@ -49,6 +49,7 @@ export default function PeopleGrid({ items, mateZone }: { items?: Person[]; mate
 
   return (
     <section className="bg-[#FAFAF8]">
+      <h1 className="sr-only">워크업 메이트 — 일하는 사람들의 이야기</h1>
       {/* ── 히어로 (최상단) ── */}
       <div className="relative w-full aspect-[16/9] md:aspect-[21/9] overflow-hidden bg-[#303236]">
         {person.image_url ? (
@@ -300,9 +301,24 @@ const IG_CROP_BOTTOM_PX = 115;
 
 function InstagramEmbed({ html }: { html: string }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [near, setNear] = useState(false);
+
+  // 화면에 가까워질 때까지 인스타 외부 리소스를 불러오지 않는다
   useEffect(() => {
     const el = ref.current;
-    if (!el) return;
+    if (!el || near) return;
+    if (!("IntersectionObserver" in window)) { setNear(true); return; }
+    const io = new IntersectionObserver(
+      (entries) => { if (entries.some((e) => e.isIntersecting)) setNear(true); },
+      { rootMargin: "400px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [near]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !near) return;
     el.innerHTML = html;
 
     // 인스타는 로드 후 iframe의 height "속성"에 자연 높이를 써 넣는다.
@@ -365,7 +381,7 @@ function InstagramEmbed({ html }: { html: string }) {
     script.addEventListener("load", process, { once: true });
 
     return () => cropObserver.disconnect();
-  }, [html]);
+  }, [html, near]);
   // 인스타 임베드는 블록 요소라 기본적으로 세로로 쌓인다.
   // 폭이 되는 만큼 가로로 나란히 배치하고(모바일은 1열), 임베드에 박힌 인라인 스타일
   // (margin / min-width:326px / max-width:540px)은 !important로 눌러 셀에 맞춘다.

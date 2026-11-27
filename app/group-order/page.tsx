@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import GroupOrderPage from "./GroupOrderPage";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "단체복·대량구매 견적 문의",
-  description: "단체복·대량구매 견적을 안내해 드립니다.",
-  // 정식 공개 전 검토 단계. 공개 시 검색 노출과 사이트맵 등록을 함께 결정한다.
-  robots: { index: false, follow: false },
-};
+export const metadata: Metadata = pageMetadata({
+  title: "단체복·작업복 대량구매 견적 문의",
+  description: "회사·현장·동호회 단체복과 작업복 대량구매 견적을 워크업에서 상담받으세요.",
+  path: "/group-order",
+});
 
 export const dynamic = "force-dynamic";
 

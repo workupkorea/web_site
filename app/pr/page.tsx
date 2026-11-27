@@ -2,18 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getPrRoom } from "@/lib/pr-room-server";
 import { visiblePosts, PR_CATEGORIES, prCategoryLabel, type PrPost, type PrCategory } from "@/lib/pr-room";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/pr" },
+export const metadata: Metadata = pageMetadata({
   title: "공지사항",
-  description:
-    "워크업의 새로운 소식, 매장 오픈, 이벤트 소식을 한눈에 확인하세요. 가까운 워크업 매장에서 직접 만나보실 수 있습니다.",
-  openGraph: {
-    title: "공지사항 — 새소식",
-    description: "워크업의 새로운 소식과 이야기를 전해드립니다.",
-    type: "website",
-  },
-};
+  description: "워크업의 새로운 소식, 매장 오픈, 이벤트 소식을 한눈에 확인하세요. 가까운 워크업 매장에서 직접 만나보실 수 있습니다.",
+  path: "/pr",
+});
 
 // 카드 클릭 동작(하이브리드): 외부 링크가 있으면 새 탭으로 이동, 없으면 사이트 내 상세 페이지.
 function CardLink({ post, children }: { post: PrPost; children: React.ReactNode }) {

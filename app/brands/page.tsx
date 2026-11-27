@@ -5,12 +5,13 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { brandSlug } from "@/lib/brandCatalog-server";
 import type { Brand } from "@/data/brands";
 import BrandsPageClient from "@/components/BrandsPageClient";
+import { pageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  alternates: { canonical: "/brands" },
+export const metadata: Metadata = pageMetadata({
   title: "브랜드 라인업",
-  description: "워크업 매장의 입점 브랜드를 한눈에.",
-};
+  description: "워크업 매장에서 만나는 작업복·안전화·워크웨어 입점 브랜드를 한눈에 확인하세요.",
+  path: "/brands",
+});
 
 export type BrandItem = {
   id: string;

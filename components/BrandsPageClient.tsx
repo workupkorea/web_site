@@ -127,7 +127,7 @@ export default function BrandsPageClient({ brands }: { brands: BrandItem[] }) {
           <h3 className="text-lg font-black text-gray-900">브랜드 제품을 직접 체험해보세요</h3>
           <p className="text-sm text-gray-500 mt-1">가까운 WORKUP 매장에서 실물을 확인하실 수 있습니다.</p>
         </div>
-        <Link href="/stores"
+        <Link href="/store"
           className="flex-shrink-0 px-6 py-3 bg-gray-900 text-white text-sm font-bold rounded-xl hover:bg-gray-700 transition-colors">
           매장 찾기
         </Link>
