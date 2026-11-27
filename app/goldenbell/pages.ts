@@ -196,7 +196,7 @@ return `<!doctype html>
         <dd id="result"></dd>
       </dl>
       <p class="success-tomorrow"><strong>내일도 행운에 도전해 보세요!</strong></p>
-      <p class="success-rule">1인 하루 한 번 응모할 수 있으며,<br>매일 자정 이후 다시 응모하실 수 있습니다.</p>
+      <p class="success-rule">1인 하루 한 번 응모할 수 있으며,<br>12월 중 재방문 구매 시 응모할 수 있습니다.</p>
       <hr>
       <div class="success-actions">
         <button id="again" class="primary success-back" type="button">응모화면으로 돌아가기</button>
