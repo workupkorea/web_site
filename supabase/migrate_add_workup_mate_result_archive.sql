@@ -1,7 +1,15 @@
 -- Run after migrate_add_workup_mate_ratings.sql.
 begin;
 
-create extension if not exists pg_cron with schema pg_catalog;
+-- Supabase re-runs its cron grants on CREATE EXTENSION even with IF NOT EXISTS (error 2BP01),
+-- so create it only when it is really missing.
+do $ext$
+begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    create extension pg_cron with schema pg_catalog;
+  end if;
+end;
+$ext$;
 
 -- Replaces the earlier anonymous per-activity totals.
 drop trigger if exists archive_expired_mate_ratings on public.mate_applications;

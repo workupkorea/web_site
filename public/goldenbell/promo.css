@@ -6,6 +6,7 @@
   --ink: #281a1b;
   --muted: #655254;
   --rule: #decfd0;
+  --tear: #cbbdb2;
   font-family: Pretendard, "Noto Sans KR", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
 }
 
@@ -104,7 +105,6 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 .section-note::before { content: "※ "; }
 .section .section-note { font-size: 13px; }
 
-.how > .frame, .notice, .faq, .promo-custom-section { border-top: 1px solid var(--rule); }
 .how-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; }
 .how-heading h2 { margin-bottom: 0; }
 .steps {
@@ -203,18 +203,32 @@ a:focus-visible, summary:focus-visible { outline: 3px solid var(--orange); outli
 .questions p { margin: 0 18px 14px 0; }
 .promo-custom-section p { white-space: pre-wrap; }
 
-.steps > li:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: calc(100% + 7px);
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  border-right: 2px solid var(--orange);
-  border-bottom: 2px solid var(--orange);
-  transform: translateX(-50%) rotate(45deg);
-  pointer-events: none;
-}
 
 /* 부정 응모 경고 강조 */
 .notice-list dd .notice-warn { margin-top: 10px; padding-left: .8em; text-indent: -.8em; color: #c23400; font-weight: 800; word-break: keep-all; }
+
+/* 번호 매거진형 묶음: 영역마다 큰 번호(01, 02…)를 달고 연한 띠로 나눈다. 안쪽 항목은 점선 구분 */
+main { background: #fff; counter-reset: promo-section; }
+.section { position: relative; padding-block: 38px 30px; counter-increment: promo-section; }
+.section h2::before { content: counter(promo-section, decimal-leading-zero); display: block; margin-bottom: 6px; color: var(--orange); font-size: 44px; line-height: 1; letter-spacing: -.04em; }
+.section::after { content: ""; position: absolute; right: -1.25rem; bottom: 0; left: -1.25rem; height: 8px; background: #f4ede7; }
+.section .prizes { gap: 0; }
+.section .prize, .section .steps li { border: 0; border-top: 1.5px dashed var(--tear); background: none; }
+.section .prize:last-child { border-bottom: 1.5px dashed var(--tear); }
+.section .steps { row-gap: 0; }
+.section .steps li { padding-inline: 28px 4px; }
+.section .steps li::before { inset-inline-start: 4px; }
+.section .steps li:last-child { padding-bottom: 0; }
+.section .notice-list { border: 0; background: none; }
+.section .notice-list > div { padding-inline: 4px; border-top: 1.5px dashed var(--tear); }
+.section .notice-list > div:last-child { padding-bottom: 0; }
+.section .questions, .section .questions details { border-color: var(--tear); border-style: dashed; }
+
+/* 참여 방법 단계별 3D 이미지: 설명 오른쪽, 항목 세로 중앙 */
+.section .steps li { min-height: 112px; padding-inline-end: 96px; }
+.section .steps li:last-child { min-height: 96px; }
+.section .steps li::after { content: ""; position: absolute; top: 50%; right: 4px; width: 88px; height: 88px; transform: translateY(-50%); background: center / contain no-repeat; }
+.section .steps li:last-child::after { top: calc(50% + 8px); }
+.section .steps li:nth-child(1)::after { background-image: url(/goldenbell/step-store-3d.webp); }
+.section .steps li:nth-child(2)::after { background-image: url(/goldenbell/step-qr-3d.webp); }
+.section .steps li:nth-child(3)::after { background-image: url(/goldenbell/step-camera-3d.webp); }

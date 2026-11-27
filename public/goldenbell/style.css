@@ -114,7 +114,10 @@ input::placeholder{color:#7d766a;opacity:1}
 @keyframes rule-pin{0%,40%,100%{transform:none}10%,30%{transform:rotate(-18deg) scale(1.2)}20%{transform:rotate(14deg) scale(1.2)}}
 .file-panel img{display:block;max-width:100%;max-height:220px;object-fit:contain;margin:12px auto 0;border-radius:12px}
 /* 영수증 첨부 묶음: 연한 바탕 한 판 위에 제목 → 첨부 영역 → 촬영 안내 → 절취선 → 응모 규칙 */
-.receipt-group{position:relative;overflow:hidden;margin-top:8px;padding:16px 14px 0;background:var(--gold-soft)}
+/* 영수증 묶음과 010 칸은 골드 바탕 */
+.luckup{--receipt-gold:#fff8e3;--receipt-gold-line:#d6ac45}
+.receipt-group{position:relative;overflow:hidden;margin-top:8px;padding:16px 14px 0;background:var(--receipt-gold,var(--gold-soft))}
+.luckup .phone-prefix{background:var(--receipt-gold)}
 .receipt-group>label{display:flex;align-items:center;gap:8px;margin:0 2px 12px;font-size:16px;font-weight:800}
 /* 필수 표시: 일반 항목은 주황 별표, 영수증 사진만 배지. 뒤의 / "필수" 는 화면낭독기용 대체 글자 */
 #apply .field>label::after{content:"*";content:"*" / "필수";margin-left:3px;color:#d94400;font-size:15px;font-weight:800}
@@ -122,16 +125,16 @@ input::placeholder{color:#7d766a;opacity:1}
 #apply #submit:disabled{background:#e4ded3;color:#6b6458;opacity:1;cursor:not-allowed}
 .submit-hint{margin:8px 0 0;text-align:center;font-size:12px;color:var(--muted)}
 .receipt-group .file-panel{margin:0}
-.receipt-group .receipt-picker-row{flex-direction:column;gap:12px;padding:18px 14px 14px;background:#fff;border:1.5px dashed var(--gold)}
-.receipt-group .receipt-picker-row::before{content:"";width:48px;height:48px;background:url(/goldenbell/icon-receipt.svg) center/contain no-repeat}
+.receipt-group .receipt-picker-row{flex-direction:column;gap:12px;padding:18px 14px 14px;background:#fff;border:1.5px dashed var(--receipt-gold-line,var(--gold))}
+.receipt-group .receipt-picker-row::before{content:"";width:48px;height:48px;background:url(/goldenbell/icon-receipt-gold.svg) center/contain no-repeat}
 .receipt-group #receipt-filename{max-width:100%;color:var(--muted)}
 .receipt-group #receipt-picker{width:100%;min-height:48px;font-size:15px}
 .receipt-group .hint-list{margin:12px 2px 16px;padding:0;list-style:none}
 .receipt-group .hint-list li{position:relative;padding-left:18px}
 .receipt-group .hint-list li+li{margin-top:3px}
-.receipt-group .hint-list li::before{content:"✓";position:absolute;left:0;color:#b33a00;font-weight:800}
+.receipt-group .hint-list li::before{content:"✓";position:absolute;left:0;color:#8a5f00;font-weight:800}
 .receipt-group .receipt-entry-rule{position:relative;margin:0 -14px;padding:16px 18px;border:0;background:none}
-.receipt-group .receipt-entry-rule::before{content:"";position:absolute;top:0;left:18px;right:18px;border-top:2px dashed var(--gold);opacity:.55}
+.receipt-group .receipt-entry-rule::before{content:"";position:absolute;top:0;left:18px;right:18px;border-top:2px dashed var(--receipt-gold-line,var(--gold));opacity:.55}
 /* 절취선 양끝의 반원 홈: .luckup 의 직각 처리와 무관하게 배경 그라데이션으로 그린다 */
 .receipt-group:has(.receipt-entry-rule) .receipt-entry-rule::after{content:"";position:absolute;top:-9px;left:0;right:0;height:18px;background:radial-gradient(circle 9px at 0 50%,var(--surface) 98%,transparent),radial-gradient(circle 9px at 100% 50%,var(--surface) 98%,transparent);pointer-events:none}
 
